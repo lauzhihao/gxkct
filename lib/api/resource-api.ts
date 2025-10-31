@@ -25,6 +25,7 @@ export interface ScoringIndicator {
 export interface ScoringData {
   total: number
   indicators: ScoringIndicator[]
+  comment?: string
 }
 
 export interface CourseResourceData {

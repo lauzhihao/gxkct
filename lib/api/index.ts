@@ -1,7 +1,7 @@
 import { TreeApi } from "./tree-api"
 import { UserApi, type User } from "./user-api"
 import { MatrixApi, type CourseMatrix, type ProjectMatrix } from "./matrix-api"
-import { ResourceApi, type FileData, type CourseResourceData } from "./resource-api"
+import { ResourceApi, type FileData, type CourseResourceData, type ScoringData } from "./resource-api"
 import { ConfigApi, type ThemeConfig } from "./config-api"
 import { PreferenceApi, type UserPreference } from "./preference-api"
 import { initializeMockData, resetMockData } from "./data-initializer"
@@ -20,7 +20,7 @@ export const api = {
 export { TreeApi, UserApi, MatrixApi, ResourceApi, ConfigApi, PreferenceApi }
 
 // 导出类型
-export type { User, CourseMatrix, ProjectMatrix, FileData, CourseResourceData, ThemeConfig, UserPreference }
+export type { User, CourseMatrix, ProjectMatrix, FileData, CourseResourceData, ScoringData, ThemeConfig, UserPreference }
 
 // 导出初始化函数
 export { initializeMockData, resetMockData }

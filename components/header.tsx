@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, ChevronDown, User, X, Palette } from "lucide-react"
+import { Search, ChevronDown, User, X, Palette, Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -154,9 +154,52 @@ interface HeaderProps {
   onResetData?: () => void
 }
 
+interface Notification {
+  id: string
+  title: string
+  content: string
+  time: string
+  read: boolean
+}
+
+// Mock消息数据
+const mockNotifications: Notification[] = [
+  {
+    id: "1",
+    title: "系统通知",
+    content: "您有新的课程评分待审核",
+    time: "5分钟前",
+    read: false,
+  },
+  {
+    id: "2",
+    title: "资源更新",
+    content: "《数据结构》课程资源已更新",
+    time: "1小时前",
+    read: false,
+  },
+  {
+    id: "3",
+    title: "评分提醒",
+    content: "专业评分已完成，请查看",
+    time: "2小时前",
+    read: true,
+  },
+  {
+    id: "4",
+    title: "系统维护",
+    content: "系统将于今晚22:00进行维护",
+    time: "昨天",
+    read: true,
+  },
+]
+
 export function Header({ onResetData }: HeaderProps) {
   const [searchOpen, setSearchOpen] = useState(false)
   const [currentTheme, setCurrentTheme] = useState<keyof typeof COLOR_THEMES>("vercelBlue")
+  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications)
+
+  const unreadCount = notifications.filter((n) => !n.read).length
 
   useEffect(() => {
     const loadTheme = async () => {
@@ -220,6 +263,73 @@ export function Header({ onResetData }: HeaderProps) {
 
         {/* Right side - User info and search */}
         <div className="flex items-center gap-4">
+          {/* Notification Bell */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="relative hover:bg-primary/10 transition-colors">
+                <Bell className="h-5 w-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-80 bg-white/95 backdrop-blur-md border-primary/20">
+              <div className="px-3 py-2 flex items-center justify-between border-b border-border">
+                <div className="text-sm font-semibold text-foreground">消息通知</div>
+                {unreadCount > 0 && (
+                  <div className="text-xs text-muted-foreground">{unreadCount} 条未读</div>
+                )}
+              </div>
+              <div className="max-h-[400px] overflow-y-auto">
+                {notifications.length > 0 ? (
+                  notifications.map((notification) => (
+                    <DropdownMenuItem
+                      key={notification.id}
+                      className={cn(
+                        "cursor-pointer flex flex-col items-start gap-1 py-3 px-3 border-b border-border/50 last:border-0",
+                        !notification.read ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-primary/5",
+                      )}
+                      onClick={() => {
+                        setNotifications((prev) =>
+                          prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n)),
+                        )
+                      }}
+                    >
+                      <div className="flex items-start justify-between w-full gap-2">
+                        <div className="flex items-center gap-2">
+                          {!notification.read && <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1" />}
+                          <span className="text-sm font-medium text-foreground">{notification.title}</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground flex-shrink-0">{notification.time}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground line-clamp-2 pl-4">{notification.content}</p>
+                    </DropdownMenuItem>
+                  ))
+                ) : (
+                  <div className="py-8 text-center text-sm text-muted-foreground">暂无消息</div>
+                )}
+              </div>
+              {notifications.length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <div className="px-3 py-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full text-xs hover:bg-primary/10"
+                      onClick={() => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))}
+                    >
+                      全部标记为已读
+                    </Button>
+                  </div>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Color Palette */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="hover:bg-primary/10 transition-colors">
