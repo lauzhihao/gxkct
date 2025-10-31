@@ -1,0 +1,164 @@
+[
+  {
+    "id": "dept-1",
+    "universityId": "univ-1",
+    "name": "轻工学院",
+    "type": "department",
+    "description": "轻工学院是齐齐哈尔工程学院的重点学院之一，拥有雄厚的师资力量和完善的教学设施。",
+    "isStarred": false,
+    "children": []
+  },
+  {
+    "id": "dept-2",
+    "universityId": "univ-1",
+    "name": "医学院",
+    "type": "department",
+    "description": "医学院是齐齐哈尔工程学院的重点学院之一，拥有雄厚的师资力量和完善的教学设施。",
+    "isStarred": false,
+    "children": []
+  },
+  {
+    "id": "dept-3",
+    "universityId": "univ-1",
+    "name": "音乐学院",
+    "type": "department",
+    "description": "音乐学院是齐齐哈尔工程学院的重点学院之一，拥有雄厚的师资力量和完善的教学设施。",
+    "isStarred": false,
+    "children": []
+  },
+  {
+    "id": "dept-4",
+    "universityId": "workshop-71",
+    "name": "经济管理学院",
+    "type": "department",
+    "description": "经济管理学院是第71期四真三化工作坊的重点学院之一，拥有雄厚的师资力量和完善的教学设施。",
+    "isStarred": true,
+    "children": []
+  },
+  {
+    "id": "dept-5",
+    "universityId": "workshop-71",
+    "name": "生物工程学院",
+    "type": "department",
+    "description": "生物工程学院是第71期四真三化工作坊的重点学院之一，拥有雄厚的师资力量和完善的教学设施。",
+    "isStarred": false,
+    "children": []
+  },
+  {
+    "id": "dept-6",
+    "universityId": "workshop-71",
+    "name": "音乐学院",
+    "type": "department",
+    "description": "音乐学院是第71期四真三化工作坊的重点学院之一，拥有雄厚的师资力量和完善的教学设施。",
+    "isStarred": false,
+    "children": []
+  },
+  {
+    "id": "dept-7",
+    "universityId": "workshop-72",
+    "name": "传媒学院",
+    "type": "department",
+    "description": "传媒学院是第72期四真三化工作坊的重点学院之一，拥有雄厚的师资力量和完善的教学设施。",
+    "isStarred": false,
+    "children": []
+  },
+  {
+    "id": "dept-8",
+    "universityId": "workshop-72",
+    "name": "纺织工程学院",
+    "type": "department",
+    "description": "纺织工程学院是第72期四真三化工作坊的重点学院之一，拥有雄厚的师资力量和完善的教学设施。",
+    "isStarred": true,
+    "children": []
+  },
+  {
+    "id": "dept-9",
+    "universityId": "workshop-72",
+    "name": "能源工程学院",
+    "type": "department",
+    "description": "能源工程学院是第72期四真三化工作坊的重点学院之一，拥有雄厚的师资力量和完善的教学设施。",
+    "isStarred": false,
+    "children": []
+  },
+  {
+    "id": "dept-10",
+    "universityId": "workshop-73",
+    "name": "生物工程学院",
+    "type": "department",
+    "description": "生物工程学院是第73期四真三化工作坊的重点学院之一，拥有雄厚的师资力量和完善的教学设施。",
+    "isStarred": false,
+    "children": []
+  },
+  {
+    "id": "dept-11",
+    "universityId": "workshop-73",
+    "name": "汽车工程学院",
+    "type": "department",
+    "description": "汽车工程学院是第73期四真三化工作坊的重点学院之一，拥有雄厚的师资力量和完善的教学设施。",
+    "isStarred": false,
+    "children": []
+  },
+  {
+    "id": "dept-12",
+    "universityId": "workshop-73",
+    "name": "土木工程学院",
+    "type": "department",
+    "description": "土木工程学院是第73期四真三化工作坊的重点学院之一，拥有雄厚的师资力量和完善的教学设施。",
+    "isStarred": false,
+    "children": []
+  },
+  {
+    "id": "dept-13",
+    "universityId": "workshop-74",
+    "name": "医学院",
+    "type": "department",
+    "description": "医学院是第74期四真三化工作坊的重点学院之一，拥有雄厚的师资力量和完善的教学设施。",
+    "isStarred": false,
+    "children": []
+  },
+  {
+    "id": "dept-14",
+    "universityId": "workshop-74",
+    "name": "数学与统计学院",
+    "type": "department",
+    "description": "数学与统计学院是第74期四真三化工作坊的重点学院之一，拥有雄厚的师资力量和完善的教学设施。",
+    "isStarred": false,
+    "children": []
+  },
+  {
+    "id": "dept-15",
+    "universityId": "workshop-74",
+    "name": "信息工程学院",
+    "type": "department",
+    "description": "信息工程学院是第74期四真三化工作坊的重点学院之一，拥有雄厚的师资力量和完善的教学设施。",
+    "isStarred": true,
+    "children": []
+  },
+  {
+    "id": "dept-16",
+    "universityId": "workshop-75",
+    "name": "美术学院",
+    "type": "department",
+    "description": "美术学院是第75期四真三化工作坊的重点学院之一，拥有雄厚的师资力量和完善的教学设施。",
+    "isStarred": true,
+    "children": []
+  },
+  {
+    "id": "dept-17",
+    "universityId": "workshop-75",
+    "name": "轻工学院",
+    "type": "department",
+    "description": "轻工学院是第75期四真三化工作坊的重点学院之一，拥有雄厚的师资力量和完善的教学设施。",
+    "isStarred": false,
+    "children": []
+  },
+  {
+    "id": "dept-18",
+    "universityId": "workshop-75",
+    "name": "医学院",
+    "type": "department",
+    "description": "医学院是第75期四真三化工作坊的重点学院之一，拥有雄厚的师资力量和完善的教学设施。",
+    "isStarred": true,
+    "children": []
+  }
+]

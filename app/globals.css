@@ -1,0 +1,245 @@
+@import "tailwindcss";
+/* 移除tw-animate-css导入，Tailwind CSS v4已内置动画支持 */
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Keeping light gray background, applying Vercel blue (#0070f3) to interactive elements */
+  --background: oklch(0.96 0.005 240);
+  --foreground: oklch(0.25 0.01 240);
+  --card: oklch(0.98 0.003 240);
+  --card-foreground: oklch(0.25 0.01 240);
+  --popover: oklch(0.975 0.004 240);
+  --popover-foreground: oklch(0.25 0.01 240);
+
+  /* Vercel blue: #0070f3 converted to OKLCH */
+  --primary: oklch(0.58 0.2 240);
+  --primary-foreground: oklch(0.99 0.002 240);
+
+  /* Blue hover state */
+  --secondary: oklch(0.92 0.008 240);
+  --secondary-foreground: oklch(0.3 0.01 240);
+
+  --muted: oklch(0.94 0.006 240);
+  --muted-foreground: oklch(0.48 0.02 240);
+
+  /* Vercel accent blue for highlights */
+  --accent: oklch(0.62 0.21 240);
+  --accent-foreground: oklch(0.99 0.002 240);
+
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.99 0.002 240);
+  --border: oklch(0.88 0.008 240);
+  --input: oklch(0.95 0.005 240);
+
+  /* Ring color matches primary blue */
+  --ring: oklch(0.58 0.2 240);
+
+  /* Chart colors using blue variations */
+  --chart-1: oklch(0.58 0.2 240);
+  --chart-2: oklch(0.62 0.21 240);
+  --chart-3: oklch(0.54 0.19 240);
+  --chart-4: oklch(0.5 0.18 240);
+  --chart-5: oklch(0.66 0.22 240);
+
+  --radius: 0.75rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+
+  /* Vercel blue color variables for different states */
+  --naive-primary: #0070f3;
+  --naive-primary-hover: rgba(0, 112, 243, 0.12);
+  --naive-primary-pressed: rgba(0, 112, 243, 0.18);
+  --naive-primary-active: rgba(0, 112, 243, 0.1);
+  --naive-primary-dark: #0051cc;
+  --naive-primary-light: #3291ff;
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.145 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
+  --border: oklch(0.269 0 0);
+  --input: oklch(0.269 0 0);
+  --ring: oklch(0.439 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.269 0 0);
+  --sidebar-ring: oklch(0.439 0 0);
+}
+
+@theme inline {
+  --font-sans: "Geist", "Geist Fallback";
+  --font-mono: "Geist Mono", "Geist Mono Fallback";
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* {{ AURA: Add - 为所有可交互元素添加手型光标 }} */
+  /* 按钮元素 */
+  button:not(:disabled),
+  [type="button"]:not(:disabled),
+  [type="submit"]:not(:disabled),
+  [type="reset"]:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
+  /* 链接元素 */
+  a:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
+  /* Shadcn UI组件 - 标签页触发器 */
+  [data-slot="tabs-trigger"]:not([disabled]),
+  [data-slot="tabs-trigger"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
+  /* Shadcn UI组件 - 可交互的卡片和列表项 */
+  [data-slot="card"][onclick],
+  [data-slot="item"][onclick],
+  [data-slot="card"].cursor-pointer,
+  [data-slot="item"].cursor-pointer {
+    cursor: pointer;
+  }
+
+  /* 表单控件 */
+  [data-slot="checkbox"]:not(:disabled),
+  [data-slot="radio"]:not(:disabled),
+  [data-slot="switch"]:not(:disabled),
+  [type="checkbox"]:not(:disabled),
+  [type="radio"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  /* 下拉菜单和选择器 */
+  [data-slot="select-trigger"]:not([disabled]),
+  [data-slot="dropdown-menu-trigger"]:not([disabled]),
+  [data-slot="context-menu-trigger"]:not([disabled]),
+  [data-slot="menubar-trigger"]:not([disabled]),
+  [data-slot="navigation-menu-trigger"]:not([disabled]) {
+    cursor: pointer;
+  }
+
+  /* 菜单项 */
+  [data-slot="dropdown-menu-item"]:not([disabled]),
+  [data-slot="context-menu-item"]:not([disabled]),
+  [data-slot="menubar-item"]:not([disabled]),
+  [data-slot="navigation-menu-link"]:not([disabled]),
+  [data-slot="command-item"]:not([disabled]) {
+    cursor: pointer;
+  }
+
+  /* 其他可交互组件 */
+  [data-slot="accordion-trigger"]:not([disabled]),
+  [data-slot="collapsible-trigger"]:not([disabled]),
+  [data-slot="dialog-trigger"]:not([disabled]),
+  [data-slot="popover-trigger"]:not([disabled]),
+  [data-slot="tooltip-trigger"]:not([disabled]),
+  [data-slot="hover-card-trigger"]:not([disabled]),
+  [data-slot="alert-dialog-trigger"]:not([disabled]),
+  [data-slot="sheet-trigger"]:not([disabled]),
+  [data-slot="drawer-trigger"]:not([disabled]) {
+    cursor: pointer;
+  }
+
+  /* 分页链接 */
+  [data-slot="pagination-link"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
+  /* 面包屑链接 */
+  [data-slot="breadcrumb-link"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
+  /* Toggle组件 */
+  [data-slot="toggle"]:not([disabled]),
+  [data-slot="toggle-group-item"]:not([disabled]) {
+    cursor: pointer;
+  }
+
+  /* 带有点击事件的元素 */
+  [onclick]:not(:disabled):not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
+  /* Label关联的可点击标签 */
+  label:has(+ input[type="checkbox"]),
+  label:has(+ input[type="radio"]),
+  label[for] {
+    cursor: pointer;
+  }
+}

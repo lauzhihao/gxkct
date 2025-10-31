@@ -1,0 +1,50 @@
+[
+  {
+    "id": "univ-1",
+    "name": "齐齐哈尔工程学院",
+    "type": "university",
+    "description": "齐齐哈尔工程学院是经黑龙江省人民政府批准、国家教育部备案、具有高等学历教育招生资格的全日制民办普通本科院校。",
+    "isStarred": true,
+    "children": []
+  },
+  {
+    "id": "workshop-71",
+    "name": "第71期四真三化工作坊",
+    "type": "university",
+    "description": "第71期四真三化工作坊致力于培养具有创新精神和实践能力的高素质人才。",
+    "isStarred": false,
+    "children": []
+  },
+  {
+    "id": "workshop-72",
+    "name": "第72期四真三化工作坊",
+    "type": "university",
+    "description": "第72期四真三化工作坊致力于培养具有创新精神和实践能力的高素质人才。",
+    "isStarred": true,
+    "children": []
+  },
+  {
+    "id": "workshop-73",
+    "name": "第73期四真三化工作坊",
+    "type": "university",
+    "description": "第73期四真三化工作坊致力于培养具有创新精神和实践能力的高素质人才。",
+    "isStarred": false,
+    "children": []
+  },
+  {
+    "id": "workshop-74",
+    "name": "第74期四真三化工作坊",
+    "type": "university",
+    "description": "第74期四真三化工作坊致力于培养具有创新精神和实践能力的高素质人才。",
+    "isStarred": false,
+    "children": []
+  },
+  {
+    "id": "workshop-75",
+    "name": "第75期四真三化工作坊",
+    "type": "university",
+    "description": "第75期四真三化工作坊致力于培养具有创新精神和实践能力的高素质人才。",
+    "isStarred": true,
+    "children": []
+  }
+]
