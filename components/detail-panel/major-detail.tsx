@@ -11,7 +11,7 @@ import { AddMajorForm } from "@/components/add-major-form"
 import { MajorBasicInfo } from "@/components/major/major-basic-info"
 import { MajorMatrix } from "@/components/major/major-matrix"
 import { MajorCourses } from "@/components/major/major-courses"
-import { MajorUsers } from "@/components/major/major-users"
+import { Members } from "@/components/shared/members"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -173,7 +173,7 @@ export function MajorDetail({
             </TabsContent>
 
             <TabsContent value="users" className="space-y-6 p-6">
-              <MajorUsers node={node} />
+              <Members node={node} />
             </TabsContent>
           </Tabs>
         </div>

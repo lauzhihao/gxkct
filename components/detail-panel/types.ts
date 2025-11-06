@@ -12,6 +12,8 @@ export interface DetailPanelProps {
   onSetCurrentSchool?: (schoolId: string) => void
   onEdit?: (node: TreeNode) => void
   onDelete?: (nodeId: string) => void
+  departmentMajors?: Map<string, TreeNode[]>
+  majorCourses?: Map<string, TreeNode[]>
 }
 
 export interface FileData {

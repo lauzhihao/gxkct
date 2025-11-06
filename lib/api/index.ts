@@ -21,6 +21,10 @@ export { TreeApi, UserApi, MatrixApi, ResourceApi, ConfigApi, PreferenceApi }
 
 // 导出类型
 export type { User, CourseMatrix, ProjectMatrix, FileData, CourseResourceData, ScoringData, ThemeConfig, UserPreference }
+export type { ApiResponse, BackendResponse } from "./types"
 
 // 导出初始化函数
 export { initializeMockData, resetMockData }
+
+// 导出响应处理函数
+export { handleBackendResponse, createSuccessResponse, createErrorResponse } from "./response-handler"

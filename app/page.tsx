@@ -8,15 +8,20 @@ import { useTreeData } from "@/hooks/use-tree-data"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import { api } from "@/lib/api"
 import { findStarredNode, getFirstNode } from "@/lib/tree-operations"
+import { cn } from "@/lib/utils"
 import type { TreeNode } from "@/types"
 
 const CURRENT_SCHOOL_STORAGE_KEY = "education-current-school"
+const TREE_COLLAPSED_STORAGE_KEY = "education-tree-collapsed"
 
 export default function Page() {
   const [isLoading, setIsLoading] = useState(true)
   const [initialData, setInitialData] = useState<TreeNode | null>(null)
   const [currentSchoolId, setCurrentSchoolId] = useLocalStorage<string | null>(CURRENT_SCHOOL_STORAGE_KEY, null)
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null)
+  const [isTreeCollapsed, setIsTreeCollapsed] = useLocalStorage<boolean>(TREE_COLLAPSED_STORAGE_KEY, false)
+  const [departmentMajors, setDepartmentMajors] = useState<Map<string, TreeNode[]>>(new Map())
+  const [majorCourses, setMajorCourses] = useState<Map<string, TreeNode[]>>(new Map())
   const treeDataHook = useTreeData(initialData)
   const hasInitialized = useRef(false)
 
@@ -155,6 +160,10 @@ export default function Page() {
     }
   }
 
+  const handleToggleTreeCollapse = () => {
+    setIsTreeCollapsed((prev) => !prev)
+  }
+
   console.log("[v0] 渲染Page组件，isLoading:", isLoading, "selectedNode:", selectedNode)
 
   if (isLoading || !treeDataHook || !treeDataHook.treeData) {
@@ -172,8 +181,13 @@ export default function Page() {
       <div className="w-full">
         <Header onResetData={handleResetData} />
 
-        <div className="flex gap-6">
-          <div className="w-[32%] flex-shrink-0">
+        <div className="flex gap-6 relative">
+          <div
+            className={cn(
+              "flex-shrink-0 transition-all duration-300 ease-in-out relative",
+              isTreeCollapsed ? "w-[70px]" : "w-[32%]"
+            )}
+          >
             <TreeView
               treeData={treeDataHook.treeData}
               onNodeSelect={setSelectedNode}
@@ -181,9 +195,19 @@ export default function Page() {
               onAddSchool={handleAddSchool}
               currentSchoolId={currentSchoolId}
               onSetCurrentSchool={handleSetCurrentSchool}
+              onUpdateNode={handleUpdateNode}
+              isCollapsed={isTreeCollapsed}
+              onToggleCollapse={handleToggleTreeCollapse}
+              onDepartmentMajorsChange={setDepartmentMajors}
+              onMajorCoursesChange={setMajorCourses}
             />
           </div>
-          <div className="w-[68%] flex-shrink-0">
+          <div
+            className={cn(
+              "flex-shrink-0 transition-all duration-300 ease-in-out",
+              isTreeCollapsed ? "w-[calc(100%-70px-1.5rem)]" : "w-[68%]"
+            )}
+          >
             <DetailPanel
               node={selectedNode}
               treeData={treeDataHook.treeData}
@@ -193,6 +217,8 @@ export default function Page() {
               onAddCourse={handleAddCourse}
               onUpdateNode={handleUpdateNode}
               onDeleteNode={handleDeleteNode}
+              departmentMajors={departmentMajors}
+              majorCourses={majorCourses}
             />
           </div>
         </div>

@@ -22,9 +22,8 @@ import { CourseTeachingObjectives } from "@/components/course/course-teaching-ob
 import { CoursePoints } from "@/components/course/course-points"
 import { CourseChapters } from "@/components/course/course-chapters"
 import { CourseResources } from "@/components/course/course-resources"
-import { CourseMatrix } from "@/components/course/course-matrix"
 import { CourseSupervision } from "@/components/course/course-supervision"
-import { CourseProjectMatrix } from "@/components/course/course-project-matrix"
+import { CourseThreeLevelMatrix } from "@/components/course/course-three-level-matrix"
 
 export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelect }: DetailPanelProps) {
   const metadata = node.metadata || {}
@@ -120,11 +119,10 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
         {/* Content */}
         <div className="p-6">
           <Tabs defaultValue="info" className="w-full">
-            <TabsList className="w-full grid grid-cols-5 h-10 bg-secondary/50">
+            <TabsList className="w-full grid grid-cols-4 h-10 bg-secondary/50">
               <TabsTrigger value="info">课程信息</TabsTrigger>
               <TabsTrigger value="resources">课程资源</TabsTrigger>
-              <TabsTrigger value="matrix">课程矩阵</TabsTrigger>
-              <TabsTrigger value="projectMatrix">项目矩阵</TabsTrigger>
+              <TabsTrigger value="matrix">三级矩阵</TabsTrigger>
               <TabsTrigger value="supervision">督导评分</TabsTrigger>
             </TabsList>
 
@@ -149,11 +147,7 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
             </TabsContent>
 
             <TabsContent value="matrix" className="space-y-4 mt-4 px-6">
-              <CourseMatrix node={node} onUpdateNode={onUpdateNode} />
-            </TabsContent>
-
-            <TabsContent value="projectMatrix" className="space-y-4 mt-4 px-6">
-              <CourseProjectMatrix node={node} onUpdate={handleUpdateMetadata} />
+              <CourseThreeLevelMatrix node={node} onUpdateNode={onUpdateNode} />
             </TabsContent>
 
             <TabsContent value="supervision" className="space-y-4 mt-4 px-6">

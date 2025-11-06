@@ -27,38 +27,91 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
-import type { TreeNode } from "@/types"
+import type { TreeNode, NodeType } from "@/types"
 import { api } from "@/lib/api"
 
-interface MajorUsersProps {
+interface MembersProps {
   node: TreeNode
 }
 
-export function MajorUsers({ node }: MajorUsersProps) {
+// 根据节点类型获取角色配置
+const getRoleConfig = (nodeType: NodeType) => {
+  const roleConfigs: Record<NodeType, { roles: string[]; defaultRole: string; labels: Record<string, string> }> = {
+    university: {
+      roles: ["学校管理员", "院系负责人", "教务人员"],
+      defaultRole: "学校管理员",
+      labels: {
+        学校管理员: "管理人员",
+        院系负责人: "院系负责人",
+        教务人员: "教务人员",
+      },
+    },
+    department: {
+      roles: ["院系管理员", "专业负责人", "教学秘书"],
+      defaultRole: "院系管理员",
+      labels: {
+        院系管理员: "管理人员",
+        专业负责人: "专业负责人",
+        教学秘书: "教学秘书",
+      },
+    },
+    major: {
+      roles: ["专业管理员", "任课教师", "教学督导"],
+      defaultRole: "专业管理员",
+      labels: {
+        专业管理员: "管理人员",
+        任课教师: "任课教师",
+        教学督导: "教学督导",
+      },
+    },
+    course: {
+      roles: ["课程负责人", "主讲教师", "助教"],
+      defaultRole: "课程负责人",
+      labels: {
+        课程负责人: "管理人员",
+        主讲教师: "主讲教师",
+        助教: "助教",
+      },
+    },
+    root: {
+      roles: ["系统管理员"],
+      defaultRole: "系统管理员",
+      labels: {
+        系统管理员: "管理人员",
+      },
+    },
+  }
+
+  return roleConfigs[nodeType] || roleConfigs.major
+}
+
+export function Members({ node }: MembersProps) {
+  const roleConfig = getRoleConfig(node.type)
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false)
   const [newUserEmail, setNewUserEmail] = useState("")
   const [newUserName, setNewUserName] = useState("")
-  const [newUserRole, setNewUserRole] = useState("专业管理员")
+  const [newUserRole, setNewUserRole] = useState(roleConfig.defaultRole)
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
   const [userSearchQuery, setUserSearchQuery] = useState("")
   const [showAllUsers, setShowAllUsers] = useState(false)
   const [users, setUsers] = useState([
-    { id: "1", name: "李教授", role: "专业管理员", email: "li@example.com", enabled: true },
-    { id: "2", name: "王老师", role: "任课教师", email: "wang@example.com", enabled: true },
-    { id: "3", name: "张老师", role: "任课教师", email: "zhang@example.com", enabled: true },
+    { id: "1", name: "李教授", role: roleConfig.defaultRole, email: "li@example.com", enabled: true },
+    { id: "2", name: "王老师", role: roleConfig.roles[1] || roleConfig.defaultRole, email: "wang@example.com", enabled: true },
+    { id: "3", name: "张老师", role: roleConfig.roles[1] || roleConfig.defaultRole, email: "zhang@example.com", enabled: true },
   ])
 
   useEffect(() => {
     if (node) {
+      const config = getRoleConfig(node.type)
       const loadUsers = async () => {
         const response = await api.users.getUsers(node.id)
         if (response.data) {
           setUsers(response.data)
         } else {
           const initialUsers = [
-            { id: "1", name: "李教授", role: "专业管理员", email: "li@example.com", enabled: true },
-            { id: "2", name: "王老师", role: "任课教师", email: "wang@example.com", enabled: true },
-            { id: "3", name: "张老师", role: "任课教师", email: "zhang@example.com", enabled: true },
+            { id: "1", name: "李教授", role: config.defaultRole, email: "li@example.com", enabled: true },
+            { id: "2", name: "王老师", role: config.roles[1] || config.defaultRole, email: "wang@example.com", enabled: true },
+            { id: "3", name: "张老师", role: config.roles[1] || config.defaultRole, email: "zhang@example.com", enabled: true },
           ]
           setUsers(initialUsers)
           await api.users.updateUsers(node.id, initialUsers)
@@ -66,7 +119,8 @@ export function MajorUsers({ node }: MajorUsersProps) {
       }
       loadUsers()
     }
-  }, [node])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node.id, node.type])
 
   const handleSaveUser = async () => {
     if (!node || !newUserEmail || !newUserName) return
@@ -94,7 +148,7 @@ export function MajorUsers({ node }: MajorUsersProps) {
     setIsAddUserDialogOpen(false)
     setNewUserEmail("")
     setNewUserName("")
-    setNewUserRole("专业管理员")
+    setNewUserRole(roleConfig.defaultRole)
     setEditingUserId(null)
   }
 
@@ -134,51 +188,56 @@ export function MajorUsers({ node }: MajorUsersProps) {
 
   const displayedUsers = showAllUsers ? filteredUsers : filteredUsers.slice(0, 10)
 
+  // 获取管理人员数量（第一个角色）
+  const adminCount = users.filter((u) => u.role === roleConfig.roles[0]).length
+  // 获取第二类角色数量
+  const secondRoleCount = roleConfig.roles[1] ? users.filter((u) => u.role === roleConfig.roles[1]).length : 0
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-medium text-foreground">成员管理</h3>
         <Button
+          size="sm"
+          variant="ghost"
           onClick={() => {
             setEditingUserId(null)
             setNewUserEmail("")
             setNewUserName("")
-            setNewUserRole("专业管理员")
+            setNewUserRole(roleConfig.defaultRole)
             setIsAddUserDialogOpen(true)
           }}
-          className="gap-2"
+          className="gap-2 hover:bg-primary/10"
         >
-          <Plus className="w-4 h-4" />
-          添加用户
+          <Plus className="w-4 h-4 text-primary" />
+          <span className="text-primary font-medium">新增成员</span>
         </Button>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 border-blue-200">
+        <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
           <CardContent className="p-4">
             <div className="flex flex-col items-center justify-center gap-2">
-              <div className="text-3xl font-bold text-blue-600">{users.length}</div>
-              <div className="text-sm text-blue-700">总成员数</div>
+              <div className="text-3xl font-bold text-primary">{users.length}</div>
+              <div className="text-sm text-primary/80">总成员数</div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-green-50 to-green-100/50 border-green-200">
+        <Card className="bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20">
           <CardContent className="p-4">
             <div className="flex flex-col items-center justify-center gap-2">
-              <div className="text-3xl font-bold text-green-600">
-                {users.filter((u) => u.role === "专业管理员").length}
-              </div>
-              <div className="text-sm text-green-700">管理人员</div>
+              <div className="text-3xl font-bold text-accent">{adminCount}</div>
+              <div className="text-sm text-accent/80">{roleConfig.labels[roleConfig.roles[0]]}</div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100/50 border-purple-200">
+        <Card className="bg-gradient-to-br from-chart-3/10 to-chart-3/5 border-chart-3/20">
           <CardContent className="p-4">
             <div className="flex flex-col items-center justify-center gap-2">
-              <div className="text-3xl font-bold text-purple-600">
-                {users.filter((u) => u.role === "任课教师").length}
+              <div className="text-3xl font-bold text-chart-3">{secondRoleCount}</div>
+              <div className="text-sm text-chart-3/80">
+                {roleConfig.roles[1] ? roleConfig.labels[roleConfig.roles[1]] : "其他成员"}
               </div>
-              <div className="text-sm text-purple-700">任课教师</div>
             </div>
           </CardContent>
         </Card>
@@ -203,19 +262,17 @@ export function MajorUsers({ node }: MajorUsersProps) {
               key={user.id}
               className="flex items-center justify-between p-3 rounded-lg bg-white/50 border border-border hover:bg-white/70 transition-colors"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="w-10 h-10 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center flex-shrink-0">
                   <User className="w-5 h-5 text-primary" />
                 </div>
-                <div className="flex items-center gap-2">
-                  <div>
-                    <div className="text-sm font-medium text-foreground">{user.name}</div>
-                    <div className="text-xs text-muted-foreground">{user.email}</div>
-                  </div>
-                  <span className="px-2 py-1 rounded-full bg-primary/20 border border-primary/30 text-sm font-medium text-primary">
-                    {user.role}
-                  </span>
+                <div className="min-w-0 w-48">
+                  <div className="text-sm font-medium text-foreground truncate">{user.name}</div>
+                  <div className="text-xs text-muted-foreground truncate">{user.email}</div>
                 </div>
+                <span className="px-2 py-1 rounded bg-primary/20 border border-primary/30 text-xs font-medium text-primary whitespace-nowrap flex-shrink-0">
+                  {roleConfig.labels[user.role] || user.role}
+                </span>
               </div>
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
@@ -320,9 +377,11 @@ export function MajorUsers({ node }: MajorUsersProps) {
                 onChange={(e) => setNewUserRole(e.target.value)}
                 className="w-full px-3 py-2 border border-border rounded-lg bg-background"
               >
-                <option value="专业管理员">专业管理员</option>
-                <option value="任课教师">任课教师</option>
-                <option value="教学督导">教学督导</option>
+                {roleConfig.roles.map((role) => (
+                  <option key={role} value={role}>
+                    {role}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -337,3 +396,5 @@ export function MajorUsers({ node }: MajorUsersProps) {
     </div>
   )
 }
+
+

@@ -14,12 +14,14 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useState } from "react"
 import type { DetailPanelProps } from "./types"
 import { StatisticsCards } from "./shared/statistics-cards"
 import { AddMajorForm } from "@/components/add-major-form"
+import { Members } from "@/components/shared/members"
 
-export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode, onDeleteNode }: DetailPanelProps) {
+export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode, onDeleteNode, departmentMajors, majorCourses }: DetailPanelProps) {
   const [newDeptName, setNewDeptName] = useState("")
   const [newDeptDesc, setNewDeptDesc] = useState("")
   const [newDeptDirector, setNewDeptDirector] = useState("")
@@ -114,22 +116,43 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
         </div>
       </div>
 
-      {/* Statistics Cards with Add Major button */}
-      <StatisticsCards
-        node={node}
-        onNodeSelect={onNodeSelect}
-        headerAction={
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setIsAddingMajor(true)}
-            className="gap-2 hover:bg-primary/10"
-          >
-            <Plus className="w-4 h-4 text-primary" />
-            <span className="text-primary font-medium">新增专业</span>
-          </Button>
-        }
-      />
+      {/* Tabs for Overview and Members */}
+      <div className="flex-1 overflow-auto">
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="w-full h-10 bg-secondary/50 backdrop-blur-sm border-b border-border rounded-none p-0">
+            <TabsTrigger value="overview" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
+              院系概览
+            </TabsTrigger>
+            <TabsTrigger value="members" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
+              成员管理
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="mt-0">
+            <StatisticsCards
+              node={node}
+              onNodeSelect={onNodeSelect}
+              departmentMajors={departmentMajors}
+              majorCourses={majorCourses}
+              headerAction={
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setIsAddingMajor(true)}
+                  className="gap-2 hover:bg-primary/10"
+                >
+                  <Plus className="w-4 h-4 text-primary" />
+                  <span className="text-primary font-medium">新增专业</span>
+                </Button>
+              }
+            />
+          </TabsContent>
+
+          <TabsContent value="members" className="space-y-6 p-6">
+            <Members node={node} />
+          </TabsContent>
+        </Tabs>
+      </div>
 
       {/* Edit Department Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

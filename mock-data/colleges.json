@@ -1,0 +1,1054 @@
+{
+    "code": "0",
+    "message": "success",
+    "data": {
+        "colleges": [
+            {
+                "college": {
+                    "id": 86,
+                    "name": "齐齐哈尔工程学院",
+                    "image": "",
+                    "collegeType": "1"
+                },
+                "departments": [
+                    {
+                        "id": 264,
+                        "collegeId": 86,
+                        "name": "管理工程系",
+                        "type": null
+                    },
+                    {
+                        "id": 265,
+                        "collegeId": 86,
+                        "name": "建筑工程系",
+                        "type": null
+                    },
+                    {
+                        "id": 266,
+                        "collegeId": 86,
+                        "name": "医学院",
+                        "type": null
+                    },
+                    {
+                        "id": 267,
+                        "collegeId": 86,
+                        "name": "信息学院",
+                        "type": null
+                    },
+                    {
+                        "id": 268,
+                        "collegeId": 86,
+                        "name": "机电学院",
+                        "type": null
+                    },
+                    {
+                        "id": 269,
+                        "collegeId": 86,
+                        "name": "通识教育学院",
+                        "type": null
+                    },
+                    {
+                        "id": 270,
+                        "collegeId": 86,
+                        "name": "马克思主义学院",
+                        "type": null
+                    },
+                    {
+                        "id": 271,
+                        "collegeId": 86,
+                        "name": "学生发展中心",
+                        "type": null
+                    },
+                    {
+                        "id": 278,
+                        "collegeId": 86,
+                        "name": "通识教育学院（通识教育选修课）",
+                        "type": null
+                    },
+                    {
+                        "id": 285,
+                        "collegeId": 86,
+                        "name": "全面质量管理办公室",
+                        "type": null
+                    },
+                    {
+                        "id": 320,
+                        "collegeId": 86,
+                        "name": "东亚技职校",
+                        "type": null
+                    },
+                    {
+                        "id": 321,
+                        "collegeId": 86,
+                        "name": "创业学院",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 19,
+                    "name": "第六期应用型课程开发工作坊（云）",
+                    "image": null,
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 76,
+                        "collegeId": 19,
+                        "name": "云工作坊第1组",
+                        "type": null
+                    },
+                    {
+                        "id": 77,
+                        "collegeId": 19,
+                        "name": "云工作坊第2组",
+                        "type": null
+                    },
+                    {
+                        "id": 78,
+                        "collegeId": 19,
+                        "name": "云工作坊第3组",
+                        "type": null
+                    },
+                    {
+                        "id": 79,
+                        "collegeId": 19,
+                        "name": "云工作坊第4组",
+                        "type": null
+                    }
+                ],
+                "permissionId": 88,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 20,
+                    "name": "第八期应用型课程开发工作坊（云）",
+                    "image": null,
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 80,
+                        "collegeId": 20,
+                        "name": "云工作坊第1组",
+                        "type": null
+                    },
+                    {
+                        "id": 81,
+                        "collegeId": 20,
+                        "name": "云工作坊第2组",
+                        "type": null
+                    },
+                    {
+                        "id": 82,
+                        "collegeId": 20,
+                        "name": "云工作坊第3组",
+                        "type": null
+                    },
+                    {
+                        "id": 83,
+                        "collegeId": 20,
+                        "name": "云工作坊第4组",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 22,
+                    "name": "第十一期应用型课程开发云工作坊（河北民族师范学院）",
+                    "image": null,
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 92,
+                        "collegeId": 22,
+                        "name": "云工作坊第1组",
+                        "type": null
+                    },
+                    {
+                        "id": 93,
+                        "collegeId": 22,
+                        "name": "云工作坊第2组",
+                        "type": null
+                    },
+                    {
+                        "id": 94,
+                        "collegeId": 22,
+                        "name": "云工作坊第3组",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 39,
+                    "name": "第25期应用型课程开发工作坊",
+                    "image": "https://cdn.gxkct.com/img/workbench/25.png",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 162,
+                        "collegeId": 39,
+                        "name": "云工作坊1班",
+                        "type": null
+                    },
+                    {
+                        "id": 163,
+                        "collegeId": 39,
+                        "name": "云工作坊2班",
+                        "type": null
+                    },
+                    {
+                        "id": 164,
+                        "collegeId": 39,
+                        "name": "云工作坊3班",
+                        "type": null
+                    },
+                    {
+                        "id": 165,
+                        "collegeId": 39,
+                        "name": "第27期1班",
+                        "type": null
+                    },
+                    {
+                        "id": 167,
+                        "collegeId": 39,
+                        "name": "云工作坊5班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 51,
+                    "name": "第38期四真三化（FT)课程开发工作坊",
+                    "image": "https://cdn.gxkct.com/img/workbench/38.png",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 206,
+                        "collegeId": 51,
+                        "name": "工作坊第1组",
+                        "type": null
+                    },
+                    {
+                        "id": 207,
+                        "collegeId": 51,
+                        "name": "工作坊第2组",
+                        "type": null
+                    },
+                    {
+                        "id": 208,
+                        "collegeId": 51,
+                        "name": "工作坊第3组",
+                        "type": null
+                    },
+                    {
+                        "id": 209,
+                        "collegeId": 51,
+                        "name": "工作坊第4组",
+                        "type": null
+                    },
+                    {
+                        "id": 210,
+                        "collegeId": 51,
+                        "name": "工作坊第5组",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 52,
+                    "name": "第39期四真三化（FT)课程开发工作坊",
+                    "image": "https://cdn.gxkct.com/img/workbench/39.png",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 211,
+                        "collegeId": 52,
+                        "name": "第1组",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 77,
+                    "name": "第40期四真三化（FT）课程开发工作坊",
+                    "image": "",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 253,
+                        "collegeId": 77,
+                        "name": "1班",
+                        "type": null
+                    },
+                    {
+                        "id": 254,
+                        "collegeId": 77,
+                        "name": "2班",
+                        "type": null
+                    },
+                    {
+                        "id": 255,
+                        "collegeId": 77,
+                        "name": "3班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 77,
+                    "name": "第40期四真三化（FT）课程开发工作坊",
+                    "image": "",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 253,
+                        "collegeId": 77,
+                        "name": "1班",
+                        "type": null
+                    },
+                    {
+                        "id": 254,
+                        "collegeId": 77,
+                        "name": "2班",
+                        "type": null
+                    },
+                    {
+                        "id": 255,
+                        "collegeId": 77,
+                        "name": "3班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 77,
+                    "name": "第40期四真三化（FT）课程开发工作坊",
+                    "image": "",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 253,
+                        "collegeId": 77,
+                        "name": "1班",
+                        "type": null
+                    },
+                    {
+                        "id": 254,
+                        "collegeId": 77,
+                        "name": "2班",
+                        "type": null
+                    },
+                    {
+                        "id": 255,
+                        "collegeId": 77,
+                        "name": "3班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 80,
+                    "name": "第41期四真三化（FT）课程开发工作坊",
+                    "image": "",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 256,
+                        "collegeId": 80,
+                        "name": "第1班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 81,
+                    "name": "第42期四真三化（FT）课程开发工作坊",
+                    "image": "",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 257,
+                        "collegeId": 81,
+                        "name": "1班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 82,
+                    "name": "第43期四真三化（FT)课程开发工作坊",
+                    "image": "https://cdn.gxkct.com/img/workbench/43.png",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 258,
+                        "collegeId": 82,
+                        "name": "1班",
+                        "type": null
+                    },
+                    {
+                        "id": 259,
+                        "collegeId": 82,
+                        "name": "2班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 85,
+                    "name": "第44期四真三化（FT)课程开发工作坊",
+                    "image": "https://prod-gxkct.oss-cn-beijing.aliyuncs.com/img/workbench/44.png",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 263,
+                        "collegeId": 85,
+                        "name": "1班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 87,
+                    "name": "第45期四真三化（FT)课程开发工作坊",
+                    "image": "https://prod-gxkct.oss-cn-beijing.aliyuncs.com/img/workbench/45.png",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 287,
+                        "collegeId": 87,
+                        "name": "云工作坊第1组",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 88,
+                    "name": "第46期四真三化（FT)课程开发工作坊",
+                    "image": "",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 288,
+                        "collegeId": 88,
+                        "name": "全省职业院校课程建设研讨班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 89,
+                    "name": "第47期四真三化（FT)课程开发工作坊",
+                    "image": "",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 289,
+                        "collegeId": 89,
+                        "name": "1班",
+                        "type": null
+                    },
+                    {
+                        "id": 290,
+                        "collegeId": 89,
+                        "name": "2班",
+                        "type": null
+                    },
+                    {
+                        "id": 291,
+                        "collegeId": 89,
+                        "name": "3班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 90,
+                    "name": "第48期四真三化（FT)课程开发工作坊",
+                    "image": "",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 292,
+                        "collegeId": 90,
+                        "name": "1班",
+                        "type": null
+                    },
+                    {
+                        "id": 293,
+                        "collegeId": 90,
+                        "name": "2班",
+                        "type": null
+                    },
+                    {
+                        "id": 294,
+                        "collegeId": 90,
+                        "name": "3班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 92,
+                    "name": "第50期“四真三化”（FT)课程开发工作坊",
+                    "image": "",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 296,
+                        "collegeId": 92,
+                        "name": "1班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 91,
+                    "name": "第49期“四真三化”（FT)课程开发工作坊",
+                    "image": "",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 295,
+                        "collegeId": 91,
+                        "name": "1班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 93,
+                    "name": "第51期“四真三化”（FT)课程开发工作坊",
+                    "image": "",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 297,
+                        "collegeId": 93,
+                        "name": "1班",
+                        "type": null
+                    },
+                    {
+                        "id": 298,
+                        "collegeId": 93,
+                        "name": "2班",
+                        "type": null
+                    },
+                    {
+                        "id": 299,
+                        "collegeId": 93,
+                        "name": "3班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 94,
+                    "name": "第52期“四真三化”（FT)课程开发工作坊",
+                    "image": "",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 300,
+                        "collegeId": 94,
+                        "name": "1班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 95,
+                    "name": "共青科技职业学院“四真三化”（FT)课程开发工作坊",
+                    "image": "",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 301,
+                        "collegeId": 95,
+                        "name": "1班",
+                        "type": null
+                    },
+                    {
+                        "id": 302,
+                        "collegeId": 95,
+                        "name": "2班",
+                        "type": null
+                    },
+                    {
+                        "id": 303,
+                        "collegeId": 95,
+                        "name": "3班",
+                        "type": null
+                    },
+                    {
+                        "id": 304,
+                        "collegeId": 95,
+                        "name": "4班",
+                        "type": null
+                    },
+                    {
+                        "id": 305,
+                        "collegeId": 95,
+                        "name": "5班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 96,
+                    "name": "第56期“四真三化”（FT)课程开发工作坊",
+                    "image": "",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 306,
+                        "collegeId": 96,
+                        "name": "1班",
+                        "type": null
+                    },
+                    {
+                        "id": 307,
+                        "collegeId": 96,
+                        "name": "2班",
+                        "type": null
+                    },
+                    {
+                        "id": 308,
+                        "collegeId": 96,
+                        "name": "3班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 97,
+                    "name": "第57期“四真三化”（FT)课程开发工作坊",
+                    "image": "",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 309,
+                        "collegeId": 97,
+                        "name": "1班",
+                        "type": null
+                    },
+                    {
+                        "id": 310,
+                        "collegeId": 97,
+                        "name": "2班",
+                        "type": null
+                    },
+                    {
+                        "id": 311,
+                        "collegeId": 97,
+                        "name": "3班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 98,
+                    "name": "第58期“四真三化”（FT)课程开发工作坊",
+                    "image": "",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 312,
+                        "collegeId": 98,
+                        "name": "1班",
+                        "type": null
+                    },
+                    {
+                        "id": 313,
+                        "collegeId": 98,
+                        "name": "2班",
+                        "type": null
+                    },
+                    {
+                        "id": 314,
+                        "collegeId": 98,
+                        "name": "3班",
+                        "type": null
+                    },
+                    {
+                        "id": 315,
+                        "collegeId": 98,
+                        "name": "4班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 99,
+                    "name": "广州城市理工学院“四真三化”（FT)课程开发工作坊",
+                    "image": "",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 316,
+                        "collegeId": 99,
+                        "name": "1班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 100,
+                    "name": "62期 四真三化(FT)课程开发工作坊",
+                    "image": "",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 317,
+                        "collegeId": 100,
+                        "name": "1班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 101,
+                    "name": "南京城市职业学院“四真三化”（FT)课程开发工作坊",
+                    "image": "",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 318,
+                        "collegeId": 101,
+                        "name": "1班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1901,
+                "relativeId": 318
+            },
+            {
+                "college": {
+                    "id": 102,
+                    "name": "厦门工学院“四真三化”（FT)课程开发工作坊",
+                    "image": "",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 319,
+                        "collegeId": 102,
+                        "name": "1班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 103,
+                    "name": "第65期“四真三化”（FT)课程开发工作坊",
+                    "image": "",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 322,
+                        "collegeId": 103,
+                        "name": "1班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 104,
+                    "name": "第66期“四真三化”（FT)课程开发工作坊",
+                    "image": "",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 323,
+                        "collegeId": 104,
+                        "name": "工作坊第1组",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 106,
+                    "name": "第69期“四真三化（FT)”课程开发工作坊",
+                    "image": "https://cdn.gxkct.com/img/workbench/069.png",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 325,
+                        "collegeId": 106,
+                        "name": "艺术与传媒学院",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 107,
+                    "name": "第70期“四真三化（FT)”课程开发工作坊",
+                    "image": "https://cdn.gxkct.com/img/workbench/070.png",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 326,
+                        "collegeId": 107,
+                        "name": "工作坊第1组",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 108,
+                    "name": "第71期“四真三化（FT）”课程开发暨微专业开发工作坊",
+                    "image": "https://cdn.gxkct.com/img/workbench/banner-40-r8BNfzo4-1758543900452.png",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 327,
+                        "collegeId": 108,
+                        "name": "1班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 109,
+                    "name": "测试上传文件",
+                    "image": "https://cdn.gxkct.com/img/workbench/banner-40-1MUVZEZJ-1760000686126.png",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 328,
+                        "collegeId": 109,
+                        "name": "班组1",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 110,
+                    "name": "第72期“四真三化（FT）”课程开发工作坊",
+                    "image": "https://cdn.gxkct.com/img/workbench/banner-40-qHs1hOCb-1760056516796.png",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 329,
+                        "collegeId": 110,
+                        "name": "1班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 111,
+                    "name": "第73期“四真三化（FT）”课程开发工作坊",
+                    "image": "https://cdn.gxkct.com/img/workbench/banner-40-SWCuHh1A-1760431283726.png",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 330,
+                        "collegeId": 111,
+                        "name": "1班",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 112,
+                    "name": "第74期四真三化“FT”课程开发工作坊",
+                    "image": "https://cdn.gxkct.com/img/workbench/banner-40-aozzzQD1-1761016534893.png",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 331,
+                        "collegeId": 112,
+                        "name": "1",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            },
+            {
+                "college": {
+                    "id": 113,
+                    "name": "第75期“四真三化（FT）”课程开发及第二期微专业开发工作坊",
+                    "image": "https://cdn.gxkct.com/img/workbench/banner-40-Go6P4C8R-1761016700776.png",
+                    "collegeType": "0"
+                },
+                "departments": [
+                    {
+                        "id": 332,
+                        "collegeId": 113,
+                        "name": "1",
+                        "type": null
+                    }
+                ],
+                "permissionId": 1,
+                "relativeId": 0
+            }
+        ],
+        "current": {
+            "id": 1161,
+            "userId": 40,
+            "permissionId": 1,
+            "relativeId": 0,
+            "department": {
+                "id": 264,
+                "collegeId": 86,
+                "name": "管理工程系",
+                "type": null
+            },
+            "college": {
+                "id": 86,
+                "name": "齐齐哈尔工程学院",
+                "image": "",
+                "collegeType": null
+            },
+            "multiple": true
+        }
+    },
+    "success": true
+}

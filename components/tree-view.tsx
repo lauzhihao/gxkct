@@ -15,6 +15,7 @@ import {
   X,
   Plus,
   Star,
+  ChevronLeft,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
@@ -31,6 +32,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import type { TreeNode } from "@/types"
+import { api } from "@/lib/api"
 
 export const initialTreeData: TreeNode = {
   id: "root",
@@ -479,9 +481,13 @@ interface TreeNodeProps {
   searchTerm: string
   currentSchoolId: string | null
   onSetCurrentSchool?: (schoolId: string) => void
+  onToggleStar?: (nodeId: string) => void
   matchingNodeIds?: Set<string>
   pathNodeIds?: Set<string>
   isFirstMatch?: boolean
+  departmentMajors?: Map<string, TreeNode[]>
+  majorCourses?: Map<string, TreeNode[]>
+  loadedMajorsWithNoCourses?: Set<string>
 }
 
 function TreeNodeComponent({
@@ -496,12 +502,43 @@ function TreeNodeComponent({
   searchTerm,
   currentSchoolId,
   onSetCurrentSchool,
+  onToggleStar,
   matchingNodeIds,
   pathNodeIds,
   isFirstMatch = false,
+  departmentMajors,
+  majorCourses,
+  loadedMajorsWithNoCourses,
 }: TreeNodeProps): ReactElement {
   const Icon = getIcon(node.type)
-  const hasChildren = node.children && node.children.length > 0
+
+  // 如果是department节点，合并动态加载的专业数据
+  let actualChildren = node.children || []
+  if (node.type === "department" && departmentMajors?.has(node.id)) {
+    const loadedMajors = departmentMajors.get(node.id) || []
+    actualChildren = loadedMajors
+  }
+
+  // 如果是major节点，合并动态加载的课程数据
+  if (node.type === "major") {
+    console.log(`[v0] TreeNodeComponent: 检查major节点 ${node.id}`)
+    console.log(`[v0] TreeNodeComponent: majorCourses?.has(${node.id}) =`, majorCourses?.has(node.id))
+    if (majorCourses?.has(node.id)) {
+      const loadedCourses = majorCourses.get(node.id) || []
+      console.log(`[v0] TreeNodeComponent: 合并课程数据, 课程数量=${loadedCourses.length}`)
+      actualChildren = loadedCourses
+    }
+  }
+
+  // department节点应该始终显示展开箭头（可能需要动态加载）
+  // major节点也应该始终显示展开箭头，除非已加载且确实没有课程
+  // 其他节点根据实际children判断
+  const hasChildren = node.type === "department"
+    ? true  // department节点始终可展开（会动态加载专业）
+    : node.type === "major"
+    ? !loadedMajorsWithNoCourses?.has(node.id)  // major节点：如果已加载且无课程则不显示箭头
+    : (actualChildren && actualChildren.length > 0)
+
   const isExpanded = expandedNodes.has(node.id)
   const isSelected = selectedNodeId === node.id
   const isStarred = node.isStarred || false
@@ -516,7 +553,7 @@ function TreeNodeComponent({
     }
   }, [isFirstMatch, searchTerm])
 
-  let displayChildren = node.children || []
+  let displayChildren = actualChildren
   let showLoadMore = false
   let remainingCount = 0
 
@@ -528,10 +565,10 @@ function TreeNodeComponent({
   } else if (node.type === "major" && hasChildren) {
     if (!searchTerm.trim()) {
       const visibleCount = visibleCourseCounts.get(node.id) || 5
-      const totalCourses = node.children!.length
+      const totalCourses = actualChildren.length
 
       if (totalCourses > visibleCount) {
-        displayChildren = node.children!.slice(0, visibleCount)
+        displayChildren = actualChildren.slice(0, visibleCount)
         showLoadMore = true
         remainingCount = totalCourses - visibleCount
       }
@@ -540,7 +577,9 @@ function TreeNodeComponent({
 
   const handleClick = () => {
     onSelect(node)
-    if (hasChildren) {
+    // department和major节点始终触发展开（会动态加载数据）
+    // 其他节点只有在有children时才展开
+    if (node.type === "department" || node.type === "major" || hasChildren) {
       onToggleExpand(node.id)
     }
   }
@@ -552,8 +591,8 @@ function TreeNodeComponent({
 
   const handleStarClick = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (onSetCurrentSchool) {
-      onSetCurrentSchool(node.id)
+    if (onToggleStar) {
+      onToggleStar(node.id)
     }
   }
 
@@ -614,13 +653,13 @@ function TreeNodeComponent({
           )}
         </div>
 
-        {level === 0 && onSetCurrentSchool && (
+        {level === 0 && onToggleStar && (
           <div
             onClick={handleStarClick}
             className={cn(
               "flex-shrink-0 p-1.5 rounded-md transition-all duration-200 cursor-pointer",
               "hover:bg-primary/20",
-              isStarred ? "text-primary" : "text-muted-foreground hover:text-primary",
+              isStarred ? "text-yellow-500" : "text-muted-foreground hover:text-yellow-500",
             )}
             aria-label={isStarred ? "已设为星标" : "设为星标"}
             role="button"
@@ -632,32 +671,45 @@ function TreeNodeComponent({
               }
             }}
           >
-            <Star className={cn("w-5 h-5 transition-all", isStarred && "fill-primary")} />
+            <Star className={cn("w-5 h-5 transition-all", isStarred && "fill-yellow-500")} />
           </div>
         )}
       </button>
 
-      {hasChildren && isExpanded && (
+      {isExpanded && (
         <div className="mt-2 space-y-2">
-          {displayChildren.map((child, index) => (
-            <TreeNodeComponent
-              key={child.id}
-              node={child}
-              level={level + 1}
-              onSelect={onSelect}
-              selectedNodeId={selectedNodeId}
-              expandedNodes={expandedNodes}
-              onToggleExpand={onToggleExpand}
-              visibleCourseCounts={visibleCourseCounts}
-              onLoadMoreCourses={onLoadMoreCourses}
-              searchTerm={searchTerm}
-              currentSchoolId={currentSchoolId || null}
-              onSetCurrentSchool={onSetCurrentSchool}
-              matchingNodeIds={matchingNodeIds}
-              pathNodeIds={pathNodeIds}
-              isFirstMatch={isFirstMatch && index === 0 && matchingNodeIds?.has(child.id)}
-            />
-          ))}
+          {displayChildren.length > 0 ? (
+            displayChildren.map((child, index) => (
+              <TreeNodeComponent
+                key={child.id}
+                node={child}
+                level={level + 1}
+                onSelect={onSelect}
+                selectedNodeId={selectedNodeId}
+                expandedNodes={expandedNodes}
+                onToggleExpand={onToggleExpand}
+                visibleCourseCounts={visibleCourseCounts}
+                onLoadMoreCourses={onLoadMoreCourses}
+                searchTerm={searchTerm}
+                currentSchoolId={currentSchoolId || null}
+                onSetCurrentSchool={onSetCurrentSchool}
+                onToggleStar={onToggleStar}
+                matchingNodeIds={matchingNodeIds}
+                pathNodeIds={pathNodeIds}
+                isFirstMatch={isFirstMatch && index === 0 && matchingNodeIds?.has(child.id)}
+                departmentMajors={departmentMajors}
+                majorCourses={majorCourses}
+                loadedMajorsWithNoCourses={loadedMajorsWithNoCourses}
+              />
+            ))
+          ) : node.type === "department" || node.type === "major" ? (
+            <div
+              className="text-sm text-muted-foreground py-2"
+              style={{ paddingLeft: `${16 + (level + 1) * 24}px` }}
+            >
+              加载中...
+            </div>
+          ) : null}
 
           {showLoadMore && (
             <button
@@ -695,6 +747,11 @@ interface TreeViewProps {
   onAddSchool?: (newSchool: Omit<TreeNode, "id">) => void
   currentSchoolId?: string | null
   onSetCurrentSchool?: (schoolId: string) => void
+  onUpdateNode?: (nodeId: string, updates: Partial<TreeNode>) => void
+  isCollapsed?: boolean
+  onToggleCollapse?: () => void
+  onDepartmentMajorsChange?: (majors: Map<string, TreeNode[]>) => void
+  onMajorCoursesChange?: (courses: Map<string, TreeNode[]>) => void
 }
 
 export function TreeView({
@@ -704,6 +761,11 @@ export function TreeView({
   onAddSchool,
   currentSchoolId,
   onSetCurrentSchool,
+  onUpdateNode,
+  isCollapsed = false,
+  onToggleCollapse,
+  onDepartmentMajorsChange,
+  onMajorCoursesChange,
 }: TreeViewProps): ReactElement {
   // 如果treeData为null,返回空状态
   if (!treeData) {
@@ -720,8 +782,36 @@ export function TreeView({
   const [newSchoolName, setNewSchoolName] = useState("")
   const [newSchoolDesc, setNewSchoolDesc] = useState("")
   const [newSchoolType, setNewSchoolType] = useState<"school" | "workshop">("school")
+  // 跟踪已加载专业数据的department节点
+  const [loadedDepartments, setLoadedDepartments] = useState<Set<string>>(new Set())
+  // 存储动态加载的专业数据
+  const [departmentMajors, setDepartmentMajors] = useState<Map<string, TreeNode[]>>(new Map())
+  // 跟踪已加载课程数据的major节点
+  const [loadedMajors, setLoadedMajors] = useState<Set<string>>(new Set())
+  // 存储动态加载的课程数据
+  const [majorCourses, setMajorCourses] = useState<Map<string, TreeNode[]>>(new Map())
+  // 跟踪已加载但没有课程的major节点
+  const [loadedMajorsWithNoCourses, setLoadedMajorsWithNoCourses] = useState<Set<string>>(new Set())
 
-  const handleToggleExpand = (nodeId: string) => {
+  // 当departmentMajors变化时通知父组件
+  useEffect(() => {
+    if (onDepartmentMajorsChange) {
+      onDepartmentMajorsChange(departmentMajors)
+    }
+  }, [departmentMajors, onDepartmentMajorsChange])
+
+  // 当majorCourses变化时通知父组件
+  useEffect(() => {
+    if (onMajorCoursesChange) {
+      onMajorCoursesChange(majorCourses)
+    }
+  }, [majorCourses, onMajorCoursesChange])
+
+  const handleToggleExpand = async (nodeId: string) => {
+    // 检查当前是否已展开
+    const isCurrentlyExpanded = expandedNodes.has(nodeId)
+
+    // 切换展开状态
     setExpandedNodes((prev) => {
       const newSet = new Set(prev)
       if (newSet.has(nodeId)) {
@@ -731,6 +821,88 @@ export function TreeView({
       }
       return newSet
     })
+
+    // 只在展开时才加载数据（收起时不需要加载）
+    if (isCurrentlyExpanded) {
+      return
+    }
+
+    // 查找节点（包括动态加载的节点）
+    const findNodeById = (node: TreeNode, targetId: string): TreeNode | null => {
+      if (node.id === targetId) return node
+      if (node.children) {
+        for (const child of node.children) {
+          const found = findNodeById(child, targetId)
+          if (found) return found
+        }
+      }
+      return null
+    }
+
+    let node = findNodeById(treeData, nodeId)
+
+    // 如果在treeData中没找到，尝试在动态加载的专业数据中查找
+    if (!node) {
+      for (const [deptId, majors] of departmentMajors.entries()) {
+        const found = majors.find(m => m.id === nodeId)
+        if (found) {
+          node = found
+          break
+        }
+      }
+    }
+
+    // 如果是department节点且未加载过专业数据，则加载
+    if (node && node.type === "department" && !loadedDepartments.has(nodeId)) {
+      console.log(`[v0] 加载department ${nodeId} 的专业数据`)
+      const response = await api.tree.getDepartmentMajors(nodeId)
+
+      if (response.data && response.data.length > 0) {
+        console.log(`[v0] 成功加载 ${response.data.length} 个专业`)
+        setDepartmentMajors((prev) => {
+          const newMap = new Map(prev)
+          newMap.set(nodeId, response.data!)
+          return newMap
+        })
+        setLoadedDepartments((prev) => new Set(prev).add(nodeId))
+      } else {
+        console.log(`[v0] 未找到专业数据或加载失败:`, response.error)
+      }
+    }
+
+    // 如果是major节点且未加载过课程数据，则加载
+    if (node && node.type === "major" && !loadedMajors.has(nodeId)) {
+      console.log(`[v0] handleToggleExpand: 开始加载major ${nodeId} 的课程数据`)
+      console.log(`[v0] handleToggleExpand: node.metadata =`, node.metadata)
+      // 从metadata中获取majorId
+      const majorId = node.metadata?.majorId || nodeId.replace("major-", "")
+      console.log(`[v0] handleToggleExpand: 使用majorId = ${majorId}`)
+
+      const response = await api.tree.getMajorCourses(majorId)
+      console.log(`[v0] handleToggleExpand: API响应 =`, response)
+
+      if (response.data && response.data.length > 0) {
+        console.log(`[v0] handleToggleExpand: 成功加载 ${response.data.length} 个课程，准备更新状态`)
+        console.log(`[v0] handleToggleExpand: 前3个课程 =`, response.data.slice(0, 3).map(c => ({ id: c.id, name: c.name })))
+
+        setMajorCourses((prev) => {
+          const newMap = new Map(prev)
+          newMap.set(nodeId, response.data!)
+          console.log(`[v0] handleToggleExpand: 更新majorCourses, nodeId=${nodeId}, 课程数=${response.data!.length}`)
+          console.log(`[v0] handleToggleExpand: majorCourses.has(${nodeId}) =`, newMap.has(nodeId))
+          return newMap
+        })
+        setLoadedMajors((prev) => new Set(prev).add(nodeId))
+        console.log(`[v0] handleToggleExpand: 状态更新完成`)
+      } else if (response.data && response.data.length === 0) {
+        console.log(`[v0] handleToggleExpand: 该专业没有课程数据`)
+        // 标记为已加载但无课程
+        setLoadedMajorsWithNoCourses((prev) => new Set(prev).add(nodeId))
+        setLoadedMajors((prev) => new Set(prev).add(nodeId))
+      } else {
+        console.log(`[v0] handleToggleExpand: 加载课程数据失败:`, response.error)
+      }
+    }
   }
 
   const handleLoadMoreCourses = (majorId: string) => {
@@ -756,6 +928,32 @@ export function TreeView({
     setNewSchoolDesc("")
     setNewSchoolType("school")
     setIsAddSchoolDialogOpen(false)
+  }
+
+  // 处理星标切换，确保只有一个一级节点被星标
+  const handleToggleStar = (nodeId: string) => {
+    if (!onUpdateNode || !treeData.children) return
+
+    // 找到要切换星标的节点
+    const targetNode = treeData.children.find(child => child.id === nodeId)
+    if (!targetNode) return
+
+    const isCurrentlyStarred = targetNode.isStarred || false
+
+    // 如果当前节点未被星标，则取消所有其他节点的星标，并设置当前节点为星标
+    if (!isCurrentlyStarred) {
+      // 取消所有一级节点的星标
+      treeData.children.forEach(child => {
+        if (child.isStarred) {
+          onUpdateNode(child.id, { isStarred: false })
+        }
+      })
+      // 设置当前节点为星标
+      onUpdateNode(nodeId, { isStarred: true })
+    } else {
+      // 如果当前节点已被星标，则取消星标
+      onUpdateNode(nodeId, { isStarred: false })
+    }
   }
 
   useEffect(() => {
@@ -837,8 +1035,75 @@ export function TreeView({
   }, [matchingNodeIds])
 
   return (
-    <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl p-6">
-      <div className="mb-4">
+    <>
+      {/* 展开/收起按钮 - 压在右边框中间 */}
+      {onToggleCollapse && (
+        <button
+          onClick={onToggleCollapse}
+          className="absolute top-1/2 -right-3 -translate-y-1/2 z-20 w-6 h-6 bg-card border border-border rounded-full shadow-md hover:bg-primary hover:border-primary transition-all flex items-center justify-center group"
+          aria-label={isCollapsed ? "展开侧边栏" : "收起侧边栏"}
+        >
+          {isCollapsed ? (
+            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-white transition-colors" />
+          ) : (
+            <ChevronLeft className="w-3.5 h-3.5 text-muted-foreground group-hover:text-white transition-colors" />
+          )}
+        </button>
+      )}
+
+      {/* 收起状态下显示搜索图标和一级节点图标 */}
+      {isCollapsed && (
+        <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl p-2 h-full flex flex-col items-center">
+          {/* 搜索图标 */}
+          {onToggleCollapse && (
+            <button
+              onClick={onToggleCollapse}
+              className="w-12 h-12 flex items-center justify-center hover:bg-primary rounded-md transition-all group flex-shrink-0"
+              aria-label="展开侧边栏"
+            >
+              <Search className="w-5 h-5 text-muted-foreground group-hover:text-white transition-colors" />
+            </button>
+          )}
+
+          {/* 分隔线 */}
+          {treeData.children && treeData.children.length > 0 && (
+            <div className="w-full h-px bg-border my-2 flex-shrink-0" />
+          )}
+
+          {/* 一级节点图标列表 - 可滚动区域 */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden w-full flex flex-col items-center gap-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent py-2 px-1">
+            {treeData.children?.map((child) => {
+              const Icon = getIcon(child.type)
+              const isSelected = selectedNode?.id === child.id
+              const isStarred = child.isStarred || false
+
+              return (
+                <div key={child.id} className="relative flex-shrink-0">
+                  <button
+                    onClick={() => onNodeSelect(child)}
+                    className={cn(
+                      "w-12 h-12 flex items-center justify-center rounded-md transition-all group",
+                      isSelected
+                        ? "bg-primary text-white shadow-md"
+                        : "hover:bg-primary text-muted-foreground hover:text-white hover:shadow-md"
+                    )}
+                    aria-label={child.name}
+                    title={child.name}
+                  >
+                    <Icon className="w-5 h-5 transition-colors" />
+                  </button>
+                  {isStarred && (
+                    <div className="absolute top-0.5 right-0.5 w-2.5 h-2.5 bg-yellow-500 rounded-full border border-card shadow-sm" />
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className={cn("rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl p-6", isCollapsed && "hidden")}>
+        <div className="mb-4">
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -925,12 +1190,17 @@ export function TreeView({
             searchTerm={searchTerm}
             currentSchoolId={currentSchoolId || null}
             onSetCurrentSchool={onSetCurrentSchool}
+            onToggleStar={handleToggleStar}
             matchingNodeIds={matchingNodeIds}
             pathNodeIds={pathNodeIds}
             isFirstMatch={child.id === firstMatchId}
+            departmentMajors={departmentMajors}
+            majorCourses={majorCourses}
+            loadedMajorsWithNoCourses={loadedMajorsWithNoCourses}
           />
         ))}
       </div>
-    </div>
+      </div>
+    </>
   )
 }

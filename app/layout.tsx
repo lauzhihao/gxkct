@@ -6,8 +6,15 @@ import "./globals.css"
 import { Toaster } from "@/components/ui/toaster"
 import { DataInitializer } from "@/components/data-initializer"
 
-const _geist = Geist({ subsets: ["latin"] })
-const _geistMono = Geist_Mono({ subsets: ["latin"] })
+const geist = Geist({
+  subsets: ["latin"],
+  variable: "--font-sans",
+})
+
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+})
 
 export const metadata: Metadata = {
   title: "v0 App",
@@ -22,7 +29,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`font-sans antialiased`}>
+      <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased`}>
         <DataInitializer>{children}</DataInitializer>
         {/* <Analytics /> */}
         <Toaster />

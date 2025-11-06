@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -22,6 +22,19 @@ import {
 import { Card } from "@/components/ui/card"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useToast } from "@/hooks/use-toast"
+import worksJsonData from "@/mock-data/works.json"
+
+interface WorkCategory {
+  value: string
+  label: string
+  children: WorkCategory[]
+}
+
+interface WorksData {
+  code: string
+  message: string
+  data: WorkCategory[]
+}
 
 interface CareerInfo {
   id: string
@@ -47,25 +60,6 @@ interface AddMajorFormProps {
   onSubmit: (majorData: any) => void
   initialData?: any
   isEditMode?: boolean
-}
-
-const careerDirectionData = {
-  信息技术: {
-    软件开发: {
-      前端开发: ["Web前端", "移动端开发", "小程序开发"],
-      后端开发: ["Java开发", "Python开发", "Node.js开发"],
-    },
-    数据分析: {
-      数据挖掘: ["机器学习", "深度学习", "数据建模"],
-      商业智能: ["BI分析", "数据可视化", "报表开发"],
-    },
-  },
-  制造业: {
-    机械设计: {
-      产品设计: ["工业设计", "结构设计", "模具设计"],
-      工艺设计: ["加工工艺", "装配工艺", "检测工艺"],
-    },
-  },
 }
 
 const provinces = [
@@ -110,6 +104,9 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
 
   const [isLoading, setIsLoading] = useState(false)
 
+  // 从导入的JSON文件中获取职业方向数据
+  const worksData = (worksJsonData as WorksData).data || []
+
   const [majorCode, setMajorCode] = useState(initialData?.metadata?.code || "")
   const [majorName, setMajorName] = useState(initialData?.name || "")
   const [majorLevel, setMajorLevel] = useState(initialData?.metadata?.level || "本科")
@@ -126,6 +123,10 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
     ],
   )
 
+  // 职业方向搜索相关状态
+  const [careerSearchMap, setCareerSearchMap] = useState<{ [key: string]: string }>({})
+  const [careerPopoverOpenMap, setCareerPopoverOpenMap] = useState<{ [key: string]: boolean }>({})
+
   const [demandStatus, setDemandStatus] = useState(initialData?.metadata?.demandStatus || "全部状况")
   const [selectedProvince, setSelectedProvince] = useState(initialData?.metadata?.selectedProvince || "")
   const [provinceSearch, setProvinceSearch] = useState("")
@@ -139,6 +140,93 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
 
   const lastRequirementRef = useRef<HTMLInputElement>(null)
   const lastIndicatorRefs = useRef<{ [key: string]: HTMLInputElement | null }>({})
+
+  // 根据选择的分类获取子分类
+  const getCategory2Options = (category1Label: string): WorkCategory[] => {
+    const category1 = worksData.find(item => item.label === category1Label)
+    return category1?.children || []
+  }
+
+  const getCategory3Options = (category1Label: string, category2Label: string): WorkCategory[] => {
+    const category1 = worksData.find(item => item.label === category1Label)
+    const category2 = category1?.children.find(item => item.label === category2Label)
+    return category2?.children || []
+  }
+
+  const getCategory4Options = (category1Label: string, category2Label: string, category3Label: string): WorkCategory[] => {
+    const category1 = worksData.find(item => item.label === category1Label)
+    const category2 = category1?.children.find(item => item.label === category2Label)
+    const category3 = category2?.children.find(item => item.label === category3Label)
+    return category3?.children || []
+  }
+
+  // 搜索职业方向（递归搜索所有层级，只返回第4级的完整路径）
+  interface SearchResult {
+    category1: WorkCategory
+    category2: WorkCategory
+    category3: WorkCategory
+    category4: WorkCategory
+    matchedText: string // 匹配到的文本
+    matchLevel: number // 1-4 表示匹配在第几级
+  }
+
+  const searchCareerDirection = (searchText: string): SearchResult[] => {
+    if (!searchText.trim()) return []
+
+    const results: SearchResult[] = []
+    const lowerSearch = searchText.toLowerCase()
+
+    worksData.forEach(cat1 => {
+      cat1.children?.forEach(cat2 => {
+        cat2.children?.forEach(cat3 => {
+          cat3.children?.forEach(cat4 => {
+            // 检查任意层级是否匹配
+            let matchLevel = 0
+            let matchedText = ''
+
+            if (cat4.label.toLowerCase().includes(lowerSearch)) {
+              matchLevel = 4
+              matchedText = cat4.label
+            } else if (cat3.label.toLowerCase().includes(lowerSearch)) {
+              matchLevel = 3
+              matchedText = cat3.label
+            } else if (cat2.label.toLowerCase().includes(lowerSearch)) {
+              matchLevel = 2
+              matchedText = cat2.label
+            } else if (cat1.label.toLowerCase().includes(lowerSearch)) {
+              matchLevel = 1
+              matchedText = cat1.label
+            }
+
+            if (matchLevel > 0) {
+              results.push({
+                category1: cat1,
+                category2: cat2,
+                category3: cat3,
+                category4: cat4,
+                matchedText,
+                matchLevel
+              })
+            }
+          })
+        })
+      })
+    })
+
+    return results
+  }
+
+  // 高亮搜索文本
+  const highlightText = (text: string, search: string) => {
+    if (!search.trim()) return text
+
+    const parts = text.split(new RegExp(`(${search})`, 'gi'))
+    return parts.map((part, index) =>
+      part.toLowerCase() === search.toLowerCase()
+        ? <mark key={index} className="bg-yellow-200 text-black group-hover:bg-yellow-400 group-hover:text-white">{part}</mark>
+        : part
+    )
+  }
 
   const addCareerInfo = () => {
     setCareerInfoList([
@@ -445,7 +533,15 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>职业方向</Label>
-                    <Popover>
+                    <Popover
+                      open={careerPopoverOpenMap[careerInfo.id]}
+                      onOpenChange={(open) => {
+                        setCareerPopoverOpenMap(prev => ({ ...prev, [careerInfo.id]: open }))
+                        if (!open) {
+                          setCareerSearchMap(prev => ({ ...prev, [careerInfo.id]: '' }))
+                        }
+                      }}
+                    >
                       <PopoverTrigger asChild>
                         <Button variant="outline" className="w-full justify-between bg-transparent">
                           <span className="truncate">
@@ -460,118 +556,174 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
-                        <div className="flex divide-x">
-                          <div className="p-2 space-y-1 max-h-[300px] overflow-y-auto w-[150px]">
-                            {Object.keys(careerDirectionData).map((key) => (
-                              <button
-                                key={key}
-                                onClick={() =>
-                                  updateCareerInfo(careerInfo.id, "direction", {
-                                    category1: key,
-                                    category2: "",
-                                    category3: "",
-                                    category4: "",
-                                  })
-                                }
-                                className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-accent flex items-center justify-between ${
-                                  careerInfo.direction.category1 === key
-                                    ? "bg-[var(--naive-primary)] text-white hover:bg-[var(--naive-primary-dark)]"
-                                    : ""
-                                }`}
-                              >
-                                <span>{key}</span>
-                                <ChevronRight className="w-3 h-3 flex-shrink-0" />
-                              </button>
-                            ))}
+                        {/* 搜索框 */}
+                        <div className="p-3 border-b">
+                          <div className="relative">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Input
+                              placeholder="搜索职业方向..."
+                              value={careerSearchMap[careerInfo.id] || ''}
+                              onChange={(e) => setCareerSearchMap(prev => ({ ...prev, [careerInfo.id]: e.target.value }))}
+                              className="pl-8 h-8"
+                            />
                           </div>
+                        </div>
 
-                          {careerInfo.direction.category1 && (
-                            <div className="p-2 space-y-1 max-h-[300px] overflow-y-auto w-[150px]">
-                              {Object.keys(
-                                careerDirectionData[careerInfo.direction.category1 as keyof typeof careerDirectionData],
-                              ).map((key) => (
+                        {/* 搜索结果 */}
+                        {careerSearchMap[careerInfo.id]?.trim() ? (
+                          <div className="p-2 max-h-[400px] overflow-y-auto w-[500px]">
+                            {searchCareerDirection(careerSearchMap[careerInfo.id]).length > 0 ? (
+                              <div className="space-y-1">
+                                {searchCareerDirection(careerSearchMap[careerInfo.id]).map((result, index) => (
+                                  <button
+                                    key={index}
+                                    onClick={() => {
+                                      updateCareerInfo(careerInfo.id, "direction", {
+                                        category1: result.category1.label,
+                                        category2: result.category2.label,
+                                        category3: result.category3.label,
+                                        category4: result.category4.label,
+                                      })
+                                      setCareerPopoverOpenMap(prev => ({ ...prev, [careerInfo.id]: false }))
+                                      setCareerSearchMap(prev => ({ ...prev, [careerInfo.id]: '' }))
+                                    }}
+                                    className="w-full text-left px-3 py-2 rounded text-sm hover:bg-primary transition-colors group"
+                                  >
+                                    <div className="flex items-center gap-2 text-xs group-hover:text-white/90">
+                                      <span className={result.matchLevel === 1 ? 'font-medium' : ''}>
+                                        {result.matchLevel === 1 ? highlightText(result.category1.label, careerSearchMap[careerInfo.id]) : result.category1.label}
+                                      </span>
+                                      <span className="text-muted-foreground group-hover:text-white/60">/</span>
+                                      <span className={result.matchLevel === 2 ? 'font-medium' : ''}>
+                                        {result.matchLevel === 2 ? highlightText(result.category2.label, careerSearchMap[careerInfo.id]) : result.category2.label}
+                                      </span>
+                                      <span className="text-muted-foreground group-hover:text-white/60">/</span>
+                                      <span className={result.matchLevel === 3 ? 'font-medium' : ''}>
+                                        {result.matchLevel === 3 ? highlightText(result.category3.label, careerSearchMap[careerInfo.id]) : result.category3.label}
+                                      </span>
+                                      <span className="text-muted-foreground group-hover:text-white/60">/</span>
+                                      <span className={result.matchLevel === 4 ? 'font-medium' : ''}>
+                                        {result.matchLevel === 4 ? highlightText(result.category4.label, careerSearchMap[careerInfo.id]) : result.category4.label}
+                                      </span>
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-center py-8 text-sm text-muted-foreground">
+                                未找到匹配的职业方向
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          /* 级联选择器 */
+                          <div className="flex divide-x">
+                            <div className="p-2 space-y-1 max-h-[400px] overflow-y-auto min-w-[180px] max-w-[280px]">
+                              {worksData.map((category) => (
                                 <button
-                                  key={key}
+                                  key={category.value}
                                   onClick={() =>
                                     updateCareerInfo(careerInfo.id, "direction", {
-                                      ...careerInfo.direction,
-                                      category2: key,
+                                      category1: category.label,
+                                      category2: "",
                                       category3: "",
                                       category4: "",
                                     })
                                   }
-                                  className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-accent flex items-center justify-between ${
-                                    careerInfo.direction.category2 === key
-                                      ? "bg-[var(--naive-primary)] text-white hover:bg-[var(--naive-primary-dark)]"
-                                      : ""
+                                  className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center justify-between ${
+                                    careerInfo.direction.category1 === category.label
+                                      ? "bg-primary text-white"
+                                      : "hover:bg-primary hover:text-white"
                                   }`}
                                 >
-                                  <span>{key}</span>
+                                  <span className="flex-1 break-words pr-2">{category.label}</span>
                                   <ChevronRight className="w-3 h-3 flex-shrink-0" />
                                 </button>
                               ))}
                             </div>
-                          )}
 
-                          {careerInfo.direction.category1 && careerInfo.direction.category2 && (
-                            <div className="p-2 space-y-1 max-h-[300px] overflow-y-auto w-[150px]">
-                              {Object.keys(
-                                careerDirectionData[careerInfo.direction.category1 as keyof typeof careerDirectionData][
-                                  careerInfo.direction.category2 as any
-                                ],
-                              ).map((key) => (
-                                <button
-                                  key={key}
-                                  onClick={() =>
-                                    updateCareerInfo(careerInfo.id, "direction", {
-                                      ...careerInfo.direction,
-                                      category3: key,
-                                      category4: "",
-                                    })
-                                  }
-                                  className={`w-full text-left px-3 py-2 rounded text-sm ${
-                                    careerInfo.direction.category3 === key
-                                      ? "bg-[var(--naive-primary)] text-white hover:bg-[var(--naive-primary-dark)]"
-                                      : ""
-                                  }`}
-                                >
-                                  {key}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-
-                          {careerInfo.direction.category1 &&
-                            careerInfo.direction.category2 &&
-                            careerInfo.direction.category3 && (
-                              <div className="p-2 space-y-1 max-h-[300px] overflow-y-auto w-[150px]">
-                                {(
-                                  careerDirectionData[
-                                    careerInfo.direction.category1 as keyof typeof careerDirectionData
-                                  ][careerInfo.direction.category2 as any][
-                                    careerInfo.direction.category3 as any
-                                  ] as string[]
-                                ).map((item) => (
+                            {careerInfo.direction.category1 && (
+                              <div className="p-2 space-y-1 max-h-[400px] overflow-y-auto min-w-[180px] max-w-[280px]">
+                                {getCategory2Options(careerInfo.direction.category1).map((category) => (
                                   <button
-                                    key={item}
+                                    key={category.value}
                                     onClick={() =>
                                       updateCareerInfo(careerInfo.id, "direction", {
                                         ...careerInfo.direction,
-                                        category4: item,
+                                        category2: category.label,
+                                        category3: "",
+                                        category4: "",
                                       })
                                     }
-                                    className={`w-full text-left px-3 py-2 rounded text-sm ${
-                                      careerInfo.direction.category4 === item
-                                        ? "bg-[var(--naive-primary)] text-white hover:bg-[var(--naive-primary-dark)]"
-                                        : ""
+                                    className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center justify-between ${
+                                      careerInfo.direction.category2 === category.label
+                                        ? "bg-primary text-white"
+                                        : "hover:bg-primary hover:text-white"
                                     }`}
                                   >
-                                    {item}
+                                    <span className="flex-1 break-words pr-2">{category.label}</span>
+                                    <ChevronRight className="w-3 h-3 flex-shrink-0" />
                                   </button>
                                 ))}
                               </div>
                             )}
-                        </div>
+
+                            {careerInfo.direction.category1 && careerInfo.direction.category2 && (
+                              <div className="p-2 space-y-1 max-h-[400px] overflow-y-auto min-w-[180px] max-w-[280px]">
+                                {getCategory3Options(careerInfo.direction.category1, careerInfo.direction.category2).map((category) => (
+                                  <button
+                                    key={category.value}
+                                    onClick={() =>
+                                      updateCareerInfo(careerInfo.id, "direction", {
+                                        ...careerInfo.direction,
+                                        category3: category.label,
+                                        category4: "",
+                                      })
+                                    }
+                                    className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center justify-between ${
+                                      careerInfo.direction.category3 === category.label
+                                        ? "bg-primary text-white"
+                                        : "hover:bg-primary hover:text-white"
+                                    }`}
+                                  >
+                                    <span className="flex-1 break-words pr-2">{category.label}</span>
+                                    <ChevronRight className="w-3 h-3 flex-shrink-0" />
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+
+                            {careerInfo.direction.category1 &&
+                              careerInfo.direction.category2 &&
+                              careerInfo.direction.category3 && (
+                                <div className="p-2 space-y-1 max-h-[400px] overflow-y-auto min-w-[180px] max-w-[280px]">
+                                  {getCategory4Options(
+                                    careerInfo.direction.category1,
+                                    careerInfo.direction.category2,
+                                    careerInfo.direction.category3
+                                  ).map((category) => (
+                                    <button
+                                      key={category.value}
+                                      onClick={() => {
+                                        updateCareerInfo(careerInfo.id, "direction", {
+                                          ...careerInfo.direction,
+                                          category4: category.label,
+                                        })
+                                        setCareerPopoverOpenMap(prev => ({ ...prev, [careerInfo.id]: false }))
+                                      }}
+                                      className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                                        careerInfo.direction.category4 === category.label
+                                          ? "bg-primary text-white"
+                                          : "hover:bg-primary hover:text-white"
+                                      }`}
+                                    >
+                                      <span className="flex-1 break-words">{category.label}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                          </div>
+                        )}
                       </PopoverContent>
                     </Popover>
                   </div>

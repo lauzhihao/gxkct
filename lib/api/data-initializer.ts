@@ -2,11 +2,13 @@ import universitiesData from "@/mock-data/universities.json"
 import departmentsData from "@/mock-data/departments.json"
 import majorsData from "@/mock-data/majors.json"
 import coursesData from "@/mock-data/courses.json"
+import collegesData from "@/mock-data/colleges.json"
 import usersData from "@/mock-data/users.json"
 import courseMatricesData from "@/mock-data/course-matrices.json"
 import projectMatricesData from "@/mock-data/project-matrices.json"
 import courseResourcesData from "@/mock-data/course-resources.json"
 import type { TreeNode } from "@/types"
+import type { BackendResponse } from "./types"
 
 const STORAGE_PREFIX = "education-api-"
 
@@ -20,10 +22,115 @@ const STORAGE_KEYS = {
 }
 
 /**
- * 构建树形结构数据
+ * 从colleges.json适配数据到树形结构
+ */
+function buildTreeDataFromColleges(): TreeNode {
+  // 类型断言为后端响应格式
+  const backendResponse = collegesData as BackendResponse<{
+    colleges: Array<{
+      college: {
+        id: number
+        name: string
+        image: string
+        collegeType: string
+      }
+      departments: Array<{
+        id: number
+        collegeId: number
+        name: string
+        type: string | null
+      }>
+      permissionId: number
+      relativeId: number
+    }>
+    current?: any
+  }>
+
+  // 检查响应是否成功
+  if (backendResponse.code !== "0" || !backendResponse.data) {
+    console.error("[v0] colleges.json数据格式错误或code非0")
+    return {
+      id: "root",
+      name: "根节点",
+      type: "university" as const,
+      children: [],
+      metadata: {},
+    }
+  }
+
+  const { colleges } = backendResponse.data
+
+  // 过滤出collegeType为"1"的数据
+  const filteredColleges = colleges.filter((item) => item.college.collegeType === "1")
+
+  console.log(`[v0] colleges.json总数: ${colleges.length}, 过滤后(collegeType=1): ${filteredColleges.length}`)
+
+  // 使用Map去重，以college.id为键
+  const collegeMap = new Map<number, {
+    college: any
+    departments: any[]
+    permissionId: number
+    relativeId: number
+  }>()
+
+  filteredColleges.forEach((item) => {
+    const collegeId = item.college.id
+    if (!collegeMap.has(collegeId)) {
+      collegeMap.set(collegeId, item)
+    } else {
+      // 如果已存在，合并departments（去重）
+      const existing = collegeMap.get(collegeId)!
+      const existingDeptIds = new Set(existing.departments.map(d => d.id))
+      const newDepts = item.departments.filter(d => !existingDeptIds.has(d.id))
+      existing.departments.push(...newDepts)
+    }
+  })
+
+  // 将去重后的colleges数据转换为树形结构
+  const universities = Array.from(collegeMap.values()).map((item) => {
+    const { college, departments } = item
+
+    // 将departments转换为子节点
+    const deptNodes = departments.map((dept) => ({
+      id: String(dept.id),
+      name: dept.name,
+      type: "department" as const,
+      children: [],
+      metadata: {
+        collegeId: dept.collegeId,
+        deptType: dept.type,
+      },
+    }))
+
+    // 创建大学/工作坊节点
+    return {
+      id: String(college.id),
+      name: college.name,
+      type: "university" as const,
+      children: deptNodes,
+      metadata: {
+        image: college.image,
+        collegeType: college.collegeType,
+        permissionId: item.permissionId,
+        relativeId: item.relativeId,
+      },
+    }
+  })
+
+  return {
+    id: "root",
+    name: "根节点",
+    type: "university" as const,
+    children: universities,
+    metadata: {},
+  }
+}
+
+/**
+ * 构建树形结构数据（旧版本，使用分离的JSON文件）
  * 直接使用JSON文件中的完整数据结构，保留所有字段
  */
-function buildTreeData(): TreeNode {
+function buildTreeDataLegacy(): TreeNode {
   const universities = (universitiesData as any[]).map((univ) => {
     // 查找该大学/工作坊下的所有院系
     const univDepartments = (departmentsData as any[])
@@ -69,6 +176,20 @@ function buildTreeData(): TreeNode {
     type: "university" as const,
     children: universities,
     metadata: {},
+  }
+}
+
+/**
+ * 构建树形结构数据
+ * 优先使用colleges.json，如果不存在则使用旧版本的分离JSON文件
+ */
+function buildTreeData(): TreeNode {
+  try {
+    // 优先使用colleges.json
+    return buildTreeDataFromColleges()
+  } catch (error) {
+    console.warn("[v0] 使用colleges.json失败，回退到旧版本数据:", error)
+    return buildTreeDataLegacy()
   }
 }
 
