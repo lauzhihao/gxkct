@@ -1,6 +1,5 @@
 import universitiesData from "@/mock-data/universities.json"
 import departmentsData from "@/mock-data/departments.json"
-import majorsData from "@/mock-data/majors.json"
 import coursesData from "@/mock-data/courses.json"
 import collegesData from "@/mock-data/colleges.json"
 import usersData from "@/mock-data/users.json"
@@ -128,7 +127,8 @@ function buildTreeDataFromColleges(): TreeNode {
 
 /**
  * 构建树形结构数据（旧版本，使用分离的JSON文件）
- * 直接使用JSON文件中的完整数据结构，保留所有字段
+ * 注意：专业数据不再从majors.json加载，而是通过API动态加载
+ * 专业的metadata格式使用major-detail.json的格式
  */
 function buildTreeDataLegacy(): TreeNode {
   const universities = (universitiesData as any[]).map((univ) => {
@@ -136,30 +136,11 @@ function buildTreeDataLegacy(): TreeNode {
     const univDepartments = (departmentsData as any[])
       .filter((dept) => dept.universityId === univ.id)
       .map((dept) => {
-        // 查找该院系下的所有专业
-        const deptMajors = (majorsData as any[])
-          .filter((major) => major.departmentId === dept.id)
-          .map((major) => {
-            // 查找该专业下的所有课程
-            const majorCourses = (coursesData as any[])
-              .filter((course) => course.majorId === major.id)
-              .map((course) => ({
-                // 直接使用课程的完整数据，保留所有字段
-                ...course,
-                children: course.children || [],
-              }))
-
-            // 直接使用专业的完整数据，保留所有字段
-            return {
-              ...major,
-              children: majorCourses,
-            }
-          })
-
+        // 院系下的专业将通过API动态加载，这里不再预加载
         // 直接使用院系的完整数据，保留所有字段
         return {
           ...dept,
-          children: deptMajors,
+          children: [], // 专业将通过getDepartmentMajors API动态加载
         }
       })
 

@@ -1036,6 +1036,21 @@ export function TreeView({
 
   return (
     <>
+      {/* 展开/收起按钮 - 压在顶部边框中间 */}
+      {onToggleCollapse && (
+        <button
+          onClick={onToggleCollapse}
+          className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-6 h-6 bg-card border border-border rounded-full shadow-md hover:bg-primary hover:border-primary transition-all flex items-center justify-center group"
+          aria-label={isCollapsed ? "展开侧边栏" : "收起侧边栏"}
+        >
+          {isCollapsed ? (
+            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-white transition-colors" />
+          ) : (
+            <ChevronLeft className="w-3.5 h-3.5 text-muted-foreground group-hover:text-white transition-colors" />
+          )}
+        </button>
+      )}
+
       {/* 展开/收起按钮 - 压在右边框中间 */}
       {onToggleCollapse && (
         <button

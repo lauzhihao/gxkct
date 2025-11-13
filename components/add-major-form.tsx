@@ -107,34 +107,75 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
   // 从导入的JSON文件中获取职业方向数据
   const worksData = (worksJsonData as WorksData).data || []
 
-  const [majorCode, setMajorCode] = useState(initialData?.metadata?.code || "")
+  const [majorCode, setMajorCode] = useState(initialData?.metadata?.majorClass || initialData?.metadata?.code || "")
   const [majorName, setMajorName] = useState(initialData?.name || "")
-  const [majorLevel, setMajorLevel] = useState(initialData?.metadata?.level || "本科")
-  const [educationalFeatures, setEducationalFeatures] = useState(initialData?.description || "")
+  const [majorLevel, setMajorLevel] = useState(initialData?.metadata?.majorLevel || "1")
+  const [educationalFeatures, setEducationalFeatures] = useState(initialData?.metadata?.feature || "")
 
-  const [careerInfoList, setCareerInfoList] = useState<CareerInfo[]>(
-    initialData?.metadata?.careerInfo || [
-      {
-        id: "1",
+  // 从 professionsVOS 或 careerInfo 加载职业信息
+  const loadCareerInfoList = () => {
+    if (initialData?.metadata?.professionsVOS && initialData.metadata.professionsVOS.length > 0) {
+      // 从新格式 professionsVOS 加载
+      return initialData.metadata.professionsVOS.map((professionVO: any, index: number) => ({
+        id: String(professionVO.id || index + 1),
         level: "中级",
-        direction: { category1: "", category2: "", category3: "", category4: "" },
-        tasks: "",
-      },
-    ],
-  )
+        direction: {
+          category1: professionVO.profession?.[0]?.name || "",
+          category2: professionVO.profession?.[1]?.name || "",
+          category3: professionVO.profession?.[2]?.name || "",
+          category4: professionVO.profession?.[3]?.name || "",
+        },
+        tasks: professionVO.task || "",
+      }))
+    } else if (initialData?.metadata?.careerInfo) {
+      // 从旧格式 careerInfo 加载
+      return initialData.metadata.careerInfo
+    } else {
+      // 默认值
+      return [
+        {
+          id: "1",
+          level: "中级",
+          direction: { category1: "", category2: "", category3: "", category4: "" },
+          tasks: "",
+        },
+      ]
+    }
+  }
+
+  const [careerInfoList, setCareerInfoList] = useState<CareerInfo[]>(loadCareerInfoList())
 
   // 职业方向搜索相关状态
   const [careerSearchMap, setCareerSearchMap] = useState<{ [key: string]: string }>({})
   const [careerPopoverOpenMap, setCareerPopoverOpenMap] = useState<{ [key: string]: boolean }>({})
 
-  const [demandStatus, setDemandStatus] = useState(initialData?.metadata?.demandStatus || "全部状况")
-  const [selectedProvince, setSelectedProvince] = useState(initialData?.metadata?.selectedProvince || "")
+  const [careerLevel, setCareerLevel] = useState(initialData?.metadata?.careerLevel || "全部")
+  const [demandType, setDemandType] = useState(initialData?.metadata?.demandType || "")
+  const [demandArea, setDemandArea] = useState(initialData?.metadata?.demandArea || "")
   const [provinceSearch, setProvinceSearch] = useState("")
   const [provincePopoverOpen, setProvincePopoverOpen] = useState(false)
-  const [trainingObjectives, setTrainingObjectives] = useState(initialData?.metadata?.trainingObjectives || "")
+  const [position, setPosition] = useState(initialData?.metadata?.position || "")
+
+  // 从 requiresVOS 或 graduationRequirements 加载毕业要求
+  const loadGraduationRequirements = () => {
+    if (initialData?.metadata?.requiresVOS && initialData.metadata.requiresVOS.length > 0) {
+      // 从新格式 requiresVOS 加载
+      return initialData.metadata.requiresVOS.map((requireVO: any) => ({
+        id: String(requireVO.id),
+        content: requireVO.description || "",
+        indicators: requireVO.children?.map((child: any) => child.description || "") || [""],
+      }))
+    } else if (initialData?.metadata?.graduationRequirements) {
+      // 从旧格式 graduationRequirements 加载
+      return initialData.metadata.graduationRequirements
+    } else {
+      // 默认值
+      return [{ id: "1", content: "", indicators: [""] }]
+    }
+  }
 
   const [graduationRequirements, setGraduationRequirements] = useState<GraduationRequirement[]>(
-    initialData?.metadata?.graduationRequirements || [{ id: "1", content: "", indicators: [""] }],
+    loadGraduationRequirements(),
   )
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
 
@@ -320,18 +361,91 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
       return
     }
 
+    // 将 careerInfoList 转换为 professionsVOS 格式
+    const professionsVOS = careerInfoList.map((careerInfo, index) => {
+      const profession = []
+
+      // 从 worksData 中查找对应的职业层级信息
+      if (careerInfo.direction.category1) {
+        const cat1 = worksData.find(item => item.label === careerInfo.direction.category1)
+        if (cat1) {
+          profession.push({
+            id: parseInt(cat1.value) || index * 1000 + 1,
+            level: 0,
+            code: cat1.value,
+            name: cat1.label,
+          })
+
+          if (careerInfo.direction.category2) {
+            const cat2 = cat1.children?.find(item => item.label === careerInfo.direction.category2)
+            if (cat2) {
+              profession.push({
+                id: parseInt(cat2.value.replace(/-/g, '')) || index * 1000 + 2,
+                level: 1,
+                code: cat2.value,
+                name: cat2.label,
+              })
+
+              if (careerInfo.direction.category3) {
+                const cat3 = cat2.children?.find(item => item.label === careerInfo.direction.category3)
+                if (cat3) {
+                  profession.push({
+                    id: parseInt(cat3.value.replace(/-/g, '')) || index * 1000 + 3,
+                    level: 2,
+                    code: cat3.value,
+                    name: cat3.label,
+                  })
+
+                  if (careerInfo.direction.category4) {
+                    const cat4 = cat3.children?.find(item => item.label === careerInfo.direction.category4)
+                    if (cat4) {
+                      profession.push({
+                        id: parseInt(cat4.value.replace(/-/g, '')) || index * 1000 + 4,
+                        level: 3,
+                        code: cat4.value,
+                        name: cat4.label,
+                      })
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      return {
+        id: parseInt(careerInfo.id) || index + 1,
+        profession: profession,
+        task: careerInfo.tasks,
+      }
+    })
+
+    // 将 graduationRequirements 转换为 requiresVOS 格式
+    const requiresVOS = graduationRequirements.map((requirement, index) => ({
+      id: parseInt(requirement.id) || index + 1,
+      description: requirement.content,
+      children: requirement.indicators.map((indicator, indIndex) => ({
+        id: parseInt(requirement.id) * 1000 + indIndex + 1,
+        description: indicator,
+        children: null,
+      })),
+    }))
+
     const majorData = {
       name: majorName,
       type: "major" as const,
-      description: educationalFeatures,
       metadata: {
         code: majorCode,
-        level: majorLevel,
-        careerInfo: careerInfoList,
-        demandStatus,
-        selectedProvince,
-        trainingObjectives,
-        graduationRequirements,
+        majorClass: majorCode,
+        majorLevel: majorLevel,
+        feature: educationalFeatures,
+        careerLevel: careerLevel,
+        demandType: demandType,
+        demandArea: demandArea,
+        position: position,
+        professionsVOS: professionsVOS,
+        requiresVOS: requiresVOS,
       },
       children: initialData?.children || [],
     }
@@ -384,12 +498,12 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="major-code">
-                专业代码 <span className="text-red-500">*</span>
+                专业类别 <span className="text-red-500">*</span>
               </Label>
               <div className="relative">
                 <Input
                   id="major-code"
-                  placeholder="例如：080901"
+                  placeholder="例如：120204"
                   value={majorCode}
                   onChange={(e) => setMajorCode(e.target.value.slice(0, 20))}
                   maxLength={20}
@@ -445,25 +559,25 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
               <div className="flex flex-col gap-2">
                 <Button
                   type="button"
-                  variant={majorLevel === "本科" ? "default" : "outline"}
+                  variant={majorLevel === "1" ? "default" : "outline"}
                   className="justify-center"
-                  onClick={() => setMajorLevel("本科")}
+                  onClick={() => setMajorLevel("1")}
                 >
                   本科
                 </Button>
                 <Button
                   type="button"
-                  variant={majorLevel === "高职" ? "default" : "outline"}
+                  variant={majorLevel === "2" ? "default" : "outline"}
                   className="justify-center"
-                  onClick={() => setMajorLevel("高职")}
+                  onClick={() => setMajorLevel("2")}
                 >
                   高职
                 </Button>
                 <Button
                   type="button"
-                  variant={majorLevel === "中职" ? "default" : "outline"}
+                  variant={majorLevel === "3" ? "default" : "outline"}
                   className="justify-center"
-                  onClick={() => setMajorLevel("中职")}
+                  onClick={() => setMajorLevel("3")}
                 >
                   中职
                 </Button>
@@ -472,12 +586,12 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
 
             <div className="space-y-2">
               <Label htmlFor="educational-features">
-                办学特色 <span className="text-red-500">*</span>
+                专业特色 <span className="text-red-500">*</span>
               </Label>
               <div className="relative h-[120px]">
                 <Textarea
                   id="educational-features"
-                  placeholder="简要描述专业的办学特色和优势"
+                  placeholder="简要描述专业的特色和优势"
                   value={educationalFeatures}
                   onChange={(e) => setEducationalFeatures(e.target.value.slice(0, 200))}
                   maxLength={200}
@@ -804,112 +918,54 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
           </div>
           <div className="border-t border-dashed border-border" />
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>需求状况</Label>
-              <div className="flex gap-2">
-                <div className="flex gap-2 w-1/2">
-                  <Button
-                    type="button"
-                    variant={demandStatus === "全部状况" ? "default" : "outline"}
-                    onClick={() => {
-                      setDemandStatus("全部状况")
-                      setSelectedProvince("")
-                    }}
-                    className="flex-1"
-                  >
-                    全部状况
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={demandStatus === "全国紧缺" ? "default" : "outline"}
-                    onClick={() => {
-                      setDemandStatus("全国紧缺")
-                      setSelectedProvince("")
-                    }}
-                    className="flex-1"
-                  >
-                    全国紧缺
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={demandStatus === "地方紧缺" ? "default" : "outline"}
-                    onClick={() => setDemandStatus("地方紧缺")}
-                    className="flex-1"
-                  >
-                    地方紧缺
-                  </Button>
-                </div>
-                {demandStatus === "地方紧缺" && (
-                  <div className="w-1/4">
-                    <Popover open={provincePopoverOpen} onOpenChange={setProvincePopoverOpen}>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-between bg-transparent">
-                          <span className="truncate">{selectedProvince || "请选择省份"}</span>
-                          <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-                        <div className="flex flex-col">
-                          <div className="p-2 border-b">
-                            <div className="relative">
-                              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                              <Input
-                                placeholder="搜索省份..."
-                                value={provinceSearch}
-                                onChange={(e) => setProvinceSearch(e.target.value)}
-                                className="pl-8 h-9"
-                              />
-                            </div>
-                          </div>
-                          <div className="max-h-[300px] overflow-y-auto p-2">
-                            {filteredProvinces.length > 0 ? (
-                              filteredProvinces.map((province) => (
-                                <button
-                                  key={province}
-                                  onClick={() => {
-                                    setSelectedProvince(province)
-                                    setProvincePopoverOpen(false)
-                                    setProvinceSearch("")
-                                  }}
-                                  className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-accent hover:text-white ${
-                                    selectedProvince === province ? "bg-[var(--naive-primary)] text-white" : ""
-                                  }`}
-                                >
-                                  {province}
-                                </button>
-                              ))
-                            ) : (
-                              <div className="px-3 py-2 text-sm text-muted-foreground text-center">
-                                未找到匹配的省份
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                )}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="career-level">职业层次</Label>
+                <Input
+                  id="career-level"
+                  placeholder="例如：全部"
+                  value={careerLevel}
+                  onChange={(e) => setCareerLevel(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="demand-type">需求类型</Label>
+                <Input
+                  id="demand-type"
+                  placeholder="例如：紧缺"
+                  value={demandType}
+                  onChange={(e) => setDemandType(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="demand-area">需求区域</Label>
+                <Input
+                  id="demand-area"
+                  placeholder="例如：全国"
+                  value={demandArea}
+                  onChange={(e) => setDemandArea(e.target.value)}
+                />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="training-objectives">培养目标</Label>
+              <Label htmlFor="position">培养定位</Label>
               <div className="relative">
                 <Textarea
-                  id="training-objectives"
-                  placeholder="描述专业的培养目标和人才培养定位"
+                  id="position"
+                  placeholder="描述专业的培养定位和人才培养目标"
                   rows={4}
-                  value={trainingObjectives}
-                  onChange={(e) => setTrainingObjectives(e.target.value.slice(0, 200))}
-                  maxLength={200}
+                  value={position}
+                  onChange={(e) => setPosition(e.target.value.slice(0, 500))}
+                  maxLength={500}
                   className="pr-20"
                 />
                 <div className="absolute right-2 top-2 flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">{trainingObjectives.length}/200</span>
-                  {trainingObjectives && (
+                  <span className="text-xs text-muted-foreground">{position.length}/500</span>
+                  {position && (
                     <button
                       type="button"
-                      onClick={() => setTrainingObjectives("")}
+                      onClick={() => setPosition("")}
                       className="text-muted-foreground hover:text-foreground"
                     >
                       <X className="w-3 h-3" />

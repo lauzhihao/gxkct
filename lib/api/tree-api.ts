@@ -4,6 +4,7 @@ import type { ApiResponse, BackendResponse } from "./types"
 import { handleBackendResponse } from "./response-handler"
 import departmentsData from "@/mock-data/departments.json"
 import coursesData from "@/mock-data/courses.json"
+import majorDetailData from "@/mock-data/major-detail.json"
 
 export class TreeApi {
   private storage = new StorageAdapter()
@@ -135,7 +136,7 @@ export class TreeApi {
 
   /**
    * 获取院系的专业列表
-   * Mock阶段：所有院系都返回departments.json中的数据
+   * Mock阶段：所有院系都返回departments.json中的数据，但使用major-detail.json的metadata格式
    */
   async getDepartmentMajors(departmentId: string): Promise<ApiResponse<TreeNode[]>> {
     console.log(`[v0] TreeApi.getDepartmentMajors(${departmentId})`)
@@ -207,13 +208,36 @@ export class TreeApi {
 
     const { data: majorsData } = response.data
 
-    // 将data数组转换为TreeNode数组
+    // 从major-detail.json获取详细数据格式
+    const majorDetailResponse = majorDetailData as BackendResponse<any>
+    const detailData = majorDetailResponse.data || {}
+
+    // 将data数组转换为TreeNode数组，使用major-detail.json的metadata格式
     const majors: TreeNode[] = majorsData.map((item) => ({
       id: `major-${item.self.value}`,
       name: item.self.label,
       type: "major" as const,
       children: [], // 专业下的课程暂时为空，后续可以动态加载
       metadata: {
+        // 基本信息字段（使用major-detail.json格式）
+        code: detailData.majorClass || "",
+        majorLevel: detailData.majorLevel || "",
+        majorClass: detailData.majorClass || "",
+        feature: detailData.feature || "",
+
+        // 职业信息字段
+        careerLevel: detailData.careerLevel || "",
+        demandType: detailData.demandType || "",
+        demandArea: detailData.demandArea || "",
+        professionsVOS: detailData.professionsVOS || [],
+
+        // 培养信息字段
+        position: detailData.position || "",
+
+        // 毕业要求字段
+        requiresVOS: detailData.requiresVOS || [],
+
+        // 保留原有的管理字段
         majorId: item.self.value,
         parentDeptId: item.parent.value,
         parentDeptName: item.parent.label,
