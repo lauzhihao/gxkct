@@ -6,7 +6,8 @@ import usersData from "@/mock-data/users.json"
 import courseMatricesData from "@/mock-data/course-matrices.json"
 import projectMatricesData from "@/mock-data/project-matrices.json"
 import courseResourcesData from "@/mock-data/course-resources.json"
-import type { TreeNode } from "@/types"
+import teachingTasksData from "@/mock-data/teaching-tasks.json"
+import type { TreeNode, TeachingSupervisoryTask } from "@/types"
 import type { BackendResponse } from "./types"
 
 const STORAGE_PREFIX = "education-api-"
@@ -219,6 +220,33 @@ function initializeCourseResources() {
 }
 
 /**
+ * 初始化教学督导任务数据
+ */
+function initializeTeachingTasks() {
+  const backendResponse = teachingTasksData as BackendResponse<TeachingSupervisoryTask[]>
+
+  if (backendResponse.code !== "0" || !backendResponse.data) {
+    console.warn("[v0] 教学督导任务数据格式错误或code非0")
+    return
+  }
+
+  // 按universityId分组存储任务
+  const tasksMap: Record<string, TeachingSupervisoryTask[]> = {}
+
+  backendResponse.data.forEach((task) => {
+    if (!tasksMap[task.universityId]) {
+      tasksMap[task.universityId] = []
+    }
+    tasksMap[task.universityId].push(task)
+  })
+
+  // 存储到localStorage
+  Object.entries(tasksMap).forEach(([universityId, tasks]) => {
+    localStorage.setItem(`${STORAGE_PREFIX}teaching-tasks-${universityId}`, JSON.stringify(tasks))
+  })
+}
+
+/**
  * 检查数据是否已初始化
  */
 export function isDataInitialized(): boolean {
@@ -259,6 +287,10 @@ export function initializeMockData(): void {
     initializeCourseResources()
     console.log("[v0] 课程资源数据已初始化")
 
+    // 初始化教学督导任务数据
+    initializeTeachingTasks()
+    console.log("[v0] 教学督导任务数据已初始化")
+
     // 标记为已初始化
     localStorage.setItem(STORAGE_KEYS.INITIALIZED, "true")
     console.log("[v0] Mock数据初始化完成")
@@ -287,7 +319,8 @@ export function resetMockData(): void {
       (key.startsWith(`${STORAGE_PREFIX}users-`) ||
         key.startsWith(`${STORAGE_PREFIX}courseMatrix-`) ||
         key.startsWith(`${STORAGE_PREFIX}projectMatrix-`) ||
-        key.startsWith(`${STORAGE_PREFIX}courseResources-`))
+        key.startsWith(`${STORAGE_PREFIX}courseResources-`) ||
+        key.startsWith(`${STORAGE_PREFIX}teaching-tasks-`))
     ) {
       keysToRemove.push(key)
     }

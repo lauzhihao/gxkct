@@ -81,6 +81,42 @@ export interface KsaPoint {
   description: string
 }
 
+// 教学督导任务接口
+export interface TeachingSupervisoryTask {
+  id: string
+  universityId: string
+  title: string // 任务标题，例如：2025秋季学期教学档案检查
+  description?: string // 任务说明，500字多行文本
+  startDate: string // 开始日期
+  endDate: string // 结束日期
+  status: "not_started" | "in_progress" | "completed" // 状态：未开始、进行中、已结束
+  creator?: string // 创建人
+  createdAt: string
+  updatedAt?: string
+}
+
+// 评价标准项接口
+export interface EvaluationStandardItem {
+  id: string
+  sequence: number // 序号（自动增加）
+  indicator: string // 指标项（必填，200字）
+  fullScore: number // 满分（正整数）
+  evaluationCriteria: string // 评价标准（必填，500字）
+  evaluationLevel?: string // 评价等级
+  score?: number // 得分（正整数）
+  weight: number // 权重（1-100之间的整数）
+}
+
+// 教学质量评价标准接口
+export interface TeachingQualityStandard {
+  id: string
+  taskId: string // 关联的任务ID
+  universityId: string
+  items: EvaluationStandardItem[] // 评价标准项列表
+  createdAt: string
+  updatedAt?: string
+}
+
 // 元数据接口 - 根据节点类型不同而不同
 export interface UniversityMetadata {
   description?: string

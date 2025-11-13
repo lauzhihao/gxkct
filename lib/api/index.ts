@@ -4,6 +4,8 @@ import { MatrixApi, type CourseMatrix, type ProjectMatrix } from "./matrix-api"
 import { ResourceApi, type FileData, type CourseResourceData, type ScoringData } from "./resource-api"
 import { ConfigApi, type ThemeConfig } from "./config-api"
 import { PreferenceApi, type UserPreference } from "./preference-api"
+import { TeachingTaskApi } from "./teaching-task-api"
+import { CourseDetailApi, type CombinedCourseDetail } from "./course-detail-api"
 import { initializeMockData, resetMockData } from "./data-initializer"
 
 // 创建API实例
@@ -14,13 +16,15 @@ export const api = {
   resources: new ResourceApi(),
   config: new ConfigApi(),
   preferences: new PreferenceApi(),
+  teachingTasks: new TeachingTaskApi(),
+  courseDetail: new CourseDetailApi(),
 }
 
 // 导出API类
-export { TreeApi, UserApi, MatrixApi, ResourceApi, ConfigApi, PreferenceApi }
+export { TreeApi, UserApi, MatrixApi, ResourceApi, ConfigApi, PreferenceApi, TeachingTaskApi, CourseDetailApi }
 
 // 导出类型
-export type { User, CourseMatrix, ProjectMatrix, FileData, CourseResourceData, ScoringData, ThemeConfig, UserPreference }
+export type { User, CourseMatrix, ProjectMatrix, FileData, CourseResourceData, ScoringData, ThemeConfig, UserPreference, CombinedCourseDetail }
 export type { ApiResponse, BackendResponse } from "./types"
 
 // 导出初始化函数

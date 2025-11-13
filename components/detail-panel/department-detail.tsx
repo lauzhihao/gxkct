@@ -21,7 +21,7 @@ import { StatisticsCards } from "./shared/statistics-cards"
 import { AddMajorForm } from "@/components/add-major-form"
 import { Members } from "@/components/shared/members"
 
-export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode, onDeleteNode, departmentMajors, majorCourses }: DetailPanelProps) {
+export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode, onDeleteNode, departmentMajors, majorCourses, onToggleExpand }: DetailPanelProps) {
   const [newDeptName, setNewDeptName] = useState("")
   const [newDeptDesc, setNewDeptDesc] = useState("")
   const [newDeptDirector, setNewDeptDirector] = useState("")
@@ -134,6 +134,7 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
               onNodeSelect={onNodeSelect}
               departmentMajors={departmentMajors}
               majorCourses={majorCourses}
+              onToggleExpand={onToggleExpand}
               headerAction={
                 <Button
                   size="sm"

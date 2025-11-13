@@ -11,6 +11,7 @@ export function DataInitializer({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const STORAGE_PREFIX = "education-api-"
     const treeDataKey = `${STORAGE_PREFIX}tree-data`
+    const teachingTasksKey = `${STORAGE_PREFIX}teaching-tasks-`
     const treeDataRaw = localStorage.getItem(treeDataKey)
 
     let shouldInitialize = !isDataInitialized() || !treeDataRaw
@@ -28,6 +29,22 @@ export function DataInitializer({ children }: { children: React.ReactNode }) {
         }
       } catch (error) {
         console.error("[v0] 解析树形数据失败:", error)
+        shouldInitialize = true
+      }
+    }
+
+    // 检查教学任务数据是否存在
+    if (!shouldInitialize) {
+      let hasTeachingTasks = false
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && key.startsWith(teachingTasksKey)) {
+          hasTeachingTasks = true
+          break
+        }
+      }
+      if (!hasTeachingTasks) {
+        console.log("[v0] 检测到教学任务数据缺失，需要重新初始化")
         shouldInitialize = true
       }
     }

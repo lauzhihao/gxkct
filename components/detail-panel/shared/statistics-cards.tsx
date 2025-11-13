@@ -14,9 +14,10 @@ interface StatisticsCardsProps {
   headerAction?: React.ReactNode
   departmentMajors?: Map<string, TreeNode[]>
   majorCourses?: Map<string, TreeNode[]>
+  onToggleExpand?: (nodeId: string) => void
 }
 
-export function StatisticsCards({ node, onNodeSelect, headerAction, departmentMajors, majorCourses }: StatisticsCardsProps) {
+export function StatisticsCards({ node, onNodeSelect, headerAction, departmentMajors, majorCourses, onToggleExpand }: StatisticsCardsProps) {
   const [departmentSearch, setDepartmentSearch] = useState("")
   const [majorSearch, setMajorSearch] = useState("")
 
@@ -178,7 +179,11 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, departmentMa
                   <Card
                     key={dept.id}
                     className="cursor-pointer hover:shadow-md transition-shadow border-border bg-card/50 backdrop-blur-sm relative"
-                    onClick={() => onNodeSelect?.(dept)}
+                    onClick={() => {
+                      onNodeSelect?.(dept)
+                      // 点击卡片时触发展开，动态加载该院系的专业数据
+                      onToggleExpand?.(dept.id)
+                    }}
                   >
                     <Badge
                       variant="secondary"
@@ -245,7 +250,11 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, departmentMa
                   <Card
                     key={major.id}
                     className="cursor-pointer hover:shadow-md transition-shadow border-border bg-card/50 backdrop-blur-sm relative"
-                    onClick={() => onNodeSelect?.(major)}
+                    onClick={() => {
+                      onNodeSelect?.(major)
+                      // 点击卡片时触发展开，动态加载该专业的课程数据
+                      onToggleExpand?.(major.id)
+                    }}
                   >
                     <Badge
                       variant="secondary"

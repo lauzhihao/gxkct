@@ -14,6 +14,8 @@ export interface DetailPanelProps {
   onDelete?: (nodeId: string) => void
   departmentMajors?: Map<string, TreeNode[]>
   majorCourses?: Map<string, TreeNode[]>
+  // 添加onToggleExpand回调用于动态加载数据
+  onToggleExpand?: (nodeId: string) => void
 }
 
 export interface FileData {

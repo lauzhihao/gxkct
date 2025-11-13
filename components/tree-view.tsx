@@ -752,9 +752,15 @@ interface TreeViewProps {
   onToggleCollapse?: () => void
   onDepartmentMajorsChange?: (majors: Map<string, TreeNode[]>) => void
   onMajorCoursesChange?: (courses: Map<string, TreeNode[]>) => void
+  // 添加onToggleExpand回调用于从详情面板触发展开和动态加载
+  onToggleExpand?: (nodeId: string) => void
 }
 
-export function TreeView({
+// 使用forwardRef暴露handleToggleExpand方法
+export const TreeView = React.forwardRef<
+  { toggleExpand: (nodeId: string) => void },
+  TreeViewProps
+>(function TreeViewComponent({
   treeData,
   onNodeSelect,
   selectedNode,
@@ -766,7 +772,8 @@ export function TreeView({
   onToggleCollapse,
   onDepartmentMajorsChange,
   onMajorCoursesChange,
-}: TreeViewProps): ReactElement {
+  onToggleExpand: onToggleExpandProp,
+}: TreeViewProps, ref): ReactElement {
   // 如果treeData为null,返回空状态
   if (!treeData) {
     return (
@@ -806,6 +813,8 @@ export function TreeView({
       onMajorCoursesChange(majorCourses)
     }
   }, [majorCourses, onMajorCoursesChange])
+
+
 
   const handleToggleExpand = async (nodeId: string) => {
     // 检查当前是否已展开
@@ -904,6 +913,13 @@ export function TreeView({
       }
     }
   }
+
+  // 使用useImperativeHandle暴露handleToggleExpand方法给外部调用
+  React.useImperativeHandle(ref, () => ({
+    toggleExpand: (nodeId: string) => {
+      handleToggleExpand(nodeId)
+    },
+  }), [handleToggleExpand])
 
   const handleLoadMoreCourses = (majorId: string) => {
     setVisibleCourseCounts((prev) => {
@@ -1218,4 +1234,4 @@ export function TreeView({
       </div>
     </>
   )
-}
+})

@@ -1,77 +1,104 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { ClipboardCheck, MessageSquare } from "lucide-react"
+import { useState, useEffect } from "react"
+import { ClipboardCheck, Calendar, User } from "lucide-react"
+import { api, type TeachingSupervisoryTask } from "@/lib/api"
+import { Badge } from "@/components/ui/badge"
+import { CourseSupervisionDetail } from "./course-supervision-detail"
 
-export function CourseSupervision() {
+interface CourseSupervisionProps {
+  courseId?: string
+  collegeId?: number
+}
+
+export function CourseSupervision({ courseId, collegeId }: CourseSupervisionProps) {
+  const [tasks, setTasks] = useState<TeachingSupervisoryTask[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [selectedTask, setSelectedTask] = useState<TeachingSupervisoryTask | null>(null)
+
+  // 加载进行中的督导任务
+  useEffect(() => {
+    const loadSupervisionTasks = async () => {
+      if (!collegeId) return
+
+      setIsLoading(true)
+      try {
+        // 将 collegeId 转换为字符串作为 universityId
+        const universityId = String(collegeId)
+        const response = await api.teachingTasks.getTasksByStatus(universityId, "in_progress")
+        if (response.data) {
+          setTasks(response.data)
+        }
+      } catch (error) {
+        console.error("加载督导任务失败:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadSupervisionTasks()
+  }, [collegeId])
+
+  // 格式化日期
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString)
+      return date.toLocaleDateString("zh-CN")
+    } catch {
+      return dateString
+    }
+  }
+
+  // 如果选中了任务，显示详情页面
+  if (selectedTask) {
+    return <CourseSupervisionDetail task={selectedTask} onBack={() => setSelectedTask(null)} />
+  }
+
   return (
-    <div className="rounded-lg border border-border bg-secondary/30 backdrop-blur-sm p-4">
-      <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-        <ClipboardCheck className="w-4 h-4" />
-        督导评分
-      </h3>
-      <div className="space-y-4">
-        <div className="grid grid-cols-3 gap-4">
-          <div className="text-center p-3 rounded-lg bg-card/50 border border-border">
-            <div className="text-2xl font-bold text-primary mb-1">85</div>
-            <div className="text-xs text-muted-foreground">自评分数</div>
-          </div>
-          <div className="text-center p-3 rounded-lg bg-card/50 border border-border">
-            <div className="text-2xl font-bold text-accent mb-1">88</div>
-            <div className="text-xs text-muted-foreground">部门评分</div>
-          </div>
-          <div className="text-center p-3 rounded-lg bg-card/50 border border-border">
-            <div className="text-2xl font-bold text-green-600 mb-1">90</div>
-            <div className="text-xs text-muted-foreground">督导评分</div>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <div className="p-3 rounded-lg bg-card/50 border border-border">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-foreground">教学内容</span>
-              <span className="text-sm text-primary font-medium">92分</span>
-            </div>
-            <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
-              <div className="h-full bg-primary rounded-full" style={{ width: "92%" }}></div>
-            </div>
-          </div>
-
-          <div className="p-3 rounded-lg bg-card/50 border border-border">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm font-medium text-foreground">教学方法</span>
-              <span className="text-sm text-accent font-medium">88分</span>
-            </div>
-            <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
-              <div className="h-full bg-accent rounded-full" style={{ width: "88%" }}></div>
-            </div>
-          </div>
-
-          <div className="p-3 rounded-lg bg-card/50 border border-border">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm font-medium text-foreground">资源完整性</span>
-              <span className="text-sm text-green-600 font-medium">90分</span>
-            </div>
-            <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
-              <div className="h-full bg-green-500 rounded-full" style={{ width: "90%" }}></div>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-3 rounded-lg bg-card/50 border border-border">
-          <div className="flex items-center gap-2 mb-2">
-            <MessageSquare className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm font-medium text-foreground">督导评语</span>
-          </div>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            课程资源丰富，教学内容完整，教学方法多样化。建议进一步完善预习手册和增加互动案例。整体质量优秀，继续保持。
-          </p>
-        </div>
-
-        <Button size="sm" className="w-full gap-2">
+    <div className="space-y-4">
+      <div className="rounded-lg border border-border bg-secondary/30 backdrop-blur-sm p-4">
+        <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
           <ClipboardCheck className="w-4 h-4" />
-          查看详细评估报告
-        </Button>
+          教学督导任务
+        </h3>
+        <div className="border-t border-dashed border-border mb-4" />
+
+        {isLoading ? (
+          <div className="text-center py-8 text-muted-foreground">加载中...</div>
+        ) : tasks.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">暂无进行中的督导任务</div>
+        ) : (
+          <div className="grid grid-cols-3 gap-4">
+            {tasks.map((task) => (
+              <button
+                key={task.id}
+                onClick={() => setSelectedTask(task)}
+                className="rounded-lg border border-border bg-card/50 backdrop-blur-sm p-4 hover:bg-card/70 hover:border-primary/50 transition-all group relative"
+              >
+                {/* 状态标签 - 右上角 */}
+                <div className="absolute top-3 right-3">
+                  <Badge variant="outline" className="text-xs">
+                    未评分
+                  </Badge>
+                </div>
+
+                {/* 卡片内容 - 水平居中 */}
+                <div className="flex flex-col items-center justify-center text-center space-y-3">
+                  <h4 className="text-sm font-semibold text-foreground line-clamp-2 group-hover:text-primary transition-colors">
+                    {task.title}
+                  </h4>
+                  <p className="text-xs text-muted-foreground line-clamp-2">{task.description}</p>
+
+                  {/* 日期信息 - 简化显示 */}
+                  <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+                    <Calendar className="w-3 h-3 flex-shrink-0" />
+                    <span>{formatDate(task.startDate)} 至 {formatDate(task.endDate)}</span>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

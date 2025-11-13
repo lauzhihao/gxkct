@@ -20,8 +20,9 @@ import { useState } from "react"
 import type { DetailPanelProps } from "./types"
 import { StatisticsCards } from "./shared/statistics-cards"
 import { Members } from "@/components/shared/members"
+import { TeachingQuality } from "./teaching-quality"
 
-export function UniversityDetail({ node, onNodeSelect, onAddDepartment, onSetCurrentSchool }: DetailPanelProps) {
+export function UniversityDetail({ node, onNodeSelect, onAddDepartment, onSetCurrentSchool, onToggleExpand }: DetailPanelProps) {
   const [newDeptName, setNewDeptName] = useState("")
   const [newDeptDesc, setNewDeptDesc] = useState("")
   const [newDeptDirector, setNewDeptDirector] = useState("")
@@ -86,12 +87,16 @@ export function UniversityDetail({ node, onNodeSelect, onAddDepartment, onSetCur
             <TabsTrigger value="members" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
               成员管理
             </TabsTrigger>
+            <TabsTrigger value="teaching-quality" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
+              教学质量
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="mt-0">
             <StatisticsCards
               node={node}
               onNodeSelect={onNodeSelect}
+              onToggleExpand={onToggleExpand}
               headerAction={
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                   <DialogTrigger asChild>
@@ -154,6 +159,10 @@ export function UniversityDetail({ node, onNodeSelect, onAddDepartment, onSetCur
 
           <TabsContent value="members" className="space-y-6 p-6">
             <Members node={node} />
+          </TabsContent>
+
+          <TabsContent value="teaching-quality" className="mt-0">
+            <TeachingQuality node={node} />
           </TabsContent>
         </Tabs>
       </div>

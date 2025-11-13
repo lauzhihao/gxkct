@@ -1,0 +1,25 @@
+{
+    "code": "0",
+    "message": "success",
+    "data": {
+        "course": {
+            "id": 13455,
+            "majorId": 3956,
+            "classId": 1,
+            "typeId": 1,
+            "name": "经济学",
+            "position": null,
+            "introduction": null,
+            "criterion": null,
+            "theoryPeriod": 0.0,
+            "practicePeriod": 0.0,
+            "courseMatrixVOS": [],
+            "createTime": "2025-09-11T05:30:07.000+00:00"
+        },
+        "pointksa": {
+            "points": [],
+            "ksas": []
+        }
+    },
+    "success": true
+}

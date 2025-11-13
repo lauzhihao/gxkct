@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type { DetailPanelProps } from "./types"
 import { BookOpen, Calendar, Pencil, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Accordion } from "@/components/ui/accordion"
 import AddCourseForm from "@/components/add-course-form"
+import { api, type CombinedCourseDetail } from "@/lib/api"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +30,29 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
   const metadata = node.metadata || {}
   const [isEditingCourse, setIsEditingCourse] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [courseDetailData, setCourseDetailData] = useState<CombinedCourseDetail | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  // 加载课程详情数据
+  useEffect(() => {
+    const loadCourseDetail = async () => {
+      setIsLoading(true)
+      try {
+        const response = await api.courseDetail.getCourseDetail(node.id)
+        if (response.data) {
+          setCourseDetailData(response.data)
+        }
+      } catch (error) {
+        console.error("加载课程详情失败:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    if (node?.id) {
+      loadCourseDetail()
+    }
+  }, [node?.id])
 
   if (!node || node.type !== "course") return null
 
@@ -67,6 +91,31 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
     )
   }
 
+  if (isLoading) {
+    return (
+      <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl p-6 flex items-center justify-center min-h-[500px]">
+        <div className="text-center text-muted-foreground">
+          <div className="text-lg">加载课程详情中...</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!courseDetailData) {
+    return (
+      <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl p-6 flex items-center justify-center min-h-[500px]">
+        <div className="text-center text-muted-foreground">
+          <div className="text-lg">课程详情加载失败</div>
+        </div>
+      </div>
+    )
+  }
+
+  const courseNameData = courseDetailData.courseNameData
+  const courseDetailInfo = courseDetailData.courseDetailData
+  const collegeId = courseNameData.college.id
+  const createTime = courseDetailInfo.course.createTime
+
   return (
     <>
       <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl overflow-hidden">
@@ -78,16 +127,14 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
                 <BookOpen className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">{node.name}</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-2">{courseNameData.name}</h2>
                 <div className="flex flex-wrap gap-2">
-                  {metadata.courseType && <Badge variant="secondary">{metadata.courseType}</Badge>}
-                  {metadata.courseNature && <Badge variant="outline">{metadata.courseNature}</Badge>}
-                  {metadata.openingDate && (
-                    <Badge variant="outline">
-                      <Calendar className="w-3 h-3 mr-1" />
-                      {metadata.openingDate}
-                    </Badge>
-                  )}
+                  <Badge variant="secondary">{courseNameData.major}</Badge>
+                  <Badge variant="outline">{courseNameData.department.name}</Badge>
+                  <Badge variant="outline">
+                    <Calendar className="w-3 h-3 mr-1" />
+                    {courseNameData.college.name}
+                  </Badge>
                 </div>
               </div>
             </div>
@@ -123,22 +170,25 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
               <TabsTrigger value="info">课程信息</TabsTrigger>
               <TabsTrigger value="resources">课程资源</TabsTrigger>
               <TabsTrigger value="matrix">三级矩阵</TabsTrigger>
-              <TabsTrigger value="supervision">督导评分</TabsTrigger>
+              <TabsTrigger value="supervision">教学督导</TabsTrigger>
             </TabsList>
 
             <TabsContent value="info" className="space-y-6 mt-4">
-              <CourseBasicInfo name={node.name} metadata={metadata} />
+              <CourseBasicInfo
+                name={courseNameData.name}
+                courseDetail={courseDetailInfo.course}
+                courseNameData={courseNameData}
+                createTime={createTime}
+              />
 
               <Accordion type="multiple" className="space-y-4">
-                {metadata.teachingObjectives && metadata.teachingObjectives.length > 0 && (
-                  <CourseTeachingObjectives objectives={metadata.teachingObjectives} />
+                {courseDetailInfo.pointksa.points && courseDetailInfo.pointksa.points.length > 0 && (
+                  <CourseTeachingObjectives objectives={courseDetailInfo.pointksa.points} />
                 )}
 
-                {metadata.coursePoints && metadata.coursePoints.length > 0 && (
-                  <CoursePoints coursePoints={metadata.coursePoints} />
+                {courseDetailInfo.pointksa.ksas && courseDetailInfo.pointksa.ksas.length > 0 && (
+                  <CoursePoints coursePoints={courseDetailInfo.pointksa.ksas} />
                 )}
-
-                {metadata.chapters && metadata.chapters.length > 0 && <CourseChapters chapters={metadata.chapters} />}
               </Accordion>
             </TabsContent>
 
@@ -151,7 +201,7 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
             </TabsContent>
 
             <TabsContent value="supervision" className="space-y-4 mt-4 px-6">
-              <CourseSupervision />
+              <CourseSupervision courseId={node.id} collegeId={collegeId} />
             </TabsContent>
           </Tabs>
         </div>

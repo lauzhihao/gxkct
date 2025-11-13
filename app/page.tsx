@@ -22,6 +22,8 @@ export default function Page() {
   const [isTreeCollapsed, setIsTreeCollapsed] = useLocalStorage<boolean>(TREE_COLLAPSED_STORAGE_KEY, false)
   const [departmentMajors, setDepartmentMajors] = useState<Map<string, TreeNode[]>>(new Map())
   const [majorCourses, setMajorCourses] = useState<Map<string, TreeNode[]>>(new Map())
+  // 添加ref来存储TreeView的handleToggleExpand方法
+  const treeViewRef = useRef<{ toggleExpand: (nodeId: string) => void }>(null)
   const treeDataHook = useTreeData(initialData)
   const hasInitialized = useRef(false)
 
@@ -164,6 +166,13 @@ export default function Page() {
     setIsTreeCollapsed((prev) => !prev)
   }
 
+  // 创建handleToggleExpand函数，用于从详情面板触发树形节点的展开和动态加载
+  const handleToggleExpand = (nodeId: string) => {
+    if (treeViewRef.current) {
+      treeViewRef.current.toggleExpand(nodeId)
+    }
+  }
+
   console.log("[v0] 渲染Page组件，isLoading:", isLoading, "selectedNode:", selectedNode)
 
   if (isLoading || !treeDataHook || !treeDataHook.treeData) {
@@ -189,6 +198,7 @@ export default function Page() {
             )}
           >
             <TreeView
+              ref={treeViewRef}
               treeData={treeDataHook.treeData}
               onNodeSelect={setSelectedNode}
               selectedNode={selectedNode}
@@ -219,6 +229,8 @@ export default function Page() {
               onDeleteNode={handleDeleteNode}
               departmentMajors={departmentMajors}
               majorCourses={majorCourses}
+              // 传入handleToggleExpand回调
+              onToggleExpand={handleToggleExpand}
             />
           </div>
         </div>
