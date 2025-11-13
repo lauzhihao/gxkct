@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, Plus, Trash2, Check, X, Loader2 } from "lucide-react"
+import { ArrowLeft, Plus, Trash2, Check, X, Loader2, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -227,6 +227,18 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
         return s
       })
     )
+  }
+
+  // 等级标签映射（转换为ABCD）
+  const getLevelLabel = (level: string | number): string => {
+    const levelStr = String(level)
+    const levelMap: Record<string, string> = {
+      "1": "A",
+      "2": "B",
+      "3": "C",
+      "4": "D",
+    }
+    return levelMap[levelStr] || levelStr
   }
 
   // 检查评价标准项是否为空（所有必填字段都为空）
@@ -549,7 +561,7 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
                       </div>
 
                       {/* Row 2: Levels Configuration */}
-                      <div className="space-y-3 border-t border-border pt-4">
+                      <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <Label className="text-sm font-semibold">
                             评价等级 <span className="text-red-500">*</span>
@@ -596,21 +608,20 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
                                 </Button>
                               )}
 
-                              {/* Row 1: Level and Coefficient/Condition - 6 column layout */}
-                              <div className="grid grid-cols-6 gap-2 p-3 border-b border-border">
-                                {/* Business Indicator: Level (3 cols) + Coefficient (3 cols) */}
+                              {/* Row 1: Level and Coefficient/Condition - 12 column layout */}
+                              <div className="grid grid-cols-12 gap-2 p-3 border-b border-border">
+                                {/* Business Indicator: Level (6 cols) + Coefficient (6 cols) */}
                                 {standard.type === "business" ? (
                                   <>
-                                    {/* Column 1-3: Level */}
-                                    <div className="col-span-3 space-y-1">
-                                      <Label className="text-xs text-muted-foreground block">等级</Label>
-                                      <div className="flex items-center justify-center h-8">
-                                        <span className="text-lg font-bold text-primary">{level.level}</span>
+                                    {/* Column 1-6: Level */}
+                                    <div className="col-span-6 flex items-center justify-center">
+                                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 flex items-center justify-center">
+                                        <span className="text-lg font-bold text-primary">{getLevelLabel(level.level)}</span>
                                       </div>
                                     </div>
-                                    {/* Column 4-6: Coefficient */}
-                                    <div className="col-span-3 space-y-1">
-                                      <Label className="text-xs text-muted-foreground block">系数</Label>
+                                    {/* Column 7-12: Coefficient */}
+                                    <div className="col-span-6 flex flex-col items-start justify-center gap-1">
+                                      <Label className="text-xs text-muted-foreground">系数</Label>
                                       <Input
                                         type="number"
                                         min="0.1"
@@ -621,23 +632,38 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
                                           handleUpdateLevel(standard.id, level.level, "coefficient", parseFloat(e.target.value) || 0.1)
                                         }
                                         placeholder="0.1-1"
-                                        className="h-8 text-xs"
+                                        className="h-8 text-xs w-20"
                                       />
                                     </div>
                                   </>
                                 ) : (
                                   <>
-                                    {/* System Indicator: Level (2 cols) + Operator (2 cols) + Threshold (2 cols) */}
-                                    {/* Column 1-2: Level */}
-                                    <div className="col-span-2 space-y-1">
-                                      <Label className="text-xs text-muted-foreground block">等级</Label>
-                                      <div className="flex items-center justify-center h-8">
-                                        <span className="text-lg font-bold text-primary">{level.level}</span>
+                                    {/* System Indicator: Level (3 cols) + Coefficient (3 cols) + Operator (3 cols) + Threshold (3 cols) */}
+                                    {/* Column 1-3: Level */}
+                                    <div className="col-span-3 flex items-center justify-center">
+                                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 flex items-center justify-center">
+                                        <span className="text-lg font-bold text-primary">{getLevelLabel(level.level)}</span>
                                       </div>
                                     </div>
-                                    {/* Column 3-4: Operator */}
-                                    <div className="col-span-2 space-y-1">
-                                      <Label className="text-xs text-muted-foreground block">运算符</Label>
+                                    {/* Column 4-6: Coefficient */}
+                                    <div className="col-span-3 flex flex-col items-start justify-center gap-1">
+                                      <Label className="text-xs text-muted-foreground">系数</Label>
+                                      <Input
+                                        type="number"
+                                        min="0.1"
+                                        max="1"
+                                        step="0.1"
+                                        value={level.coefficient}
+                                        onChange={(e) =>
+                                          handleUpdateLevel(standard.id, level.level, "coefficient", parseFloat(e.target.value) || 0.1)
+                                        }
+                                        placeholder="0.1-1"
+                                        className="h-8 text-xs w-20"
+                                      />
+                                    </div>
+                                    {/* Column 7-9: Operator */}
+                                    <div className="col-span-3 flex flex-col items-start justify-center gap-1">
+                                      <Label className="text-xs text-muted-foreground">运算符</Label>
                                       <Select
                                         value={level.condition?.operator || ">"}
                                         onValueChange={(value) => {
@@ -662,9 +688,9 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
                                         </SelectContent>
                                       </Select>
                                     </div>
-                                    {/* Column 5-6: Threshold */}
-                                    <div className="col-span-2 space-y-1">
-                                      <Label className="text-xs text-muted-foreground block">阈值</Label>
+                                    {/* Column 10-12: Threshold */}
+                                    <div className="col-span-3 flex flex-col items-start justify-center gap-1">
+                                      <Label className="text-xs text-muted-foreground">阈值</Label>
                                       <Input
                                         type="number"
                                         step="0.01"
@@ -677,7 +703,7 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
                                           handleUpdateLevel(standard.id, level.level, "condition", newCondition)
                                         }}
                                         placeholder="阈值"
-                                        className="h-8 text-xs"
+                                        className="h-8 text-xs w-20"
                                       />
                                     </div>
                                   </>
