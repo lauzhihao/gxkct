@@ -53,7 +53,7 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
             // 确保每个标准项都有 levels 字段
             const normalizedItems = response.data.items.map((item: EvaluationStandardItem) => ({
               ...item,
-              levels: item.levels || [{ level: "A", description: "", coefficient: 1 }],
+              levels: item.levels || [{ level: "A", description: "", coefficient: 1.0 }],
             }))
             setStandards(normalizedItems)
           } else {
@@ -130,7 +130,7 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
       type: "business", // 默认为业务指标
       indicator: "",
       fullScore: 100,
-      levels: [{ level: "A", description: "", coefficient: 1 }], // 默认包含A级
+      levels: [{ level: "A", description: "", coefficient: 1.0 }], // 默认包含A级
     }
     setStandards([...standards, newStandard])
   }
@@ -157,7 +157,7 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
   const handleAddLevel = (standardId: string, level: "A" | "B" | "C" | "D") => {
     // 等级系数映射
     const levelCoefficients: Record<string, number> = {
-      A: 1,
+      A: 1.0,
       B: 0.8,
       C: 0.6,
       D: 0.4,

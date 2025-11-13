@@ -84,6 +84,18 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy }: Teachin
     return levelMap[levelStr] || levelStr
   }
 
+  // 格式化系数显示（确保显示为小数格式）
+  const formatCoefficient = (coefficient: number | undefined): string => {
+    if (coefficient === undefined || coefficient === null) return "-"
+    const num = Number(coefficient)
+    // 如果是整数，显示为 X.0 格式
+    if (Number.isInteger(num)) {
+      return num.toFixed(1)
+    }
+    // 否则显示原值
+    return num.toString()
+  }
+
   return (
     <div className="flex-1 overflow-auto p-6">
       <div className="space-y-6">
@@ -252,7 +264,7 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy }: Teachin
                                     </div>
                                     <div className="col-span-6 flex flex-col items-center justify-center gap-1">
                                       <p className="text-xs text-muted-foreground">系数</p>
-                                      <p className="text-sm font-semibold text-foreground">{level.coefficient}</p>
+                                      <p className="text-sm font-semibold text-foreground">{formatCoefficient(level.coefficient)}</p>
                                     </div>
                                   </div>
                                 ) : (
@@ -265,7 +277,7 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy }: Teachin
                                     </div>
                                     <div className="col-span-3 flex flex-col items-center justify-center gap-1">
                                       <p className="text-xs text-muted-foreground">系数</p>
-                                      <p className="text-sm font-semibold text-foreground">{level.coefficient}</p>
+                                      <p className="text-sm font-semibold text-foreground">{formatCoefficient(level.coefficient)}</p>
                                     </div>
                                     <div className="col-span-3 flex flex-col items-center justify-center gap-1">
                                       <p className="text-xs text-muted-foreground">运算符</p>

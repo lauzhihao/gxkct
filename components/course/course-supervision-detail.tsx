@@ -101,6 +101,56 @@ export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetai
     }
   }
 
+  // 系统指标标签映射
+  const getSystemIndicatorLabel = (systemIndicator: string | undefined): string => {
+    const labelMap: Record<string, string> = {
+      course_development_completion: "课程开发完成度",
+      course_point_optimization_count: "课点优化次数",
+      teaching_indicator_count: "教学指标数量",
+      resource_count: "资源数量",
+      material_count: "教材数量",
+    }
+    return labelMap[systemIndicator || ""] || systemIndicator || ""
+  }
+
+  // 等级标签映射（转换为ABCD）
+  const getLevelLabel = (level: string | number): string => {
+    const levelStr = String(level)
+    const levelMap: Record<string, string> = {
+      "1": "A",
+      "2": "B",
+      "3": "C",
+      "4": "D",
+    }
+    return levelMap[levelStr] || levelStr
+  }
+
+  // 操作符标签映射
+  const getOperatorLabel = (operator: string | undefined): string => {
+    const operatorMap: Record<string, string> = {
+      ">": "大于",
+      "<": "小于",
+      ">=": "大于等于",
+      "<=": "小于等于",
+      "=": "等于",
+      "contains": "包含",
+      "not_contains": "不包含",
+    }
+    return operatorMap[operator || ""] || operator || ""
+  }
+
+  // 格式化系数显示（确保显示为小数格式）
+  const formatCoefficient = (coefficient: number | undefined): string => {
+    if (coefficient === undefined || coefficient === null) return "-"
+    const num = Number(coefficient)
+    // 如果是整数，显示为 X.0 格式
+    if (Number.isInteger(num)) {
+      return num.toFixed(1)
+    }
+    // 否则显示原值
+    return num.toString()
+  }
+
   // 处理评级变化
   const handleLevelChange = (itemId: string, level: "A" | "B" | "C" | "D") => {
     setScores((prev) => ({
@@ -173,45 +223,37 @@ export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetai
             <div className="space-y-4">
               {/* Row 1: Date Range (Start Date and End Date) */}
               <div className="grid grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-sm">开始日期</Label>
-                  <div className="p-2 rounded border border-border bg-muted/30 text-sm text-foreground">
-                    {formatDate(task.startDate)}
-                  </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">开始日期</Label>
+                  <p className="text-sm text-foreground">{formatDate(task.startDate)}</p>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-sm">结束日期</Label>
-                  <div className="p-2 rounded border border-border bg-muted/30 text-sm text-foreground">
-                    {formatDate(task.endDate)}
-                  </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">结束日期</Label>
+                  <p className="text-sm text-foreground">{formatDate(task.endDate)}</p>
                 </div>
               </div>
 
               {/* Row 2: Task Title (2 columns) */}
               <div className="grid grid-cols-4 gap-4">
-                <div className="col-span-2 space-y-2">
-                  <Label className="text-sm">任务标题</Label>
-                  <div className="p-2 rounded border border-border bg-muted/30 text-sm text-foreground">
-                    {task.title}
-                  </div>
+                <div className="col-span-2 space-y-1">
+                  <Label className="text-xs text-muted-foreground">任务标题</Label>
+                  <p className="text-sm text-foreground">{task.title}</p>
                 </div>
               </div>
 
               {/* Row 3: Task Description (2 columns) */}
               <div className="grid grid-cols-4 gap-4">
-                <div className="col-span-2 space-y-2">
-                  <Label className="text-sm">任务说明</Label>
-                  <div className="p-2 rounded border border-border bg-muted/30 text-sm text-foreground whitespace-pre-wrap">
-                    {task.description}
-                  </div>
+                <div className="col-span-2 space-y-1">
+                  <Label className="text-xs text-muted-foreground">任务说明</Label>
+                  <p className="text-sm text-foreground whitespace-pre-wrap">{task.description}</p>
                 </div>
               </div>
             </div>
 
             {/* 总分 - 醒目显示 */}
-            <div className="border-t border-dashed border-border pt-6">
-              <div className="rounded-lg bg-primary/10 border border-primary/20 p-8 flex flex-col items-center justify-center">
+            <div className="border-t border-dashed border-border pt-6 flex justify-center">
+              <div className="w-1/2 rounded-lg bg-primary/10 border border-primary/20 p-8 flex flex-col items-center justify-center">
                 <div className="text-sm font-semibold text-muted-foreground mb-4">总分</div>
                 <div className="text-5xl font-bold text-primary text-center">{totalScore}</div>
               </div>
@@ -240,7 +282,7 @@ export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetai
                         {index + 1}
                       </div>
                       <span className="text-base font-semibold text-foreground">
-                        {item.type === "business" ? item.indicator : item.systemIndicator}
+                        {item.type === "business" ? item.indicator : getSystemIndicatorLabel(item.systemIndicator)}
                       </span>
                       {/* Tips图标 - hover显示指标类型 */}
                       <TooltipProvider>
@@ -300,21 +342,22 @@ export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetai
                             <p className="text-xs text-muted-foreground line-clamp-4">
                               {getLevelDescription(item.id, scores[item.id].level)}
                             </p>
-                            {/* 根据指标类型显示系数或运算表达式 */}
-                            <div className="text-xs text-muted-foreground pt-2 border-t border-primary/10">
-                              {item.type === "business" ? (
-                                <>
-                                  系数: <span className="font-semibold text-primary">
-                                    {item.levels?.find((l: any) => l.level === scores[item.id].level)?.coefficient || "-"}
-                                  </span>
-                                </>
+                            {/* 显示系数（所有指标都需要显示）和表达式（系统指标） */}
+                            <div className="text-xs text-muted-foreground pt-2 border-t border-primary/10 flex items-center justify-between">
+                              {/* 系统指标表达式 - 居中显示 */}
+                              {item.type === "system" ? (
+                                <span className="font-semibold text-primary flex-1 text-center">
+                                  {getSystemIndicatorLabel(item.systemIndicator)} {getOperatorLabel(item.levels?.find((l: any) => l.level === scores[item.id].level)?.condition?.operator)} {item.levels?.find((l: any) => l.level === scores[item.id].level)?.condition?.threshold || "-"}
+                                </span>
                               ) : (
-                                <>
-                                  条件: <span className="font-semibold text-primary">
-                                    {item.systemIndicator} {item.levels?.find((l: any) => l.level === scores[item.id].level)?.condition?.operator || "-"} {item.levels?.find((l: any) => l.level === scores[item.id].level)?.condition?.threshold || "-"}
-                                  </span>
-                                </>
+                                <div className="flex-1" />
                               )}
+                              {/* 系数标签 - 居右显示 */}
+                              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 flex items-center justify-center flex-shrink-0">
+                                <span className="font-semibold text-primary text-xs">
+                                  {formatCoefficient(item.levels?.find((l: any) => l.level === scores[item.id].level)?.coefficient)}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         )}
