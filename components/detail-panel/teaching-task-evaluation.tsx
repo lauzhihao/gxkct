@@ -1,8 +1,9 @@
 "use client"
 
-import { ArrowLeft, Plus, Edit, Copy } from "lucide-react"
+import { ArrowLeft, Plus, Edit, Copy, Info, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { TeachingSupervisoryTask, TeachingQualityStandard } from "@/types"
 import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
@@ -17,6 +18,7 @@ interface TeachingTaskEvaluationProps {
 export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy }: TeachingTaskEvaluationProps) {
   const [standards, setStandards] = useState<TeachingQualityStandard | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [expandedLevels, setExpandedLevels] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     const loadStandards = async () => {
@@ -56,6 +58,30 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy }: Teachin
       completed: "bg-green-100 text-green-800 border-green-300",
     }
     return colorMap[status] || "bg-gray-100 text-gray-800 border-gray-300"
+  }
+
+  // 系统指标标签映射
+  const getSystemIndicatorLabel = (systemIndicator: string | undefined): string => {
+    const labelMap: Record<string, string> = {
+      course_development_completion: "课程开发完成度",
+      course_point_optimization_count: "课点优化次数",
+      teaching_indicator_count: "教学指标数量",
+      resource_count: "资源数量",
+      material_count: "教材数量",
+    }
+    return labelMap[systemIndicator || ""] || systemIndicator || ""
+  }
+
+  // 等级标签映射（转换为ABCD）
+  const getLevelLabel = (level: string | number): string => {
+    const levelStr = String(level)
+    const levelMap: Record<string, string> = {
+      "1": "A",
+      "2": "B",
+      "3": "C",
+      "4": "D",
+    }
+    return levelMap[levelStr] || levelStr
   }
 
   return (
@@ -140,7 +166,7 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy }: Teachin
                 <div className="grid grid-cols-4 gap-4">
                   <div className="col-span-2">
                     <p className="text-sm text-muted-foreground mb-2">任务说明</p>
-                    <p className="text-sm whitespace-pre-wrap bg-background/50 p-3 rounded border border-border">
+                    <p className="text-sm whitespace-pre-wrap text-foreground">
                       {task.description}
                     </p>
                   </div>
@@ -173,56 +199,108 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy }: Teachin
               <div className="space-y-4">
                 {standards.items.map((item) => (
                   <div key={item.id} className="border border-border rounded-lg p-4 bg-background/50 space-y-4">
+                    {/* 标题行：序号、指标名称、类型提示和右上角满分卡片 */}
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
+                      <div className="flex items-center gap-3">
+                        {/* 增大序号圆形尺寸和字号 */}
+                        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary">
                           {item.sequence}
                         </div>
-                        <span className="text-sm font-medium text-foreground">评价标准</span>
-                        <span className="text-xs text-muted-foreground ml-auto">满分: {item.fullScore}</span>
+                        <span className="text-base font-semibold text-foreground">
+                          {item.type === "business" ? item.indicator : getSystemIndicatorLabel(item.systemIndicator)}
+                        </span>
+                        {/* 类型提示 Tips */}
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="w-5 h-5 text-muted-foreground hover:text-foreground cursor-help transition-colors" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{item.type === "business" ? "业务指标" : "系统指标"}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                      {/* 本项满分卡片 - 右上角 */}
+                      <div className="rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 px-4 py-3 flex flex-col items-center justify-center">
+                        <div className="text-2xl font-bold text-primary">{item.fullScore}</div>
+                        <div className="text-xs text-muted-foreground">本项满分</div>
                       </div>
                     </div>
 
+                    {/* 评价等级 - 12列布局（每个等级占3列） */}
                     <div className="space-y-3">
-                      {/* Row 1: Indicator and Full Score (same line) */}
-                      <div className="grid grid-cols-4 gap-4">
-                        <div className="col-span-3">
-                          <p className="text-sm text-muted-foreground mb-2">指标项</p>
-                          <p className="text-sm font-semibold text-foreground">{item.indicator}</p>
-                        </div>
-                      </div>
+                      <p className="text-sm font-semibold text-foreground">评价等级</p>
 
-                      {/* Row 2: Levels Configuration */}
-                      <div className="space-y-3 border-t border-border pt-4">
-                        <p className="text-sm font-semibold text-foreground">评价等级</p>
-
-                        {/* Levels Grid: 2 rows x 4 columns */}
-                        <div className="grid grid-cols-4 gap-3">
-                          {item.levels?.map((level) => (
-                            <div key={level.level} className="col-span-1 border border-border rounded-lg bg-background/50 overflow-hidden">
-                              {/* Row 1: Level and Coefficient */}
-                              <div className="grid grid-cols-2 gap-2 p-3 border-b border-border">
-                                {/* Column 1: Level */}
-                                <div className="flex flex-col items-center justify-center gap-1">
-                                  <p className="text-xs text-muted-foreground">等级</p>
-                                  <span className="text-lg font-bold text-primary">{level.level}</span>
-                                </div>
-                                {/* Column 2: Coefficient */}
-                                <div className="space-y-1">
-                                  <p className="text-xs text-muted-foreground">系数</p>
-                                  <p className="text-sm font-semibold text-foreground">{level.coefficient}</p>
-                                </div>
+                      {/* 调整网格布局为12列，每个等级占3列 */}
+                      <div className="grid grid-cols-12 gap-3">
+                        {item.levels?.map((level) => {
+                          const levelKey = `${item.id}-${level.level}`
+                          const isExpanded = expandedLevels[levelKey] || false
+                          return (
+                          <div key={level.level} className="col-span-3 border border-border rounded-lg bg-background/50 overflow-hidden">
+                            {/* 等级卡片头部 - 根据指标类型显示不同字段 */}
+                            <div className="p-3 border-b border-border flex items-start justify-between gap-2">
+                              <div className="flex-1">
+                                {item.type === "business" ? (
+                                  // 业务指标：显示等级和系数（12列布局，各占6列）
+                                  <div className="grid grid-cols-12 gap-2">
+                                    <div className="col-span-6 flex items-center justify-center">
+                                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 flex items-center justify-center">
+                                        <span className="text-lg font-bold text-primary">{getLevelLabel(level.level)}</span>
+                                      </div>
+                                    </div>
+                                    <div className="col-span-6 flex flex-col items-center justify-center gap-1">
+                                      <p className="text-xs text-muted-foreground">系数</p>
+                                      <p className="text-sm font-semibold text-foreground">{level.coefficient}</p>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  // 系统指标：显示等级、系数、运算符、阈值（12列布局，各占3列）
+                                  <div className="grid grid-cols-12 gap-2">
+                                    <div className="col-span-3 flex items-center justify-center">
+                                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 flex items-center justify-center">
+                                        <span className="text-lg font-bold text-primary">{getLevelLabel(level.level)}</span>
+                                      </div>
+                                    </div>
+                                    <div className="col-span-3 flex flex-col items-center justify-center gap-1">
+                                      <p className="text-xs text-muted-foreground">系数</p>
+                                      <p className="text-sm font-semibold text-foreground">{level.coefficient}</p>
+                                    </div>
+                                    <div className="col-span-3 flex flex-col items-center justify-center gap-1">
+                                      <p className="text-xs text-muted-foreground">运算符</p>
+                                      <p className="text-sm font-semibold text-foreground">{level.condition?.operator || "-"}</p>
+                                    </div>
+                                    <div className="col-span-3 flex flex-col items-center justify-center gap-1">
+                                      <p className="text-xs text-muted-foreground">阈值</p>
+                                      <p className="text-sm font-semibold text-foreground">{level.condition?.threshold || "-"}</p>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
-
-                              {/* Row 2: Description */}
-                              <div className="p-3 space-y-1">
-                                <p className="text-xs text-muted-foreground line-clamp-3">
-                                  {level.description || "（无说明）"}
-                                </p>
-                              </div>
+                              {/* 展开按钮 */}
+                              {level.description && level.description.length > 100 && (
+                                <button
+                                  onClick={() => setExpandedLevels(prev => ({
+                                    ...prev,
+                                    [levelKey]: !isExpanded
+                                  }))}
+                                  className="flex items-center justify-center w-6 h-6 text-primary hover:text-primary/80 transition-colors flex-shrink-0"
+                                >
+                                  <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                                </button>
+                              )}
                             </div>
-                          ))}
-                        </div>
+
+                            {/* 说明文案 */}
+                            <div className={`p-3 transition-all duration-300 overflow-hidden ${isExpanded ? "max-h-96" : "max-h-20"}`}>
+                              <p className={`text-xs text-muted-foreground ${isExpanded ? "" : "line-clamp-3"}`}>
+                                {level.description || "（无说明）"}
+                              </p>
+                            </div>
+                          </div>
+                        )
+                        })}
                       </div>
                     </div>
                   </div>
