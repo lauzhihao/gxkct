@@ -10,31 +10,47 @@
         {
           "id": "item-001",
           "sequence": 1,
-          "indicator": "教案",
+          "systemIndicator": "course_development_completion",
           "fullScore": 15,
           "levels": [
             {
               "level": "A",
               "description": "教案项目填写齐全，有重难点体现，体现课改要求不够明显，教学后记不全或反思不够深刻。",
-              "coefficient": 1
+              "coefficient": 1.0,
+              "condition": {
+                "operator": ">=",
+                "threshold": 90
+              }
             },
             {
               "level": "B",
               "description": "教案项目填写较为齐全，重难点体现较为明确，教学进度基本符合要求，教学后记基本完整，反思内容一般。",
-              "coefficient": 0.8
+              "coefficient": 0.8,
+              "condition": {
+                "operator": ">=",
+                "threshold": 75
+              }
             },
             {
               "level": "C",
               "description": "教案内容详细规范，项目填写齐全，教学进度符合教学大纲、开课说明的要求，突出重难点，按照三化原则设计课程，体现课改要求、数智化建设、团队学习等，课程思政实现盐溶于水，板书设计合理。教学反思针对性强，具有反思-调整-改进的作用。",
-              "coefficient": 0.6
+              "coefficient": 0.6,
+              "condition": {
+                "operator": ">=",
+                "threshold": 60
+              }
             },
             {
               "level": "D",
               "description": "教案项目填写不完整，重难点体现不明确，教学进度与要求偏差较大，教学后记缺失或反思流于形式。",
-              "coefficient": 0.4
+              "coefficient": 0.4,
+              "condition": {
+                "operator": "<",
+                "threshold": 60
+              }
             }
           ],
-          "type": "business"
+          "type": "system"
         },
         {
           "id": "item-002",
@@ -45,7 +61,7 @@
             {
               "level": "A",
               "description": "教学任务书与实际教学任务相符，课时、授课班级与开课一览表相一致。",
-              "coefficient": 1
+              "coefficient": 1.0
             },
             {
               "level": "B",
@@ -74,7 +90,7 @@
             {
               "level": "A",
               "description": "教学内容齐全，重点、难点把握准确，符合人才培养方案要求，体现立德树人基本要求。紧跟知识最新发展，凝练课程特色，突出学校人才培养定位，体现课程的科学性、创新性和实践性，考核设计合理。",
-              "coefficient": 1
+              "coefficient": 1.0
             },
             {
               "level": "B",
@@ -103,7 +119,7 @@
             {
               "level": "A",
               "description": "开课说明满足课程教学大纲要求，符合学生实际，教学进度合理，考核评价、课程计划以及对学生提出的要求明确且具有可操作性；课程三级矩阵完整齐全，内容科学合理，符合应用型课程特点。",
-              "coefficient": 1
+              "coefficient": 1.0
             },
             {
               "level": "B",
@@ -132,7 +148,7 @@
             {
               "level": "A",
               "description": "根据课程性质，教学档案中包含考勤表、平时成绩记载情况统计表、项目作业任务书及学生完成的样稿、周测验及月考等样卷、实验项目任务书、实验报告及样稿、课程设计及样稿，以及其他各类支撑材料。过程性材料齐全，并记录完整，班级好、中、差各个层次样卷留存完备，能够体现课程过程性管理，每项均有对应的成绩单，且成绩准确无误。部门有《学习手册》信息一览表和样稿，《学习手册》中基本构成部分内容齐全、所涉及知识点无原理性错误。【同一学生的全套材料】",
-              "coefficient": 1
+              "coefficient": 1.0
             },
             {
               "level": "B",
@@ -161,7 +177,7 @@
             {
               "level": "A",
               "description": "紧扣教学目标，合理分析教学不足。",
-              "coefficient": 1
+              "coefficient": 1.0
             },
             {
               "level": "B",
@@ -190,7 +206,7 @@
             {
               "level": "A",
               "description": "教学总结中应包含任课教师已完成的工作、取得的成绩、存在的不足、下一步教学设想、本学期自评等方面，语言精练，切合教学实际。",
-              "coefficient": 1
+              "coefficient": 1.0
             },
             {
               "level": "B",
@@ -219,7 +235,7 @@
             {
               "level": "A",
               "description": "除上述材料，还要教师提高其他课程相关材料，如教材、光盘、电子档案、GIF、JPEG、BMP格式的图片或图形组成的图片库、采用多媒体技术制作的动画演示课件组成的动画库等，应用学习通等现代技术进行在线课程建设，资源丰富，教辅材料至少90%以上内容与教学大纲相符。",
-              "coefficient": 1
+              "coefficient": 1.0
             },
             {
               "level": "B",
