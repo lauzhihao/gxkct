@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
 import { api, type TeachingSupervisoryTask, type TeachingQualityStandard } from "@/lib/api"
 
 interface CourseSupervisionDetailProps {
@@ -14,39 +13,12 @@ interface CourseSupervisionDetailProps {
   onBack: () => void
 }
 
-interface ScoreItem {
-  level: "A" | "B" | "C" | "D" | ""
-  comment: string
-}
-
 export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetailProps) {
   const [standards, setStandards] = useState<TeachingQualityStandard | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [scores, setScores] = useState<Record<string, ScoreItem>>({})
+  const [scores, setScores] = useState<Record<string, { score: number; level: string }>>({})
   const [totalScore, setTotalScore] = useState<number>(0)
-
-  // 获取标准项的等级系数映射
-  const getLevelCoefficients = (itemId: string): Record<string, number> => {
-    if (!standards) return {}
-    const item = standards.items?.find((i) => i.id === itemId)
-    if (!item) return {}
-
-    const coefficients: Record<string, number> = {}
-    item.levels?.forEach((level) => {
-      coefficients[level.level] = level.coefficient
-    })
-    return coefficients
-  }
-
-  // 获取选中等级的说明文案
-  const getLevelDescription = (itemId: string, level: string): string => {
-    if (!standards) return ""
-    const item = standards.items?.find((i) => i.id === itemId)
-    if (!item) return ""
-
-    const levelObj = item.levels?.find((l) => l.level === level)
-    return levelObj?.description || ""
-  }
+  const [totalLevel, setTotalLevel] = useState<string>("")
 
   // 加载评价标准
   useEffect(() => {
@@ -57,9 +29,9 @@ export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetai
         if (response.data) {
           setStandards(response.data)
           // 初始化评分数据
-          const initialScores: Record<string, ScoreItem> = {}
+          const initialScores: Record<string, { score: number; level: string }> = {}
           response.data.items?.forEach((item) => {
-            initialScores[item.id] = { level: "", comment: "" }
+            initialScores[item.id] = { score: 0, level: "" }
           })
           setScores(initialScores)
         }
@@ -73,23 +45,11 @@ export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetai
     loadStandards()
   }, [task.id])
 
-  // 计算总分
+  // 计算总分和评级（暂时留空备用）
   useEffect(() => {
-    if (!standards) return
-
-    let total = 0
-    standards.items?.forEach((item) => {
-      const scoreItem = scores[item.id]
-      if (scoreItem && scoreItem.level) {
-        const coefficients = getLevelCoefficients(item.id)
-        const coefficient = coefficients[scoreItem.level] || 0
-        const itemScore = item.fullScore * coefficient
-        total += itemScore
-      }
-    })
-
-    setTotalScore(Math.round(total * 100) / 100)
-  }, [scores, standards])
+    // TODO: 实现总分和评级的计算规则
+    // 当前暂时为空，等待业务规则确定
+  }, [scores])
 
   // 格式化日期
   const formatDate = (dateString: string) => {
@@ -101,29 +61,20 @@ export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetai
     }
   }
 
+  // 处理评分变化
+  const handleScoreChange = (itemId: string, value: number) => {
+    setScores((prev) => ({
+      ...prev,
+      [itemId]: { ...prev[itemId], score: value },
+    }))
+  }
+
   // 处理评级变化
-  const handleLevelChange = (itemId: string, level: "A" | "B" | "C" | "D") => {
+  const handleLevelChange = (itemId: string, value: string) => {
     setScores((prev) => ({
       ...prev,
-      [itemId]: { ...prev[itemId], level },
+      [itemId]: { ...prev[itemId], level: value },
     }))
-  }
-
-  // 处理评语变化
-  const handleCommentChange = (itemId: string, comment: string) => {
-    setScores((prev) => ({
-      ...prev,
-      [itemId]: { ...prev[itemId], comment: comment.slice(0, 200) },
-    }))
-  }
-
-  // 计算单项得分
-  const calculateItemScore = (itemId: string, fullScore: number) => {
-    const scoreItem = scores[itemId]
-    if (!scoreItem || !scoreItem.level) return 0
-    const coefficients = getLevelCoefficients(itemId)
-    const coefficient = coefficients[scoreItem.level] || 0
-    return Math.round(fullScore * coefficient * 100) / 100
   }
 
   // 处理保存
@@ -197,11 +148,19 @@ export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetai
             )}
           </div>
 
-          {/* 总分 - 醒目显示 */}
+          {/* 总分和评级 - 醒目显示 */}
           <div className="border-t border-dashed border-border pt-6">
-            <div className="rounded-lg bg-primary/10 border border-primary/20 p-8 flex flex-col items-center justify-center">
-              <div className="text-sm font-semibold text-muted-foreground mb-4">总分</div>
-              <div className="text-5xl font-bold text-primary text-center">{totalScore}</div>
+            <div className="grid grid-cols-2 gap-6">
+              <div className="rounded-lg bg-primary/10 border border-primary/20 p-4">
+                <div className="text-xs text-muted-foreground mb-2">总分</div>
+                <div className="text-3xl font-bold text-primary">{totalScore}</div>
+                <div className="text-xs text-muted-foreground mt-1">自动计算</div>
+              </div>
+              <div className="rounded-lg bg-primary/10 border border-primary/20 p-4">
+                <div className="text-xs text-muted-foreground mb-2">评级</div>
+                <div className="text-2xl font-bold text-primary">{totalLevel || "-"}</div>
+                <div className="text-xs text-muted-foreground mt-1">自动计算</div>
+              </div>
             </div>
           </div>
         </div>
@@ -230,60 +189,44 @@ export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetai
 
                   <div className="space-y-3">
                     <div>
-                      <Label className="text-xs text-muted-foreground mb-2 block font-medium">指标项</Label>
-                      <p className="text-sm font-semibold text-foreground">{item.indicator}</p>
+                      <Label className="text-xs text-muted-foreground mb-1 block">指标项</Label>
+                      <p className="text-sm text-foreground">{item.indicator}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground mb-1 block">评价标准</Label>
+                      <p className="text-sm text-foreground">{item.evaluationCriteria}</p>
                     </div>
                   </div>
 
-                  {/* 评级选择和评语 */}
-                  <div className="pt-4 border-t border-border grid grid-cols-2 gap-4">
-                    {/* 评级选择 */}
-                    <div className="flex flex-col gap-3">
-                      <Label className="text-xs font-semibold text-foreground">
-                        评级 <span className="text-red-500">*</span>
+                  <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border">
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor={`score-${item.id}`} className="text-xs text-muted-foreground">
+                        得分
                       </Label>
-                      <div className="flex gap-2">
-                        {item.levels?.map((level) => (
-                          <Button
-                            key={level.level}
-                            onClick={() => handleLevelChange(item.id, level.level as "A" | "B" | "C" | "D")}
-                            variant={scores[item.id]?.level === level.level ? "default" : "outline"}
-                            className="flex-1 font-semibold"
-                          >
-                            {level.level}
-                          </Button>
-                        ))}
-                      </div>
-
-                      {/* 选中等级的说明文案 */}
-                      {scores[item.id]?.level && (
-                        <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 space-y-2">
-                          <p className="text-xs text-muted-foreground line-clamp-4">
-                            {getLevelDescription(item.id, scores[item.id].level)}
-                          </p>
-                          <div className="text-xs text-muted-foreground">
-                            该项得分: {calculateItemScore(item.id, item.fullScore)}
-                          </div>
-                        </div>
-                      )}
+                      <Input
+                        id={`score-${item.id}`}
+                        type="number"
+                        min="0"
+                        max={item.fullScore}
+                        value={scores[item.id]?.score || ""}
+                        onChange={(e) => handleScoreChange(item.id, Number(e.target.value))}
+                        placeholder="输入得分"
+                        className="text-sm"
+                      />
                     </div>
 
-                    {/* 评语 */}
                     <div className="flex flex-col gap-2">
-                      <Label htmlFor={`comment-${item.id}`} className="text-xs font-semibold text-foreground">
-                        评语 <span className="text-red-500">*</span>
+                      <Label htmlFor={`level-${item.id}`} className="text-xs text-muted-foreground">
+                        评级
                       </Label>
-                      <Textarea
-                        id={`comment-${item.id}`}
-                        value={scores[item.id]?.comment || ""}
-                        onChange={(e) => handleCommentChange(item.id, e.target.value)}
-                        placeholder="请输入评语（最多200字）"
-                        className="text-sm resize-none"
-                        rows={3}
+                      <Input
+                        id={`level-${item.id}`}
+                        type="text"
+                        value={scores[item.id]?.level || ""}
+                        onChange={(e) => handleLevelChange(item.id, e.target.value)}
+                        placeholder="输入评级"
+                        className="text-sm"
                       />
-                      <div className="text-xs text-muted-foreground text-right">
-                        {scores[item.id]?.comment.length || 0}/200
-                      </div>
                     </div>
                   </div>
                 </div>
