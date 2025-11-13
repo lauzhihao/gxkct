@@ -95,18 +95,35 @@ export interface TeachingSupervisoryTask {
   updatedAt?: string
 }
 
+// 条件表达式（用于系统指标）
+export interface ConditionExpression {
+  operator: ">" | "<" | ">=" | "<=" | "=" | "contains" | "not_contains" // 运算符
+  threshold: number // 阈值（数值型，包含两位小数）
+}
+
 // 评价等级
 export interface EvaluationLevel {
   level: "A" | "B" | "C" | "D" // 等级序号
   description: string // 等级说明（最多500字）
   coefficient: number // 等级系数（0.1-1之间的小数）
+  condition?: ConditionExpression // 条件表达式（仅用于系统指标）
 }
+
+// 系统指标选项
+export type SystemIndicator =
+  | "course_development_completion" // 课程开发完成度
+  | "course_point_optimization_count" // 课点优化次数
+  | "teaching_indicator_count" // 教学指标数量
+  | "resource_count" // 资源数量
+  | "material_count" // 教材数量
 
 // 评价标准项接口
 export interface EvaluationStandardItem {
   id: string
   sequence: number // 序号（自动增加）
+  type: "business" | "system" // 标准项类型：业务指标或系统指标，默认业务指标
   indicator: string // 指标项（必填，单行文本，200字）
+  systemIndicator?: SystemIndicator // 系统指标类型（仅当 type 为 system 时使用）
   fullScore: number // 本项满分（0-100整数）
   levels: EvaluationLevel[] // 等级列表（最少1个，最多4个ABCD）
 }

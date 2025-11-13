@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useState, useEffect } from "react"
 import type { TeachingSupervisoryTask, EvaluationStandardItem, TeachingQualityStandard } from "@/types"
 import { api } from "@/lib/api"
@@ -126,6 +127,7 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
     const newStandard: EvaluationStandardItem = {
       id: `standard-${Date.now()}`,
       sequence: standards.length + 1,
+      type: "business", // 默认为业务指标
       indicator: "",
       fullScore: 100,
       levels: [{ level: "A", description: "", coefficient: 1 }], // 默认包含A级
@@ -202,7 +204,7 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
   }
 
   // 更新等级字段
-  const handleUpdateLevel = (standardId: string, level: "A" | "B" | "C" | "D", field: "description" | "coefficient", value: any) => {
+  const handleUpdateLevel = (standardId: string, level: "A" | "B" | "C" | "D", field: "description" | "coefficient" | "condition", value: any) => {
     setStandards(
       standards.map((s) => {
         if (s.id === standardId) {
@@ -212,6 +214,9 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
               if (l.level === level) {
                 if (field === "coefficient") {
                   return { ...l, coefficient: Math.max(0.1, Math.min(1, value)) }
+                }
+                if (field === "condition") {
+                  return { ...l, condition: value }
                 }
                 return { ...l, [field]: value }
               }
@@ -226,10 +231,7 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
 
   // 检查评价标准项是否为空（所有必填字段都为空）
   const isStandardEmpty = (standard: EvaluationStandardItem): boolean => {
-    return (
-      !standard.indicator.trim() &&
-      !standard.evaluationCriteria.trim()
-    )
+    return !standard.indicator.trim()
   }
 
   // 过滤掉空白的评价标准项
@@ -462,27 +464,74 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
                     </div>
 
                     <div className="space-y-4">
-                      {/* Row 1: Indicator and Full Score (same line) */}
-                      <div className="grid grid-cols-4 gap-4">
+                      {/* Row: Type Selection (3 columns), Indicator (5 columns), Full Score (4 columns) */}
+                      <div className="grid grid-cols-12 gap-4">
+                        {/* Column 1: Type Selection (3 columns) */}
                         <div className="col-span-3 space-y-2">
-                          <Label className="text-sm">
-                            指标项 <span className="text-red-500">*</span>
+                          <Label className="text-sm font-semibold">
+                            指标类型 <span className="text-red-500">*</span>
                           </Label>
-                          <Input
-                            value={standard.indicator}
-                            onChange={(e) =>
-                              handleStandardChange(standard.id, "indicator", e.target.value.slice(0, 200))
-                            }
-                            placeholder="请输入指标项（最多200字）"
-                            maxLength={200}
-                          />
-                          <div className="flex justify-end">
-                            <p className="text-xs text-muted-foreground">
-                              {standard.indicator.length}/200
-                            </p>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant={standard.type === "business" ? "default" : "outline"}
+                              onClick={() => handleStandardChange(standard.id, "type", "business")}
+                              className="text-xs flex-1"
+                            >
+                              业务指标
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={standard.type === "system" ? "default" : "outline"}
+                              onClick={() => handleStandardChange(standard.id, "type", "system")}
+                              className="text-xs flex-1"
+                            >
+                              系统指标
+                            </Button>
                           </div>
                         </div>
-                        <div className="space-y-2">
+
+                        {/* Column 2: Indicator/System Indicator (5 columns) */}
+                        <div className="col-span-5 space-y-2">
+                          <Label className="text-sm">
+                            {standard.type === "system" ? "系统指标" : "指标项"} <span className="text-red-500">*</span>
+                          </Label>
+                          {standard.type === "business" ? (
+                            <div className="space-y-1">
+                              <Input
+                                value={standard.indicator}
+                                onChange={(e) =>
+                                  handleStandardChange(standard.id, "indicator", e.target.value.slice(0, 200))
+                                }
+                                placeholder="请输入指标项（最多200字）"
+                                maxLength={200}
+                              />
+                              <div className="flex justify-end">
+                                <p className="text-xs text-muted-foreground">
+                                  {standard.indicator.length}/200
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="w-full">
+                              <Select value={standard.systemIndicator || ""} onValueChange={(value) => handleStandardChange(standard.id, "systemIndicator", value)}>
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder="请选择系统指标" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="course_development_completion">课程开发完成度</SelectItem>
+                                  <SelectItem value="course_point_optimization_count">课点优化次数</SelectItem>
+                                  <SelectItem value="teaching_indicator_count">教学指标数量</SelectItem>
+                                  <SelectItem value="resource_count">资源数量</SelectItem>
+                                  <SelectItem value="material_count">教材数量</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Column 3: Full Score (4 columns) */}
+                        <div className="col-span-4 space-y-2">
                           <Label className="text-sm">
                             本项满分 <span className="text-red-500">*</span>
                           </Label>
@@ -512,12 +561,17 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
                                 size="sm"
                                 variant={standard.levels.some((l) => l.level === level) ? "default" : "outline"}
                                 onClick={() => {
+                                  // A级默认选中，不可取消
+                                  if (level === "A") {
+                                    return
+                                  }
                                   if (standard.levels.some((l) => l.level === level)) {
                                     handleDeleteLevel(standard.id, level)
                                   } else {
                                     handleAddLevel(standard.id, level)
                                   }
                                 }}
+                                disabled={level === "A" && standard.levels.some((l) => l.level === "A")}
                                 className="w-8 h-8 p-0"
                               >
                                 {level}
@@ -526,45 +580,108 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
                           </div>
                         </div>
 
-                        {/* Levels Grid: 2 rows x 4 columns */}
-                        <div className="grid grid-cols-4 gap-3">
+                        {/* Levels Grid: 4 columns, each level occupies 3 columns */}
+                        <div className="grid grid-cols-12 gap-3">
                           {standard.levels.map((level) => (
-                            <div key={level.level} className="col-span-1 border border-border rounded-lg bg-background/50 overflow-hidden relative">
+                            <div key={level.level} className="col-span-3 border border-border rounded-lg bg-background/50 overflow-hidden relative">
                               {/* Delete Button - Top Right Corner */}
                               {standard.levels.length > 1 && level.level !== "A" && (
                                 <Button
                                   size="sm"
                                   variant="ghost"
                                   onClick={() => handleDeleteLevel(standard.id, level.level)}
-                                  className="absolute top-1 right-1 h-6 w-6 p-0 hover:bg-destructive/10 text-destructive z-10"
+                                  className="absolute top-1 right-1 h-6 w-6 p-0 hover:bg-destructive/10 text-red-500 z-10"
                                 >
-                                  <Trash2 className="w-3 h-3" />
+                                  <X className="w-4 h-4" />
                                 </Button>
                               )}
 
-                              {/* Row 1: Level and Coefficient */}
-                              <div className="grid grid-cols-2 gap-2 p-3 border-b border-border">
-                                {/* Column 1: Level */}
-                                <div className="flex flex-col items-center justify-center gap-1">
-                                  <Label className="text-xs text-muted-foreground">等级</Label>
-                                  <span className="text-lg font-bold text-primary">{level.level}</span>
-                                </div>
-                                {/* Column 2: Coefficient */}
-                                <div className="space-y-1">
-                                  <Label className="text-xs text-muted-foreground block">系数</Label>
-                                  <Input
-                                    type="number"
-                                    min="0.1"
-                                    max="1"
-                                    step="0.1"
-                                    value={level.coefficient}
-                                    onChange={(e) =>
-                                      handleUpdateLevel(standard.id, level.level, "coefficient", parseFloat(e.target.value) || 0.1)
-                                    }
-                                    placeholder="0.1-1"
-                                    className="h-8 text-xs"
-                                  />
-                                </div>
+                              {/* Row 1: Level and Coefficient/Condition - 6 column layout */}
+                              <div className="grid grid-cols-6 gap-2 p-3 border-b border-border">
+                                {/* Business Indicator: Level (3 cols) + Coefficient (3 cols) */}
+                                {standard.type === "business" ? (
+                                  <>
+                                    {/* Column 1-3: Level */}
+                                    <div className="col-span-3 space-y-1">
+                                      <Label className="text-xs text-muted-foreground block">等级</Label>
+                                      <div className="flex items-center justify-center h-8">
+                                        <span className="text-lg font-bold text-primary">{level.level}</span>
+                                      </div>
+                                    </div>
+                                    {/* Column 4-6: Coefficient */}
+                                    <div className="col-span-3 space-y-1">
+                                      <Label className="text-xs text-muted-foreground block">系数</Label>
+                                      <Input
+                                        type="number"
+                                        min="0.1"
+                                        max="1"
+                                        step="0.1"
+                                        value={level.coefficient}
+                                        onChange={(e) =>
+                                          handleUpdateLevel(standard.id, level.level, "coefficient", parseFloat(e.target.value) || 0.1)
+                                        }
+                                        placeholder="0.1-1"
+                                        className="h-8 text-xs"
+                                      />
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    {/* System Indicator: Level (2 cols) + Operator (2 cols) + Threshold (2 cols) */}
+                                    {/* Column 1-2: Level */}
+                                    <div className="col-span-2 space-y-1">
+                                      <Label className="text-xs text-muted-foreground block">等级</Label>
+                                      <div className="flex items-center justify-center h-8">
+                                        <span className="text-lg font-bold text-primary">{level.level}</span>
+                                      </div>
+                                    </div>
+                                    {/* Column 3-4: Operator */}
+                                    <div className="col-span-2 space-y-1">
+                                      <Label className="text-xs text-muted-foreground block">运算符</Label>
+                                      <Select
+                                        value={level.condition?.operator || ">"}
+                                        onValueChange={(value) => {
+                                          const newCondition = {
+                                            operator: value as any,
+                                            threshold: level.condition?.threshold || 0,
+                                          }
+                                          handleUpdateLevel(standard.id, level.level, "condition", newCondition)
+                                        }}
+                                      >
+                                        <SelectTrigger className="w-full h-8 text-xs">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value=">">大于</SelectItem>
+                                          <SelectItem value="<">小于</SelectItem>
+                                          <SelectItem value=">=">&gt;=</SelectItem>
+                                          <SelectItem value="<=">&lt;=</SelectItem>
+                                          <SelectItem value="=">=</SelectItem>
+                                          <SelectItem value="contains">包含</SelectItem>
+                                          <SelectItem value="not_contains">不包含</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    {/* Column 5-6: Threshold */}
+                                    <div className="col-span-2 space-y-1">
+                                      <Label className="text-xs text-muted-foreground block">阈值</Label>
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        value={level.condition?.threshold || 0}
+                                        onChange={(e) => {
+                                          const newCondition = {
+                                            operator: level.condition?.operator || ">",
+                                            threshold: parseFloat(e.target.value) || 0,
+                                          }
+                                          handleUpdateLevel(standard.id, level.level, "condition", newCondition)
+                                        }}
+                                        placeholder="阈值"
+                                        className="h-8 text-xs"
+                                      />
+                                    </div>
+                                  </>
+                                )}
                               </div>
 
                               {/* Row 2: Description (spans 2 columns) */}
