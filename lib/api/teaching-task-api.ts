@@ -128,9 +128,29 @@ export class TeachingTaskApi {
    * 获取任务的评价标准
    */
   async getTaskStandards(taskId: string): Promise<ApiResponse<TeachingQualityStandard>> {
-    const key = `${this.standardsKeyPrefix}${taskId}`
-    const response = await this.storage.get<TeachingQualityStandard>(key)
-    return response
+    try {
+      // 首先尝试从 localStorage 获取
+      const key = `${this.standardsKeyPrefix}${taskId}`
+      const response = await this.storage.get<TeachingQualityStandard>(key)
+
+      // 如果找到了，直接返回
+      if (response.data) {
+        return response
+      }
+
+      // 如果没有找到，从 mock 数据文件读取
+      const mockData = await import("@/mock-data/teaching-standards.json")
+      const standards = mockData.data.find((s: TeachingQualityStandard) => s.taskId === taskId)
+
+      if (standards) {
+        return { data: standards, error: null, status: 200 }
+      }
+
+      return { data: null, error: "标准未找到", status: 404 }
+    } catch (error) {
+      console.error("获取评价标准失败:", error)
+      return { data: null, error: String(error), status: 500 }
+    }
   }
 
   /**

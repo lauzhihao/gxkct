@@ -14,10 +14,11 @@ interface TeachingTaskFormPageProps {
   task: TeachingSupervisoryTask
   onBack: () => void
   onSubmit?: (task: TeachingSupervisoryTask) => void
+  onAutoSave?: (task: TeachingSupervisoryTask) => void
   isLoading?: boolean
 }
 
-export function TeachingTaskFormPage({ task, onBack, onSubmit, isLoading = false }: TeachingTaskFormPageProps) {
+export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoading = false }: TeachingTaskFormPageProps) {
   const [formData, setFormData] = useState<TeachingSupervisoryTask>(task)
   const [standards, setStandards] = useState<EvaluationStandardItem[]>([])
   const [isSaving, setIsSaving] = useState(false)
@@ -48,7 +49,12 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, isLoading = false
 
           if (response.data && response.data.items) {
             console.log("设置评价标准:", response.data.items)
-            setStandards(response.data.items)
+            // 确保每个标准项都有 levels 字段
+            const normalizedItems = response.data.items.map((item: EvaluationStandardItem) => ({
+              ...item,
+              levels: item.levels || [{ level: "A", description: "", coefficient: 1 }],
+            }))
+            setStandards(normalizedItems)
           } else {
             console.log("没有评价标准数据")
             setStandards([])
@@ -82,9 +88,9 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, isLoading = false
           createdAt: formData.createdAt || new Date().toISOString(),
         }
 
-        // 先保存任务基本信息
-        if (onSubmit) {
-          await onSubmit(taskToSubmit)
+        // 先保存任务基本信息（使用 onAutoSave 而不是 onSubmit，避免页面跳转）
+        if (onAutoSave) {
+          await onAutoSave(taskToSubmit)
         }
 
         // 然后保存评价标准（过滤掉空白项）
@@ -114,7 +120,7 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, isLoading = false
     }, 10000) // 每10秒执行一次
 
     return () => clearInterval(autoSaveInterval)
-  }, [task.id, formData, standards, onSubmit])
+  }, [task.id, formData, standards, onAutoSave])
 
   const handleAddStandard = () => {
     const newStandard: EvaluationStandardItem = {
@@ -122,10 +128,7 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, isLoading = false
       sequence: standards.length + 1,
       indicator: "",
       fullScore: 100,
-      evaluationCriteria: "",
-      evaluationLevel: "",
-      score: 0,
-      weight: 10,
+      levels: [{ level: "A", description: "", coefficient: 1 }], // 默认包含A级
     }
     setStandards([...standards, newStandard])
   }
@@ -145,6 +148,79 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, isLoading = false
       standards.map((s) =>
         s.id === id ? { ...s, [field]: value } : s
       )
+    )
+  }
+
+  // 添加等级
+  const handleAddLevel = (standardId: string, level: "A" | "B" | "C" | "D") => {
+    // 等级系数映射
+    const levelCoefficients: Record<string, number> = {
+      A: 1,
+      B: 0.8,
+      C: 0.6,
+      D: 0.4,
+    }
+
+    setStandards(
+      standards.map((s) => {
+        if (s.id === standardId) {
+          // 检查是否已存在该等级
+          if (s.levels.some((l) => l.level === level)) {
+            return s
+          }
+          // 最多4个等级
+          if (s.levels.length >= 4) {
+            return s
+          }
+          return {
+            ...s,
+            levels: [...s.levels, { level, description: "", coefficient: levelCoefficients[level] }],
+          }
+        }
+        return s
+      })
+    )
+  }
+
+  // 删除等级
+  const handleDeleteLevel = (standardId: string, level: "A" | "B" | "C" | "D") => {
+    setStandards(
+      standards.map((s) => {
+        if (s.id === standardId) {
+          // 至少保留一个等级
+          if (s.levels.length === 1) {
+            return s
+          }
+          return {
+            ...s,
+            levels: s.levels.filter((l) => l.level !== level),
+          }
+        }
+        return s
+      })
+    )
+  }
+
+  // 更新等级字段
+  const handleUpdateLevel = (standardId: string, level: "A" | "B" | "C" | "D", field: "description" | "coefficient", value: any) => {
+    setStandards(
+      standards.map((s) => {
+        if (s.id === standardId) {
+          return {
+            ...s,
+            levels: s.levels.map((l) => {
+              if (l.level === level) {
+                if (field === "coefficient") {
+                  return { ...l, coefficient: Math.max(0.1, Math.min(1, value)) }
+                }
+                return { ...l, [field]: value }
+              }
+              return l
+            }),
+          }
+        }
+        return s
+      })
     )
   }
 
@@ -386,21 +462,19 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, isLoading = false
                     </div>
 
                     <div className="space-y-4">
-                      {/* Row 1: Indicator (2 columns) */}
+                      {/* Row 1: Indicator and Full Score (same line) */}
                       <div className="grid grid-cols-4 gap-4">
-                        <div className="col-span-2 space-y-2">
+                        <div className="col-span-3 space-y-2">
                           <Label className="text-sm">
                             指标项 <span className="text-red-500">*</span>
                           </Label>
-                          <Textarea
+                          <Input
                             value={standard.indicator}
                             onChange={(e) =>
-                              handleStandardChange(standard.id, "indicator", e.target.value)
+                              handleStandardChange(standard.id, "indicator", e.target.value.slice(0, 200))
                             }
                             placeholder="请输入指标项（最多200字）"
                             maxLength={200}
-                            rows={2}
-                            className="resize-none"
                           />
                           <div className="flex justify-end">
                             <p className="text-xs text-muted-foreground">
@@ -408,63 +482,111 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, isLoading = false
                             </p>
                           </div>
                         </div>
-                      </div>
-
-                      {/* Row 2: Evaluation Criteria (2 columns) */}
-                      <div className="grid grid-cols-4 gap-4">
-                        <div className="col-span-2 space-y-2">
-                          <Label className="text-sm">
-                            评价标准 <span className="text-red-500">*</span>
-                          </Label>
-                          <Textarea
-                            value={standard.evaluationCriteria}
-                            onChange={(e) =>
-                              handleStandardChange(standard.id, "evaluationCriteria", e.target.value)
-                            }
-                            placeholder="请输入评价标准（最多500字）"
-                            maxLength={500}
-                            rows={2}
-                            className="resize-none"
-                          />
-                          <div className="flex justify-end">
-                            <p className="text-xs text-muted-foreground">
-                              {standard.evaluationCriteria.length}/500
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Row 3: Full Score and Weight */}
-                      <div className="grid grid-cols-4 gap-4">
                         <div className="space-y-2">
                           <Label className="text-sm">
-                            满分 <span className="text-red-500">*</span>
+                            本项满分 <span className="text-red-500">*</span>
                           </Label>
                           <Input
                             type="number"
-                            min="1"
+                            min="0"
+                            max="100"
                             value={standard.fullScore}
                             onChange={(e) =>
                               handleStandardChange(standard.id, "fullScore", parseInt(e.target.value) || 0)
                             }
-                            placeholder="请输入满分"
+                            placeholder="0-100"
                           />
                         </div>
+                      </div>
 
-                        <div className="space-y-2">
-                          <Label className="text-sm">
-                            权重 <span className="text-red-500">*</span>
+                      {/* Row 2: Levels Configuration */}
+                      <div className="space-y-3 border-t border-border pt-4">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-semibold">
+                            评价等级 <span className="text-red-500">*</span>
                           </Label>
-                          <Input
-                            type="number"
-                            min="1"
-                            max="100"
-                            value={standard.weight}
-                            onChange={(e) =>
-                              handleStandardChange(standard.id, "weight", parseInt(e.target.value) || 10)
-                            }
-                            placeholder="1-100"
-                          />
+                          <div className="flex gap-1">
+                            {(["A", "B", "C", "D"] as const).map((level) => (
+                              <Button
+                                key={level}
+                                size="sm"
+                                variant={standard.levels.some((l) => l.level === level) ? "default" : "outline"}
+                                onClick={() => {
+                                  if (standard.levels.some((l) => l.level === level)) {
+                                    handleDeleteLevel(standard.id, level)
+                                  } else {
+                                    handleAddLevel(standard.id, level)
+                                  }
+                                }}
+                                className="w-8 h-8 p-0"
+                              >
+                                {level}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Levels Grid: 2 rows x 4 columns */}
+                        <div className="grid grid-cols-4 gap-3">
+                          {standard.levels.map((level) => (
+                            <div key={level.level} className="col-span-1 border border-border rounded-lg bg-background/50 overflow-hidden relative">
+                              {/* Delete Button - Top Right Corner */}
+                              {standard.levels.length > 1 && level.level !== "A" && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleDeleteLevel(standard.id, level.level)}
+                                  className="absolute top-1 right-1 h-6 w-6 p-0 hover:bg-destructive/10 text-destructive z-10"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              )}
+
+                              {/* Row 1: Level and Coefficient */}
+                              <div className="grid grid-cols-2 gap-2 p-3 border-b border-border">
+                                {/* Column 1: Level */}
+                                <div className="flex flex-col items-center justify-center gap-1">
+                                  <Label className="text-xs text-muted-foreground">等级</Label>
+                                  <span className="text-lg font-bold text-primary">{level.level}</span>
+                                </div>
+                                {/* Column 2: Coefficient */}
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-muted-foreground block">系数</Label>
+                                  <Input
+                                    type="number"
+                                    min="0.1"
+                                    max="1"
+                                    step="0.1"
+                                    value={level.coefficient}
+                                    onChange={(e) =>
+                                      handleUpdateLevel(standard.id, level.level, "coefficient", parseFloat(e.target.value) || 0.1)
+                                    }
+                                    placeholder="0.1-1"
+                                    className="h-8 text-xs"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Row 2: Description (spans 2 columns) */}
+                              <div className="p-3 space-y-1">
+                                <Textarea
+                                  value={level.description}
+                                  onChange={(e) =>
+                                    handleUpdateLevel(standard.id, level.level, "description", e.target.value.slice(0, 500))
+                                  }
+                                  placeholder="等级说明（最多500字）"
+                                  maxLength={500}
+                                  rows={3}
+                                  className="resize-none text-xs"
+                                />
+                                <div className="flex justify-end">
+                                  <p className="text-xs text-muted-foreground">
+                                    {level.description.length}/500
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </div>

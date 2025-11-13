@@ -85,6 +85,19 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
     }
   }
 
+  // 自动保存任务（不改变页面状态）
+  const handleAutoSaveTask = async (taskData: TeachingSupervisoryTask) => {
+    try {
+      const response = await api.teachingTasks.updateTask(node.id, taskData.id, taskData)
+      if (response.data) {
+        // 只更新任务列表，不改变页面状态
+        setTasks(tasks.map((t) => (t.id === taskData.id ? response.data : t)))
+      }
+    } catch (error) {
+      console.error("自动保存教学督导任务失败:", error)
+    }
+  }
+
   const handleStatusChange = async (taskId: string, newStatus: "not_started" | "in_progress" | "completed") => {
     try {
       const task = tasks.find((t) => t.id === taskId)
@@ -151,6 +164,7 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
         task={selectedTask}
         onBack={() => setPageState("view")}
         onSubmit={handleUpdateTask}
+        onAutoSave={handleAutoSaveTask}
       />
     )
   }

@@ -95,16 +95,20 @@ export interface TeachingSupervisoryTask {
   updatedAt?: string
 }
 
+// 评价等级
+export interface EvaluationLevel {
+  level: "A" | "B" | "C" | "D" // 等级序号
+  description: string // 等级说明（最多500字）
+  coefficient: number // 等级系数（0.1-1之间的小数）
+}
+
 // 评价标准项接口
 export interface EvaluationStandardItem {
   id: string
   sequence: number // 序号（自动增加）
-  indicator: string // 指标项（必填，200字）
-  fullScore: number // 满分（正整数）
-  evaluationCriteria: string // 评价标准（必填，500字）
-  evaluationLevel?: string // 评价等级
-  score?: number // 得分（正整数）
-  weight: number // 权重（1-100之间的整数）
+  indicator: string // 指标项（必填，单行文本，200字）
+  fullScore: number // 本项满分（0-100整数）
+  levels: EvaluationLevel[] // 等级列表（最少1个，最多4个ABCD）
 }
 
 // 教学质量评价标准接口

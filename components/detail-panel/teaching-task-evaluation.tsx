@@ -173,43 +173,55 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy }: Teachin
               <div className="space-y-4">
                 {standards.items.map((item) => (
                   <div key={item.id} className="border border-border rounded-lg p-4 bg-background/50 space-y-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
-                        {item.sequence}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
+                          {item.sequence}
+                        </div>
+                        <span className="text-sm font-medium text-foreground">评价标准</span>
+                        <span className="text-xs text-muted-foreground ml-auto">满分: {item.fullScore}</span>
                       </div>
-                      <span className="text-sm font-medium text-foreground">标准项</span>
                     </div>
 
-                    <div className="space-y-4">
-                      {/* Row 1: Indicator */}
+                    <div className="space-y-3">
+                      {/* Row 1: Indicator and Full Score (same line) */}
                       <div className="grid grid-cols-4 gap-4">
-                        <div className="col-span-2">
+                        <div className="col-span-3">
                           <p className="text-sm text-muted-foreground mb-2">指标项</p>
-                          <p className="text-sm whitespace-pre-wrap bg-background/50 p-3 rounded border border-border">
-                            {item.indicator}
-                          </p>
+                          <p className="text-sm font-semibold text-foreground">{item.indicator}</p>
                         </div>
                       </div>
 
-                      {/* Row 2: Evaluation Criteria */}
-                      <div className="grid grid-cols-4 gap-4">
-                        <div className="col-span-2">
-                          <p className="text-sm text-muted-foreground mb-2">评价标准</p>
-                          <p className="text-sm whitespace-pre-wrap bg-background/50 p-3 rounded border border-border">
-                            {item.evaluationCriteria}
-                          </p>
-                        </div>
-                      </div>
+                      {/* Row 2: Levels Configuration */}
+                      <div className="space-y-3 border-t border-border pt-4">
+                        <p className="text-sm font-semibold text-foreground">评价等级</p>
 
-                      {/* Row 3: Full Score and Weight */}
-                      <div className="grid grid-cols-4 gap-4">
-                        <div>
-                          <p className="text-sm text-muted-foreground mb-2">满分</p>
-                          <p className="font-medium">{item.fullScore}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground mb-2">权重</p>
-                          <p className="font-medium">{item.weight}</p>
+                        {/* Levels Grid: 2 rows x 4 columns */}
+                        <div className="grid grid-cols-4 gap-3">
+                          {item.levels?.map((level) => (
+                            <div key={level.level} className="col-span-1 border border-border rounded-lg bg-background/50 overflow-hidden">
+                              {/* Row 1: Level and Coefficient */}
+                              <div className="grid grid-cols-2 gap-2 p-3 border-b border-border">
+                                {/* Column 1: Level */}
+                                <div className="flex flex-col items-center justify-center gap-1">
+                                  <p className="text-xs text-muted-foreground">等级</p>
+                                  <span className="text-lg font-bold text-primary">{level.level}</span>
+                                </div>
+                                {/* Column 2: Coefficient */}
+                                <div className="space-y-1">
+                                  <p className="text-xs text-muted-foreground">系数</p>
+                                  <p className="text-sm font-semibold text-foreground">{level.coefficient}</p>
+                                </div>
+                              </div>
+
+                              {/* Row 2: Description */}
+                              <div className="p-3 space-y-1">
+                                <p className="text-xs text-muted-foreground line-clamp-3">
+                                  {level.description || "（无说明）"}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </div>
