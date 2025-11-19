@@ -6,19 +6,48 @@ import { Grid3x3 } from "lucide-react"
 import type { TreeNode } from "@/types"
 import { CourseMatrix } from "./course-matrix"
 import { CourseProjectMatrix } from "./course-project-matrix"
+import { CourseMajorMatrix } from "./course-major-matrix"
 
 interface CourseThreeLevelMatrixProps {
   node: TreeNode
   onUpdateNode?: (nodeId: string, updates: Partial<TreeNode>) => void
+  treeData?: TreeNode
+  majorCourses?: Map<string, TreeNode[]>
 }
 
-export function CourseThreeLevelMatrix({ node, onUpdateNode }: CourseThreeLevelMatrixProps) {
+export function CourseThreeLevelMatrix({ node, onUpdateNode, treeData, majorCourses }: CourseThreeLevelMatrixProps) {
   const metadata = node.metadata || {}
+
+  // 查找当前课程所属的专业节点
+  const getMajorNode = (): TreeNode | undefined => {
+    if (!majorCourses || !treeData) return undefined
+
+    // 遍历 majorCourses 找到包含当前课程的专业
+    for (const [majorId, courses] of majorCourses.entries()) {
+      if (courses.some(course => course.id === node.id)) {
+        // 从 treeData 中查找该专业节点
+        return findNodeById(treeData, majorId)
+      }
+    }
+    return undefined
+  }
 
   const handleUpdateMetadata = (updates: Partial<typeof metadata>) => {
     if (onUpdateNode) {
       onUpdateNode(node.id, { metadata: { ...metadata, ...updates } })
     }
+  }
+
+  // 辅助函数：从树中查找节点
+  const findNodeById = (root: TreeNode, targetId: string): TreeNode | undefined => {
+    if (root.id === targetId) return root
+    if (root.children) {
+      for (const child of root.children) {
+        const found = findNodeById(child, targetId)
+        if (found) return found
+      }
+    }
+    return undefined
   }
 
   return (
@@ -36,11 +65,12 @@ export function CourseThreeLevelMatrix({ node, onUpdateNode }: CourseThreeLevelM
         </div>
       </div>
 
-      {/* Tabs for Course Matrix and Project Matrix */}
+      {/* Tabs for Course Matrix, Project Matrix and Major Matrix */}
       <Tabs defaultValue="courseMatrix" className="w-full">
-        <TabsList className="w-full grid grid-cols-2 h-10 bg-secondary/50">
+        <TabsList className="w-full grid grid-cols-3 h-10 bg-secondary/50">
           <TabsTrigger value="courseMatrix">课程矩阵</TabsTrigger>
           <TabsTrigger value="projectMatrix">项目矩阵</TabsTrigger>
+          <TabsTrigger value="majorMatrix">专业矩阵</TabsTrigger>
         </TabsList>
 
         <TabsContent value="courseMatrix" className="mt-6">
@@ -49,6 +79,10 @@ export function CourseThreeLevelMatrix({ node, onUpdateNode }: CourseThreeLevelM
 
         <TabsContent value="projectMatrix" className="mt-6">
           <CourseProjectMatrix node={node} onUpdate={handleUpdateMetadata} />
+        </TabsContent>
+
+        <TabsContent value="majorMatrix" className="mt-6">
+          <CourseMajorMatrix node={node} majorNode={getMajorNode()} onUpdateNode={onUpdateNode} />
         </TabsContent>
       </Tabs>
     </div>

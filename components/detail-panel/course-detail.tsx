@@ -26,7 +26,7 @@ import { CourseResources } from "@/components/course/course-resources"
 import { CourseSupervision } from "@/components/course/course-supervision"
 import { CourseThreeLevelMatrix } from "@/components/course/course-three-level-matrix"
 
-export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelect }: DetailPanelProps) {
+export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelect, treeData, majorCourses }: DetailPanelProps) {
   const metadata = node.metadata || {}
   const [isEditingCourse, setIsEditingCourse] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -79,10 +79,22 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
     setIsDeleteDialogOpen(false)
   }
 
+  // 获取课程所属的专业ID
+  const getMajorId = (): string => {
+    if (majorCourses) {
+      for (const [majorId, courses] of majorCourses.entries()) {
+        if (courses.some(course => course.id === node.id)) {
+          return majorId
+        }
+      }
+    }
+    return node.id
+  }
+
   if (isEditingCourse && node?.type === "course") {
     return (
       <AddCourseForm
-        majorId={node.parentId || node.id}
+        majorId={getMajorId()}
         onCancel={() => setIsEditingCourse(false)}
         onSubmit={handleEditCourseFormSubmit}
         initialData={node}
@@ -197,7 +209,7 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
             </TabsContent>
 
             <TabsContent value="matrix" className="space-y-4 mt-4 px-6">
-              <CourseThreeLevelMatrix node={node} onUpdateNode={onUpdateNode} />
+              <CourseThreeLevelMatrix node={node} onUpdateNode={onUpdateNode} treeData={treeData} majorCourses={majorCourses} />
             </TabsContent>
 
             <TabsContent value="supervision" className="space-y-4 mt-4 px-6">

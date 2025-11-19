@@ -32,6 +32,7 @@ interface MajorDetailProps {
   onDeleteNode?: (nodeId: string) => void
   onNodeSelect?: (node: any) => void
   currentUser: { username: string; role: string } | null
+  majorCourses?: Map<string, TreeNode[]>
 }
 
 export function MajorDetail({
@@ -43,6 +44,7 @@ export function MajorDetail({
   onDeleteNode,
   onNodeSelect,
   currentUser,
+  majorCourses,
 }: MajorDetailProps) {
   const [isAddingCourse, setIsAddingCourse] = useState(false)
   const [isEditingMajor, setIsEditingMajor] = useState(false)
@@ -139,16 +141,16 @@ export function MajorDetail({
         </div>
 
         <div className="flex-1 overflow-auto">
-          <Tabs defaultValue="details" className="w-full">
+          <Tabs defaultValue="courses" className="w-full">
             <TabsList className="w-full h-10 bg-secondary/50 backdrop-blur-sm border-b border-border rounded-none p-0">
+              <TabsTrigger value="courses" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
+                课程管理
+              </TabsTrigger>
               <TabsTrigger value="details" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
                 专业详情
               </TabsTrigger>
               <TabsTrigger value="matrix" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
                 专业矩阵
-              </TabsTrigger>
-              <TabsTrigger value="courses" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
-                课程管理
               </TabsTrigger>
               <TabsTrigger value="users" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
                 成员管理
@@ -169,6 +171,7 @@ export function MajorDetail({
                 currentUser={currentUser}
                 onNodeSelect={onNodeSelect}
                 onAddCourse={() => setIsAddingCourse(true)}
+                majorCourses={majorCourses}
               />
             </TabsContent>
 

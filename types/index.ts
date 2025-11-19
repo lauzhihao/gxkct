@@ -157,6 +157,8 @@ export interface MajorMetadata {
   objectives?: string[]
   duration?: string
   degree?: string
+  requiresVOS?: any[]
+  matrixSupportLevels?: Record<string, string>
 }
 
 export interface CourseMetadata {
@@ -168,6 +170,7 @@ export interface CourseMetadata {
   chapters?: Chapter[]
   resources?: Resource[]
   teachingMaterials?: TeachingMaterial[]
+  courseMajorMatrixSupportLevels?: Record<string, string>
 }
 
 // 联合类型的元数据

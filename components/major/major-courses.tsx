@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { BookMarked, Plus, Filter, Search, FileText, User, Award, Clock } from "lucide-react"
+import { BookMarked, Plus, Search, FileText, User, Award, Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { TreeNode } from "@/types"
 import { api } from "@/lib/api"
@@ -12,10 +12,10 @@ interface MajorCoursesProps {
   currentUser: { username: string; role: string } | null
   onNodeSelect?: (node: any) => void
   onAddCourse: () => void
+  majorCourses?: Map<string, TreeNode[]>
 }
 
-export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse }: MajorCoursesProps) {
-  const [showCourseFilter, setShowCourseFilter] = useState(false)
+export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, majorCourses }: MajorCoursesProps) {
   const [courseSearchTerm, setCourseSearchTerm] = useState("")
   const [showMyCourses, setShowMyCourses] = useState(false)
 
@@ -33,7 +33,10 @@ export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse }: M
     api.preferences.setPreference(`showMyCourses_${node.id}`, showMyCourses)
   }, [showMyCourses, node.id])
 
-  const courses = node.children?.filter((child) => child.type === "course") || []
+  // 优先使用动态加载的课程数据，如果没有则使用node.children中的课程
+  const courses = majorCourses?.has(node.id)
+    ? majorCourses.get(node.id) || []
+    : node.children?.filter((child) => child.type === "course") || []
 
   const filteredCourses = courses.filter((course) => {
     const matchesSearch = !courseSearchTerm || course.name.toLowerCase().includes(courseSearchTerm.toLowerCase())
@@ -54,6 +57,16 @@ export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse }: M
           课程管理
         </h3>
         <div className="flex items-center gap-3">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="搜索课程名称..."
+              value={courseSearchTerm}
+              onChange={(e) => setCourseSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+          </div>
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -66,36 +79,12 @@ export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse }: M
               我的课程
             </label>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-2 cursor-pointer bg-transparent"
-            onClick={() => setShowCourseFilter(!showCourseFilter)}
-          >
-            <Filter className="w-4 h-4" />
-            筛选
-          </Button>
           <Button size="sm" className="gap-2 cursor-pointer" onClick={onAddCourse}>
             <Plus className="w-4 h-4" />
             创建课程
           </Button>
         </div>
       </div>
-
-      {showCourseFilter && (
-        <div className="mb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="搜索课程名称..."
-              value={courseSearchTerm}
-              onChange={(e) => setCourseSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
-          </div>
-        </div>
-      )}
 
       {!courses || courses.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
