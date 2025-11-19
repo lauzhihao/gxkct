@@ -43,7 +43,7 @@ interface AddCourseFormProps {
   isEditMode?: boolean
 }
 
-const courseNatureOptions = ["公共基础课", "专业基础课", "专业核心课", "专业拓展课", "实践课程"]
+const courseNatureOptions = ["通识教育课", "学科基础课", "专业课", "集中实践教育环节", "综合教育"]
 
 function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = false }: AddCourseFormProps) {
   const { toast } = useToast()

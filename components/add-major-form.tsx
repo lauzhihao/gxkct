@@ -271,13 +271,13 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
 
   const addCareerInfo = () => {
     setCareerInfoList([
-      ...careerInfoList,
       {
         id: Date.now().toString(),
         level: "中级",
         direction: { category1: "", category2: "", category3: "", category4: "" },
         tasks: "",
       },
+      ...careerInfoList,
     ])
   }
 

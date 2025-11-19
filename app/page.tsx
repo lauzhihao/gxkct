@@ -186,15 +186,15 @@ export default function Page() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[oklch(0.97_0.005_240)] via-[oklch(0.96_0.005_240)] to-[oklch(0.95_0.008_240)] px-[2.5%] py-6 md:py-8">
+    <div className="min-h-screen bg-gradient-to-br from-[oklch(0.97_0.005_240)] via-[oklch(0.96_0.005_240)] to-[oklch(0.95_0.008_240)] px-[0.5%] py-6 md:py-8 overflow-x-hidden">
       <div className="w-full">
         <Header onResetData={handleResetData} />
 
         <div className="flex gap-6 relative">
           <div
             className={cn(
-              "flex-shrink-0 transition-all duration-300 ease-in-out relative",
-              isTreeCollapsed ? "w-[70px]" : "w-[32%]"
+              "flex-shrink-0 transition-all duration-300 ease-in-out relative overflow-visible",
+              isTreeCollapsed ? "w-[70px]" : "w-[23%]"
             )}
           >
             <TreeView
@@ -215,7 +215,7 @@ export default function Page() {
           <div
             className={cn(
               "flex-shrink-0 transition-all duration-300 ease-in-out",
-              isTreeCollapsed ? "w-[calc(100%-70px-1.5rem)]" : "w-[68%]"
+              isTreeCollapsed ? "w-[calc(100%-70px-1.5rem)]" : "w-[77%]"
             )}
           >
             <DetailPanel

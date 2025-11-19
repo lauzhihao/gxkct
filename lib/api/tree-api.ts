@@ -337,4 +337,89 @@ export class TreeApi {
 
     return { data: courses, error: null, status: 200 }
   }
+
+  /**
+   * 搜索树中的节点（包括未加载的数据）
+   * 返回匹配的节点及其完整路径
+   */
+  async searchTree(keyword: string): Promise<ApiResponse<Array<{ node: TreeNode; path: TreeNode[] }>>> {
+    console.log(`[v0] TreeApi.searchTree(${keyword}) 开始搜索`)
+
+    const treeResponse = await this.getTree()
+    if (treeResponse.error || !treeResponse.data) {
+      return { data: null, error: treeResponse.error, status: treeResponse.status }
+    }
+
+    const tree = structuredClone(treeResponse.data)
+
+    // 加载所有未加载的数据到克隆的树中（不影响原树）
+    console.log(`[v0] TreeApi.searchTree() 开始加载所有未加载的数据`)
+    await this.loadAllUnloadedData(tree)
+
+    const results: Array<{ node: TreeNode; path: TreeNode[] }> = []
+    const lowerKeyword = keyword.toLowerCase()
+
+    const search = (node: TreeNode, path: TreeNode[] = []): void => {
+      const currentPath = [...path, node]
+
+      // 检查当前节点是否匹配
+      if (
+        node.name.toLowerCase().includes(lowerKeyword) ||
+        node.description?.toLowerCase().includes(lowerKeyword)
+      ) {
+        results.push({ node, path: currentPath })
+      }
+
+      // 递归搜索子节点
+      if (node.children) {
+        node.children.forEach((child) => search(child, currentPath))
+      }
+    }
+
+    search(tree)
+    console.log(`[v0] TreeApi.searchTree() 找到 ${results.length} 个匹配结果`)
+
+    return { data: results, error: null, status: 200 }
+  }
+
+  /**
+   * 加载所有未加载的数据（department的专业和major的课程）
+   * 注意：这个方法会修改传入的node对象，所以调用前应该先克隆
+   */
+  private async loadAllUnloadedData(node: TreeNode): Promise<void> {
+    if (!node.children) return
+
+    for (const child of node.children) {
+      // 如果是department节点，加载其专业
+      if (child.type === "department") {
+        console.log(`[v0] TreeApi.loadAllUnloadedData() 加载department ${child.id} 的专业`)
+        const majorsResponse = await this.getDepartmentMajors(child.id)
+        if (majorsResponse.data && majorsResponse.data.length > 0) {
+          child.children = majorsResponse.data
+          console.log(`[v0] TreeApi.loadAllUnloadedData() 成功加载 ${majorsResponse.data.length} 个专业`)
+
+          // 递归加载每个major的课程
+          for (const major of majorsResponse.data) {
+            if (major.type === "major") {
+              await this.loadAllUnloadedData(major)
+            }
+          }
+        }
+      }
+      // 如果是major节点，加载其课程
+      else if (child.type === "major") {
+        const majorId = child.metadata?.majorId || child.id.replace("major-", "")
+        console.log(`[v0] TreeApi.loadAllUnloadedData() 加载major ${child.id} 的课程`)
+        const coursesResponse = await this.getMajorCourses(majorId)
+        if (coursesResponse.data && coursesResponse.data.length > 0) {
+          child.children = coursesResponse.data
+          console.log(`[v0] TreeApi.loadAllUnloadedData() 成功加载 ${coursesResponse.data.length} 个课程`)
+        }
+      }
+      // 递归处理其他节点
+      else {
+        await this.loadAllUnloadedData(child)
+      }
+    }
+  }
 }

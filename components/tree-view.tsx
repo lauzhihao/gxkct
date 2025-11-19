@@ -15,7 +15,8 @@ import {
   X,
   Plus,
   Star,
-  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
@@ -31,394 +32,15 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "@/components/ui/tooltip"
 import type { TreeNode } from "@/types"
 import { api } from "@/lib/api"
-
-export const initialTreeData: TreeNode = {
-  id: "root",
-  name: "根节点",
-  type: "university",
-  children: [
-    {
-      id: "univ-1",
-      name: "齐齐哈尔工程学院",
-      type: "university",
-      description: "黑龙江省应用型本科高校",
-      children: [
-        {
-          id: "dept-1",
-          name: "信息学院",
-          type: "department",
-          description: "培养信息技术与计算机科学人才",
-          children: [
-            {
-              id: "major-1",
-              name: "计算机科学与技术",
-              type: "major",
-              description: "本科四年制,工学学士学位",
-              children: [
-                {
-                  id: "course-1",
-                  name: "数据库基础",
-                  type: "course",
-                  description: "学习关系型数据库设计与SQL编程",
-                  metadata: {
-                    credits: 4,
-                    hours: 64,
-                    semester: "第三学期",
-                    instructor: "张教授",
-                    resources: ["教材PDF", "课件PPT", "实验指导书"],
-                    matrix: {
-                      knowledge: ["数据库设计", "SQL语言", "事务处理"],
-                      skills: ["数据建模", "查询优化", "数据库管理"],
-                      quality: ["逻辑思维", "问题解决", "团队协作"],
-                    },
-                  },
-                },
-                {
-                  id: "course-2",
-                  name: "Python编程",
-                  type: "course",
-                  description: "Python语言基础与应用开发",
-                  metadata: {
-                    credits: 3,
-                    hours: 48,
-                    semester: "第二学期",
-                    instructor: "李教授",
-                    resources: ["在线教程", "代码示例", "项目模板"],
-                    matrix: {
-                      knowledge: ["Python语法", "面向对象", "标准库"],
-                      skills: ["编程实践", "调试技巧", "代码规范"],
-                      quality: ["创新思维", "自主学习", "代码质量"],
-                    },
-                  },
-                },
-                {
-                  id: "course-3",
-                  name: "Java编程",
-                  type: "course",
-                  description: "Java面向对象编程与企业级开发",
-                  metadata: {
-                    credits: 4,
-                    hours: 64,
-                    semester: "第三学期",
-                    instructor: "王教授",
-                    resources: ["视频课程", "API文档", "实战项目"],
-                    matrix: {
-                      knowledge: ["Java语法", "OOP设计", "框架应用"],
-                      skills: ["企业开发", "设计模式", "性能优化"],
-                      quality: ["工程思维", "文档能力", "持续学习"],
-                    },
-                  },
-                },
-                {
-                  id: "course-8",
-                  name: "数据结构与算法",
-                  type: "course",
-                  description: "学习常用数据结构和算法设计",
-                },
-                {
-                  id: "course-9",
-                  name: "操作系统",
-                  type: "course",
-                  description: "操作系统原理与实践",
-                },
-                {
-                  id: "course-10",
-                  name: "计算机网络",
-                  type: "course",
-                  description: "网络协议与网络编程",
-                },
-                {
-                  id: "course-11",
-                  name: "软件工程",
-                  type: "course",
-                  description: "软件开发方法与项目管理",
-                },
-                {
-                  id: "course-12",
-                  name: "Web开发技术",
-                  type: "course",
-                  description: "前端与后端Web开发",
-                },
-                {
-                  id: "course-13",
-                  name: "移动应用开发",
-                  type: "course",
-                  description: "Android和iOS应用开发",
-                },
-                {
-                  id: "course-14",
-                  name: "人工智能基础",
-                  type: "course",
-                  description: "AI基本概念与应用",
-                },
-                {
-                  id: "course-15",
-                  name: "机器学习",
-                  type: "course",
-                  description: "机器学习算法与实践",
-                },
-                {
-                  id: "course-16",
-                  name: "深度学习",
-                  type: "course",
-                  description: "神经网络与深度学习框架",
-                },
-                {
-                  id: "course-17",
-                  name: "云计算技术",
-                  type: "course",
-                  description: "云平台架构与服务",
-                },
-                {
-                  id: "course-18",
-                  name: "大数据技术",
-                  type: "course",
-                  description: "大数据处理与分析",
-                },
-                {
-                  id: "course-19",
-                  name: "信息安全",
-                  type: "course",
-                  description: "网络安全与密码学",
-                },
-                {
-                  id: "course-20",
-                  name: "编译原理",
-                  type: "course",
-                  description: "编译器设计与实现",
-                },
-                {
-                  id: "course-21",
-                  name: "计算机组成原理",
-                  type: "course",
-                  description: "计算机硬件系统结构",
-                },
-                {
-                  id: "course-22",
-                  name: "离散数学",
-                  type: "course",
-                  description: "离散结构与数学基础",
-                },
-                {
-                  id: "course-23",
-                  name: "线性代数",
-                  type: "course",
-                  description: "矩阵理论与线性方程组",
-                },
-                {
-                  id: "course-24",
-                  name: "概率论与数理统计",
-                  type: "course",
-                  description: "概率分布与统计推断",
-                },
-                {
-                  id: "course-25",
-                  name: "数字电路",
-                  type: "course",
-                  description: "数字逻辑与电路设计",
-                },
-                {
-                  id: "course-26",
-                  name: "微机原理与接口技术",
-                  type: "course",
-                  description: "微处理器与接口编程",
-                },
-                {
-                  id: "course-27",
-                  name: "嵌入式系统",
-                  type: "course",
-                  description: "嵌入式开发与应用",
-                },
-                {
-                  id: "course-28",
-                  name: "物联网技术",
-                  type: "course",
-                  description: "IoT架构与传感器网络",
-                },
-                {
-                  id: "course-29",
-                  name: "区块链技术",
-                  type: "course",
-                  description: "分布式账本与智能合约",
-                },
-                {
-                  id: "course-30",
-                  name: "计算机图形学",
-                  type: "course",
-                  description: "图形渲染与可视化",
-                },
-                {
-                  id: "course-31",
-                  name: "数字图像处理",
-                  type: "course",
-                  description: "图像处理算法与应用",
-                },
-                {
-                  id: "course-32",
-                  name: "自然语言处理",
-                  type: "course",
-                  description: "文本分析与语言模型",
-                },
-              ],
-            },
-            {
-              id: "major-2",
-              name: "软件工程",
-              type: "major",
-              description: "本科四年制，工学学士学位",
-              children: [
-                {
-                  id: "course-4",
-                  name: "软件工程导论",
-                  type: "course",
-                  description: "软件开发生命周期与项目管理",
-                  metadata: {
-                    credits: 3,
-                    hours: 48,
-                    semester: "第一学期",
-                    instructor: "赵教授",
-                    resources: ["课程大纲", "案例分析", "工具软件"],
-                    matrix: {
-                      knowledge: ["软件过程", "需求分析", "项目管理"],
-                      skills: ["需求建模", "文档编写", "团队协作"],
-                      quality: ["系统思维", "沟通能力", "责任意识"],
-                    },
-                  },
-                },
-              ],
-            },
-          ],
-        },
-        {
-          id: "dept-2",
-          name: "工程学院",
-          type: "department",
-          description: "培养工程技术与管理人才",
-          children: [
-            {
-              id: "major-3",
-              name: "工程造价",
-              type: "major",
-              description: "本科四年制，工学学士学位",
-              children: [
-                {
-                  id: "course-5",
-                  name: "工程经济学",
-                  type: "course",
-                  description: "工程项目经济评价与决策",
-                  metadata: {
-                    credits: 3,
-                    hours: 48,
-                    semester: "第四学期",
-                    instructor: "刘教授",
-                    resources: ["教材", "案例库", "计算软件"],
-                    matrix: {
-                      knowledge: ["经济评价", "成本分析", "投资决策"],
-                      skills: ["数据分析", "报告撰写", "软件应用"],
-                      quality: ["经济思维", "严谨态度", "职业道德"],
-                    },
-                  },
-                },
-              ],
-            },
-          ],
-        },
-        {
-          id: "dept-3",
-          name: "医学院",
-          type: "department",
-          description: "培养医疗卫生专业人才",
-          children: [
-            {
-              id: "major-4",
-              name: "护理学",
-              type: "major",
-              description: "本科四年制，理学学士学位",
-              children: [
-                {
-                  id: "course-6",
-                  name: "基础护理学",
-                  type: "course",
-                  description: "护理学基本理论与技能",
-                  metadata: {
-                    credits: 5,
-                    hours: 80,
-                    semester: "第二学期",
-                    instructor: "陈教授",
-                    resources: ["实训视频", "操作手册", "模拟系统"],
-                    matrix: {
-                      knowledge: ["护理理论", "操作规范", "安全管理"],
-                      skills: ["临床技能", "应急处理", "沟通技巧"],
-                      quality: ["人文关怀", "责任心", "职业素养"],
-                    },
-                  },
-                },
-              ],
-            },
-          ],
-        },
-        {
-          id: "dept-4",
-          name: "马克思主义学院",
-          type: "department",
-          description: "思想政治理论课教学与研究",
-          children: [
-            {
-              id: "major-5",
-              name: "思想政治教育",
-              type: "major",
-              description: "本科四年制，法学学士学位",
-              children: [
-                {
-                  id: "course-7",
-                  name: "马克思主义基本原理",
-                  type: "course",
-                  description: "马克思主义哲学、政治经济学和科学社会主义",
-                  metadata: {
-                    credits: 3,
-                    hours: 48,
-                    semester: "第一学期",
-                    instructor: "孙教授",
-                    resources: ["经典著作", "专题讲座", "讨论材料"],
-                    matrix: {
-                      knowledge: ["哲学原理", "政治经济", "社会理论"],
-                      skills: ["理论分析", "批判思维", "论文写作"],
-                      quality: ["政治素养", "理论修养", "社会责任"],
-                    },
-                  },
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    },
-    {
-      id: "workshop-1",
-      name: "第75期四真三化工作坊",
-      type: "university",
-      description: "专注于教学改革与创新实践",
-      children: [
-        {
-          id: "dept-5",
-          name: "教学改革组",
-          type: "department",
-          description: "推动教学方法创新",
-          children: [],
-        },
-        {
-          id: "dept-6",
-          name: "课程建设组",
-          type: "department",
-          description: "优化课程体系设计",
-          children: [],
-        },
-      ],
-    },
-  ],
-}
+import { useTreeSearch } from "@/hooks/use-tree-search"
 
 function highlightText(text: string, searchTerm: string) {
   if (!searchTerm.trim()) {
@@ -479,6 +101,7 @@ interface TreeNodeProps {
   visibleCourseCounts: Map<string, number>
   onLoadMoreCourses: (majorId: string) => void
   searchTerm: string
+  isSearching?: boolean
   currentSchoolId: string | null
   onSetCurrentSchool?: (schoolId: string) => void
   onToggleStar?: (nodeId: string) => void
@@ -500,6 +123,7 @@ function TreeNodeComponent({
   visibleCourseCounts,
   onLoadMoreCourses,
   searchTerm,
+  isSearching = false,
   currentSchoolId,
   onSetCurrentSchool,
   onToggleStar,
@@ -536,8 +160,8 @@ function TreeNodeComponent({
   const hasChildren = node.type === "department"
     ? true  // department节点始终可展开（会动态加载专业）
     : node.type === "major"
-    ? !loadedMajorsWithNoCourses?.has(node.id)  // major节点：如果已加载且无课程则不显示箭头
-    : (actualChildren && actualChildren.length > 0)
+      ? !loadedMajorsWithNoCourses?.has(node.id)  // major节点：如果已加载且无课程则不显示箭头
+      : (actualChildren && actualChildren.length > 0)
 
   const isExpanded = expandedNodes.has(node.id)
   const isSelected = selectedNodeId === node.id
@@ -638,14 +262,34 @@ function TreeNodeComponent({
         </div>
 
         <div className="flex-1 text-left min-w-0 overflow-hidden">
-          <div
-            className={cn(
-              "font-medium text-foreground group-hover:text-primary transition-colors truncate",
-              isSelected && "text-primary",
-            )}
-          >
-            {highlightText(node.name, searchTerm)}
-          </div>
+          {(node.type === "course" || node.type === "major") ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    className={cn(
+                      "font-medium text-foreground group-hover:text-primary transition-colors truncate cursor-pointer",
+                      isSelected && "text-primary",
+                    )}
+                  >
+                    {highlightText(node.name, searchTerm)}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="right" align="center" className="max-w-xs">
+                  {node.name}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <div
+              className={cn(
+                "font-medium text-foreground group-hover:text-primary transition-colors truncate",
+                isSelected && "text-primary",
+              )}
+            >
+              {highlightText(node.name, searchTerm)}
+            </div>
+          )}
           {node.description && (
             <div className="text-xs text-muted-foreground mt-0.5 truncate">
               {highlightText(node.description, searchTerm)}
@@ -691,6 +335,7 @@ function TreeNodeComponent({
                 visibleCourseCounts={visibleCourseCounts}
                 onLoadMoreCourses={onLoadMoreCourses}
                 searchTerm={searchTerm}
+                isSearching={isSearching}
                 currentSchoolId={currentSchoolId || null}
                 onSetCurrentSchool={onSetCurrentSchool}
                 onToggleStar={onToggleStar}
@@ -702,7 +347,7 @@ function TreeNodeComponent({
                 loadedMajorsWithNoCourses={loadedMajorsWithNoCourses}
               />
             ))
-          ) : node.type === "department" || node.type === "major" ? (
+          ) : isSearching && (node.type === "department" || node.type === "major") ? (
             <div
               className="text-sm text-muted-foreground py-2"
               style={{ paddingLeft: `${16 + (level + 1) * 24}px` }}
@@ -784,11 +429,10 @@ export const TreeView = React.forwardRef<
   }
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(["root"]))
   const [visibleCourseCounts, setVisibleCourseCounts] = useState<Map<string, number>>(new Map())
-  const [searchTerm, setSearchTerm] = useState("")
+  const { searchTerm, setSearchTerm, isSearching, searchResults, clearSearch } = useTreeSearch()
   const [isAddSchoolDialogOpen, setIsAddSchoolDialogOpen] = useState(false)
   const [newSchoolName, setNewSchoolName] = useState("")
   const [newSchoolDesc, setNewSchoolDesc] = useState("")
-  const [newSchoolType, setNewSchoolType] = useState<"school" | "workshop">("school")
   // 跟踪已加载专业数据的department节点
   const [loadedDepartments, setLoadedDepartments] = useState<Set<string>>(new Set())
   // 存储动态加载的专业数据
@@ -942,7 +586,6 @@ export const TreeView = React.forwardRef<
 
     setNewSchoolName("")
     setNewSchoolDesc("")
-    setNewSchoolType("school")
     setIsAddSchoolDialogOpen(false)
   }
 
@@ -974,6 +617,20 @@ export const TreeView = React.forwardRef<
 
   useEffect(() => {
     if (selectedNode) {
+      // 当选中节点时，自动展开其所有父节点
+      const findPathToNode = (root: TreeNode, targetId: string, path: string[] = []): string[] | null => {
+        if (root.id === targetId) {
+          return path
+        }
+        if (root.children) {
+          for (const child of root.children) {
+            const result = findPathToNode(child, targetId, [...path, root.id])
+            if (result) return result
+          }
+        }
+        return null
+      }
+
       const path = findPathToNode(treeData, selectedNode.id)
       if (path) {
         setExpandedNodes((prev) => {
@@ -984,66 +641,35 @@ export const TreeView = React.forwardRef<
         })
       }
     }
-  }, [selectedNode])
+  }, [selectedNode, treeData])
 
   useEffect(() => {
-    if (searchTerm.trim()) {
-      const matchingNodes = searchNodes(treeData, searchTerm)
+    if (searchTerm.trim() && searchResults.length > 0) {
       const newExpandedNodes = new Set<string>([treeData.id])
 
-      matchingNodes.forEach((node) => {
-        const path = findPathToNode(treeData, node.id)
-        if (path) {
-          path.forEach((nodeId) => newExpandedNodes.add(nodeId))
-          newExpandedNodes.add(node.id)
-        }
+      searchResults.forEach(({ path }) => {
+        path.forEach((node) => newExpandedNodes.add(node.id))
       })
 
       setExpandedNodes(newExpandedNodes)
     }
-  }, [searchTerm])
+  }, [searchTerm, searchResults, treeData.id])
 
-  const findPathToNode = (root: TreeNode, targetId: string, path: string[] = []): string[] | null => {
-    if (root.id === targetId) {
-      return path
-    }
-    if (root.children) {
-      for (const child of root.children) {
-        const result = findPathToNode(child, targetId, [...path, root.id])
-        if (result) return result
-      }
-    }
-    return null
-  }
 
-  const searchNodes = (node: TreeNode, searchTerm: string, results: TreeNode[] = []): TreeNode[] => {
-    const lowerSearch = searchTerm.toLowerCase()
-    if (node.name.toLowerCase().includes(lowerSearch) || node.description?.toLowerCase().includes(lowerSearch)) {
-      results.push(node)
-    }
-    if (node.children) {
-      node.children.forEach((child) => searchNodes(child, searchTerm, results))
-    }
-    return results
-  }
 
   const matchingNodeIds = React.useMemo(() => {
-    if (!searchTerm.trim()) return undefined
-    const matches = searchNodes(treeData, searchTerm)
-    return new Set(matches.map((n) => n.id))
-  }, [searchTerm, treeData])
+    if (!searchTerm.trim() || searchResults.length === 0) return undefined
+    return new Set(searchResults.map(({ node }) => node.id))
+  }, [searchTerm, searchResults])
 
   const pathNodeIds = React.useMemo(() => {
-    if (!searchTerm.trim() || !matchingNodeIds) return undefined
+    if (!searchTerm.trim() || searchResults.length === 0) return undefined
     const paths = new Set<string>()
-    matchingNodeIds.forEach((nodeId) => {
-      const path = findPathToNode(treeData, nodeId)
-      if (path) {
-        path.forEach((id) => paths.add(id))
-      }
+    searchResults.forEach(({ path }) => {
+      path.forEach((node) => paths.add(node.id))
     })
     return paths
-  }, [searchTerm, matchingNodeIds, treeData])
+  }, [searchTerm, searchResults])
 
   const firstMatchId = React.useMemo(() => {
     if (!matchingNodeIds || matchingNodeIds.size === 0) return null
@@ -1056,31 +682,18 @@ export const TreeView = React.forwardRef<
       {onToggleCollapse && (
         <button
           onClick={onToggleCollapse}
-          className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-6 h-6 bg-card border border-border rounded-full shadow-md hover:bg-primary hover:border-primary transition-all flex items-center justify-center group"
+          className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-8 h-8 bg-card border border-border rounded-full shadow-md hover:bg-primary hover:border-primary transition-all flex items-center justify-center group"
           aria-label={isCollapsed ? "展开侧边栏" : "收起侧边栏"}
         >
           {isCollapsed ? (
-            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-white transition-colors" />
+            <ChevronsRight className="text-primary group-hover:text-primary-foreground transition-colors" style={{ width: '21px', height: '21px' }} />
           ) : (
-            <ChevronLeft className="w-3.5 h-3.5 text-muted-foreground group-hover:text-white transition-colors" />
+            <ChevronsLeft className="text-primary group-hover:text-primary-foreground transition-colors" style={{ width: '21px', height: '21px' }} />
           )}
         </button>
       )}
 
-      {/* 展开/收起按钮 - 压在右边框中间 */}
-      {onToggleCollapse && (
-        <button
-          onClick={onToggleCollapse}
-          className="absolute top-1/2 -right-3 -translate-y-1/2 z-20 w-6 h-6 bg-card border border-border rounded-full shadow-md hover:bg-primary hover:border-primary transition-all flex items-center justify-center group"
-          aria-label={isCollapsed ? "展开侧边栏" : "收起侧边栏"}
-        >
-          {isCollapsed ? (
-            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-white transition-colors" />
-          ) : (
-            <ChevronLeft className="w-3.5 h-3.5 text-muted-foreground group-hover:text-white transition-colors" />
-          )}
-        </button>
-      )}
+
 
       {/* 收起状态下显示搜索图标和一级节点图标 */}
       {isCollapsed && (
@@ -1135,102 +748,111 @@ export const TreeView = React.forwardRef<
 
       <div className={cn("rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl p-6", isCollapsed && "hidden")}>
         <div className="mb-4">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="快速查找"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-10 bg-white/40 backdrop-blur-sm border-primary/20 focus:border-primary/50"
-            />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="清空搜索"
-              >
-                <X className="w-4 h-4" />
-              </button>
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="快速查找"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-10 bg-white/40 backdrop-blur-sm border-primary/20 focus:border-primary/50"
+              />
+              {searchTerm && !isSearching && (
+                <button
+                  onClick={() => {
+                    setSearchTerm("")
+                    clearSearch()
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="清空搜索"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+              {isSearching && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center">
+                  <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                </div>
+              )}
+            </div>
+
+            {onAddSchool && (
+              <Dialog open={isAddSchoolDialogOpen} onOpenChange={setIsAddSchoolDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="flex-shrink-0 hover:bg-primary/10"
+                    aria-label="新增学校/工作坊"
+                  >
+                    <Plus className="w-5 h-5 text-primary" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>新增学校/工作坊</DialogTitle>
+                    <DialogDescription>填写基本信息，创建新的学校或工作坊节点</DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="school-name">名称</Label>
+                      <Input
+                        id="school-name"
+                        placeholder="例如：齐齐哈尔工程学院"
+                        value={newSchoolName}
+                        onChange={(e) => setNewSchoolName(e.target.value)}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="school-desc">简介</Label>
+                      <Textarea
+                        id="school-desc"
+                        placeholder="简要描述学校或工作坊的特色"
+                        rows={3}
+                        value={newSchoolDesc}
+                        onChange={(e) => setNewSchoolDesc(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button type="submit" className="gap-2" onClick={handleCreateSchool} disabled={!newSchoolName.trim()}>
+                      <Plus className="w-4 h-4" />
+                      创建
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             )}
           </div>
-
-          {onAddSchool && (
-            <Dialog open={isAddSchoolDialogOpen} onOpenChange={setIsAddSchoolDialogOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="flex-shrink-0 hover:bg-primary/10"
-                  aria-label="新增学校/工作坊"
-                >
-                  <Plus className="w-5 h-5 text-primary" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
-                  <DialogTitle>新增学校/工作坊</DialogTitle>
-                  <DialogDescription>填写基本信息，创建新的学校或工作坊节点</DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="school-name">名称</Label>
-                    <Input
-                      id="school-name"
-                      placeholder="例如：齐齐哈尔工程学院"
-                      value={newSchoolName}
-                      onChange={(e) => setNewSchoolName(e.target.value)}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="school-desc">简介</Label>
-                    <Textarea
-                      id="school-desc"
-                      placeholder="简要描述学校或工作坊的特色"
-                      rows={3}
-                      value={newSchoolDesc}
-                      onChange={(e) => setNewSchoolDesc(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button type="submit" className="gap-2" onClick={handleCreateSchool} disabled={!newSchoolName.trim()}>
-                    <Plus className="w-4 h-4" />
-                    创建
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          )}
         </div>
-      </div>
 
-      <div className="space-y-2">
-        {treeData.children?.map((child, index) => (
-          <TreeNodeComponent
-            key={child.id}
-            node={child}
-            level={0}
-            onSelect={onNodeSelect}
-            selectedNodeId={selectedNode?.id || null}
-            expandedNodes={expandedNodes}
-            onToggleExpand={handleToggleExpand}
-            visibleCourseCounts={visibleCourseCounts}
-            onLoadMoreCourses={handleLoadMoreCourses}
-            searchTerm={searchTerm}
-            currentSchoolId={currentSchoolId || null}
-            onSetCurrentSchool={onSetCurrentSchool}
-            onToggleStar={handleToggleStar}
-            matchingNodeIds={matchingNodeIds}
-            pathNodeIds={pathNodeIds}
-            isFirstMatch={child.id === firstMatchId}
-            departmentMajors={departmentMajors}
-            majorCourses={majorCourses}
-            loadedMajorsWithNoCourses={loadedMajorsWithNoCourses}
-          />
-        ))}
-      </div>
+        <div className="space-y-2">
+          {treeData.children?.map((child) => (
+            <TreeNodeComponent
+              key={child.id}
+              node={child}
+              level={0}
+              onSelect={onNodeSelect}
+              selectedNodeId={selectedNode?.id || null}
+              expandedNodes={expandedNodes}
+              onToggleExpand={handleToggleExpand}
+              visibleCourseCounts={visibleCourseCounts}
+              onLoadMoreCourses={handleLoadMoreCourses}
+              searchTerm={searchTerm}
+              isSearching={isSearching}
+              currentSchoolId={currentSchoolId || null}
+              onSetCurrentSchool={onSetCurrentSchool}
+              onToggleStar={handleToggleStar}
+              matchingNodeIds={matchingNodeIds}
+              pathNodeIds={pathNodeIds}
+              isFirstMatch={child.id === firstMatchId}
+              departmentMajors={departmentMajors}
+              majorCourses={majorCourses}
+              loadedMajorsWithNoCourses={loadedMajorsWithNoCourses}
+            />
+          ))}
+        </div>
       </div>
     </>
   )
