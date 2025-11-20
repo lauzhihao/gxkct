@@ -127,6 +127,7 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
   const courseDetailInfo = courseDetailData.courseDetailData
   const collegeId = courseNameData.college.id
   const createTime = courseDetailInfo.course.createTime
+  const majorId = courseDetailInfo.course.majorId
 
   return (
     <>
@@ -181,7 +182,7 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
             <TabsList className="w-full grid grid-cols-4 h-10 bg-secondary/50">
               <TabsTrigger value="info">课程信息</TabsTrigger>
               <TabsTrigger value="resources">课程资源</TabsTrigger>
-              <TabsTrigger value="matrix">三级矩阵</TabsTrigger>
+              <TabsTrigger value="matrix">矩阵管理</TabsTrigger>
               <TabsTrigger value="supervision">教学督导</TabsTrigger>
             </TabsList>
 
@@ -209,7 +210,7 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
             </TabsContent>
 
             <TabsContent value="matrix" className="space-y-4 mt-4 px-6">
-              <CourseThreeLevelMatrix node={node} onUpdateNode={onUpdateNode} treeData={treeData} majorCourses={majorCourses} />
+              <CourseThreeLevelMatrix node={node} onUpdateNode={onUpdateNode} treeData={treeData} majorCourses={majorCourses} majorId={majorId} />
             </TabsContent>
 
             <TabsContent value="supervision" className="space-y-4 mt-4 px-6">

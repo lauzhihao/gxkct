@@ -4,42 +4,98 @@ import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { BookMarked, Pencil, X, Loader2, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { api } from "@/lib/api"
 import type { TreeNode } from "@/types"
 
 interface CourseMajorMatrixProps {
   node: TreeNode
   majorNode?: TreeNode
+  majorId?: string | number
   onUpdateNode?: (nodeId: string, updates: any) => void
 }
 
-export function CourseMajorMatrix({ node, majorNode, onUpdateNode }: CourseMajorMatrixProps) {
+export function CourseMajorMatrix({ node, majorNode, majorId, onUpdateNode }: CourseMajorMatrixProps) {
   const [isEditingMatrix, setIsEditingMatrix] = useState(false)
   const [matrixSupportLevels, setMatrixSupportLevels] = useState<Record<string, string>>({})
   const [isSavingMatrix, setIsSavingMatrix] = useState(false)
+  const [isLoadingMatrix, setIsLoadingMatrix] = useState(false)
   const [expandedReqs, setExpandedReqs] = useState<Set<number>>(new Set())
   const [clampedReqs, setClampedReqs] = useState<Set<number>>(new Set())
   const textRefsMap = useRef<Map<number, HTMLDivElement>>(new Map())
   const [expandedIndicators, setExpandedIndicators] = useState<Set<string>>(new Set())
   const [clampedIndicators, setClampedIndicators] = useState<Set<string>>(new Set())
   const indicatorRefsMap = useRef<Map<string, HTMLDivElement>>(new Map())
+  const [majorDetailData, setMajorDetailData] = useState<any>(null)
+
+  // 加载专业详情数据（包含毕业要求）
+  const loadMajorDetail = async () => {
+    if (!majorId) {
+      return
+    }
+
+    try {
+      const response = await api.courseDetail.getMajorDetail(majorId)
+      if (response.data) {
+        setMajorDetailData(response.data)
+      }
+    } catch (error) {
+      console.error("[CourseMajorMatrix] 加载专业详情失败:", error)
+    }
+  }
 
   // 获取毕业要求数据
   const getGraduationRequirements = () => {
-    if (majorNode?.metadata?.requiresVOS && majorNode.metadata.requiresVOS.length > 0) {
-      return majorNode.metadata.requiresVOS.map((req: any) => ({
+    // 优先使用从API加载的专业详情数据
+    if (majorDetailData?.requiresVOS && majorDetailData.requiresVOS.length > 0) {
+      return majorDetailData.requiresVOS.map((req: any) => ({
         id: req.id,
         content: req.description || "",
         indicators: req.children?.map((child: any) => child.description || "") || [],
       }))
     }
+    // 其次使用majorNode中的数据（向后兼容）
+    if (majorNode?.metadata && 'requiresVOS' in majorNode.metadata) {
+      const metadata = majorNode.metadata as any
+      if (metadata.requiresVOS && metadata.requiresVOS.length > 0) {
+        return metadata.requiresVOS.map((req: any) => ({
+          id: req.id,
+          content: req.description || "",
+          indicators: req.children?.map((child: any) => child.description || "") || [],
+        }))
+      }
+    }
     return []
   }
 
-  useEffect(() => {
-    if (node?.metadata?.courseMajorMatrixSupportLevels) {
-      setMatrixSupportLevels(node.metadata.courseMajorMatrixSupportLevels)
+  // 加载专业矩阵数据
+  const loadCourseMajorMatrixData = async () => {
+    if (!node?.id || !majorId) {
+      return
     }
-  }, [node])
+
+    setIsLoadingMatrix(true)
+    try {
+      const response = await api.matrices.getCourseMajorMatrix(node.id, String(majorId))
+      if (response.data?.matrixSupportLevels) {
+        setMatrixSupportLevels(response.data.matrixSupportLevels)
+      }
+    } catch (error) {
+      console.error("[CourseMajorMatrix] 加载专业矩阵数据失败:", error)
+    } finally {
+      setIsLoadingMatrix(false)
+    }
+  }
+
+  useEffect(() => {
+    // 首先从node的metadata中加载已保存的数据
+    if (node?.metadata && 'courseMajorMatrixSupportLevels' in node.metadata) {
+      setMatrixSupportLevels((node.metadata as any).courseMajorMatrixSupportLevels)
+    }
+    // 加载专业详情数据
+    loadMajorDetail()
+    // 然后从API加载最新的数据
+    loadCourseMajorMatrixData()
+  }, [node, majorNode, majorId])
 
   useEffect(() => {
     if (!isEditingMatrix) return
@@ -98,26 +154,37 @@ export function CourseMajorMatrix({ node, majorNode, onUpdateNode }: CourseMajor
   const handleSaveMatrix = async (isAutoSave = false) => {
     setIsSavingMatrix(true)
 
-    if (onUpdateNode) {
-      onUpdateNode(node.id, {
-        metadata: {
-          ...node.metadata,
-          courseMajorMatrixSupportLevels: matrixSupportLevels,
-        },
-      })
-    }
+    try {
+      // 调用API保存数据
+      if (node?.id && majorId) {
+        await api.matrices.updateCourseMajorMatrix(node.id, String(majorId), matrixSupportLevels)
+      }
 
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    setIsSavingMatrix(false)
+      // 同时更新node的metadata
+      if (onUpdateNode) {
+        onUpdateNode(node.id, {
+          metadata: {
+            ...node.metadata,
+            courseMajorMatrixSupportLevels: matrixSupportLevels,
+          },
+        })
+      }
 
-    if (!isAutoSave) {
-      setIsEditingMatrix(false)
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    } catch (error) {
+      console.error("保存专业矩阵数据失败:", error)
+    } finally {
+      setIsSavingMatrix(false)
+
+      if (!isAutoSave) {
+        setIsEditingMatrix(false)
+      }
     }
   }
 
   const handleCancelMatrix = () => {
-    if (node?.metadata?.courseMajorMatrixSupportLevels) {
-      setMatrixSupportLevels(node.metadata.courseMajorMatrixSupportLevels)
+    if (node?.metadata && 'courseMajorMatrixSupportLevels' in node.metadata) {
+      setMatrixSupportLevels((node.metadata as any).courseMajorMatrixSupportLevels)
     } else {
       setMatrixSupportLevels({})
     }
@@ -128,7 +195,12 @@ export function CourseMajorMatrix({ node, majorNode, onUpdateNode }: CourseMajor
 
   return (
     <div className="rounded-lg border border-border bg-white/40 backdrop-blur-md p-6 space-y-4">
-      {graduationRequirements.length > 0 ? (
+      {isLoadingMatrix ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-primary mr-2" />
+          <span className="text-muted-foreground">加载专业矩阵数据中...</span>
+        </div>
+      ) : graduationRequirements.length > 0 ? (
         <div className="rounded-lg border border-border bg-card/50 overflow-hidden">
           <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
             <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
@@ -233,14 +305,12 @@ export function CourseMajorMatrix({ node, majorNode, onUpdateNode }: CourseMajor
                 <tr className="border-b border-border bg-secondary/30">
                   {graduationRequirements.map((req: any, reqIndex: number) => {
                     const indicators = req.indicators || []
-                    const rowKey = req.id
                     const isRowExpanded = indicators.some((_: any, idx: number) => expandedIndicators.has(`${req.id}-${idx}`))
                     const hasClampedInRow = indicators.some((_: any, idx: number) => clampedIndicators.has(`${req.id}-${idx}`))
 
                     return indicators.map((indicator: string, indicatorIdx: number) => {
                       const indicatorKey = `${req.id}-${indicatorIdx}`
                       const isExpanded = expandedIndicators.has(indicatorKey)
-                      const isClamped = clampedIndicators.has(indicatorKey)
 
                       return (
                         <th
