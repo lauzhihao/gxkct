@@ -616,7 +616,8 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
                                     {/* Column 1-6: Level */}
                                     <div className="col-span-6 flex items-center justify-center">
                                       <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 flex items-center justify-center">
-                                        <span className="text-lg font-bold text-primary">{getLevelLabel(level.level)}</span>
+                                        {/* 调整等级字号到1.5倍后再增加1.2倍（text-lg -> text-2xl -> text-3xl），字重设置为400 */}
+                                        <span className="text-3xl font-normal text-primary">{getLevelLabel(level.level)}</span>
                                       </div>
                                     </div>
                                     {/* Column 7-12: Coefficient */}
@@ -642,7 +643,8 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
                                     {/* Column 1-3: Level */}
                                     <div className="col-span-3 flex items-center justify-center">
                                       <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 flex items-center justify-center">
-                                        <span className="text-lg font-bold text-primary">{getLevelLabel(level.level)}</span>
+                                        {/* 调整等级字号到1.5倍后再增加1.2倍（text-lg -> text-2xl -> text-3xl），字重设置为400 */}
+                                        <span className="text-3xl font-normal text-primary">{getLevelLabel(level.level)}</span>
                                       </div>
                                     </div>
                                     {/* Column 4-6: Coefficient */}

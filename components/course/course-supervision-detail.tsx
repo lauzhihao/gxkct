@@ -337,13 +337,16 @@ export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetai
 
                         {/* 选中等级的说明文案 */}
                         {scores[item.id]?.level && (
-                          <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 space-y-2">
-                            <div className="text-xs font-semibold text-foreground mb-2">等级说明</div>
-                            <p className="text-xs text-muted-foreground line-clamp-4">
+                          <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 space-y-2" style={{ fontFamily: "'Source Han Sans CN', 'Source Han Sans', sans-serif", fontWeight: 700 }}>
+                            {/* 调整标题字号到1.5倍后再增加1.2倍（text-xs -> text-sm -> text-base），字体设置为思源雅黑粗体 */}
+                            <div className="text-base font-semibold text-foreground mb-2">等级说明</div>
+                            {/* 调整说明文案字号到1.5倍后再增加1.2倍（text-xs -> text-sm -> text-base），字体设置为思源雅黑粗体 */}
+                            <p className="text-base text-muted-foreground line-clamp-4">
                               {getLevelDescription(item.id, scores[item.id].level)}
                             </p>
                             {/* 显示系数（所有指标都需要显示）和表达式（系统指标） */}
-                            <div className="text-xs text-muted-foreground pt-2 border-t border-primary/10 flex items-center justify-between">
+                            {/* 调整字号到1.5倍后再增加1.2倍（text-xs -> text-sm -> text-base），字体设置为思源雅黑粗体 */}
+                            <div className="text-base text-muted-foreground pt-2 border-t border-primary/10 flex items-center justify-between">
                               {/* 系统指标表达式 - 居中显示 */}
                               {item.type === "system" ? (
                                 <span className="font-semibold text-primary flex-1 text-center">
@@ -354,7 +357,8 @@ export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetai
                               )}
                               {/* 系数标签 - 居右显示 */}
                               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 flex items-center justify-center flex-shrink-0">
-                                <span className="font-semibold text-primary text-xs">
+                                {/* 调整系数字号到1.5倍后再增加1.2倍（text-xs -> text-sm -> text-base），字体设置为思源雅黑粗体 */}
+                                <span className="font-semibold text-primary text-base">
                                   {formatCoefficient(item.levels?.find((l: any) => l.level === scores[item.id].level)?.coefficient)}
                                 </span>
                               </div>

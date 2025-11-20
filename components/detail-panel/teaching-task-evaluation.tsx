@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, Plus, Edit, Copy, Info, ChevronDown } from "lucide-react"
+import { ArrowLeft, Plus, Edit, Copy, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -18,7 +18,6 @@ interface TeachingTaskEvaluationProps {
 export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy }: TeachingTaskEvaluationProps) {
   const [standards, setStandards] = useState<TeachingQualityStandard | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [expandedLevels, setExpandedLevels] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     const loadStandards = async () => {
@@ -153,13 +152,15 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy }: Teachin
               <div className="grid grid-cols-4 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground mb-2">开始日期</p>
-                  <p className="font-medium">
+                  {/* 字段值设置为思源雅黑粗体 */}
+                  <p className="font-medium" style={{ fontFamily: "'Source Han Sans CN', 'Source Han Sans', sans-serif", fontWeight: 700 }}>
                     {new Date(task.startDate).toLocaleDateString("zh-CN")}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-2">结束日期</p>
-                  <p className="font-medium">
+                  {/* 字段值设置为思源雅黑粗体 */}
+                  <p className="font-medium" style={{ fontFamily: "'Source Han Sans CN', 'Source Han Sans', sans-serif", fontWeight: 700 }}>
                     {new Date(task.endDate).toLocaleDateString("zh-CN")}
                   </p>
                 </div>
@@ -169,7 +170,8 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy }: Teachin
               <div className="grid grid-cols-4 gap-4">
                 <div className="col-span-2">
                   <p className="text-sm text-muted-foreground mb-2">任务标题</p>
-                  <p className="font-medium">{task.title}</p>
+                  {/* 字段值设置为思源雅黑粗体 */}
+                  <p className="font-medium" style={{ fontFamily: "'Source Han Sans CN', 'Source Han Sans', sans-serif", fontWeight: 700 }}>{task.title}</p>
                 </div>
               </div>
 
@@ -178,7 +180,8 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy }: Teachin
                 <div className="grid grid-cols-4 gap-4">
                   <div className="col-span-2">
                     <p className="text-sm text-muted-foreground mb-2">任务说明</p>
-                    <p className="text-sm whitespace-pre-wrap text-foreground">
+                    {/* 字段值设置为思源雅黑粗体 */}
+                    <p className="text-sm whitespace-pre-wrap text-foreground" style={{ fontFamily: "'Source Han Sans CN', 'Source Han Sans', sans-serif", fontWeight: 700 }}>
                       {task.description}
                     </p>
                   </div>
@@ -247,8 +250,6 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy }: Teachin
                       {/* 调整网格布局为12列，每个等级占3列 */}
                       <div className="grid grid-cols-12 gap-3">
                         {item.levels?.map((level) => {
-                          const levelKey = `${item.id}-${level.level}`
-                          const isExpanded = expandedLevels[levelKey] || false
                           return (
                           <div key={level.level} className="col-span-3 border border-border rounded-lg bg-background/50 overflow-hidden">
                             {/* 等级卡片头部 - 根据指标类型显示不同字段 */}
@@ -259,12 +260,14 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy }: Teachin
                                   <div className="grid grid-cols-12 gap-2">
                                     <div className="col-span-6 flex items-center justify-center">
                                       <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 flex items-center justify-center">
-                                        <span className="text-lg font-bold text-primary">{getLevelLabel(level.level)}</span>
+                                        {/* 调整等级字号到1.5倍后再增加1.2倍（text-lg -> text-2xl -> text-3xl），字重设置为400 */}
+                                        <span className="text-3xl font-normal text-primary">{getLevelLabel(level.level)}</span>
                                       </div>
                                     </div>
                                     <div className="col-span-6 flex flex-col items-center justify-center gap-1">
                                       <p className="text-xs text-muted-foreground">系数</p>
-                                      <p className="text-sm font-semibold text-foreground">{formatCoefficient(level.coefficient)}</p>
+                                      {/* 调整系数字号到1.5倍后再增加1.2倍（text-sm -> text-base -> text-lg），字重设置为400 */}
+                                      <p className="text-lg font-normal text-foreground">{formatCoefficient(level.coefficient)}</p>
                                     </div>
                                   </div>
                                 ) : (
@@ -272,41 +275,35 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy }: Teachin
                                   <div className="grid grid-cols-12 gap-2">
                                     <div className="col-span-3 flex items-center justify-center">
                                       <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 flex items-center justify-center">
-                                        <span className="text-lg font-bold text-primary">{getLevelLabel(level.level)}</span>
+                                        {/* 调整等级字号到1.5倍后再增加1.2倍（text-lg -> text-2xl -> text-3xl），字重设置为400 */}
+                                        <span className="text-3xl font-normal text-primary">{getLevelLabel(level.level)}</span>
                                       </div>
                                     </div>
                                     <div className="col-span-3 flex flex-col items-center justify-center gap-1">
                                       <p className="text-xs text-muted-foreground">系数</p>
-                                      <p className="text-sm font-semibold text-foreground">{formatCoefficient(level.coefficient)}</p>
+                                      {/* 调整系数字号到1.5倍后再增加1.2倍（text-sm -> text-base -> text-lg），字重设置为400 */}
+                                      <p className="text-lg font-normal text-foreground">{formatCoefficient(level.coefficient)}</p>
                                     </div>
                                     <div className="col-span-3 flex flex-col items-center justify-center gap-1">
                                       <p className="text-xs text-muted-foreground">运算符</p>
-                                      <p className="text-sm font-semibold text-foreground">{level.condition?.operator || "-"}</p>
+                                      {/* 调整运算符字号到1.5倍后再增加1.2倍（text-sm -> text-base -> text-lg），字重设置为400 */}
+                                      <p className="text-lg font-normal text-foreground">{level.condition?.operator || "-"}</p>
                                     </div>
                                     <div className="col-span-3 flex flex-col items-center justify-center gap-1">
                                       <p className="text-xs text-muted-foreground">阈值</p>
-                                      <p className="text-sm font-semibold text-foreground">{level.condition?.threshold || "-"}</p>
+                                      {/* 调整阈值字号到1.5倍后再增加1.2倍（text-sm -> text-base -> text-lg），字重设置为400 */}
+                                      <p className="text-lg font-normal text-foreground">{level.condition?.threshold || "-"}</p>
                                     </div>
                                   </div>
                                 )}
                               </div>
-                              {/* 展开按钮 */}
-                              {level.description && level.description.length > 100 && (
-                                <button
-                                  onClick={() => setExpandedLevels(prev => ({
-                                    ...prev,
-                                    [levelKey]: !isExpanded
-                                  }))}
-                                  className="flex items-center justify-center w-6 h-6 text-primary hover:text-primary/80 transition-colors flex-shrink-0"
-                                >
-                                  <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
-                                </button>
-                              )}
+
                             </div>
 
-                            {/* 说明文案 */}
-                            <div className={`p-3 transition-all duration-300 overflow-hidden ${isExpanded ? "max-h-96" : "max-h-20"}`}>
-                              <p className={`text-xs text-muted-foreground ${isExpanded ? "" : "line-clamp-3"}`}>
+                            {/* 说明文案 - 根据内容自适应高度 */}
+                            <div className="p-3 transition-all duration-300 overflow-hidden">
+                              {/* 调整说明文案字号到1.5倍后再增加1.2倍（text-xs -> text-sm -> text-base），字体设置为思源雅黑粗体 */}
+                              <p className="text-base text-muted-foreground" style={{ fontFamily: "'Source Han Sans CN', 'Source Han Sans', sans-serif", fontWeight: 700 }}>
                                 {level.description || "（无说明）"}
                               </p>
                             </div>
