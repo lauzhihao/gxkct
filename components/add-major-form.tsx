@@ -18,9 +18,11 @@ import {
   ChevronDown,
   Search,
   Loader2,
+  Star,
 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { FileUpload } from "@/components/ui/file-upload"
 import { useToast } from "@/hooks/use-toast"
 import worksJsonData from "@/mock-data/works.json"
 
@@ -984,23 +986,37 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
               <h3 className="text-base font-semibold text-foreground">毕业要求</h3>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                className="gap-2 bg-primary text-white hover:bg-primary/90"
+                onClick={() => {
+                  toast({
+                    title: "提示",
+                    description: "功能开发中，敬请期待！",
+                    duration: 3000,
+                  })
+                }}
+              >
+                <Star className="w-4 h-4" />
+                AI一键生成
+              </Button>
               <Button size="sm" variant="outline" onClick={addGraduationRequirement} className="gap-2 bg-transparent">
                 <Plus className="w-4 h-4" />
                 添加毕业要求
               </Button>
-              <Button size="sm" variant="outline" className="gap-2 bg-transparent" asChild>
-                <label htmlFor="excel-upload" className="cursor-pointer">
-                  <Upload className="w-4 h-4" />
-                  上传Excel
-                  <input
-                    id="excel-upload"
-                    type="file"
-                    accept=".xlsx,.xls"
-                    className="hidden"
-                    onChange={handleFileUpload}
-                  />
-                </label>
-              </Button>
+              <FileUpload
+                buttonText="上传Excel"
+                fileType="Excel文件"
+                maxFileSize={10 * 1024 * 1024}
+                maxFileCount={1}
+                accept=".xlsx,.xls"
+                templateUrl="/毕业要求指标点模板.xlsx"
+                onUpload={async (files) => {
+                  // TODO: 将文件上传到OSS，返回文件地址
+                  // 目前mock返回文件地址
+                  return files.map((file) => `/uploads/${file.name}`)
+                }}
+              />
             </div>
           </div>
           <div className="border-t border-dashed border-border" />

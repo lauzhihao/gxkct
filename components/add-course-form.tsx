@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { ArrowLeft, Plus, Trash2, Upload, FileSpreadsheet, X, Check, Loader2, Calendar } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { FileUpload } from "@/components/ui/file-upload"
 import { useToast } from "@/hooks/use-toast"
 
 interface TeachingObjective {
@@ -410,19 +411,18 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
                     <Plus className="w-4 h-4" />
                     添加教学目标
                   </Button>
-                  <Button size="sm" variant="outline" className="gap-2 bg-transparent" asChild>
-                    <label htmlFor="objectives-upload" className="cursor-pointer">
-                      <Upload className="w-4 h-4" />
-                      上传Excel
-                      <input
-                        id="objectives-upload"
-                        type="file"
-                        accept=".xlsx,.xls"
-                        className="hidden"
-                        onChange={handleObjectivesFileUpload}
-                      />
-                    </label>
-                  </Button>
+                  <FileUpload
+                    buttonText="上传Excel"
+                    fileType="Excel文件"
+                    maxFileSize={10 * 1024 * 1024}
+                    maxFileCount={1}
+                    accept=".xlsx,.xls"
+                    onUpload={async (files) => {
+                      // TODO: 将文件上传到OSS，返回文件地址
+                      // 目前mock返回文件地址
+                      return files.map((file) => `/uploads/${file.name}`)
+                    }}
+                  />
                 </div>
               </div>
               <div className="border-t border-dashed border-border" />
@@ -537,19 +537,18 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
                     <Plus className="w-4 h-4" />
                     添加课点
                   </Button>
-                  <Button size="sm" variant="outline" className="gap-2 bg-transparent" asChild>
-                    <label htmlFor="points-upload" className="cursor-pointer">
-                      <Upload className="w-4 h-4" />
-                      上传Excel
-                      <input
-                        id="points-upload"
-                        type="file"
-                        accept=".xlsx,.xls"
-                        className="hidden"
-                        onChange={handlePointsFileUpload}
-                      />
-                    </label>
-                  </Button>
+                  <FileUpload
+                    buttonText="上传Excel"
+                    fileType="Excel文件"
+                    maxFileSize={10 * 1024 * 1024}
+                    maxFileCount={1}
+                    accept=".xlsx,.xls"
+                    onUpload={async (files) => {
+                      // TODO: 将文件上传到OSS，返回文件地址
+                      // 目前mock返回文件地址
+                      return files.map((file) => `/uploads/${file.name}`)
+                    }}
+                  />
                 </div>
               </div>
               <div className="border-t border-dashed border-border" />
