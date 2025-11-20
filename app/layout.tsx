@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "v0 App",
+  title: "高校课程通",
   description: "Created with v0",
   generator: "v0.app",
 }

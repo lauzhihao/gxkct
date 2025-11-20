@@ -5,10 +5,11 @@ import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ArrowLeft, Plus, Trash2, Upload, FileSpreadsheet, X, Check, Loader2, Calendar } from "lucide-react"
+import { ArrowLeft, Plus, Trash2, Upload, FileSpreadsheet, X, Check, Loader2, Calendar, ChevronDown, Star } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { FileUpload } from "@/components/ui/file-upload"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useToast } from "@/hooks/use-toast"
 
 interface TeachingObjective {
@@ -50,6 +51,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState("basic")
+  const [courseNaturePopoverOpen, setCourseNaturePopoverOpen] = useState(false)
 
   // Tab 1: Basic Information
   const [openingDate, setOpeningDate] = useState(initialData?.metadata?.openingDate || "")
@@ -89,7 +91,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
   // Teaching Objectives functions
   const addTeachingObjective = () => {
     const newId = Date.now().toString()
-    setTeachingObjectives([...teachingObjectives, { id: newId, content: "", points: [""] }])
+    setTeachingObjectives([{ id: newId, content: "", points: [""] }, ...teachingObjectives])
     setTimeout(() => lastObjectiveRef.current?.focus(), 0)
   }
 
@@ -103,32 +105,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
     setTeachingObjectives(teachingObjectives.map((obj) => (obj.id === id ? { ...obj, content } : obj)))
   }
 
-  const addObjectivePoint = (objId: string) => {
-    setTeachingObjectives(
-      teachingObjectives.map((obj) => (obj.id === objId ? { ...obj, points: [...obj.points, ""] } : obj)),
-    )
-  }
 
-  const removeObjectivePoint = (objId: string, index: number) => {
-    setTeachingObjectives(
-      teachingObjectives.map((obj) =>
-        obj.id === objId ? { ...obj, points: obj.points.filter((_, i) => i !== index) } : obj,
-      ),
-    )
-  }
-
-  const updateObjectivePoint = (objId: string, index: number, value: string) => {
-    setTeachingObjectives(
-      teachingObjectives.map((obj) =>
-        obj.id === objId
-          ? {
-              ...obj,
-              points: obj.points.map((p, i) => (i === index ? value : p)),
-            }
-          : obj,
-      ),
-    )
-  }
 
   // Course Points functions
   const addCoursePoint = () => {
@@ -265,7 +242,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
   const projectCount = chapters.filter((ch) => ch.name.includes("项目")).length
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 mr-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={onCancel} className="gap-2">
@@ -274,7 +251,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
           </Button>
           <h2 className="text-xl font-bold text-foreground">{isEditMode ? "编辑课程" : "新增课程"}</h2>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pr-6">
           <Button variant="outline" onClick={onCancel} className="gap-2 bg-transparent" disabled={isLoading}>
             <X className="w-4 h-4" />
             取消
@@ -381,19 +358,32 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
                   <Label htmlFor="course-nature">
                     课程性质 <span className="text-red-500">*</span>
                   </Label>
-                  <select
-                    id="course-nature"
-                    value={courseNature}
-                    onChange={(e) => setCourseNature(e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  >
-                    <option value="">请选择课程性质</option>
-                    {courseNatureOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
+                  <Popover open={courseNaturePopoverOpen} onOpenChange={setCourseNaturePopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-between bg-transparent">
+                        <span className="truncate">{courseNature || "请选择课程性质"}</span>
+                        <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                      <div className="max-h-[300px] overflow-y-auto p-2">
+                        {courseNatureOptions.map((option) => (
+                          <button
+                            key={option}
+                            onClick={() => {
+                              setCourseNature(option)
+                              setCourseNaturePopoverOpen(false)
+                            }}
+                            className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-accent hover:text-white ${
+                              courseNature === option ? "bg-[var(--naive-primary)] text-white" : ""
+                            }`}
+                          >
+                            {option}
+                          </button>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
             </div>
@@ -407,6 +397,20 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
                   <h3 className="text-base font-semibold text-foreground">教学目标</h3>
                 </div>
                 <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    className="gap-2 bg-primary text-white hover:bg-primary/90"
+                    onClick={() => {
+                      toast({
+                        title: "提示",
+                        description: "功能开发中，敬请期待！",
+                        duration: 3000,
+                      })
+                    }}
+                  >
+                    <Star className="w-4 h-4" />
+                    AI一键生成
+                  </Button>
                   <Button size="sm" variant="outline" onClick={addTeachingObjective} className="gap-2 bg-transparent">
                     <Plus className="w-4 h-4" />
                     添加教学目标
@@ -443,82 +447,35 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
                 </div>
               )}
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {teachingObjectives.map((objective, objIndex) => (
-                  <div key={objective.id} className="p-4 rounded-lg border border-border bg-card/50 space-y-3">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-medium text-primary mt-2">
-                        {objIndex + 1}
-                      </div>
-                      <div className="flex-1 space-y-3">
-                        <div className="flex items-start gap-2">
-                          <div className="relative flex-1">
-                            <Input
-                              ref={objIndex === teachingObjectives.length - 1 ? lastObjectiveRef : null}
-                              placeholder="输入教学目标内容（最多200字）"
-                              value={objective.content}
-                              onChange={(e) => updateTeachingObjective(objective.id, e.target.value.slice(0, 200))}
-                              maxLength={200}
-                              className="pr-20"
-                            />
-                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">{objective.content.length}/200</span>
-                            </div>
-                          </div>
-                          {teachingObjectives.length > 1 && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => removeTeachingObjective(objective.id)}
-                              className="gap-2 text-red-500 hover:text-red-600 hover:bg-red-50"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          )}
-                        </div>
-
-                        <div className="pl-4 border-l-2 border-primary/30 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-xs text-muted-foreground">教学目标点</Label>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => addObjectivePoint(objective.id)}
-                              className="gap-1 h-7 text-xs"
-                            >
-                              <Plus className="w-3 h-3" />
-                              添加目标点
-                            </Button>
-                          </div>
-                          {objective.points.map((point, pointIndex) => (
-                            <div key={pointIndex} className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">
-                                {objIndex + 1}.{pointIndex + 1}
-                              </span>
-                              <Input
-                                placeholder="输入教学目标点内容"
-                                value={point}
-                                onChange={(e) =>
-                                  updateObjectivePoint(objective.id, pointIndex, e.target.value.slice(0, 200))
-                                }
-                                maxLength={200}
-                                className="h-9 text-sm flex-1"
-                              />
-                              {objective.points.length > 1 && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => removeObjectivePoint(objective.id, pointIndex)}
-                                  className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
-                                >
-                                  <X className="w-3 h-3" />
-                                </Button>
-                              )}
-                            </div>
-                          ))}
-                        </div>
+                  <div key={objective.id} className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-medium text-primary mt-2">
+                      {teachingObjectives.length - objIndex}
+                    </div>
+                    <div className="flex-1 relative">
+                      <textarea
+                        ref={objIndex === 0 ? lastObjectiveRef as any : null}
+                        placeholder="输入教学目标内容（最多500字）"
+                        value={objective.content}
+                        onChange={(e) => updateTeachingObjective(objective.id, e.target.value.slice(0, 500))}
+                        maxLength={500}
+                        className="w-full min-h-[100px] p-3 rounded-lg border border-border bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      />
+                      <div className="absolute right-3 bottom-3 text-xs text-muted-foreground">
+                        {objective.content.length}/500
                       </div>
                     </div>
+                    {teachingObjectives.length > 1 && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => removeTeachingObjective(objective.id)}
+                        className="gap-2 text-red-500 hover:text-red-600 hover:bg-red-50 mt-2"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -847,7 +804,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
         </Tabs>
       </Card>
 
-      <div className="flex items-center justify-center gap-2 pb-6">
+      <div className="flex items-center justify-center gap-2 pb-6 mr-6">
         <Button variant="outline" onClick={onCancel} className="gap-2 bg-transparent" disabled={isLoading}>
           <X className="w-4 h-4" />
           取消

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { BookMarked, Plus, Search, FileText, User, Award, Clock } from "lucide-react"
+import { BookMarked, Plus, Search, FileText, User, Award, Clock, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { TreeNode } from "@/types"
 import { api } from "@/lib/api"
@@ -64,8 +64,17 @@ export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, maj
               placeholder="搜索课程名称..."
               value={courseSearchTerm}
               onChange={(e) => setCourseSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="w-full pl-10 pr-9 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
+            {courseSearchTerm && (
+              <button
+                onClick={() => setCourseSearchTerm("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="清空搜索"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <input

@@ -152,6 +152,7 @@ const COLOR_THEMES = {
 
 interface HeaderProps {
   onResetData?: () => void
+  isTreeCollapsed?: boolean
 }
 
 interface Notification {
@@ -194,7 +195,7 @@ const mockNotifications: Notification[] = [
   },
 ]
 
-export function Header({ onResetData }: HeaderProps) {
+export function Header({ onResetData, isTreeCollapsed }: HeaderProps) {
   const [searchOpen, setSearchOpen] = useState(false)
   const [currentTheme, setCurrentTheme] = useState<keyof typeof COLOR_THEMES>("vercelBlue")
   const [notifications, setNotifications] = useState<Notification[]>(mockNotifications)
@@ -255,7 +256,7 @@ export function Header({ onResetData }: HeaderProps) {
 
   return (
     <header className="relative mb-6">
-      <div className="flex items-center justify-between h-16 px-6 rounded-2xl bg-white/40 backdrop-blur-md border border-primary/20 shadow-lg">
+      <div className="flex items-center justify-between h-16 w-full px-6 rounded-2xl bg-white/40 backdrop-blur-md border border-primary/20 shadow-lg">
         {/* Left side - Welcome text */}
         <div className="flex items-center">
           <h1 className="text-xl font-semibold text-foreground">欢迎使用高校课程通</h1>

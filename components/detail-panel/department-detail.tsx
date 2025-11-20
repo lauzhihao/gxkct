@@ -20,6 +20,7 @@ import type { DetailPanelProps } from "./types"
 import { StatisticsCards } from "./shared/statistics-cards"
 import { AddMajorForm } from "@/components/add-major-form"
 import { Members } from "@/components/shared/members"
+import { TeachingQualityStats } from "./teaching-quality-stats"
 
 export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode, onDeleteNode, departmentMajors, majorCourses, onToggleExpand }: DetailPanelProps) {
   const [newDeptName, setNewDeptName] = useState("")
@@ -80,39 +81,34 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
   }
 
   return (
-    <div className="h-full flex flex-col bg-gradient-to-br from-background via-background to-secondary/20">
+    <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl overflow-hidden">
       {/* Header */}
-      <div className="flex items-start gap-4 p-6 border-b border-border bg-card/30 backdrop-blur-md">
-        <div
-          className={cn(
-            "flex-shrink-0 w-16 h-16 rounded-xl flex items-center justify-center",
-            "bg-gradient-to-br from-primary/20 to-accent/20",
-            "border border-primary/30 shadow-lg",
-          )}
-        >
-          <GraduationCap className="w-8 h-8 text-primary" />
-        </div>
-        <div className="flex-1">
-          <div className="inline-block px-3 py-1 rounded-full bg-primary/20 border border-primary/30 text-xs font-medium text-primary mb-2">
-            院系
+      <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6 border-b border-border">
+        <div className="flex items-start justify-between">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center flex-shrink-0">
+              <GraduationCap className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-foreground mb-2">{node.name}</h2>
+              {node.description && <p className="text-muted-foreground">{node.description}</p>}
+            </div>
           </div>
-          <h2 className="text-2xl font-bold text-foreground mb-2">{node.name}</h2>
-          {node.description && <p className="text-muted-foreground">{node.description}</p>}
-        </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="ghost" onClick={handleEditDepartment} className="gap-2 hover:bg-primary/10">
-            <Pencil className="w-4 h-4 text-primary" />
-          </Button>
-          {onDeleteNode && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => handleDeleteNode(node.id)}
-              className="gap-2 hover:bg-red-500/10 text-red-500"
-            >
-              <Trash2 className="w-4 h-4" />
+          <div className="flex gap-2">
+            <Button size="sm" variant="ghost" onClick={handleEditDepartment} className="gap-2 hover:bg-primary/10">
+              <Pencil className="w-4 h-4 text-primary" />
             </Button>
-          )}
+            {onDeleteNode && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => handleDeleteNode(node.id)}
+                className="gap-2 hover:bg-red-500/10 text-red-500"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -125,6 +121,9 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
             </TabsTrigger>
             <TabsTrigger value="members" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
               成员管理
+            </TabsTrigger>
+            <TabsTrigger value="teaching-quality" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
+              教学质量
             </TabsTrigger>
           </TabsList>
 
@@ -151,6 +150,10 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
 
           <TabsContent value="members" className="space-y-6 p-6">
             <Members node={node} />
+          </TabsContent>
+
+          <TabsContent value="teaching-quality" className="space-y-6 p-6">
+            <TeachingQualityStats node={node} nodeType="department" departmentMajors={departmentMajors} majorCourses={majorCourses} />
           </TabsContent>
         </Tabs>
       </div>
