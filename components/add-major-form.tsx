@@ -151,9 +151,8 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
   const [careerSearchMap, setCareerSearchMap] = useState<{ [key: string]: string }>({})
   const [careerPopoverOpenMap, setCareerPopoverOpenMap] = useState<{ [key: string]: boolean }>({})
 
-  const [careerLevel, setCareerLevel] = useState(initialData?.metadata?.careerLevel || "全部")
-  const [demandType, setDemandType] = useState(initialData?.metadata?.demandType || "")
-  const [demandArea, setDemandArea] = useState(initialData?.metadata?.demandArea || "")
+  const [demandStatus, setDemandStatus] = useState(initialData?.metadata?.demandStatus || "全部状况")
+  const [selectedProvince, setSelectedProvince] = useState(initialData?.metadata?.selectedProvince || "")
   const [provinceSearch, setProvinceSearch] = useState("")
   const [provincePopoverOpen, setProvincePopoverOpen] = useState(false)
   const [position, setPosition] = useState(initialData?.metadata?.position || "")
@@ -442,9 +441,8 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
         majorClass: majorCode,
         majorLevel: majorLevel,
         feature: educationalFeatures,
-        careerLevel: careerLevel,
-        demandType: demandType,
-        demandArea: demandArea,
+        demandStatus: demandStatus,
+        selectedProvince: selectedProvince,
         position: position,
         professionsVOS: professionsVOS,
         requiresVOS: requiresVOS,
@@ -920,33 +918,91 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
           </div>
           <div className="border-t border-dashed border-border" />
           <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="career-level">职业层次</Label>
-                <Input
-                  id="career-level"
-                  placeholder="例如：全部"
-                  value={careerLevel}
-                  onChange={(e) => setCareerLevel(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="demand-type">需求类型</Label>
-                <Input
-                  id="demand-type"
-                  placeholder="例如：紧缺"
-                  value={demandType}
-                  onChange={(e) => setDemandType(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="demand-area">需求区域</Label>
-                <Input
-                  id="demand-area"
-                  placeholder="例如：全国"
-                  value={demandArea}
-                  onChange={(e) => setDemandArea(e.target.value)}
-                />
+            <div className="space-y-2">
+              <Label>需求状况</Label>
+              <div className="flex gap-2">
+                <div className="flex gap-2 w-1/2">
+                  <Button
+                    type="button"
+                    variant={demandStatus === "全部状况" ? "default" : "outline"}
+                    onClick={() => {
+                      setDemandStatus("全部状况")
+                      setSelectedProvince("")
+                    }}
+                    className="flex-1"
+                  >
+                    全部状况
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={demandStatus === "全国紧缺" ? "default" : "outline"}
+                    onClick={() => {
+                      setDemandStatus("全国紧缺")
+                      setSelectedProvince("")
+                    }}
+                    className="flex-1"
+                  >
+                    全国紧缺
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={demandStatus === "地方紧缺" ? "default" : "outline"}
+                    onClick={() => setDemandStatus("地方紧缺")}
+                    className="flex-1"
+                  >
+                    地方紧缺
+                  </Button>
+                </div>
+                {demandStatus === "地方紧缺" && (
+                  <div className="w-1/2">
+                    <Popover open={provincePopoverOpen} onOpenChange={setProvincePopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between bg-transparent">
+                          <span className="truncate">{selectedProvince || "请选择省份"}</span>
+                          <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                        <div className="flex flex-col">
+                          <div className="p-2 border-b">
+                            <div className="relative">
+                              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                              <Input
+                                placeholder="搜索省份..."
+                                value={provinceSearch}
+                                onChange={(e) => setProvinceSearch(e.target.value)}
+                                className="pl-8 h-9"
+                              />
+                            </div>
+                          </div>
+                          <div className="max-h-[300px] overflow-y-auto p-2">
+                            {filteredProvinces.length > 0 ? (
+                              filteredProvinces.map((province) => (
+                                <button
+                                  key={province}
+                                  onClick={() => {
+                                    setSelectedProvince(province)
+                                    setProvincePopoverOpen(false)
+                                    setProvinceSearch("")
+                                  }}
+                                  className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-accent hover:text-white ${
+                                    selectedProvince === province ? "bg-[var(--naive-primary)] text-white" : ""
+                                  }`}
+                                >
+                                  {province}
+                                </button>
+                              ))
+                            ) : (
+                              <div className="px-3 py-2 text-sm text-muted-foreground text-center">
+                                未找到匹配的省份
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                )}
               </div>
             </div>
 
