@@ -177,16 +177,16 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="flex-1 overflow-auto">
           <Tabs defaultValue="info" className="w-full">
-            <TabsList className="w-full grid grid-cols-4 h-10 bg-secondary/50">
-              <TabsTrigger value="info">课程信息</TabsTrigger>
-              <TabsTrigger value="resources">课程资源</TabsTrigger>
-              <TabsTrigger value="matrix">矩阵管理</TabsTrigger>
-              <TabsTrigger value="supervision">教学督导</TabsTrigger>
+            <TabsList className="w-full h-10 bg-secondary/50 backdrop-blur-sm border-b border-border rounded-none p-0">
+              <TabsTrigger value="info" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">课程信息</TabsTrigger>
+              <TabsTrigger value="resources" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">课程资源</TabsTrigger>
+              <TabsTrigger value="matrix" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">矩阵管理</TabsTrigger>
+              <TabsTrigger value="supervision" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">教学督导</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="info" className="space-y-6 mt-4">
+            <TabsContent value="info" className="space-y-6 mt-4 px-6">
               <CourseBasicInfo
                 name={courseNameData.name}
                 courseDetail={courseDetailInfo.course}

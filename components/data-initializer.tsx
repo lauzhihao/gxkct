@@ -36,15 +36,22 @@ export function DataInitializer({ children }: { children: React.ReactNode }) {
     // 检查教学任务数据是否存在
     if (!shouldInitialize) {
       let hasTeachingTasks = false
+      let hasCourseResources = false
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i)
         if (key && key.startsWith(teachingTasksKey)) {
           hasTeachingTasks = true
-          break
+        }
+        if (key && key.startsWith(`${STORAGE_PREFIX}courseResources-`)) {
+          hasCourseResources = true
         }
       }
       if (!hasTeachingTasks) {
         console.log("[v0] 检测到教学任务数据缺失，需要重新初始化")
+        shouldInitialize = true
+      }
+      if (!hasCourseResources) {
+        console.log("[v0] 检测到课程资源数据缺失，需要重新初始化")
         shouldInitialize = true
       }
     }

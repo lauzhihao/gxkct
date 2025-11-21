@@ -213,10 +213,15 @@ function initializeProjectMatrices() {
  */
 function initializeCourseResources() {
   const resourcesMap = courseResourcesData as Record<string, any>
+  console.log("[v0] 初始化课程资源数据，数据键:", Object.keys(resourcesMap))
 
   Object.entries(resourcesMap).forEach(([courseId, resourceData]) => {
-    localStorage.setItem(`${STORAGE_PREFIX}courseResources-${courseId}`, JSON.stringify(resourceData))
+    const key = `${STORAGE_PREFIX}courseResources-${courseId}`
+    localStorage.setItem(key, JSON.stringify(resourceData))
+    console.log(`[v0] 已存储课程资源: ${key}`)
   })
+
+  console.log("[v0] 课程资源数据初始化完成")
 }
 
 /**

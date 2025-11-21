@@ -39,12 +39,29 @@ export function CourseResources({ nodeId }: CourseResourcesProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [editingScoring, setEditingScoring] = useState<string | null>(null)
   const [editScores, setEditScores] = useState<ScoringData | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const loadResources = async () => {
-      const response = await api.resources.getCourseResources(nodeId)
-      if (response.data) {
-        setResourceData(response.data)
+      setIsLoading(true)
+      setError(null)
+      try {
+        console.log(`[CourseResources] 开始加载课程资源，nodeId=${nodeId}`)
+        const response = await api.resources.getCourseResources(nodeId)
+        console.log(`[CourseResources] 响应:`, response)
+        if (response.data) {
+          console.log(`[CourseResources] 成功加载数据:`, response.data)
+          setResourceData(response.data)
+        } else {
+          console.warn(`[CourseResources] 响应中没有数据:`, response)
+          setError(response.error || "无法加载课程资源")
+        }
+      } catch (err) {
+        console.error(`[CourseResources] 加载失败:`, err)
+        setError(err instanceof Error ? err.message : "加载课程资源失败")
+      } finally {
+        setIsLoading(false)
       }
     }
     loadResources()
@@ -239,6 +256,48 @@ export function CourseResources({ nodeId }: CourseResourcesProps) {
     await api.resources.updateCourseResources(nodeId, updatedResourceData)
     setEditingScoring(null)
     setEditScores(null)
+  }
+
+  // 加载状态
+  if (isLoading) {
+    return (
+      <div className="rounded-lg border border-border bg-secondary/30 backdrop-blur-sm p-4">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+            <p className="text-sm text-muted-foreground">加载课程资源中...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 错误状态
+  if (error) {
+    return (
+      <div className="rounded-lg border border-border bg-secondary/30 backdrop-blur-sm p-4">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <p className="text-sm text-red-500 mb-2">加载失败</p>
+            <p className="text-xs text-muted-foreground">{error}</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 无数据状态
+  if (!resourceData || courseResources.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-secondary/30 backdrop-blur-sm p-4">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <FolderOpen className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-50" />
+            <p className="text-sm text-muted-foreground">暂无课程资源</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
