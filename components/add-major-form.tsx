@@ -19,12 +19,15 @@ import {
   Search,
   Loader2,
   Star,
+  Settings,
 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { FileUpload } from "@/components/ui/file-upload"
 import { useToast } from "@/hooks/use-toast"
+import { CourseSelector } from "@/components/shared/course-selector"
 import worksJsonData from "@/mock-data/works.json"
+import type { TreeNode } from "@/types"
 
 interface WorkCategory {
   value: string
@@ -50,10 +53,17 @@ interface CareerInfo {
   tasks: string
 }
 
+interface IndicatorCourseSupport {
+  courseId: string
+  courseName: string
+  supportLevel: "strong" | "weak"
+}
+
 interface GraduationRequirement {
   id: string
   content: string
   indicators: string[]
+  indicatorCourseSupports?: Record<number, IndicatorCourseSupport[]>
 }
 
 interface AddMajorFormProps {
@@ -108,6 +118,9 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
 
   // 从导入的JSON文件中获取职业方向数据
   const worksData = (worksJsonData as WorksData).data || []
+
+  // 如果是编辑模式且initialData中有departmentId，则使用它；否则使用传入的departmentId
+  const effectiveDepartmentId = isEditMode && initialData?.metadata?.departmentId ? initialData.metadata.departmentId : departmentId
 
   const [majorCode, setMajorCode] = useState(initialData?.metadata?.majorClass || initialData?.metadata?.code || "")
   const [majorName, setMajorName] = useState(initialData?.name || "")
@@ -179,6 +192,16 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
     loadGraduationRequirements(),
   )
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+
+  // 课程选择器相关状态
+  const [courseSelectorOpen, setCourseSelectorOpen] = useState(false)
+  const [selectedIndicatorForCourse, setSelectedIndicatorForCourse] = useState<{
+    requirementId: string
+    indicatorIndex: number
+  } | null>(null)
+  const [indicatorCourseSupports, setIndicatorCourseSupports] = useState<
+    Record<string, IndicatorCourseSupport[]>
+  >({})
 
   const lastRequirementRef = useRef<HTMLInputElement>(null)
   const lastIndicatorRefs = useRef<{ [key: string]: HTMLInputElement | null }>({})
@@ -338,6 +361,42 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
           : req,
       ),
     )
+  }
+
+  const openCourseSelectorForIndicator = (requirementId: string, indicatorIndex: number) => {
+    setSelectedIndicatorForCourse({ requirementId, indicatorIndex })
+    setCourseSelectorOpen(true)
+  }
+
+  const handleSaveCoursesForIndicator = (
+    selectedCourses: Array<{ course: TreeNode; supportLevel: "strong" | "weak" }>
+  ) => {
+    if (!selectedIndicatorForCourse) return
+
+    const { requirementId, indicatorIndex } = selectedIndicatorForCourse
+    const key = `${requirementId}-${indicatorIndex}`
+
+    setIndicatorCourseSupports((prev) => ({
+      ...prev,
+      [key]: [
+        ...(prev[key] || []),
+        ...selectedCourses.map((item) => ({
+          courseId: item.course.id,
+          courseName: item.course.name,
+          supportLevel: item.supportLevel,
+        })),
+      ],
+    }))
+
+    setSelectedIndicatorForCourse(null)
+  }
+
+  const removeIndicatorCourseSupport = (requirementId: string, indicatorIndex: number, courseId: string) => {
+    const key = `${requirementId}-${indicatorIndex}`
+    setIndicatorCourseSupports((prev) => ({
+      ...prev,
+      [key]: (prev[key] || []).filter((item) => item.courseId !== courseId),
+    }))
   }
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1149,51 +1208,99 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
                           添加指标点
                         </Button>
                       </div>
-                      {requirement.indicators.map((indicator, indIndex) => (
-                        <div key={indIndex} className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">
-                            {reqIndex + 1}.{indIndex + 1}
-                          </span>
-                          <div className="relative flex-1">
-                            <Input
-                              ref={
-                                indIndex === requirement.indicators.length - 1
-                                  ? (el) => {
-                                      lastIndicatorRefs.current[requirement.id] = el
-                                    }
-                                  : null
-                              }
-                              placeholder="输入指标点内容"
-                              value={indicator}
-                              onChange={(e) => updateIndicator(requirement.id, indIndex, e.target.value.slice(0, 200))}
-                              maxLength={200}
-                              className="h-9 text-sm pr-20"
-                            />
-                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">{indicator.length}/200</span>
-                              {indicator && (
-                                <button
-                                  type="button"
-                                  onClick={() => updateIndicator(requirement.id, indIndex, "")}
-                                  className="text-muted-foreground hover:text-foreground"
+                      {requirement.indicators.map((indicator, indIndex) => {
+                        const supportKey = `${requirement.id}-${indIndex}`
+                        const coursesForIndicator = indicatorCourseSupports[supportKey] || []
+
+                        return (
+                          <div key={indIndex} className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">
+                                {reqIndex + 1}.{indIndex + 1}
+                              </span>
+                              <div className="relative flex-1">
+                                <Input
+                                  ref={
+                                    indIndex === requirement.indicators.length - 1
+                                      ? (el) => {
+                                          lastIndicatorRefs.current[requirement.id] = el
+                                        }
+                                      : null
+                                  }
+                                  placeholder="输入指标点内容"
+                                  value={indicator}
+                                  onChange={(e) => updateIndicator(requirement.id, indIndex, e.target.value.slice(0, 200))}
+                                  maxLength={200}
+                                  className="h-9 text-sm pr-20"
+                                />
+                                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                                  <span className="text-xs text-muted-foreground">{indicator.length}/200</span>
+                                  {indicator && (
+                                    <button
+                                      type="button"
+                                      onClick={() => updateIndicator(requirement.id, indIndex, "")}
+                                      className="text-muted-foreground hover:text-foreground"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => openCourseSelectorForIndicator(requirement.id, indIndex)}
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                title="设置课程支撑关系"
+                              >
+                                <Settings className="w-4 h-4" />
+                              </Button>
+                              {requirement.indicators.length > 1 && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => removeIndicator(requirement.id, indIndex)}
+                                  className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
                                 >
                                   <X className="w-3 h-3" />
-                                </button>
+                                </Button>
                               )}
                             </div>
+                            {coursesForIndicator.length > 0 && (
+                              <div className="ml-8 space-y-1 text-xs">
+                                {coursesForIndicator.map((courseSupport) => (
+                                  <div
+                                    key={courseSupport.courseId}
+                                    className="flex items-center justify-between p-2 bg-primary/5 rounded border border-primary/20"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium">{courseSupport.courseName}</span>
+                                      <span
+                                        className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                          courseSupport.supportLevel === "strong"
+                                            ? "bg-orange-100 text-orange-700"
+                                            : "bg-blue-100 text-blue-700"
+                                        }`}
+                                      >
+                                        {courseSupport.supportLevel === "strong" ? "强支撑" : "弱支撑"}
+                                      </span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        removeIndicatorCourseSupport(requirement.id, indIndex, courseSupport.courseId)
+                                      }
+                                      className="text-muted-foreground hover:text-red-500"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
-                          {requirement.indicators.length > 1 && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => removeIndicator(requirement.id, indIndex)}
-                              className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
-                            >
-                              <X className="w-3 h-3" />
-                            </Button>
-                          )}
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
                 </div>
@@ -1213,6 +1320,15 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
           保存
         </Button>
       </div>
+
+      <CourseSelector
+        open={courseSelectorOpen}
+        onOpenChange={setCourseSelectorOpen}
+        majorId={initialData?.metadata?.majorId || ""}
+        majorName={majorName}
+        departmentId={effectiveDepartmentId}
+        onSaveCourses={handleSaveCoursesForIndicator}
+      />
     </div>
   )
 }

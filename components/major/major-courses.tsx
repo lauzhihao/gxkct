@@ -13,9 +13,10 @@ interface MajorCoursesProps {
   onNodeSelect?: (node: any) => void
   onAddCourse: () => void
   majorCourses?: Map<string, TreeNode[]>
+  departmentId?: string
 }
 
-export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, majorCourses }: MajorCoursesProps) {
+export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, majorCourses, departmentId }: MajorCoursesProps) {
   const [courseSearchTerm, setCourseSearchTerm] = useState("")
   const [showMyCourses, setShowMyCourses] = useState(false)
 

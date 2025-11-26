@@ -173,8 +173,6 @@ export default function Page() {
     }
   }
 
-  console.log("[v0] 渲染Page组件，isLoading:", isLoading, "selectedNode:", selectedNode)
-
   if (isLoading || !treeDataHook || !treeDataHook.treeData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[oklch(0.97_0.005_240)] via-[oklch(0.96_0.005_240)] to-[oklch(0.95_0.008_240)] flex items-center justify-center">

@@ -36,10 +36,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { ChevronDown } from "lucide-react"
+import { ChevronDown, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { TreeNode, NodeType } from "@/types"
 import { api } from "@/lib/api"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface MembersProps {
   node: TreeNode
@@ -146,44 +147,9 @@ const generateMockUsers = (nodeType: NodeType): User[] => {
       disabled: false,
     }))
   } else if (nodeType === "department") {
-    // 院系级：从deptUsers.json加载数据，显示belong字段
-    const deptUsersData = [
-      // guiders - 系部管理员
-      { id: 4845, account: "2021017", name: "于骁晗", belong: "管理工程系", auth: "系部管理员", permission: 1001 },
-      // users - 专业管理员和任课教师
-      { id: 4847, account: "2017063", name: "赵靖宇", belong: "管理工程系", auth: "专业管理员", permission: 2001 },
-      { id: 4848, account: "2006008", name: "徐一楠", belong: "管理工程系", auth: "专业管理员", permission: 2001 },
-      { id: 4849, account: "2019017", name: "郭慧莹", belong: "管理工程系", auth: "专业管理员", permission: 2001 },
-      { id: 4850, account: "2022076", name: "沈斯文", belong: "管理工程系", auth: "专业管理员", permission: 2001 },
-      { id: 6884, account: "lauzhihao", name: "lauzhihao", belong: "管理工程系", auth: "专业管理员", permission: 2001 },
-      { id: 6885, account: "lauzhihao@qq.com", name: "刘志昊", belong: "管理工程系", auth: "专业管理员", permission: 2001 },
-      { id: 4846, account: "2020045", name: "王微双", belong: "管理工程系", auth: "任课教师", permission: 3001 },
-      { id: 5004, account: "2012025", name: "宋玉丽", belong: "管理工程系", auth: "任课教师", permission: 3001 },
-      { id: 5005, account: "2009010", name: "孙玲", belong: "管理工程系", auth: "任课教师", permission: 3001 },
-      { id: 5006, account: "2021066", name: "刘娓娓", belong: "管理工程系", auth: "任课教师", permission: 3001 },
-      { id: 5007, account: "2023040", name: "杨玉洁", belong: "管理工程系", auth: "任课教师", permission: 3001 },
-      { id: 5008, account: "2023041", name: "李晶", belong: "管理工程系", auth: "任课教师", permission: 3001 },
-      { id: 5009, account: "2022115", name: "王玉洁", belong: "管理工程系", auth: "任课教师", permission: 3001 },
-      { id: 5010, account: "2015088", name: "王文晶", belong: "管理工程系", auth: "任课教师", permission: 3001 },
-      { id: 5011, account: "2008008", name: "于红岩", belong: "管理工程系", auth: "任课教师", permission: 3001 },
-      { id: 5012, account: "2005006", name: "夏丹", belong: "管理工程系", auth: "任课教师", permission: 3001 },
-      { id: 5013, account: "2010005", name: "张艳丽", belong: "管理工程系", auth: "任课教师", permission: 3001 },
-      { id: 5014, account: "2021018", name: "张婷", belong: "管理工程系", auth: "任课教师", permission: 3001 },
-      { id: 5015, account: "2022014", name: "马金英", belong: "管理工程系", auth: "任课教师", permission: 3001 },
-      { id: 5016, account: "2016067", name: "刘程", belong: "管理工程系", auth: "任课教师", permission: 3001 },
-      { id: 5017, account: "2023017", name: "宋晓莹", belong: "管理工程系", auth: "任课教师", permission: 3001 },
-      { id: 5018, account: "2016046", name: "郑凤云", belong: "管理工程系", auth: "任课教师", permission: 3001 },
-      { id: 5019, account: "2024004", name: "姚明超", belong: "管理工程系", auth: "任课教师", permission: 3001 },
-      { id: 5236, account: "2015051", name: "王文娟", belong: "管理工程系", auth: "任课教师", permission: 3001 },
-      { id: 5237, account: "2012062", name: "刘丽娜", belong: "管理工程系", auth: "任课教师", permission: 3001 },
-    ]
-
-    return deptUsersData.map((userData) => ({
-      ...userData,
-      relative: 264,
-      old: false,
-      disabled: false,
-    }))
+    // 院系级：数据从API加载（getDepartmentUsers），这里返回空数组
+    // 实际数据将通过api.tree.getDepartmentUsers(node.id)从deptUsers.json加载
+    return []
   } else if (nodeType === "major") {
     // 专业级：暂时返回空数组
     return []
@@ -205,18 +171,36 @@ export function Members({ node }: MembersProps) {
   const [editingUserId, setEditingUserId] = useState<number | null>(null)
   const [userSearchQuery, setUserSearchQuery] = useState("")
   const [users, setUsers] = useState<User[]>(generateMockUsers(node.type))
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     if (node) {
       const config = getRoleConfig(node.type)
       const loadUsers = async () => {
-        const response = await api.users.getUsers(node.id)
-        if (response.data) {
-          setUsers(response.data)
-        } else {
-          const initialUsers = generateMockUsers(node.type)
-          setUsers(initialUsers)
-          await api.users.updateUsers(node.id, initialUsers)
+        setIsLoading(true)
+        try {
+          // 院系级别：从deptUsers.json加载数据，按院系ID过滤
+          if (node.type === "department") {
+            const response = await api.tree.getDepartmentUsers(node.id)
+            if (response.data && response.data.length > 0) {
+              setUsers(response.data)
+            } else {
+              // 如果API返回空数据，使用空数组而不是mock数据
+              setUsers([])
+            }
+          } else {
+            // 其他类型：使用原有逻辑
+            const response = await api.users.getUsers(node.id)
+            if (response.data) {
+              setUsers(response.data)
+            } else {
+              const initialUsers = generateMockUsers(node.type)
+              setUsers(initialUsers)
+              await api.users.updateUsers(node.id, initialUsers)
+            }
+          }
+        } finally {
+          setIsLoading(false)
         }
       }
       loadUsers()
@@ -422,7 +406,48 @@ export function Members({ node }: MembersProps) {
           </Button>
         </div>
         <div className="rounded-lg border border-border overflow-hidden bg-white/50">
-          {displayedUsers.map((user, index) => {
+          {isLoading ? (
+            // 加载状态：显示骨架屏
+            <div className="space-y-0">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div
+                  key={index}
+                  className={cn(
+                    "flex items-center p-3 gap-3",
+                    index % 2 === 0 ? "bg-white/30" : "bg-white/50",
+                    index !== 4 && "border-b border-border"
+                  )}
+                >
+                  {/* 头像骨架 */}
+                  <Skeleton className="w-10 h-10 rounded-full flex-shrink-0" />
+
+                  {/* 名称和账号骨架 */}
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+
+                  {/* 角色骨架 */}
+                  <Skeleton className="h-6 w-20 rounded flex-shrink-0" />
+
+                  {/* 操作按钮骨架 */}
+                  <div className="flex gap-2">
+                    <Skeleton className="w-8 h-8 rounded flex-shrink-0" />
+                    <Skeleton className="w-8 h-8 rounded flex-shrink-0" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : displayedUsers.length === 0 ? (
+            // 空状态
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="text-muted-foreground mb-2">暂无成员数据</div>
+              </div>
+            </div>
+          ) : (
+            // 数据列表
+            displayedUsers.map((user, index) => {
             // 根据节点类型和角色显示对应的机构归属标签
             let affiliationTag = null
 
@@ -562,10 +587,11 @@ export function Members({ node }: MembersProps) {
               </div>
             </div>
             )
-          })}
+            })
+          )}
         </div>
 
-        {filteredUsers.length === 0 && (
+        {!isLoading && filteredUsers.length === 0 && (
           <div className="text-center py-8 text-muted-foreground">没有找到匹配的用户</div>
         )}
 

@@ -11,7 +11,6 @@ import { AddMajorForm } from "@/components/add-major-form"
 import { MajorBasicInfo } from "@/components/major/major-basic-info"
 import { MajorMatrix } from "@/components/major/major-matrix"
 import { MajorCourses } from "@/components/major/major-courses"
-import { Members } from "@/components/shared/members"
 import { TeachingQualityStats } from "./teaching-quality-stats"
 import {
   AlertDialog,
@@ -81,7 +80,7 @@ export function MajorDetail({
     return (
       <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl p-6">
         <AddMajorForm
-          departmentId={node.parentId || node.id}
+          departmentId={(node.metadata as any)?.parentDeptId || ""}
           onCancel={() => setIsEditingMajor(false)}
           onSubmit={handleEditMajorFormSubmit}
           initialData={node}
@@ -150,9 +149,6 @@ export function MajorDetail({
               <TabsTrigger value="matrix" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
                 专业矩阵
               </TabsTrigger>
-              <TabsTrigger value="users" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
-                成员管理
-              </TabsTrigger>
               <TabsTrigger value="teaching-quality" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
                 教学质量
               </TabsTrigger>
@@ -173,11 +169,8 @@ export function MajorDetail({
                 onNodeSelect={onNodeSelect}
                 onAddCourse={() => setIsAddingCourse(true)}
                 majorCourses={majorCourses}
+                departmentId={(node.metadata as any)?.parentDeptId}
               />
-            </TabsContent>
-
-            <TabsContent value="users" className="space-y-6 p-6">
-              <Members node={node} />
             </TabsContent>
 
             <TabsContent value="teaching-quality" className="space-y-6 p-6">

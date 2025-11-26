@@ -106,13 +106,25 @@ export function MemberSelector({
       const loadUsers = async () => {
         setIsLoading(true)
         try {
-          const response = await api.users.getUsers(departmentId)
-          if (response.data) {
-            setAllUsers(response.data)
+          // 院系级别：从deptUsers.json加载数据，按院系ID过滤
+          if (nodeType === "department") {
+            const response = await api.tree.getDepartmentUsers(departmentId)
+            if (response.data && response.data.length > 0) {
+              setAllUsers(response.data)
+            } else {
+              // 如果API返回空数据，使用空数组
+              setAllUsers([])
+            }
           } else {
-            // 如果API返回空，使用Mock数据
-            const mockUsers = generateFilteredUsers(nodeType, departmentId, majorId)
-            setAllUsers(mockUsers)
+            // 其他类型：使用原有逻辑
+            const response = await api.users.getUsers(departmentId)
+            if (response.data) {
+              setAllUsers(response.data)
+            } else {
+              // 如果API返回空，使用Mock数据
+              const mockUsers = generateFilteredUsers(nodeType, departmentId, majorId)
+              setAllUsers(mockUsers)
+            }
           }
         } catch (error) {
           console.error("加载成员数据失败:", error)
@@ -294,9 +306,11 @@ export function MemberSelector({
               )}
             </div>
           </ScrollArea>
+        </div>
 
+        <DialogFooter className="flex items-center">
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-4 text-sm">
+            <div className="flex items-center gap-4 text-sm">
               <Button
                 variant="outline"
                 size="sm"
@@ -320,15 +334,15 @@ export function MemberSelector({
               </Button>
             </div>
           )}
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={handleCancel}>
-            取消
-          </Button>
-          <Button onClick={handleConfirm} disabled={selectedIds.length === 0}>
-            确认
-          </Button>
+          <div className="flex-1" />
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleCancel}>
+              取消
+            </Button>
+            <Button onClick={handleConfirm} disabled={selectedIds.length === 0}>
+              确认
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -145,11 +145,8 @@ function TreeNodeComponent({
 
   // 如果是major节点，合并动态加载的课程数据
   if (node.type === "major") {
-    console.log(`[v0] TreeNodeComponent: 检查major节点 ${node.id}`)
-    console.log(`[v0] TreeNodeComponent: majorCourses?.has(${node.id}) =`, majorCourses?.has(node.id))
     if (majorCourses?.has(node.id)) {
       const loadedCourses = majorCourses.get(node.id) || []
-      console.log(`[v0] TreeNodeComponent: 合并课程数据, 课程数量=${loadedCourses.length}`)
       actualChildren = loadedCourses
     }
   }

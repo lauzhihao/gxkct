@@ -5,6 +5,7 @@ import { handleBackendResponse } from "./response-handler"
 import departmentsData from "@/mock-data/departments.json"
 import coursesData from "@/mock-data/courses.json"
 import majorDetailData from "@/mock-data/major-detail.json"
+import deptUsersData from "@/mock-data/deptUsers.json"
 
 export class TreeApi {
   private storage = new StorageAdapter()
@@ -393,6 +394,53 @@ export class TreeApi {
     console.log(`[v0] TreeApi.searchTree() 找到 ${results.length} 个匹配结果`)
 
     return { data: results, error: null, status: 200 }
+  }
+
+  /**
+   * 获取院系的成员列表
+   * 根据departmentId从deptUsers.json中过滤数据
+   * @param departmentId 院系ID（字符串格式）
+   * @returns 成员数组
+   */
+  async getDepartmentUsers(departmentId: string): Promise<ApiResponse<any[]>> {
+    console.log(`[v0] TreeApi.getDepartmentUsers(${departmentId}) 开始加载成员数据`)
+
+    try {
+      // 模拟网络延迟
+      await new Promise(resolve => setTimeout(resolve, 300))
+
+      const backendResponse = deptUsersData as BackendResponse<any>
+
+      // 使用统一的响应处理器
+      const response = handleBackendResponse(backendResponse, false)
+      if (response.error || !response.data) {
+        console.log(`[v0] TreeApi.getDepartmentUsers() 响应处理失败:`, response.error)
+        return { data: null, error: response.error, status: response.status }
+      }
+
+      const deptData = response.data
+
+      // 检查departmentId是否与data.id匹配
+      // departmentId是字符串，data.id是数字，需要转换后比较
+      const deptIdNum = parseInt(departmentId, 10)
+      if (isNaN(deptIdNum) || deptData.id !== deptIdNum) {
+        console.log(`[v0] TreeApi.getDepartmentUsers() 院系ID不匹配: 查询${departmentId}，数据中的ID为${deptData.id}`)
+        return { data: [], error: null, status: 200 }
+      }
+
+      // 合并guiders和users数组
+      const allUsers = [
+        ...(deptData.guiders || []),
+        ...(deptData.users || [])
+      ]
+
+      console.log(`[v0] TreeApi.getDepartmentUsers() 返回 ${allUsers.length} 个成员（系部管理员: ${deptData.guiders?.length || 0}, 其他成员: ${deptData.users?.length || 0}）`)
+
+      return { data: allUsers, error: null, status: 200 }
+    } catch (error) {
+      console.error(`[v0] TreeApi.getDepartmentUsers() 错误:`, error)
+      return { data: null, error: String(error), status: 500 }
+    }
   }
 
   /**
