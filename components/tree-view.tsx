@@ -465,7 +465,7 @@ export const TreeView = React.forwardRef<
 
 
 
-  const handleToggleExpand = async (nodeId: string) => {
+  const handleToggleExpand = React.useCallback(async (nodeId: string) => {
     // 检查当前是否已展开
     const isCurrentlyExpanded = expandedNodes.has(nodeId)
 
@@ -497,7 +497,10 @@ export const TreeView = React.forwardRef<
       return null
     }
 
+    console.log(`[TreeView] handleToggleExpand: 开始查找nodeId=${nodeId}`)
+    console.log(`[TreeView] handleToggleExpand: treeData=`, treeData ? { id: treeData.id, type: treeData.type, childrenCount: treeData.children?.length } : null)
     let node = findNodeById(treeData, nodeId)
+    console.log(`[TreeView] handleToggleExpand: 在treeData中找到的node:`, node ? { id: node.id, type: node.type, name: node.name } : null)
 
     // 如果在treeData中没找到，尝试在动态加载的专业数据中查找
     if (!node) {
@@ -505,20 +508,25 @@ export const TreeView = React.forwardRef<
         const found = majors.find(m => m.id === nodeId)
         if (found) {
           node = found
+          console.log(`[TreeView] handleToggleExpand: 在departmentMajors中找到node:`, { id: node.id, type: node.type, name: node.name })
           break
         }
       }
     }
 
+    console.log(`[TreeView] handleToggleExpand: 最终node:`, node ? { id: node.id, type: node.type, name: node.name } : null)
+    console.log(`[TreeView] handleToggleExpand: loadedDepartments.has(${nodeId}) =`, loadedDepartments.has(nodeId))
+
     // 如果是department节点且未加载过专业数据，则加载
     if (node && node.type === "department" && !loadedDepartments.has(nodeId)) {
-      console.log(`[v0] 加载department ${nodeId} 的专业数据`)
+      console.log(`[TreeView] 开始加载department ${nodeId} 的专业数据`)
       setIsDataLoading(true)
       try {
         const response = await api.tree.getDepartmentMajors(nodeId)
+        console.log(`[TreeView] getDepartmentMajors响应:`, response)
 
         if (response.data && response.data.length > 0) {
-          console.log(`[v0] 成功加载 ${response.data.length} 个专业`)
+          console.log(`[TreeView] 成功加载 ${response.data.length} 个专业`)
           setDepartmentMajors((prev) => {
             const newMap = new Map(prev)
             newMap.set(nodeId, response.data!)
@@ -526,7 +534,7 @@ export const TreeView = React.forwardRef<
           })
           setLoadedDepartments((prev) => new Set(prev).add(nodeId))
         } else {
-          console.log(`[v0] 未找到专业数据或加载失败:`, response.error)
+          console.log(`[TreeView] 未找到专业数据或加载失败:`, response.error)
         }
       } finally {
         setIsDataLoading(false)
@@ -571,7 +579,7 @@ export const TreeView = React.forwardRef<
         setIsDataLoading(false)
       }
     }
-  }
+  }, [treeData, expandedNodes, loadedDepartments, departmentMajors, loadedMajors])
 
   // 使用useImperativeHandle暴露handleToggleExpand方法给外部调用
   React.useImperativeHandle(ref, () => ({

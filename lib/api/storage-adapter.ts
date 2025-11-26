@@ -1,15 +1,15 @@
 import type { ApiResponse, BackendResponse } from "./types"
 import { handleBackendResponse, createSuccessResponse, createErrorResponse } from "./response-handler"
+import { HttpAdapter } from "./http-adapter"
 
 export class StorageAdapter {
   private prefix = "education-api-"
+  private httpAdapter = new HttpAdapter()
 
   async get<T>(key: string): Promise<ApiResponse<T>> {
     try {
       const fullKey = this.prefix + key
-      console.log("[v0] StorageAdapter.get() 查找键:", fullKey)
       const data = localStorage.getItem(fullKey)
-      console.log("[v0] StorageAdapter.get() 找到的数据:", data ? `${data.substring(0, 100)}...` : "null")
 
       if (!data) {
         const backendResponse = createErrorResponse("数据未找到", "404")
@@ -26,6 +26,26 @@ export class StorageAdapter {
       // 解析错误需要显示提示
       return handleBackendResponse(backendResponse, true)
     }
+  }
+
+  // 通过HTTP调用远程API
+  async getFromApi<T>(endpoint: string): Promise<ApiResponse<T>> {
+    return this.httpAdapter.get<T>(endpoint)
+  }
+
+  // 通过HTTP调用远程API POST
+  async postToApi<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+    return this.httpAdapter.post<T>(endpoint, data)
+  }
+
+  // 通过HTTP调用远程API PUT
+  async putToApi<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+    return this.httpAdapter.put<T>(endpoint, data)
+  }
+
+  // 通过HTTP调用远程API DELETE
+  async deleteFromApi<T>(endpoint: string): Promise<ApiResponse<T>> {
+    return this.httpAdapter.delete<T>(endpoint)
   }
 
   async set<T>(key: string, value: T): Promise<ApiResponse<T>> {

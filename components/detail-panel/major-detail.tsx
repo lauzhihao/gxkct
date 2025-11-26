@@ -12,6 +12,7 @@ import { MajorBasicInfo } from "@/components/major/major-basic-info"
 import { MajorMatrix } from "@/components/major/major-matrix"
 import { MajorCourses } from "@/components/major/major-courses"
 import { TeachingQualityStats } from "./teaching-quality-stats"
+import { QuickCreateCourseDialog } from "./quick-create-course-dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,6 +52,7 @@ export function MajorDetail({
   const [isAddingCourse, setIsAddingCourse] = useState(false)
   const [isEditingMajor, setIsEditingMajor] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isQuickCreateCourseOpen, setIsQuickCreateCourseOpen] = useState(false)
 
   const handleDeleteNode = (nodeId: string) => {
     if (onDeleteNode) {
@@ -74,6 +76,22 @@ export function MajorDetail({
       onAddCourse(node.id, data)
     }
     setIsAddingCourse(false)
+  }
+
+  const handleQuickCreateCourse = (data: { name: string; teachers: any[] }) => {
+    // 创建新课程对象
+    const newCourse: TreeNode = {
+      id: `course-${Date.now()}`,
+      name: data.name,
+      type: "course",
+      metadata: {
+        teachers: data.teachers,
+      },
+    }
+
+    if (onAddCourse) {
+      onAddCourse(node.id, newCourse)
+    }
   }
 
   if (isEditingMajor && node.type === "major") {
@@ -167,7 +185,7 @@ export function MajorDetail({
                 node={node}
                 currentUser={currentUser}
                 onNodeSelect={onNodeSelect}
-                onAddCourse={() => setIsAddingCourse(true)}
+                onAddCourse={() => setIsQuickCreateCourseOpen(true)}
                 majorCourses={majorCourses}
                 departmentId={(node.metadata as any)?.parentDeptId}
               />
@@ -179,6 +197,14 @@ export function MajorDetail({
           </Tabs>
         </div>
       </div>
+
+      <QuickCreateCourseDialog
+        open={isQuickCreateCourseOpen}
+        onOpenChange={setIsQuickCreateCourseOpen}
+        onSubmit={handleQuickCreateCourse}
+        majorName={node.name}
+        departmentId={(node.metadata as any)?.parentDeptId}
+      />
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>

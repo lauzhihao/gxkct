@@ -18,7 +18,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useState } from "react"
 import type { DetailPanelProps } from "./types"
 import { StatisticsCards } from "./shared/statistics-cards"
-import { AddMajorForm } from "@/components/add-major-form"
 import { Members } from "@/components/shared/members"
 import { TeachingQualityStats } from "./teaching-quality-stats"
 import { QuickCreateMajorDialog } from "./quick-create-major-dialog"
@@ -29,7 +28,6 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
   const [newDeptDirector, setNewDeptDirector] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isEditingDepartment, setIsEditingDepartment] = useState(false)
-  const [isAddingMajor, setIsAddingMajor] = useState(false)
   const [isQuickCreateMajorOpen, setIsQuickCreateMajorOpen] = useState(false)
 
   const handleEditDepartment = () => {
@@ -64,13 +62,6 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
     }
   }
 
-  const handleAddMajor = (majorData: any) => {
-    if (onAddMajor) {
-      onAddMajor(node.id, majorData)
-    }
-    setIsAddingMajor(false)
-  }
-
   const handleQuickCreateMajor = (data: { name: string; directors: any[] }) => {
     if (onAddMajor) {
       onAddMajor(node.id, {
@@ -84,17 +75,6 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
       })
     }
     setIsQuickCreateMajorOpen(false)
-  }
-
-  if (isAddingMajor) {
-    return (
-      <div className="h-full flex flex-col bg-gradient-to-br from-background via-background to-secondary/20">
-        {/* AddMajorForm as full page content */}
-        <div className="flex-1 overflow-auto p-6">
-          <AddMajorForm departmentId={node.id} onCancel={() => setIsAddingMajor(false)} onSubmit={handleAddMajor} />
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -152,26 +132,15 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
               majorCourses={majorCourses}
               onToggleExpand={onToggleExpand}
               headerAction={
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setIsQuickCreateMajorOpen(true)}
-                    className="gap-2 hover:bg-primary/10"
-                  >
-                    <Plus className="w-4 h-4 text-primary" />
-                    <span className="text-primary font-medium">开设专业</span>
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setIsAddingMajor(true)}
-                    className="gap-2 hover:bg-primary/10"
-                  >
-                    <Plus className="w-4 h-4 text-primary" />
-                    <span className="text-primary font-medium">新增专业</span>
-                  </Button>
-                </div>
+                <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setIsQuickCreateMajorOpen(true)}
+                className="gap-2 hover:bg-primary/10"
+              >
+                <Plus className="w-4 h-4 text-primary" />
+                <span className="text-primary font-medium">开设专业</span>
+              </Button>
               }
             />
           </TabsContent>

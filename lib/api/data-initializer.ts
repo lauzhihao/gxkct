@@ -260,21 +260,15 @@ export function isDataInitialized(): boolean {
 
 /**
  * 初始化所有Mock数据到localStorage
+ * 注意：树形数据现在从API动态获取，不再在这里初始化
  */
 export function initializeMockData(): void {
   console.log("[v0] 开始初始化Mock数据...")
 
   try {
-    // 构建并存储树形数据
-    const treeData = buildTreeData()
-    console.log("[v0] 构建的树形数据: 根节点包含", treeData.children?.length || 0, "个子节点")
-    console.log("[v0] 存储树形数据到键:", STORAGE_KEYS.TREE_DATA)
-    localStorage.setItem(STORAGE_KEYS.TREE_DATA, JSON.stringify(treeData))
-
-    // 验证数据是否真的存储了
-    const storedData = localStorage.getItem(STORAGE_KEYS.TREE_DATA)
-    console.log("[v0] 验证存储的数据:", storedData ? `${storedData.substring(0, 100)}...` : "null")
-    console.log("[v0] 树形数据已初始化")
+    // 树形数据现在从API动态获取，这里不再初始化
+    // 但保留mock数据作为降级方案
+    console.log("[v0] 树形数据将从API动态获取，不在初始化时加载")
 
     // 初始化用户数据
     initializeUsers()

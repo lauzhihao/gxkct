@@ -1,24 +1,145 @@
 import type { TreeNode } from "@/types"
 import { StorageAdapter } from "./storage-adapter"
 import type { ApiResponse, BackendResponse } from "./types"
-import { handleBackendResponse } from "./response-handler"
-import departmentsData from "@/mock-data/departments.json"
-import coursesData from "@/mock-data/courses.json"
+import { getCurrentUserId } from "./auth-config"
 import majorDetailData from "@/mock-data/major-detail.json"
-import deptUsersData from "@/mock-data/deptUsers.json"
 
 export class TreeApi {
   private storage = new StorageAdapter()
   private treeKey = "tree-data"
 
   async getTree(): Promise<ApiResponse<TreeNode>> {
-    console.log("[v0] TreeApi.getTree() 使用键:", this.treeKey)
-    const response = await this.storage.get<TreeNode>(this.treeKey)
-    console.log(
-      "[v0] TreeApi.getTree() 响应:",
-      response.error ? `错误: ${response.error}` : `成功，根节点ID: ${response.data?.id}`,
-    )
-    return response
+    console.log("[TreeApi] getTree() 开始加载树形数据")
+
+    // 获取userId
+    const userId = getCurrentUserId()
+    if (!userId) {
+      console.error("[TreeApi] 未获取到userId")
+      return { data: null, error: "未获取到userId", status: 401 }
+    }
+
+    console.log(`[TreeApi] 从API获取colleges数据，userId: ${userId}`)
+    const collegesResponse = await this.storage.getFromApi<{
+      colleges: Array<{
+        college: {
+          id: number
+          name: string
+          image: string
+          collegeType: string
+        }
+        departments: Array<{
+          id: number
+          collegeId: number
+          name: string
+          type: string | null
+        }>
+        permissionId: number
+        relativeId: number
+      }>
+    }>(`/api/manage/allavailablecollege?userId=${userId}`)
+
+    if (collegesResponse.error || !collegesResponse.data) {
+      console.error("[TreeApi] API调用失败:", collegesResponse.error)
+      return { data: null, error: collegesResponse.error, status: collegesResponse.status }
+    }
+
+    // 将API数据转换为树形结构
+    const treeData = this.buildTreeFromColleges(collegesResponse.data)
+    console.log("[TreeApi] 树形数据构建成功，根节点包含", treeData.children?.length || 0, "个子节点")
+
+    // 缓存到localStorage以便离线使用
+    await this.storage.set(this.treeKey, treeData)
+
+    return { data: treeData, error: null, status: 200 }
+  }
+
+  /**
+   * 将colleges API数据转换为树形结构
+   */
+  private buildTreeFromColleges(data: {
+    colleges: Array<{
+      college: {
+        id: number
+        name: string
+        image: string
+        collegeType: string
+      }
+      departments: Array<{
+        id: number
+        collegeId: number
+        name: string
+        type: string | null
+      }>
+      permissionId: number
+      relativeId: number
+    }>
+  }): TreeNode {
+    const { colleges } = data
+
+    // 过滤出collegeType为"1"的数据
+    const filteredColleges = colleges.filter((item) => item.college.collegeType === "1")
+
+    console.log(`[TreeApi] colleges总数: ${colleges.length}, 过滤后(collegeType=1): ${filteredColleges.length}`)
+
+    // 使用Map去重，以college.id为键
+    const collegeMap = new Map<number, {
+      college: any
+      departments: any[]
+      permissionId: number
+      relativeId: number
+    }>()
+
+    filteredColleges.forEach((item) => {
+      const collegeId = item.college.id
+      if (!collegeMap.has(collegeId)) {
+        collegeMap.set(collegeId, item)
+      } else {
+        // 如果已存在，合并departments（去重）
+        const existing = collegeMap.get(collegeId)!
+        const existingDeptIds = new Set(existing.departments.map(d => d.id))
+        const newDepts = item.departments.filter(d => !existingDeptIds.has(d.id))
+        existing.departments.push(...newDepts)
+      }
+    })
+
+    // 将去重后的colleges数据转换为树形结构
+    const universities = Array.from(collegeMap.values()).map((item) => {
+      const { college, departments } = item
+
+      // 将departments转换为子节点
+      const deptNodes = departments.map((dept) => ({
+        id: String(dept.id),
+        name: dept.name,
+        type: "department" as const,
+        children: [],
+        metadata: {
+          collegeId: dept.collegeId,
+          deptType: dept.type,
+        },
+      }))
+
+      // 创建大学/工作坊节点
+      return {
+        id: String(college.id),
+        name: college.name,
+        type: "university" as const,
+        children: deptNodes,
+        metadata: {
+          image: college.image,
+          collegeType: college.collegeType,
+          permissionId: item.permissionId,
+          relativeId: item.relativeId,
+        },
+      }
+    })
+
+    return {
+      id: "root",
+      name: "根节点",
+      type: "university" as const,
+      children: universities,
+      metadata: {},
+    }
   }
 
   async updateTree(tree: TreeNode): Promise<ApiResponse<TreeNode>> {
@@ -137,16 +258,13 @@ export class TreeApi {
 
   /**
    * 获取院系的专业列表
-   * 根据departmentId过滤departments.json中的数据
+   * 调用 /api/v4/webpage/home/switchDpt 接口获取指定院系的专业
    */
   async getDepartmentMajors(departmentId: string): Promise<ApiResponse<TreeNode[]>> {
-    console.log(`[v0] TreeApi.getDepartmentMajors(${departmentId})`)
+    console.log(`[TreeApi] getDepartmentMajors(${departmentId}) 开始加载专业数据`)
 
-    // 模拟网络延迟
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    // 类型断言为后端响应格式
-    const backendResponse = departmentsData as BackendResponse<{
+    // 调用API获取指定院系的专业数据
+    const majorsResponse = await this.storage.getFromApi<{
       lang: number
       title: string
       btns: Array<{
@@ -202,51 +320,37 @@ export class TreeApi {
         props: null
       }>
       datatype: number
-    }>
+    }>(`/api/v4/webpage/home/switchDpt?dptId=${departmentId}&lang=80101`)
 
-    // 使用统一的响应处理器
-    const response = handleBackendResponse(backendResponse)
-    if (response.error || !response.data) {
-      return { data: null, error: response.error, status: response.status }
+    if (majorsResponse.error || !majorsResponse.data) {
+      console.error(`[TreeApi] 获取专业列表API失败:`, majorsResponse.error)
+      return { data: null, error: majorsResponse.error, status: majorsResponse.status }
     }
 
-    const { data: allMajorsData } = response.data
-
-    // 根据departmentId过滤专业数据
-    // departmentId 是字符串格式，需要与 parent.value 比较
-    const filteredMajorsData = allMajorsData.filter((item) => item.parent.value === departmentId)
-    console.log(`[v0] TreeApi.getDepartmentMajors() 过滤结果: 总共 ${allMajorsData.length} 个专业，院系 ${departmentId} 有 ${filteredMajorsData.length} 个专业`)
+    const { data: majorsData } = majorsResponse.data
+    console.log(`[TreeApi] getDepartmentMajors() API返回 ${majorsData.length} 个专业，departmentId=${departmentId}`)
 
     // 从major-detail.json获取详细数据格式
     const majorDetailResponse = majorDetailData as BackendResponse<any>
     const detailData = majorDetailResponse.data || {}
 
-    // 将过滤后的data数组转换为TreeNode数组，使用major-detail.json的metadata格式
-    const majors: TreeNode[] = filteredMajorsData.map((item) => ({
+    // 将data数组转换为TreeNode数组
+    const majors: TreeNode[] = majorsData.map((item) => ({
       id: `major-${item.self.value}`,
       name: item.self.label,
       type: "major" as const,
-      children: [], // 专业下的课程暂时为空，后续可以动态加载
+      children: [],
       metadata: {
-        // 基本信息字段（使用major-detail.json格式）
         code: detailData.majorClass || "",
         majorLevel: detailData.majorLevel || "",
         majorClass: detailData.majorClass || "",
         feature: detailData.feature || "",
-
-        // 职业信息字段
         careerLevel: detailData.careerLevel || "",
         demandType: detailData.demandType || "",
         demandArea: detailData.demandArea || "",
         professionsVOS: detailData.professionsVOS || [],
-
-        // 培养信息字段
         position: detailData.position || "",
-
-        // 毕业要求字段
         requiresVOS: detailData.requiresVOS || [],
-
-        // 保留原有的管理字段
         majorId: item.self.value,
         parentDeptId: item.parent.value,
         parentDeptName: item.parent.label,
@@ -257,25 +361,21 @@ export class TreeApi {
       },
     }))
 
-    console.log(`[v0] TreeApi.getDepartmentMajors() 返回 ${majors.length} 个专业`)
-
+    console.log(`[TreeApi] getDepartmentMajors() 返回 ${majors.length} 个专业`)
     return { data: majors, error: null, status: 200 }
   }
 
   /**
    * 获取专业的课程列表
-   * 根据majorId过滤courses.json中的数据
+   * 调用 /api/v4/webpage/majorindex/courses 接口获取课程数据
    * @param majorId 专业ID（从metadata.majorId获取）
    * @returns 课程TreeNode数组
    */
   async getMajorCourses(majorId: string): Promise<ApiResponse<TreeNode[]>> {
-    console.log(`[v0] TreeApi.getMajorCourses(${majorId}) 开始加载课程数据`)
+    console.log(`[TreeApi] getMajorCourses(${majorId}) 开始加载课程数据`)
 
-    // 模拟网络延迟
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    // 获取courses.json数据
-    const backendResponse = coursesData as BackendResponse<
+    // 调用API获取课程数据
+    const coursesResponse = await this.storage.getFromApi<
       Array<{
         lang: number
         parent: {
@@ -312,43 +412,46 @@ export class TreeApi {
           createTime: string
         } | null
       }>
-    >
+    >(`/api/v4/webpage/majorindex/courses?majorId=${majorId}&lang=80101`)
 
-    // 使用统一的响应处理器
-    const response = handleBackendResponse(backendResponse, false) // Mock阶段不显示错误toast
-    if (response.error || !response.data) {
-      console.log(`[v0] TreeApi.getMajorCourses() 响应处理失败:`, response.error)
-      return { data: null, error: response.error, status: response.status }
+    if (coursesResponse.error || !coursesResponse.data) {
+      console.error(`[TreeApi] 获取课程列表API失败:`, coursesResponse.error)
+      return { data: null, error: coursesResponse.error, status: coursesResponse.status }
     }
 
-    const allCoursesArray = response.data
-    console.log(`[v0] TreeApi.getMajorCourses() 原始数据包含 ${allCoursesArray.length} 个课程`)
+    const allCoursesArray = coursesResponse.data
+    console.log(`[TreeApi] getMajorCourses() 从API获取 ${allCoursesArray.length} 个课程`)
 
-    // 根据majorId过滤课程数据
-    // majorId 是字符串格式，需要与 parent.value 比较
-    const filteredCoursesArray = allCoursesArray.filter((item) => item.parent.value === majorId)
-    console.log(`[v0] TreeApi.getMajorCourses() 过滤结果: 专业 ${majorId} 有 ${filteredCoursesArray.length} 个课程`)
+    // 将data数组转换为TreeNode数组
+    const courses: TreeNode[] = allCoursesArray.map((item, index) => {
+      // 从 manager 数组中提取讲师名称，过滤掉"未记录"
+      const allManagerLabels = item.manager?.map((m: any) => m.label) || []
+      const instructors = allManagerLabels.filter((label: string) => label && label !== "未记录")
 
-    // 将过滤后的data数组转换为TreeNode数组
-    const courses: TreeNode[] = filteredCoursesArray.map((item, index) => ({
-      id: `course-${majorId}-${item.self.value}-${index}`, // 使用组合ID避免不同专业间的课程ID冲突
-      name: item.self.label,
-      type: "course" as const,
-      children: [], // 课程节点没有子节点
-      metadata: {
-        courseId: item.self.value,
-        parentMajorId: majorId,
-        parentMajorName: item.parent.label,
-        managers: item.manager,
-        btnMenus: item.btnMenus,
-        coverMenus: item.coverMenus,
-        lang: item.lang,
-        createTime: item.props?.createTime,
-      },
-    }))
+      // 判断是否所有讲师都是"未记录"（包括空数组的情况）
+      const hasUnrecordedOnly = allManagerLabels.length > 0 && instructors.length === 0
 
-    console.log(`[v0] TreeApi.getMajorCourses() 返回 ${courses.length} 个课程给专业 ${majorId}`)
+      return {
+        id: `course-${majorId}-${item.self.value}-${index}`,
+        name: item.self.label,
+        type: "course" as const,
+        children: [],
+        metadata: {
+          courseId: item.self.value,
+          parentMajorId: majorId,
+          parentMajorName: item.parent.label,
+          managers: item.manager,
+          instructors: instructors, // 讲师名称数组（已过滤"未记录"）
+          hasUnrecordedOnly: hasUnrecordedOnly, // 标记是否全部为"未记录"
+          btnMenus: item.btnMenus,
+          coverMenus: item.coverMenus,
+          lang: item.lang,
+          createTime: item.props?.createTime,
+        },
+      }
+    })
 
+    console.log(`[TreeApi] getMajorCourses() 返回 ${courses.length} 个课程给专业 ${majorId}`)
     return { data: courses, error: null, status: 200 }
   }
 

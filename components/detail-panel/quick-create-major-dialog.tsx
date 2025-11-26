@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { Plus, X } from "lucide-react"
+import { Plus, X, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MemberSelector } from "@/components/shared/member-selector"
+import { useToast } from "@/hooks/use-toast"
 
 interface QuickCreateMajorDialogProps {
   open: boolean
@@ -30,6 +31,7 @@ export function QuickCreateMajorDialog({
   onSubmit,
   departmentId,
 }: QuickCreateMajorDialogProps) {
+  const { toast } = useToast()
   const [majorName, setMajorName] = useState("")
   const [directors, setDirectors] = useState<Director[]>([])
   const [memberSelectorOpen, setMemberSelectorOpen] = useState(false)
@@ -45,7 +47,22 @@ export function QuickCreateMajorDialog({
 
   const handleSubmit = () => {
     if (!majorName.trim()) {
-      alert("请输入专业名称")
+      toast({
+        variant: "destructive",
+        title: "验证失败",
+        description: "请输入专业名称",
+        duration: 3000,
+      })
+      return
+    }
+
+    if (directors.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "验证失败",
+        description: "请选择至少一位专业负责人",
+        duration: 3000,
+      })
       return
     }
 
@@ -90,7 +107,9 @@ export function QuickCreateMajorDialog({
             </div>
 
             <div className="grid gap-2">
-              <Label>专业负责人</Label>
+              <Label>
+                专业负责人 <span className="text-red-500">*</span>
+              </Label>
               <div className={cn("h-10 rounded-md bg-background px-3 flex items-center justify-between gap-2", "border border-gray-300")}>
                 <div className="flex items-center flex-wrap gap-2 flex-1 overflow-hidden">
                   {directors.length > 0 ? (
@@ -122,11 +141,13 @@ export function QuickCreateMajorDialog({
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={handleCancel}>
+            <Button variant="outline" onClick={handleCancel} className="gap-2 bg-transparent">
+              <X className="w-4 h-4" />
               取消
             </Button>
-            <Button onClick={handleSubmit} disabled={!majorName.trim()}>
-              开设专业
+            <Button onClick={handleSubmit} disabled={!majorName.trim() || directors.length === 0} className="gap-2">
+              <Check className="w-4 h-4" />
+              保存
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,4 +1,5 @@
 import type { ApiResponse } from "./types"
+import { StorageAdapter } from "./storage-adapter"
 
 // 课程基本信息（来自 course-name.json）
 export interface CourseNameData {
@@ -70,6 +71,8 @@ export interface MajorDetailData {
 }
 
 export class CourseDetailApi {
+  private storage = new StorageAdapter()
+
   /**
    * 获取课程详情数据
    * @param courseId 真实的课程ID（数字字符串，来自metadata.courseId）
@@ -89,9 +92,37 @@ export class CourseDetailApi {
         }
       }
 
-      // 动态导入 JSON 文件
-      const courseDetailModule = await import("@/mock-data/course-detal.json")
-      const courseDetailResponse = courseDetailModule.default
+      // 调用真实API获取课程详情
+      const courseDetailResponse = await this.storage.getFromApi<{
+        course: {
+          id: number
+          majorId: number
+          classId: number
+          typeId: number
+          name: string
+          position: null | string
+          introduction: null | string
+          criterion: null | string
+          theoryPeriod: number
+          practicePeriod: number
+          courseMatrixVOS: any[]
+          createTime: string
+        }
+        pointksa: {
+          points: any[]
+          ksas: any[]
+        }
+      }>(`/api/major/v2.0/courseunitdetail?courseid=${courseId}`)
+
+      if (courseDetailResponse.error || !courseDetailResponse.data) {
+        console.error("[CourseDetailApi] 获取课程详情API失败:", courseDetailResponse.error)
+        return {
+          data: null,
+          error: courseDetailResponse.error || "获取课程详情失败",
+          status: courseDetailResponse.status,
+        }
+      }
+
       const courseDetailData = courseDetailResponse.data
 
       if (!courseDetailData?.course) {
@@ -103,12 +134,11 @@ export class CourseDetailApi {
         }
       }
 
-      // 从course-detal.json中的course对象构建courseNameData
-      // 这样可以避免依赖course-name.json中可能不匹配的数据
+      // 从API返回的course对象构建courseNameData
       const courseNameData: CourseNameData = {
         id: courseDetailData.course.id,
         name: courseDetailData.course.name,
-        major: "", // 从course-detal.json中无法获取，使用空字符串
+        major: "", // 从API中无法获取，使用空字符串
         department: {
           id: 0,
           collegeId: 0,

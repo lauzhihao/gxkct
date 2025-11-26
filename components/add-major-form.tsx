@@ -1,11 +1,11 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 import {
   ArrowLeft,
   Plus,
@@ -26,6 +26,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { FileUpload } from "@/components/ui/file-upload"
 import { useToast } from "@/hooks/use-toast"
 import { CourseSelector } from "@/components/shared/course-selector"
+import { api } from "@/lib/api"
 import worksJsonData from "@/mock-data/works.json"
 import type { TreeNode } from "@/types"
 
@@ -115,6 +116,8 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
   const { toast } = useToast()
 
   const [isLoading, setIsLoading] = useState(false)
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"" | "saving" | "saved" | "failed">("")
+  const [isCourseSelectorOpenRef, setIsCourseSelectorOpen] = useState(false)
 
   // 从导入的JSON文件中获取职业方向数据
   const worksData = (worksJsonData as WorksData).data || []
@@ -202,9 +205,66 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
   const [indicatorCourseSupports, setIndicatorCourseSupports] = useState<
     Record<string, IndicatorCourseSupport[]>
   >({})
+  const [focusedRequirementId, setFocusedRequirementId] = useState<string | null>(null)
+  const [focusedIndicatorKey, setFocusedIndicatorKey] = useState<string | null>(null)
 
   const lastRequirementRef = useRef<HTMLInputElement>(null)
   const lastIndicatorRefs = useRef<{ [key: string]: HTMLInputElement | null }>({})
+  const indicatorCoursesSnapshotRef = useRef<Record<string, IndicatorCourseSupport[]>>({})
+
+  // 进入编辑模式时，加载指标点与课程的支撑关系
+  useEffect(() => {
+    if (isEditMode && initialData?.metadata?.majorId) {
+      const loadIndicatorCourseSupports = async () => {
+        try {
+          const response = await api.matrices.getMajorIndicatorCourseSupports(initialData.metadata.majorId)
+          if (response.data?.supports) {
+            setIndicatorCourseSupports(response.data.supports)
+          }
+        } catch (error) {
+          console.error("加载指标点课程支撑关系失败:", error)
+        }
+      }
+      loadIndicatorCourseSupports()
+    }
+  }, [isEditMode, initialData?.metadata?.majorId])
+
+  // 更新快照ref，不触发重新渲染
+  useEffect(() => {
+    indicatorCoursesSnapshotRef.current = indicatorCourseSupports
+  }, [indicatorCourseSupports])
+
+  // 自动保存指标点与课程的支撑关系（异步，不阻塞UI）
+  useEffect(() => {
+    if (!isEditMode || !initialData?.metadata?.majorId || isCourseSelectorOpenRef) return
+
+    const majorId = initialData.metadata.majorId
+
+    const autoSaveInterval = setInterval(() => {
+      // 使用快照进行异步保存，不改变state，不触发重新渲染
+      const snapshot = indicatorCoursesSnapshotRef.current
+
+      // 在后台异步执行保存，不阻塞主线程
+      Promise.resolve().then(async () => {
+        try {
+          setAutoSaveStatus("saving")
+          await api.matrices.updateMajorIndicatorCourseSupports(
+            majorId,
+            snapshot
+          )
+          setAutoSaveStatus("saved")
+          // 3秒后清除提示
+          setTimeout(() => setAutoSaveStatus(""), 3000)
+        } catch (error) {
+          console.error("自动保存指标点课程支撑关系失败:", error)
+          setAutoSaveStatus("failed")
+          setTimeout(() => setAutoSaveStatus(""), 3000)
+        }
+      })
+    }, 10000) // 每10秒自动保存一次
+
+    return () => clearInterval(autoSaveInterval)
+  }, [isEditMode, initialData?.metadata?.majorId, isCourseSelectorOpenRef])
 
   // 根据选择的分类获取子分类
   const getCategory2Options = (category1Label: string): WorkCategory[] => {
@@ -315,6 +375,60 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
     setCareerInfoList(careerInfoList.map((item) => (item.id === id ? { ...item, [field]: value } : item)))
   }
 
+  // 获取职业代码
+  const getOccupationCode = (category1: string, category2: string, category3: string, category4: string): string | null => {
+    const cat1 = worksData.find(item => item.label === category1)
+    if (!cat1) return null
+
+    const cat2 = cat1.children?.find(item => item.label === category2)
+    if (!cat2) return null
+
+    const cat3 = cat2.children?.find(item => item.label === category3)
+    if (!cat3) return null
+
+    const cat4 = cat3.children?.find(item => item.label === category4)
+    if (!cat4) return null
+
+    return cat4.value
+  }
+
+  // 选择职业方向后调用接口获取工作职责
+  const handleCareerDirectionSelect = useCallback((careerInfoId: string, category1: string, category2: string, category3: string, category4: string) => {
+    // 先更新职业方向
+    setCareerInfoList(prevList => prevList.map((item) =>
+      item.id === careerInfoId
+        ? {
+            ...item,
+            direction: {
+              category1,
+              category2,
+              category3,
+              category4,
+            }
+          }
+        : item
+    ))
+
+    // 获取职业代码
+    const occupationCode = getOccupationCode(category1, category2, category3, category4)
+    if (occupationCode) {
+      // 异步调用接口获取工作职责
+      api.occupation.getOccupationBook(occupationCode).then((response) => {
+        if (response.data) {
+          // 将职业任务填充到工作任务字段，如果为空则填充默认文本
+          const taskText = response.data.task || "暂未设置工作任务。"
+          setCareerInfoList(prevList => prevList.map((item) =>
+            item.id === careerInfoId
+              ? { ...item, tasks: taskText }
+              : item
+          ))
+        }
+      }).catch((error) => {
+        console.error("获取职业信息失败:", error)
+      })
+    }
+  }, [])
+
   const addGraduationRequirement = () => {
     const newId = Date.now().toString()
     setGraduationRequirements([...graduationRequirements, { id: newId, content: "", indicators: [""] }])
@@ -365,6 +479,7 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
 
   const openCourseSelectorForIndicator = (requirementId: string, indicatorIndex: number) => {
     setSelectedIndicatorForCourse({ requirementId, indicatorIndex })
+    setIsCourseSelectorOpen(true)
     setCourseSelectorOpen(true)
   }
 
@@ -376,18 +491,21 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
     const { requirementId, indicatorIndex } = selectedIndicatorForCourse
     const key = `${requirementId}-${indicatorIndex}`
 
+    // 替换而不是追加，清空旧的支撑关系并设置新的
+    const coursesToSave = selectedCourses.map((item) => ({
+      courseId: item.course.id,
+      courseName: item.course.name,
+      supportLevel: item.supportLevel,
+    }))
+    console.log("保存指标点与课程的支撑关系，key:", key, "课程列表:", coursesToSave)
+
     setIndicatorCourseSupports((prev) => ({
       ...prev,
-      [key]: [
-        ...(prev[key] || []),
-        ...selectedCourses.map((item) => ({
-          courseId: item.course.id,
-          courseName: item.course.name,
-          supportLevel: item.supportLevel,
-        })),
-      ],
+      [key]: coursesToSave,
     }))
 
+    setCourseSelectorOpen(false)
+    setIsCourseSelectorOpen(false)
     setSelectedIndicatorForCourse(null)
   }
 
@@ -518,7 +636,7 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
       })
       onSubmit(majorData)
       setIsLoading(false)
-    }, 1000)
+    }, 3000)
   }
 
   const filteredProvinces = provinces.filter((province) =>
@@ -536,13 +654,42 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
           <h2 className="text-xl font-bold text-foreground">{isEditMode ? "编辑专业" : "新增专业"}</h2>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={onCancel} className="gap-2 bg-transparent" disabled={isLoading}>
+          <Button variant="outline" onClick={onCancel} className="gap-2 bg-transparent" disabled={isLoading || autoSaveStatus === "saving" || autoSaveStatus === "saved"}>
             <X className="w-4 h-4" />
             取消
           </Button>
-          <Button onClick={handleSubmit} className="gap-2" disabled={isLoading}>
-            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-            保存
+          <Button
+            onClick={handleSubmit}
+            className="gap-2"
+            disabled={isLoading || autoSaveStatus === "saving" || autoSaveStatus === "saved"}
+            variant={autoSaveStatus === "saved" ? "default" : autoSaveStatus === "failed" ? "destructive" : "default"}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                保存中
+              </>
+            ) : autoSaveStatus === "saving" ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                自动保存中
+              </>
+            ) : autoSaveStatus === "saved" ? (
+              <>
+                <Check className="w-4 h-4" />
+                已保存
+              </>
+            ) : autoSaveStatus === "failed" ? (
+              <>
+                <X className="w-4 h-4" />
+                保存失败
+              </>
+            ) : (
+              <>
+                <Check className="w-4 h-4" />
+                保存
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -751,12 +898,13 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
                                   <button
                                     key={index}
                                     onClick={() => {
-                                      updateCareerInfo(careerInfo.id, "direction", {
-                                        category1: result.category1.label,
-                                        category2: result.category2.label,
-                                        category3: result.category3.label,
-                                        category4: result.category4.label,
-                                      })
+                                      handleCareerDirectionSelect(
+                                        careerInfo.id,
+                                        result.category1.label,
+                                        result.category2.label,
+                                        result.category3.label,
+                                        result.category4.label
+                                      )
                                       setCareerPopoverOpenMap(prev => ({ ...prev, [careerInfo.id]: false }))
                                       setCareerSearchMap(prev => ({ ...prev, [careerInfo.id]: '' }))
                                     }}
@@ -878,10 +1026,13 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
                                     <button
                                       key={category.value}
                                       onClick={() => {
-                                        updateCareerInfo(careerInfo.id, "direction", {
-                                          ...careerInfo.direction,
-                                          category4: category.label,
-                                        })
+                                        handleCareerDirectionSelect(
+                                          careerInfo.id,
+                                          careerInfo.direction.category1,
+                                          careerInfo.direction.category2,
+                                          careerInfo.direction.category3,
+                                          category.label
+                                        )
                                         setCareerPopoverOpenMap(prev => ({ ...prev, [careerInfo.id]: false }))
                                       }}
                                       className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
@@ -946,12 +1097,12 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
                         placeholder="描述该职业方向的主要工作任务"
                         rows={3}
                         value={careerInfo.tasks}
-                        onChange={(e) => updateCareerInfo(careerInfo.id, "tasks", e.target.value.slice(0, 200))}
-                        maxLength={200}
+                        onChange={(e) => updateCareerInfo(careerInfo.id, "tasks", e.target.value.slice(0, 1024))}
+                        maxLength={1024}
                         className="pr-20"
                       />
                       <div className="absolute right-2 top-2 flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">{careerInfo.tasks.length}/200</span>
+                        <span className="text-xs text-muted-foreground">{careerInfo.tasks.length}/1024</span>
                         {careerInfo.tasks && (
                           <button
                             type="button"
@@ -1162,26 +1313,58 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
                   <div className="flex-1 space-y-3">
                     <div className="flex items-start gap-2">
                       <div className="relative flex-1">
-                        <Input
-                          ref={reqIndex === graduationRequirements.length - 1 ? lastRequirementRef : null}
-                          placeholder="输入毕业要求内容（最多200字）"
-                          value={requirement.content}
-                          onChange={(e) => updateGraduationRequirement(requirement.id, e.target.value.slice(0, 200))}
-                          maxLength={200}
-                          className="pr-20"
-                        />
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">{requirement.content.length}/200</span>
-                          {requirement.content && (
-                            <button
-                              type="button"
-                              onClick={() => updateGraduationRequirement(requirement.id, "")}
-                              className="text-muted-foreground hover:text-foreground"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          )}
-                        </div>
+                        {focusedRequirementId === requirement.id && requirement.content.length > 50 ? (
+                          <div className="relative">
+                            <Textarea
+                              ref={reqIndex === graduationRequirements.length - 1 ? lastRequirementRef : null}
+                              placeholder="输入毕业要求内容（最多200字）"
+                              value={requirement.content}
+                              onChange={(e) => updateGraduationRequirement(requirement.id, e.target.value.slice(0, 200))}
+                              onFocus={() => setFocusedRequirementId(requirement.id)}
+                              onBlur={() => setFocusedRequirementId(null)}
+                              maxLength={200}
+                              className="pr-20 pb-8 resize-none min-h-[80px]"
+                              autoFocus
+                            />
+                            <div className="absolute right-2 bottom-2 flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">{requirement.content.length}/200</span>
+                              {requirement.content && (
+                                <button
+                                  type="button"
+                                  onClick={() => updateGraduationRequirement(requirement.id, "")}
+                                  className="text-muted-foreground hover:text-foreground"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="relative">
+                            <Input
+                              ref={reqIndex === graduationRequirements.length - 1 ? lastRequirementRef : null}
+                              placeholder="输入毕业要求内容（最多200字）"
+                              value={requirement.content}
+                              onChange={(e) => updateGraduationRequirement(requirement.id, e.target.value.slice(0, 200))}
+                              onFocus={() => setFocusedRequirementId(requirement.id)}
+                              onBlur={() => setFocusedRequirementId(null)}
+                              maxLength={200}
+                              className="pr-20"
+                            />
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">{requirement.content.length}/200</span>
+                              {requirement.content && (
+                                <button
+                                  type="button"
+                                  onClick={() => updateGraduationRequirement(requirement.id, "")}
+                                  className="text-muted-foreground hover:text-foreground"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                       {graduationRequirements.length > 1 && (
                         <Button
@@ -1214,37 +1397,75 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
 
                         return (
                           <div key={indIndex} className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">
+                            <div className="flex items-start gap-2">
+                              <span className="text-xs text-muted-foreground mt-2 font-mono w-8">
                                 {reqIndex + 1}.{indIndex + 1}
                               </span>
                               <div className="relative flex-1">
-                                <Input
-                                  ref={
-                                    indIndex === requirement.indicators.length - 1
-                                      ? (el) => {
-                                          lastIndicatorRefs.current[requirement.id] = el
-                                        }
-                                      : null
-                                  }
-                                  placeholder="输入指标点内容"
-                                  value={indicator}
-                                  onChange={(e) => updateIndicator(requirement.id, indIndex, e.target.value.slice(0, 200))}
-                                  maxLength={200}
-                                  className="h-9 text-sm pr-20"
-                                />
-                                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                                  <span className="text-xs text-muted-foreground">{indicator.length}/200</span>
-                                  {indicator && (
-                                    <button
-                                      type="button"
-                                      onClick={() => updateIndicator(requirement.id, indIndex, "")}
-                                      className="text-muted-foreground hover:text-foreground"
-                                    >
-                                      <X className="w-3 h-3" />
-                                    </button>
-                                  )}
-                                </div>
+                                {focusedIndicatorKey === `${requirement.id}-${indIndex}` && indicator.length > 50 ? (
+                                  <div className="relative">
+                                    <Textarea
+                                      ref={
+                                        indIndex === requirement.indicators.length - 1
+                                          ? (el) => {
+                                              lastIndicatorRefs.current[requirement.id] = el
+                                            }
+                                          : null
+                                      }
+                                      placeholder="输入指标点内容"
+                                      value={indicator}
+                                      onChange={(e) => updateIndicator(requirement.id, indIndex, e.target.value.slice(0, 200))}
+                                      onFocus={() => setFocusedIndicatorKey(`${requirement.id}-${indIndex}`)}
+                                      onBlur={() => setFocusedIndicatorKey(null)}
+                                      maxLength={200}
+                                      className="pr-20 pb-8 resize-none min-h-[80px]"
+                                      autoFocus
+                                    />
+                                    <div className="absolute right-2 bottom-2 flex items-center gap-2">
+                                      <span className="text-xs text-muted-foreground">{indicator.length}/200</span>
+                                      {indicator && (
+                                        <button
+                                          type="button"
+                                          onClick={() => updateIndicator(requirement.id, indIndex, "")}
+                                          className="text-muted-foreground hover:text-foreground"
+                                        >
+                                          <X className="w-3 h-3" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="relative">
+                                    <Input
+                                      ref={
+                                        indIndex === requirement.indicators.length - 1
+                                          ? (el) => {
+                                              lastIndicatorRefs.current[requirement.id] = el
+                                            }
+                                          : null
+                                      }
+                                      placeholder="输入指标点内容"
+                                      value={indicator}
+                                      onChange={(e) => updateIndicator(requirement.id, indIndex, e.target.value.slice(0, 200))}
+                                      onFocus={() => setFocusedIndicatorKey(`${requirement.id}-${indIndex}`)}
+                                      onBlur={() => setFocusedIndicatorKey(null)}
+                                      maxLength={200}
+                                      className="h-9 text-sm pr-20"
+                                    />
+                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                                      <span className="text-xs text-muted-foreground">{indicator.length}/200</span>
+                                      {indicator && (
+                                        <button
+                                          type="button"
+                                          onClick={() => updateIndicator(requirement.id, indIndex, "")}
+                                          className="text-muted-foreground hover:text-foreground"
+                                        >
+                                          <X className="w-3 h-3" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                               <Button
                                 size="sm"
@@ -1267,30 +1488,29 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
                               )}
                             </div>
                             {coursesForIndicator.length > 0 && (
-                              <div className="ml-8 space-y-1 text-xs">
+                              <div className="ml-8 mt-3 grid grid-cols-5 gap-2">
                                 {coursesForIndicator.map((courseSupport) => (
                                   <div
                                     key={courseSupport.courseId}
-                                    className="flex items-center justify-between p-2 bg-primary/5 rounded border border-primary/20"
+                                    className="flex items-center gap-2 px-3 py-2 bg-white/50 rounded-lg border border-border text-xs group hover:shadow-md transition-shadow"
+                                    title={courseSupport.courseName}
                                   >
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-medium">{courseSupport.courseName}</span>
-                                      <span
-                                        className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                          courseSupport.supportLevel === "strong"
-                                            ? "bg-orange-100 text-orange-700"
-                                            : "bg-blue-100 text-blue-700"
-                                        }`}
-                                      >
-                                        {courseSupport.supportLevel === "strong" ? "强支撑" : "弱支撑"}
-                                      </span>
-                                    </div>
+                                    <span className="font-medium flex-1 truncate">{courseSupport.courseName}</span>
+                                    <span
+                                      className={`px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap flex-shrink-0 text-white ${
+                                        courseSupport.supportLevel === "strong"
+                                          ? "bg-orange-500"
+                                          : "bg-green-500"
+                                      }`}
+                                    >
+                                      {courseSupport.supportLevel === "strong" ? "强支撑" : "弱支撑"}
+                                    </span>
                                     <button
                                       type="button"
                                       onClick={() =>
                                         removeIndicatorCourseSupport(requirement.id, indIndex, courseSupport.courseId)
                                       }
-                                      className="text-muted-foreground hover:text-red-500"
+                                      className="text-muted-foreground hover:text-red-500 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
                                     >
                                       <X className="w-3 h-3" />
                                     </button>
@@ -1311,24 +1531,68 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
       </Card>
 
       <div className="flex items-center justify-center gap-2 pb-6">
-        <Button variant="outline" onClick={onCancel} className="gap-2 bg-transparent" disabled={isLoading}>
+        <Button variant="outline" onClick={onCancel} className="gap-2 bg-transparent" disabled={isLoading || autoSaveStatus === "saving" || autoSaveStatus === "saved"}>
           <X className="w-4 h-4" />
           取消
         </Button>
-        <Button onClick={handleSubmit} className="gap-2" disabled={isLoading}>
-          {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-          保存
+        <Button
+          onClick={handleSubmit}
+          className="gap-2"
+          disabled={isLoading || autoSaveStatus === "saving" || autoSaveStatus === "saved"}
+          variant={autoSaveStatus === "saved" ? "default" : autoSaveStatus === "failed" ? "destructive" : "default"}
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              保存中
+            </>
+          ) : autoSaveStatus === "saving" ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              自动保存中
+            </>
+          ) : autoSaveStatus === "saved" ? (
+            <>
+              <Check className="w-4 h-4" />
+              已保存
+            </>
+          ) : autoSaveStatus === "failed" ? (
+            <>
+              <X className="w-4 h-4" />
+              保存失败
+            </>
+          ) : (
+            <>
+              <Check className="w-4 h-4" />
+              保存
+            </>
+          )}
         </Button>
       </div>
 
-      <CourseSelector
-        open={courseSelectorOpen}
-        onOpenChange={setCourseSelectorOpen}
-        majorId={initialData?.metadata?.majorId || ""}
-        majorName={majorName}
-        departmentId={effectiveDepartmentId}
-        onSaveCourses={handleSaveCoursesForIndicator}
-      />
+      {/* 使用useMemo缓存initialSupport，只在selectedIndicatorForCourse改变时重新计算 */}
+      {useMemo(() => (
+        <CourseSelector
+          open={courseSelectorOpen}
+          onOpenChange={(open) => {
+            setCourseSelectorOpen(open)
+            setIsCourseSelectorOpen(open)
+          }}
+          majorId={initialData?.metadata?.majorId || ""}
+          majorName={majorName}
+          departmentId={effectiveDepartmentId}
+          onSaveCourses={handleSaveCoursesForIndicator}
+          initialSupport={
+            selectedIndicatorForCourse
+              ? Object.fromEntries(
+                  (indicatorCourseSupports[`${selectedIndicatorForCourse.requirementId}-${selectedIndicatorForCourse.indicatorIndex}`] || []).map(
+                    (item) => [item.courseId, item.supportLevel]
+                  )
+                )
+              : undefined
+          }
+        />
+      ), [selectedIndicatorForCourse, courseSelectorOpen, initialData?.metadata?.majorId, majorName, effectiveDepartmentId, handleSaveCoursesForIndicator, indicatorCourseSupports])}
     </div>
   )
 }

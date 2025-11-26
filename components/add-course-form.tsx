@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -11,11 +11,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { FileUpload } from "@/components/ui/file-upload"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useToast } from "@/hooks/use-toast"
+import { api } from "@/lib/api"
 
 interface TeachingObjective {
   id: string
   content: string
   points: string[]
+  supportedIndicators?: string[] // 支撑的指标点，格式为"requirementId-indicatorIndex"
 }
 
 interface CoursePoint {
@@ -43,15 +45,39 @@ interface AddCourseFormProps {
   onSubmit: (courseData: any) => void
   initialData?: any
   isEditMode?: boolean
+  courseDetailData?: any
 }
 
 const courseNatureOptions = ["通识教育课", "学科基础课", "专业课", "集中实践教育环节", "综合教育"]
 
-function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = false }: AddCourseFormProps) {
+function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = false, courseDetailData }: AddCourseFormProps) {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState("basic")
   const [courseNaturePopoverOpen, setCourseNaturePopoverOpen] = useState(false)
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"" | "saving" | "saved" | "failed">("")
+  const teachingObjectivesSnapshotRef = useRef<TeachingObjective[]>([])
+
+  // 从majorId中提取真实的majorId（如果是major-3895格式，提取3895）
+  const realMajorId = useMemo(() => {
+    if (majorId.startsWith("major-")) {
+      return majorId.substring(6) // 移除"major-"前缀
+    }
+    return majorId
+  }, [majorId])
+
+  // 从initialData.id中提取真实的courseId（如果是course-3895-8622-0格式，提取8622）
+  const realCourseId = useMemo(() => {
+    if (initialData?.id && initialData.id.startsWith("course-")) {
+      // 格式: course-${majorId}-${courseId}-${index}
+      // 需要提取中间的courseId部分
+      const parts = initialData.id.split("-")
+      if (parts.length >= 3) {
+        return parts[2] // 返回courseId部分
+      }
+    }
+    return initialData?.id
+  }, [initialData?.id])
 
   // Tab 1: Basic Information
   const [openingDate, setOpeningDate] = useState(initialData?.metadata?.openingDate || "")
@@ -87,6 +113,93 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
 
   const lastObjectiveRef = useRef<HTMLInputElement>(null)
   const lastPointRef = useRef<HTMLInputElement>(null)
+  const [majorIndicators, setMajorIndicators] = useState<Array<{ requirementId: string; indicatorIndex: number; content: string }>>([])
+
+  // 加载专业的指标点，并过滤出该课程支撑的指标点
+  useEffect(() => {
+    const loadMajorIndicators = async () => {
+      try {
+        console.log("loadMajorIndicators: isEditMode=", isEditMode, "realCourseId=", realCourseId, "realMajorId=", realMajorId)
+
+        // 从localStorage中获取专业数据
+        const majorData = localStorage.getItem(`major-${realMajorId}`)
+        if (majorData) {
+          const parsed = JSON.parse(majorData)
+          const allIndicators: Array<{ requirementId: string; indicatorIndex: number; content: string }> = []
+
+          if (parsed.metadata?.graduationRequirements) {
+            parsed.metadata.graduationRequirements.forEach((req: any) => {
+              req.indicators?.forEach((indicator: string, index: number) => {
+                allIndicators.push({
+                  requirementId: req.id,
+                  indicatorIndex: index,
+                  content: indicator,
+                })
+              })
+            })
+          }
+
+          console.log("所有指标点数量:", allIndicators.length)
+
+          // 如果是编辑模式，获取该课程支撑的指标点
+          if (isEditMode && realCourseId) {
+            console.log("加载课程支撑的指标点，courseId:", realCourseId, "majorId:", realMajorId)
+            const supportResponse = await api.matrices.getCourseIndicatorSupports(realCourseId, realMajorId)
+            console.log("课程支撑的指标点:", supportResponse.data)
+
+            if (supportResponse.data && supportResponse.data.length > 0) {
+              // 只显示该课程支撑的指标点
+              const supportedIndicatorKeys = new Set(supportResponse.data)
+              const filteredIndicators = allIndicators.filter((indicator) => {
+                const key = `${indicator.requirementId}-${indicator.indicatorIndex}`
+                return supportedIndicatorKeys.has(key)
+              })
+              console.log("过滤后的指标点:", filteredIndicators)
+              setMajorIndicators(filteredIndicators)
+            } else {
+              // 如果没有支撑的指标点，显示所有指标点
+              console.log("没有支撑的指标点，显示所有指标点")
+              setMajorIndicators(allIndicators)
+            }
+          } else {
+            // 新增模式显示所有指标点
+            console.log("新增模式，显示所有指标点")
+            setMajorIndicators(allIndicators)
+          }
+        }
+      } catch (error) {
+        console.error("加载专业指标点失败:", error)
+      }
+    }
+
+    if (realMajorId) {
+      loadMajorIndicators()
+    }
+  }, [realMajorId, isEditMode, realCourseId])
+
+  // 进入编辑模式时，加载课程与指标点的关系
+  useEffect(() => {
+    const loadCourseObjectiveIndicators = async () => {
+      if (!isEditMode || !realCourseId || !realMajorId) return
+
+      try {
+        const response = await api.matrices.getCourseTeachingObjectiveIndicators(realCourseId, realMajorId)
+        if (response.data) {
+          // 根据保存的关系数据，更新教学目标的supportedIndicators
+          setTeachingObjectives((prevObjectives) =>
+            prevObjectives.map((obj) => ({
+              ...obj,
+              supportedIndicators: response.data[obj.id] || [],
+            }))
+          )
+        }
+      } catch (error) {
+        console.error("加载课程教学目标指标点关系失败:", error)
+      }
+    }
+
+    loadCourseObjectiveIndicators()
+  }, [isEditMode, realCourseId, realMajorId])
 
   // Teaching Objectives functions
   const addTeachingObjective = () => {
@@ -103,6 +216,10 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
 
   const updateTeachingObjective = (id: string, content: string) => {
     setTeachingObjectives(teachingObjectives.map((obj) => (obj.id === id ? { ...obj, content } : obj)))
+  }
+
+  const updateTeachingObjectiveIndicators = (id: string, indicators: string[]) => {
+    setTeachingObjectives(teachingObjectives.map((obj) => (obj.id === id ? { ...obj, supportedIndicators: indicators } : obj)))
   }
 
 
@@ -195,6 +312,43 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
     }
   }
 
+  // 同步教学目标到快照ref，用于自动保存
+  useEffect(() => {
+    teachingObjectivesSnapshotRef.current = teachingObjectives
+  }, [teachingObjectives])
+
+  // 自动保存教学目标与指标点的关系（异步，不阻塞UI）
+  useEffect(() => {
+    if (!isEditMode || !realCourseId || !realMajorId) return
+
+    const autoSaveInterval = setInterval(() => {
+      const snapshot = teachingObjectivesSnapshotRef.current
+
+      Promise.resolve().then(async () => {
+        try {
+          setAutoSaveStatus("saving")
+          // 构建教学目标与指标点的关系数据
+          const objectiveIndicatorMap: Record<string, string[]> = {}
+          snapshot.forEach((obj) => {
+            if (obj.supportedIndicators && obj.supportedIndicators.length > 0) {
+              objectiveIndicatorMap[obj.id] = obj.supportedIndicators
+            }
+          })
+          // 保存到API
+          await api.matrices.updateCourseTeachingObjectiveIndicators(realCourseId, realMajorId, objectiveIndicatorMap)
+          setAutoSaveStatus("saved")
+          setTimeout(() => setAutoSaveStatus(""), 3000)
+        } catch (error) {
+          console.error("自动保存教学目标指标点关系失败:", error)
+          setAutoSaveStatus("failed")
+          setTimeout(() => setAutoSaveStatus(""), 3000)
+        }
+      })
+    }, 10000) // 每10秒自动保存一次
+
+    return () => clearInterval(autoSaveInterval)
+  }, [isEditMode, realCourseId, realMajorId])
+
   const handleSubmit = () => {
     setIsLoading(true)
 
@@ -252,13 +406,47 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
           <h2 className="text-xl font-bold text-foreground">{isEditMode ? "编辑课程" : "新增课程"}</h2>
         </div>
         <div className="flex items-center gap-2 pr-6">
-          <Button variant="outline" onClick={onCancel} className="gap-2 bg-transparent" disabled={isLoading}>
+          <Button
+            variant="outline"
+            onClick={onCancel}
+            className="gap-2 bg-transparent"
+            disabled={isLoading || autoSaveStatus === "saving" || autoSaveStatus === "saved"}
+          >
             <X className="w-4 h-4" />
             取消
           </Button>
-          <Button onClick={handleSubmit} className="gap-2" disabled={isLoading}>
-            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-            保存
+          <Button
+            onClick={handleSubmit}
+            className="gap-2"
+            disabled={isLoading || autoSaveStatus === "saving" || autoSaveStatus === "saved"}
+            variant={autoSaveStatus === "saved" ? "default" : autoSaveStatus === "failed" ? "destructive" : "default"}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                保存中
+              </>
+            ) : autoSaveStatus === "saving" ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                自动保存中
+              </>
+            ) : autoSaveStatus === "saved" ? (
+              <>
+                <Check className="w-4 h-4" />
+                已保存
+              </>
+            ) : autoSaveStatus === "failed" ? (
+              <>
+                <X className="w-4 h-4" />
+                保存失败
+              </>
+            ) : (
+              <>
+                <Check className="w-4 h-4" />
+                保存
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -447,37 +635,88 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
                 </div>
               )}
 
-              <div className="space-y-3">
-                {teachingObjectives.map((objective, objIndex) => (
-                  <div key={objective.id} className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-medium text-primary mt-2">
-                      {teachingObjectives.length - objIndex}
-                    </div>
-                    <div className="flex-1 relative">
-                      <textarea
-                        ref={objIndex === 0 ? lastObjectiveRef as any : null}
-                        placeholder="输入教学目标内容（最多500字）"
-                        value={objective.content}
-                        onChange={(e) => updateTeachingObjective(objective.id, e.target.value.slice(0, 500))}
-                        maxLength={500}
-                        className="w-full min-h-[100px] p-3 rounded-lg border border-border bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
-                      />
-                      <div className="absolute right-3 bottom-3 text-xs text-muted-foreground">
-                        {objective.content.length}/500
+              {/* 按指标点分组显示教学目标 */}
+              <div className="space-y-4">
+                {majorIndicators.map((indicator, indicatorIdx) => {
+                  const indicatorKey = `${indicator.requirementId}-${indicator.indicatorIndex}`
+                  // 获取支撑该指标点的所有教学目标
+                  const objectivesForIndicator = teachingObjectives.filter((obj) =>
+                    obj.supportedIndicators?.includes(indicatorKey)
+                  )
+
+                  return (
+                    <div key={indicatorKey} className="border border-border rounded-lg overflow-hidden">
+                      {/* 指标点卡片标题 */}
+                      <div className="bg-secondary/50 px-4 py-3 border-b border-border">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-medium text-primary">
+                            {indicatorIdx + 1}
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-foreground">{indicator.content}</p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const newId = Date.now().toString()
+                              const newObjective: TeachingObjective = {
+                                id: newId,
+                                content: "",
+                                points: [""],
+                                supportedIndicators: [indicatorKey],
+                              }
+                              setTeachingObjectives([newObjective, ...teachingObjectives])
+                              setTimeout(() => lastObjectiveRef.current?.focus(), 0)
+                            }}
+                            className="gap-2 bg-transparent"
+                          >
+                            <Plus className="w-4 h-4" />
+                            添加教学目标
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* 教学目标列表 */}
+                      <div className="p-4 space-y-3">
+                        {objectivesForIndicator.length === 0 ? (
+                          <div className="text-center py-6 text-muted-foreground text-sm">
+                            暂无教学目标
+                          </div>
+                        ) : (
+                          objectivesForIndicator.map((objective, objIndex) => (
+                            <div key={objective.id} className="flex items-start gap-3 p-3 bg-background rounded-lg border border-border">
+                              <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-medium text-primary mt-1">
+                                {objIndex + 1}
+                              </div>
+                              <div className="flex-1 relative">
+                                <textarea
+                                  ref={objIndex === 0 ? lastObjectiveRef as any : null}
+                                  placeholder="输入教学目标内容（最多500字）"
+                                  value={objective.content}
+                                  onChange={(e) => updateTeachingObjective(objective.id, e.target.value.slice(0, 500))}
+                                  maxLength={500}
+                                  className="w-full min-h-[80px] p-2 rounded-lg border border-border bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                />
+                                <div className="absolute right-2 bottom-2 text-xs text-muted-foreground">
+                                  {objective.content.length}/500
+                                </div>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => removeTeachingObjective(objective.id)}
+                                className="gap-2 text-red-500 hover:text-red-600 hover:bg-red-50 mt-1 flex-shrink-0"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ))
+                        )}
                       </div>
                     </div>
-                    {teachingObjectives.length > 1 && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => removeTeachingObjective(objective.id)}
-                        className="gap-2 text-red-500 hover:text-red-600 hover:bg-red-50 mt-2"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           </TabsContent>

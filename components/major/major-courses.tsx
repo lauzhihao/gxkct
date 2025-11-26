@@ -45,9 +45,21 @@ export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, maj
     return matchesSearch && matchesMyCourses
   })
 
-  const getAdminName = (index: number) => {
-    const admins = ["张教授", "李主任", "王老师", "刘院长", "陈教授", "赵老师", "孙主任", "周教授", "吴老师"]
-    return admins[index % admins.length]
+  // 获取讲师名称，如果没有则返回"未设置"
+  const getInstructorName = (course: any) => {
+    const instructors = course.metadata?.instructors || []
+    return instructors.length > 0 ? instructors.join(", ") : "未设置"
+  }
+
+  // 判断讲师是否已设置（有有效的讲师名称）
+  const isInstructorSet = (course: any) => {
+    const instructors = course.metadata?.instructors || []
+    return instructors.length > 0
+  }
+
+  // 判断是否全部为"未记录"
+  const isUnrecordedOnly = (course: any) => {
+    return course.metadata?.hasUnrecordedOnly === true
   }
 
   return (
@@ -89,9 +101,9 @@ export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, maj
               我的课程
             </label>
           </div>
-          <Button size="sm" className="gap-2 cursor-pointer" onClick={onAddCourse}>
-            <Plus className="w-4 h-4" />
-            创建课程
+          <Button size="sm" variant="ghost" onClick={onAddCourse} className="gap-2 hover:bg-primary/10">
+            <Plus className="w-4 h-4 text-primary" />
+            <span className="text-primary font-medium">开设课程</span>
           </Button>
         </div>
       </div>
@@ -103,9 +115,9 @@ export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, maj
             <p className="text-sm mb-1">暂未设置课程</p>
             <p className="text-xs text-muted-foreground">开始创建课程，完善专业课程体系</p>
           </div>
-          <Button className="gap-2 cursor-pointer" onClick={onAddCourse}>
-            <Plus className="w-4 h-4" />
-            立即新增
+          <Button size="sm" variant="ghost" onClick={onAddCourse} className="gap-2 hover:bg-primary/10">
+            <Plus className="w-4 h-4 text-primary" />
+            <span className="text-primary font-medium">开设课程</span>
           </Button>
         </div>
       ) : (
@@ -143,31 +155,35 @@ export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, maj
 
               <div className="flex-1 flex flex-col justify-center">
                 <div className="flex items-center justify-center px-12">
-                  <div className="font-semibold text-foreground text-lg text-center line-clamp-2 leading-tight">
+                  <div className="font-semibold text-foreground text-xl text-center line-clamp-2 leading-tight">
                     {course.name}
                   </div>
-                </div>
-
-                <div className="flex items-center gap-3 text-sm text-muted-foreground justify-center mt-1">
-                  {course.metadata && (
-                    <>
-                      <div className="flex items-center gap-1">
-                        <Award className="w-3 h-3" />
-                        <span>{course.metadata.credits}学分</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        <span>{course.metadata.hours}学时</span>
-                      </div>
-                    </>
-                  )}
                 </div>
               </div>
 
               <div className="absolute bottom-3 left-3">
-                <div className="flex items-center gap-[6px] px-[8px] py-[2px] rounded bg-primary border border-primary">
-                  <User className="w-[13px] h-[13px] text-white" />
-                  <span className="text-[13px] text-white font-medium">{getAdminName(index)}</span>
+                <div
+                  className={cn(
+                    "flex items-center gap-[6px] px-[8px] py-[2px] rounded border",
+                    isInstructorSet(course)
+                      ? "bg-primary border-primary"
+                      : "bg-muted border-muted-foreground/30",
+                  )}
+                >
+                  <User
+                    className={cn(
+                      "w-[13px] h-[13px]",
+                      isInstructorSet(course) ? "text-white" : "text-muted-foreground",
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      "text-[13px] font-medium line-clamp-1",
+                      isInstructorSet(course) ? "text-white" : "text-muted-foreground",
+                    )}
+                  >
+                    {getInstructorName(course)}
+                  </span>
                 </div>
               </div>
             </button>

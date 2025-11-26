@@ -13,7 +13,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { api } from "@/lib/api"
+import { api, getStoredAuthUser } from "@/lib/api"
 
 const COLOR_THEMES = {
   green: {
@@ -199,8 +199,17 @@ export function Header({ onResetData, isTreeCollapsed }: HeaderProps) {
   const [searchOpen, setSearchOpen] = useState(false)
   const [currentTheme, setCurrentTheme] = useState<keyof typeof COLOR_THEMES>("vercelBlue")
   const [notifications, setNotifications] = useState<Notification[]>(mockNotifications)
+  const [userName, setUserName] = useState<string>("用户")
 
   const unreadCount = notifications.filter((n) => !n.read).length
+
+  useEffect(() => {
+    // 从认证系统获取用户信息
+    const authUser = getStoredAuthUser()
+    if (authUser && authUser.userName) {
+      setUserName(authUser.userName)
+    }
+  }, [])
 
   useEffect(() => {
     const loadTheme = async () => {
@@ -372,7 +381,7 @@ export function Header({ onResetData, isTreeCollapsed }: HeaderProps) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-2 hover:bg-primary/10 transition-colors">
-                <span className="text-sm font-medium">张老师</span>
+                <span className="text-sm font-medium">{userName}</span>
                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>

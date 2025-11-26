@@ -1,5 +1,7 @@
 import { StorageAdapter } from "./storage-adapter"
 import type { ApiResponse } from "./types"
+import { HttpAdapter } from "./http-adapter"
+import { setStoredAuthToken, setStoredAuthUser, type AuthResponse } from "./auth-config"
 
 export interface User {
   id: string
@@ -11,6 +13,41 @@ export interface User {
 
 export class UserApi {
   private storage = new StorageAdapter()
+  private httpAdapter = new HttpAdapter()
+
+  /**
+   * 用户登录
+   * @param email 邮箱
+   * @param password 密码
+   * @param lang 语言代码，默认80101
+   */
+  async login(email: string, password: string, lang: number = 80101): Promise<ApiResponse<AuthResponse>> {
+    try {
+      const response = await this.httpAdapter.post<AuthResponse>('/api/user/login', {
+        email,
+        password,
+        lang,
+      })
+
+      if (response.error || !response.data) {
+        return response
+      }
+
+      // 保存token和用户信息到localStorage
+      setStoredAuthToken(response.data.authToken)
+      setStoredAuthUser(response.data.user)
+
+      console.log(`[UserApi] 登录成功，用户: ${response.data.user.userName}`)
+      return response
+    } catch (error) {
+      console.error('[UserApi] 登录失败:', error)
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : '登录失败',
+        status: 500,
+      }
+    }
+  }
 
   async getUsers(nodeId: string): Promise<ApiResponse<User[]>> {
     return this.storage.get<User[]>(`users-${nodeId}`)

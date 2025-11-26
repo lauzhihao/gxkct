@@ -25,7 +25,8 @@ echo ""
 
 # 步骤1: 构建项目
 echo -e "${YELLOW}[1/4] 构建项目...${NC}"
-if ! pnpm build; then
+echo -e "${YELLOW}使用preview环境配置进行构建${NC}"
+if ! NEXT_PUBLIC_API_BASE_URL=https://qa.gxkct.com/college NEXT_PUBLIC_ENVIRONMENT=preview pnpm build; then
   echo -e "${RED}构建失败，请检查错误信息${NC}"
   exit 1
 fi
