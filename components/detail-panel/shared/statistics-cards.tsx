@@ -4,6 +4,7 @@ import type React from "react"
 import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { TreeNode } from "@/components/tree-view"
 import { Building2, GraduationCap, BookOpen, FileText, Search } from "lucide-react"
 import cn from "classnames"
@@ -264,7 +265,7 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, departmentMa
                       {getNodeTypeLabel(major.type)}
                     </Badge>
 
-                    <CardContent className="p-4 pt-8 pb-3">
+                    <CardContent className="p-4 pt-8 pb-14">
                       <div className="space-y-3">
                         <div className="text-center">
                           <h4 className="font-semibold text-foreground text-lg mb-2">{major.name}</h4>
@@ -276,7 +277,34 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, departmentMa
                           </div>
                         </div>
                       </div>
-                      {major.metadata?.director && (
+                      {major.metadata?.directors && major.metadata.directors.length > 0 && (
+                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center justify-center gap-1 whitespace-nowrap">
+                          {major.metadata.directors.slice(0, 2).map((director: string, index: number) => (
+                            <div key={index} className="border border-border rounded text-xs px-2 py-1 bg-background">
+                              {director}
+                            </div>
+                          ))}
+                          {major.metadata.directors.length > 2 && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="border border-border rounded text-xs px-2 py-1 bg-background cursor-help">
+                                    等{major.metadata.directors.length}人
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <div className="space-y-1">
+                                    {major.metadata.directors.map((director: string, index: number) => (
+                                      <div key={index} className="text-sm">{director}</div>
+                                    ))}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
+                      )}
+                      {major.metadata?.director && !major.metadata?.directors && (
                         <div className="mt-3">
                           <Badge variant="outline" className="text-xs">
                             {major.metadata.director}

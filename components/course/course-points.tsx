@@ -26,24 +26,39 @@ const highlightKeyword = (text: string, keyword: string) => {
 export function CoursePoints({ coursePoints }: CoursePointsProps) {
   const [search, setSearch] = useState("")
 
+  // 过滤数据
   const filteredPoints = coursePoints.filter((point: any) => {
     if (!search) return true
     const searchLower = search.toLowerCase()
-    const contentMatch = point.content?.toLowerCase().includes(searchLower)
-    const infoPointsMatch = point.infoPoints?.some((infoPoint: any) =>
-      infoPoint.content?.toLowerCase().includes(searchLower),
-    )
-    return contentMatch || infoPointsMatch
+    const titleMatch = point.title?.toLowerCase().includes(searchLower)
+    const descriptionMatch = point.description?.toLowerCase().includes(searchLower)
+    return titleMatch || descriptionMatch
   })
+
+  // 过滤后按类型分组
+  const filteredGroupedByType = filteredPoints.reduce((acc: any, point: any) => {
+    const type = point.title || "其他"
+    if (!acc[type]) {
+      acc[type] = []
+    }
+    acc[type].push(point)
+    return acc
+  }, {})
+
+  const filteredKData = filteredGroupedByType["K"] || []
+  const filteredSData = filteredGroupedByType["S"] || []
+  const filteredAData = filteredGroupedByType["A"] || []
 
   return (
     <AccordionItem value="course-points" className="rounded-lg border border-border bg-secondary/30 backdrop-blur-sm">
       <AccordionTrigger className="px-5 hover:no-underline">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-sm bg-primary" />
-          <h3 className="text-base font-semibold text-foreground">课点信息库</h3>
+          <h3 className="text-base font-semibold text-foreground">课点信息</h3>
           {coursePoints.length > 0 && (
-            <span className="ml-2 text-xs text-muted-foreground">({coursePoints.length} 个课点)</span>
+            <Badge variant="default" className="ml-2 bg-primary text-primary-foreground">
+              {coursePoints.length}
+            </Badge>
           )}
         </div>
       </AccordionTrigger>
@@ -66,44 +81,45 @@ export function CoursePoints({ coursePoints }: CoursePointsProps) {
             {coursePoints.length === 0 ? "暂无课点信息" : "无相关结果"}
           </div>
         ) : (
-          <div className="space-y-4">
-            {filteredPoints.map((point: any, pointIndex: number) => (
-              <div
-                key={pointIndex}
-                className="p-4 rounded-lg border border-border bg-background/50 hover:bg-background transition-colors"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
-                    {pointIndex + 1}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-foreground leading-relaxed">
-                      {highlightKeyword(point.content || "未设置", search)}
-                    </p>
-                    {point.infoPoints && point.infoPoints.length > 0 && (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {point.infoPoints.map((infoPoint: any, infoIndex: number) => (
-                          <Badge
-                            key={infoIndex}
-                            variant="outline"
-                            className={`text-xs ${
-                              infoPoint.type === "K"
-                                ? "bg-blue-50 border-blue-200 text-blue-700"
-                                : infoPoint.type === "S"
-                                  ? "bg-green-50 border-green-200 text-green-700"
-                                  : "bg-purple-50 border-purple-200 text-purple-700"
-                            }`}
-                            title={infoPoint.content}
-                          >
-                            {infoPoint.id}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-primary/10">
+                  <th className="border border-border px-4 py-3 text-center text-base font-semibold text-foreground">序号</th>
+                  <th className="border border-border px-4 py-3 text-center text-base font-semibold text-foreground">Knowledge - 知识</th>
+                  <th className="border border-border px-4 py-3 text-center text-base font-semibold text-foreground">Skill - 技能</th>
+                  <th className="border border-border px-4 py-3 text-center text-base font-semibold text-foreground">Attitude - 态度</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: Math.max(filteredKData.length, filteredSData.length, filteredAData.length) }).map((_, rowIndex) => (
+                  <tr key={rowIndex} className={rowIndex % 2 === 0 ? "bg-background" : "bg-muted/30"}>
+                    <td className="border border-border px-4 py-3 text-center text-sm font-semibold text-foreground">
+                      {String(rowIndex + 1).padStart(2, '0')}
+                    </td>
+                    <td className="border border-border px-4 py-3 text-sm text-foreground">
+                      {filteredKData[rowIndex] ? (
+                        highlightKeyword(filteredKData[rowIndex].description || "未设置", search)
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </td>
+                    <td className="border border-border px-4 py-3 text-sm text-foreground">
+                      {filteredSData[rowIndex] ? (
+                        highlightKeyword(filteredSData[rowIndex].description || "未设置", search)
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </td>
+                    <td className="border border-border px-4 py-3 text-sm text-foreground">
+                      {filteredAData[rowIndex] ? (
+                        highlightKeyword(filteredAData[rowIndex].description || "未设置", search)
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </AccordionContent>

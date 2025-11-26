@@ -182,10 +182,16 @@ function TreeNodeComponent({
   let remainingCount = 0
 
   if (searchTerm.trim() && hasChildren && matchingNodeIds && pathNodeIds) {
-    displayChildren = displayChildren.filter(
-      (child) =>
-        matchingNodeIds.has(child.id) || pathNodeIds.has(child.id) || hasMatchingDescendant(child, matchingNodeIds),
-    )
+    // 如果当前节点本身是匹配项，显示所有子节点
+    if (matchingNodeIds.has(node.id)) {
+      // 不过滤，显示所有子节点
+    } else {
+      // 如果当前节点不是匹配项，只显示包含匹配项的子节点
+      displayChildren = displayChildren.filter(
+        (child) =>
+          matchingNodeIds.has(child.id) || pathNodeIds.has(child.id) || hasMatchingDescendant(child, matchingNodeIds),
+      )
+    }
   } else if (node.type === "major" && hasChildren) {
     if (!searchTerm.trim()) {
       const visibleCount = visibleCourseCounts.get(node.id) || 5
@@ -375,7 +381,7 @@ function TreeNodeComponent({
               </div>
 
               <div className="flex-1 text-left">
-                <div className="font-medium text-primary">查看更多{remainingCount}门课程</div>
+                <div className="font-medium text-primary">更多{remainingCount}门课程</div>
               </div>
             </button>
           )}
@@ -443,6 +449,8 @@ export const TreeView = React.forwardRef<
   const [majorCourses, setMajorCourses] = useState<Map<string, TreeNode[]>>(new Map())
   // 跟踪已加载但没有课程的major节点
   const [loadedMajorsWithNoCourses, setLoadedMajorsWithNoCourses] = useState<Set<string>>(new Set())
+  // 跟踪是否正在加载数据（搜索或动态加载）
+  const [isDataLoading, setIsDataLoading] = useState(false)
 
   // 当departmentMajors变化时通知父组件
   useEffect(() => {
@@ -508,18 +516,23 @@ export const TreeView = React.forwardRef<
     // 如果是department节点且未加载过专业数据，则加载
     if (node && node.type === "department" && !loadedDepartments.has(nodeId)) {
       console.log(`[v0] 加载department ${nodeId} 的专业数据`)
-      const response = await api.tree.getDepartmentMajors(nodeId)
+      setIsDataLoading(true)
+      try {
+        const response = await api.tree.getDepartmentMajors(nodeId)
 
-      if (response.data && response.data.length > 0) {
-        console.log(`[v0] 成功加载 ${response.data.length} 个专业`)
-        setDepartmentMajors((prev) => {
-          const newMap = new Map(prev)
-          newMap.set(nodeId, response.data!)
-          return newMap
-        })
-        setLoadedDepartments((prev) => new Set(prev).add(nodeId))
-      } else {
-        console.log(`[v0] 未找到专业数据或加载失败:`, response.error)
+        if (response.data && response.data.length > 0) {
+          console.log(`[v0] 成功加载 ${response.data.length} 个专业`)
+          setDepartmentMajors((prev) => {
+            const newMap = new Map(prev)
+            newMap.set(nodeId, response.data!)
+            return newMap
+          })
+          setLoadedDepartments((prev) => new Set(prev).add(nodeId))
+        } else {
+          console.log(`[v0] 未找到专业数据或加载失败:`, response.error)
+        }
+      } finally {
+        setIsDataLoading(false)
       }
     }
 
@@ -528,32 +541,37 @@ export const TreeView = React.forwardRef<
       console.log(`[v0] handleToggleExpand: 开始加载major ${nodeId} 的课程数据`)
       console.log(`[v0] handleToggleExpand: node.metadata =`, node.metadata)
       // 从metadata中获取majorId
-      const majorId = node.metadata?.majorId || nodeId.replace("major-", "")
+      const majorId = (node.metadata as any)?.majorId || nodeId.replace("major-", "")
       console.log(`[v0] handleToggleExpand: 使用majorId = ${majorId}`)
 
-      const response = await api.tree.getMajorCourses(majorId)
-      console.log(`[v0] handleToggleExpand: API响应 =`, response)
+      setIsDataLoading(true)
+      try {
+        const response = await api.tree.getMajorCourses(majorId)
+        console.log(`[v0] handleToggleExpand: API响应 =`, response)
 
-      if (response.data && response.data.length > 0) {
-        console.log(`[v0] handleToggleExpand: 成功加载 ${response.data.length} 个课程，准备更新状态`)
-        console.log(`[v0] handleToggleExpand: 前3个课程 =`, response.data.slice(0, 3).map(c => ({ id: c.id, name: c.name })))
+        if (response.data && response.data.length > 0) {
+          console.log(`[v0] handleToggleExpand: 成功加载 ${response.data.length} 个课程，准备更新状态`)
+          console.log(`[v0] handleToggleExpand: 前3个课程 =`, response.data.slice(0, 3).map(c => ({ id: c.id, name: c.name })))
 
-        setMajorCourses((prev) => {
-          const newMap = new Map(prev)
-          newMap.set(nodeId, response.data!)
-          console.log(`[v0] handleToggleExpand: 更新majorCourses, nodeId=${nodeId}, 课程数=${response.data!.length}`)
-          console.log(`[v0] handleToggleExpand: majorCourses.has(${nodeId}) =`, newMap.has(nodeId))
-          return newMap
-        })
-        setLoadedMajors((prev) => new Set(prev).add(nodeId))
-        console.log(`[v0] handleToggleExpand: 状态更新完成`)
-      } else if (response.data && response.data.length === 0) {
-        console.log(`[v0] handleToggleExpand: 该专业没有课程数据`)
-        // 标记为已加载但无课程
-        setLoadedMajorsWithNoCourses((prev) => new Set(prev).add(nodeId))
-        setLoadedMajors((prev) => new Set(prev).add(nodeId))
-      } else {
-        console.log(`[v0] handleToggleExpand: 加载课程数据失败:`, response.error)
+          setMajorCourses((prev) => {
+            const newMap = new Map(prev)
+            newMap.set(nodeId, response.data!)
+            console.log(`[v0] handleToggleExpand: 更新majorCourses, nodeId=${nodeId}, 课程数=${response.data!.length}`)
+            console.log(`[v0] handleToggleExpand: majorCourses.has(${nodeId}) =`, newMap.has(nodeId))
+            return newMap
+          })
+          setLoadedMajors((prev) => new Set(prev).add(nodeId))
+          console.log(`[v0] handleToggleExpand: 状态更新完成`)
+        } else if (response.data && response.data.length === 0) {
+          console.log(`[v0] handleToggleExpand: 该专业没有课程数据`)
+          // 标记为已加载但无课程
+          setLoadedMajorsWithNoCourses((prev) => new Set(prev).add(nodeId))
+          setLoadedMajors((prev) => new Set(prev).add(nodeId))
+        } else {
+          console.log(`[v0] handleToggleExpand: 加载课程数据失败:`, response.error)
+        }
+      } finally {
+        setIsDataLoading(false)
       }
     }
   }
@@ -655,6 +673,77 @@ export const TreeView = React.forwardRef<
     }
   }, [searchTerm, searchResults, treeData.id])
 
+  // 单独处理搜索结果中需要加载的数据
+  useEffect(() => {
+    if (searchTerm.trim() && searchResults.length > 0) {
+      const nodesToLoad: Array<{ id: string; type: string }> = []
+
+      searchResults.forEach(({ path }) => {
+        path.forEach((node) => {
+          if ((node.type === "department" || node.type === "major") && !expandedNodes.has(node.id)) {
+            nodesToLoad.push({ id: node.id, type: node.type })
+          }
+        })
+      })
+
+      if (nodesToLoad.length > 0) {
+        setIsDataLoading(true)
+      }
+
+      // 加载需要的数据
+      let loadingCount = 0
+      const totalToLoad = nodesToLoad.length
+
+      nodesToLoad.forEach(({ id, type }) => {
+        if (type === "department" && !loadedDepartments.has(id)) {
+          // 异步加载department数据
+          ;(async () => {
+            try {
+              const response = await api.tree.getDepartmentMajors(id)
+              if (response.data && response.data.length > 0) {
+                setDepartmentMajors((prev) => {
+                  const newMap = new Map(prev)
+                  newMap.set(id, response.data!)
+                  return newMap
+                })
+                setLoadedDepartments((prev) => new Set(prev).add(id))
+              }
+            } finally {
+              loadingCount++
+              if (loadingCount === totalToLoad) {
+                setIsDataLoading(false)
+              }
+            }
+          })()
+        } else if (type === "major" && !loadedMajors.has(id)) {
+          // 异步加载major数据
+          ;(async () => {
+            try {
+              const majorId = id.replace("major-", "")
+              const response = await api.tree.getMajorCourses(majorId)
+              if (response.data && response.data.length > 0) {
+                setMajorCourses((prev) => {
+                  const newMap = new Map(prev)
+                  newMap.set(id, response.data!)
+                  return newMap
+                })
+                setLoadedMajors((prev) => new Set(prev).add(id))
+              } else if (response.data && response.data.length === 0) {
+                setLoadedMajorsWithNoCourses((prev) => new Set(prev).add(id))
+                setLoadedMajors((prev) => new Set(prev).add(id))
+              }
+            } finally {
+              loadingCount++
+              if (loadingCount === totalToLoad) {
+                setIsDataLoading(false)
+              }
+            }
+          })()
+        }
+      })
+    }
+  }, [searchTerm, searchResults, expandedNodes, loadedDepartments, loadedMajors])
+
 
 
   const matchingNodeIds = React.useMemo(() => {
@@ -675,6 +764,26 @@ export const TreeView = React.forwardRef<
     if (!matchingNodeIds || matchingNodeIds.size === 0) return null
     return Array.from(matchingNodeIds)[0]
   }, [matchingNodeIds])
+
+  // 判断节点是否应该显示（搜索时）
+  const shouldShowNode = React.useCallback((node: TreeNode): boolean => {
+    // 如果没有搜索词，显示所有节点
+    if (!searchTerm.trim() || !matchingNodeIds || !pathNodeIds) {
+      return true
+    }
+
+    // 如果节点本身是匹配项或路径节点，显示
+    if (matchingNodeIds.has(node.id) || pathNodeIds.has(node.id)) {
+      return true
+    }
+
+    // 如果节点有匹配的后代，显示
+    if (hasMatchingDescendant(node, matchingNodeIds)) {
+      return true
+    }
+
+    return false
+  }, [searchTerm, matchingNodeIds, pathNodeIds])
 
   return (
     <>
@@ -783,10 +892,15 @@ export const TreeView = React.forwardRef<
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="flex-shrink-0 hover:bg-primary/10"
+                    className="flex-shrink-0 hover:bg-primary/10 disabled:opacity-100 disabled:cursor-not-allowed"
                     aria-label="新增学校/工作坊"
+                    disabled={isDataLoading || isSearching}
                   >
-                    <Plus className="w-5 h-5 text-primary" />
+                    {isDataLoading || isSearching ? (
+                      <div className="w-5 h-5 border-2 border-primary/40 border-t-primary rounded-full animate-spin" />
+                    ) : (
+                      <Plus className="w-5 h-5 text-primary" />
+                    )}
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[500px]">
@@ -828,7 +942,7 @@ export const TreeView = React.forwardRef<
         </div>
 
         <div className="space-y-2">
-          {treeData.children?.map((child) => (
+          {treeData.children?.filter(shouldShowNode).map((child) => (
             <TreeNodeComponent
               key={child.id}
               node={child}

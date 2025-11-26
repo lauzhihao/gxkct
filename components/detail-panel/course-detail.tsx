@@ -38,7 +38,14 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
     const loadCourseDetail = async () => {
       setIsLoading(true)
       try {
-        const response = await api.courseDetail.getCourseDetail(node.id)
+        // 从metadata中获取真实的courseId
+        const courseId = (metadata as any)?.courseId
+        if (!courseId) {
+          console.error("无法获取课程ID")
+          setIsLoading(false)
+          return
+        }
+        const response = await api.courseDetail.getCourseDetail(courseId)
         if (response.data) {
           setCourseDetailData(response.data)
         }
@@ -52,7 +59,7 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
     if (node?.id) {
       loadCourseDetail()
     }
-  }, [node?.id])
+  }, [node?.id, metadata])
 
   if (!node || node.type !== "course") return null
 
@@ -194,13 +201,17 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
                 createTime={createTime}
               />
 
-              <Accordion type="multiple" className="space-y-4">
+              <Accordion type="multiple" className="space-y-4 pb-4">
                 {courseDetailInfo.pointksa.points && courseDetailInfo.pointksa.points.length > 0 && (
                   <CourseTeachingObjectives objectives={courseDetailInfo.pointksa.points} />
                 )}
 
                 {courseDetailInfo.pointksa.ksas && courseDetailInfo.pointksa.ksas.length > 0 && (
                   <CoursePoints coursePoints={courseDetailInfo.pointksa.ksas} />
+                )}
+
+                {courseDetailInfo.course.courseMatrixVOS && courseDetailInfo.course.courseMatrixVOS.length > 0 && (
+                  <CourseChapters chapters={courseDetailInfo.course.courseMatrixVOS} />
                 )}
               </Accordion>
             </TabsContent>

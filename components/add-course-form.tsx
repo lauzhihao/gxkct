@@ -267,16 +267,16 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="w-full h-10 bg-secondary/50 backdrop-blur-sm rounded-none p-0">
             <TabsTrigger value="basic" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
-              课程基本信息
+              基本信息
             </TabsTrigger>
             <TabsTrigger value="objectives" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
-              课程教学目标
+              教学目标
             </TabsTrigger>
             <TabsTrigger value="points" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
-              课点信息库
+              课点信息
             </TabsTrigger>
             <TabsTrigger value="chapters" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
-              章节项目管理
+              章节与项目
             </TabsTrigger>
           </TabsList>
 
@@ -487,7 +487,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-sm bg-[var(--naive-primary)]" />
-                  <h3 className="text-base font-semibold text-foreground">课点信息库</h3>
+                  <h3 className="text-base font-semibold text-foreground">课点信息</h3>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button size="sm" variant="outline" onClick={addCoursePoint} className="gap-2 bg-transparent">

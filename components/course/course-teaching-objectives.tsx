@@ -1,8 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { Search } from "lucide-react"
+import { Search, ChevronDown } from "lucide-react"
 import { AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 
 interface CourseTeachingObjectivesProps {
   objectives: any[]
@@ -24,14 +26,32 @@ const highlightKeyword = (text: string, keyword: string) => {
 
 export function CourseTeachingObjectives({ objectives }: CourseTeachingObjectivesProps) {
   const [search, setSearch] = useState("")
+  const [expandedIndex, setExpandedIndex] = useState<Set<number>>(new Set())
 
   const filteredObjectives = objectives.filter((objective: any) => {
     if (!search) return true
     const searchLower = search.toLowerCase()
-    const contentMatch = objective.content?.toLowerCase().includes(searchLower)
-    const pointsMatch = objective.points?.some((point: string) => point.toLowerCase().includes(searchLower))
-    return contentMatch || pointsMatch
+    const contentMatch = objective.title?.toLowerCase().includes(searchLower)
+    const descriptionMatch = objective.description?.toLowerCase().includes(searchLower)
+    return contentMatch || descriptionMatch
   })
+
+  const toggleExpanded = (index: number) => {
+    const newExpanded = new Set(expandedIndex)
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index)
+    } else {
+      newExpanded.add(index)
+    }
+    setExpandedIndex(newExpanded)
+  }
+
+  // 检测文本是否超过3行
+  const isTextOverflow = (text: string): boolean => {
+    if (!text) return false
+    // 粗略估计：text-sm 字体，每行约50个字符，3行约150个字符
+    return text.length > 150
+  }
 
   return (
     <AccordionItem
@@ -41,9 +61,11 @@ export function CourseTeachingObjectives({ objectives }: CourseTeachingObjective
       <AccordionTrigger className="px-5 hover:no-underline">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-sm bg-primary" />
-          <h3 className="text-base font-semibold text-foreground">课程教学目标</h3>
+          <h3 className="text-base font-semibold text-foreground">教学目标</h3>
           {objectives.length > 0 && (
-            <span className="ml-2 text-xs text-muted-foreground">({objectives.length} 个目标)</span>
+            <Badge variant="default" className="ml-2 bg-primary text-primary-foreground">
+              {objectives.length}
+            </Badge>
           )}
         </div>
       </AccordionTrigger>
@@ -66,34 +88,45 @@ export function CourseTeachingObjectives({ objectives }: CourseTeachingObjective
             {objectives.length === 0 ? "暂无教学目标" : "无相关结果"}
           </div>
         ) : (
-          <div className="space-y-4">
-            {filteredObjectives.map((objective: any, objIndex: number) => (
-              <div
-                key={objIndex}
-                className="p-4 rounded-lg border border-border bg-background/50 hover:bg-background transition-colors"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
-                    {objIndex + 1}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-foreground leading-relaxed">
-                      {highlightKeyword(objective.content || "未设置", search)}
+          <div className="grid grid-cols-5 gap-3">
+            {filteredObjectives.map((objective: any, objIndex: number) => {
+              const isExpanded = expandedIndex.has(objIndex)
+              const hasOverflow = isTextOverflow(objective.description || "")
+              return (
+                <div
+                  key={objIndex}
+                  className={`rounded-lg border border-border bg-background/50 hover:bg-background transition-all flex flex-col gap-2 p-4 ${
+                    isExpanded ? "" : "overflow-hidden"
+                  }`}
+                  style={!isExpanded ? { maxHeight: "110px" } : undefined}
+                >
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
+                      {objIndex + 1}
+                    </div>
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {highlightKeyword(objective.title || "未设置", search)}
                     </p>
-                    {objective.points && objective.points.length > 0 && (
-                      <div className="mt-3 space-y-2">
-                        {objective.points.map((point: string, pointIndex: number) => (
-                          <div key={pointIndex} className="flex items-start gap-2 text-sm">
-                            <span className="text-muted-foreground">•</span>
-                            <span className="text-muted-foreground">{highlightKeyword(point, search)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
+                  {objective.description && (
+                    <p className={`text-sm text-muted-foreground ${isExpanded ? "" : "line-clamp-3"}`}>
+                      {highlightKeyword(objective.description, search)}
+                    </p>
+                  )}
+                  {hasOverflow && !isExpanded && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="w-full h-7 text-sm mt-auto"
+                      onClick={() => toggleExpanded(objIndex)}
+                    >
+                      <ChevronDown className="w-4 h-4 mr-1" />
+                      展开
+                    </Button>
+                  )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </AccordionContent>

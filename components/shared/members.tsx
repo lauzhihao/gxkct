@@ -31,6 +31,12 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { TreeNode, NodeType } from "@/types"
 import { api } from "@/lib/api"
@@ -189,6 +195,7 @@ const generateMockUsers = (nodeType: NodeType): User[] => {
 export function Members({ node }: MembersProps) {
   const roleConfig = getRoleConfig(node.type)
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false)
+  const [userRolePopoverOpen, setUserRolePopoverOpen] = useState(false)
   const [newUserAccount, setNewUserAccount] = useState("")
   const [newUserName, setNewUserName] = useState("")
   const [newUserRole, setNewUserRole] = useState(roleConfig.defaultRole)
@@ -613,7 +620,7 @@ export function Members({ node }: MembersProps) {
             <DialogDescription>填写用户信息</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="user-name">姓名</Label>
               <Input
                 id="user-name"
@@ -622,7 +629,7 @@ export function Members({ node }: MembersProps) {
                 placeholder="请输入姓名"
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="user-account">账号</Label>
               <Input
                 id="user-account"
@@ -631,25 +638,39 @@ export function Members({ node }: MembersProps) {
                 placeholder="请输入账号"
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="user-role">角色</Label>
-              <select
-                id="user-role"
-                value={newUserRole}
-                onChange={(e) => setNewUserRole(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-lg bg-background"
-              >
-                {roleConfig.roles.map((role) => (
-                  <option key={role} value={role}>
-                    {role}
-                  </option>
-                ))}
-              </select>
+              <Popover open={userRolePopoverOpen} onOpenChange={setUserRolePopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between bg-transparent">
+                    <span className="truncate">{newUserRole || "请选择角色"}</span>
+                    <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                  <div className="max-h-[300px] overflow-y-auto p-2">
+                    {roleConfig.roles.map((role) => (
+                      <button
+                        key={role}
+                        onClick={() => {
+                          setNewUserRole(role)
+                          setUserRolePopoverOpen(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-accent hover:text-white ${
+                          newUserRole === role ? "bg-[var(--naive-primary)] text-white" : ""
+                        }`}
+                      >
+                        {role}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* 根据角色显示对应的机构归属字段 */}
             {newUserRole === "校级管理员" && (
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="user-university">学校名称</Label>
                 <Input
                   id="user-university"
@@ -661,7 +682,7 @@ export function Members({ node }: MembersProps) {
             )}
 
             {newUserRole === "院系管理员" && (
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="user-department">院系名称</Label>
                 <Input
                   id="user-department"
@@ -673,7 +694,7 @@ export function Members({ node }: MembersProps) {
             )}
 
             {newUserRole === "专业管理员" && (
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="user-major">专业名称</Label>
                 <Input
                   id="user-major"

@@ -7,6 +7,9 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  turbopack: {
+    root: '/Users/liuzhihao/Downloads/education-tree-system',
+  },
 }
 
 export default nextConfig

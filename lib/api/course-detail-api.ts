@@ -72,30 +72,55 @@ export interface MajorDetailData {
 export class CourseDetailApi {
   /**
    * 获取课程详情数据
-   * 无论收到什么ID，都直接读取两个JSON文件中的数据并返回
+   * @param courseId 真实的课程ID（数字字符串，来自metadata.courseId）
    */
   async getCourseDetail(courseId: string): Promise<ApiResponse<CombinedCourseDetail>> {
     try {
       console.log(`[CourseDetailApi] 获取课程详情，courseId: ${courseId}`)
 
+      // 将courseId转换为数字
+      const numCourseId = parseInt(courseId, 10)
+      if (isNaN(numCourseId)) {
+        console.error(`[CourseDetailApi] 无效的课程ID: ${courseId}`)
+        return {
+          data: null,
+          error: "无效的课程ID",
+          status: 400,
+        }
+      }
+
       // 动态导入 JSON 文件
-      const courseNameModule = await import("@/mock-data/course-name.json")
       const courseDetailModule = await import("@/mock-data/course-detal.json")
-
-      const courseNameResponse = courseNameModule.default
       const courseDetailResponse = courseDetailModule.default
-
-      // 提取数据
-      const courseNameData = courseNameResponse.data?.data?.[0]
       const courseDetailData = courseDetailResponse.data
 
-      if (!courseNameData || !courseDetailData) {
-        console.error("[CourseDetailApi] 数据不完整")
+      if (!courseDetailData?.course) {
+        console.error("[CourseDetailApi] 课程详情数据不完整")
         return {
           data: null,
           error: "课程数据不完整",
           status: 404,
         }
+      }
+
+      // 从course-detal.json中的course对象构建courseNameData
+      // 这样可以避免依赖course-name.json中可能不匹配的数据
+      const courseNameData: CourseNameData = {
+        id: courseDetailData.course.id,
+        name: courseDetailData.course.name,
+        major: "", // 从course-detal.json中无法获取，使用空字符串
+        department: {
+          id: 0,
+          collegeId: 0,
+          name: "",
+          type: null,
+        },
+        college: {
+          id: 0,
+          name: "",
+          image: "",
+          collegeType: null,
+        },
       }
 
       const combinedData: CombinedCourseDetail = {

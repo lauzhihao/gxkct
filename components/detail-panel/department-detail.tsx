@@ -21,6 +21,7 @@ import { StatisticsCards } from "./shared/statistics-cards"
 import { AddMajorForm } from "@/components/add-major-form"
 import { Members } from "@/components/shared/members"
 import { TeachingQualityStats } from "./teaching-quality-stats"
+import { QuickCreateMajorDialog } from "./quick-create-major-dialog"
 
 export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode, onDeleteNode, departmentMajors, majorCourses, onToggleExpand }: DetailPanelProps) {
   const [newDeptName, setNewDeptName] = useState("")
@@ -29,6 +30,7 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isEditingDepartment, setIsEditingDepartment] = useState(false)
   const [isAddingMajor, setIsAddingMajor] = useState(false)
+  const [isQuickCreateMajorOpen, setIsQuickCreateMajorOpen] = useState(false)
 
   const handleEditDepartment = () => {
     setNewDeptName(node.name)
@@ -67,6 +69,21 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
       onAddMajor(node.id, majorData)
     }
     setIsAddingMajor(false)
+  }
+
+  const handleQuickCreateMajor = (data: { name: string; directors: any[] }) => {
+    if (onAddMajor) {
+      onAddMajor(node.id, {
+        name: data.name,
+        type: "major",
+        children: [],
+        metadata: {
+          directors: data.directors.map((d) => d.name),
+          director: data.directors.map((d) => d.name).join("、"),
+        },
+      })
+    }
+    setIsQuickCreateMajorOpen(false)
   }
 
   if (isAddingMajor) {
@@ -135,15 +152,26 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
               majorCourses={majorCourses}
               onToggleExpand={onToggleExpand}
               headerAction={
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setIsAddingMajor(true)}
-                  className="gap-2 hover:bg-primary/10"
-                >
-                  <Plus className="w-4 h-4 text-primary" />
-                  <span className="text-primary font-medium">新增专业</span>
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setIsQuickCreateMajorOpen(true)}
+                    className="gap-2 hover:bg-primary/10"
+                  >
+                    <Plus className="w-4 h-4 text-primary" />
+                    <span className="text-primary font-medium">开设专业</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setIsAddingMajor(true)}
+                    className="gap-2 hover:bg-primary/10"
+                  >
+                    <Plus className="w-4 h-4 text-primary" />
+                    <span className="text-primary font-medium">新增专业</span>
+                  </Button>
+                </div>
               }
             />
           </TabsContent>
@@ -203,6 +231,14 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Quick Create Major Dialog */}
+      <QuickCreateMajorDialog
+        open={isQuickCreateMajorOpen}
+        onOpenChange={setIsQuickCreateMajorOpen}
+        onSubmit={handleQuickCreateMajor}
+        departmentId={node.id}
+      />
     </div>
   )
 }

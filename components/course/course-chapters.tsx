@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Search } from "lucide-react"
 import { AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion"
+import { Badge } from "@/components/ui/badge"
 
 interface CourseChaptersProps {
   chapters: any[]
@@ -33,8 +34,8 @@ export function CourseChapters({ chapters }: CourseChaptersProps) {
 
   const chapterCount = filteredChapters.filter((ch: any) => ch.name?.includes("章")).length
   const projectCount = filteredChapters.filter((ch: any) => ch.name?.includes("项目")).length
-  const totalTheoryHours = filteredChapters.reduce((sum: number, ch: any) => sum + (ch.theoryHours || 0), 0)
-  const totalPracticeHours = filteredChapters.reduce((sum: number, ch: any) => sum + (ch.practiceHours || 0), 0)
+  const totalTheoryHours = filteredChapters.reduce((sum: number, ch: any) => sum + (Number(ch.theoryPeriod) || 0), 0)
+  const totalPracticeHours = filteredChapters.reduce((sum: number, ch: any) => sum + (Number(ch.practicePeriod) || 0), 0)
   const totalHours = totalTheoryHours + totalPracticeHours
 
   return (
@@ -42,8 +43,12 @@ export function CourseChapters({ chapters }: CourseChaptersProps) {
       <AccordionTrigger className="px-5 hover:no-underline">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-sm bg-primary" />
-          <h3 className="text-base font-semibold text-foreground">章节项目列表</h3>
-          {chapters.length > 0 && <span className="ml-2 text-xs text-muted-foreground">({chapters.length} 项)</span>}
+          <h3 className="text-base font-semibold text-foreground">章节与项目</h3>
+          {chapters.length > 0 && (
+            <Badge variant="default" className="ml-2 bg-primary text-primary-foreground">
+              {chapters.length}
+            </Badge>
+          )}
         </div>
       </AccordionTrigger>
       <AccordionContent className="px-5 pb-6">
@@ -95,9 +100,9 @@ export function CourseChapters({ chapters }: CourseChaptersProps) {
                           {highlightKeyword(chapter.name || "未命名", search)}
                         </td>
                         <td className="px-4 py-3 text-sm text-foreground border-r border-border">
-                          {chapter.theoryHours || 0} 学时
+                          {chapter.theoryPeriod || 0} 学时
                         </td>
-                        <td className="px-4 py-3 text-sm text-foreground">{chapter.practiceHours || 0} 学时</td>
+                        <td className="px-4 py-3 text-sm text-foreground">{chapter.practicePeriod || 0} 学时</td>
                       </tr>
                     ))}
                     <tr className="border-t-2 border-primary/30 bg-primary/5">

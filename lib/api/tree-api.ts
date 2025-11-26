@@ -136,10 +136,13 @@ export class TreeApi {
 
   /**
    * 获取院系的专业列表
-   * Mock阶段：所有院系都返回departments.json中的数据，但使用major-detail.json的metadata格式
+   * 根据departmentId过滤departments.json中的数据
    */
   async getDepartmentMajors(departmentId: string): Promise<ApiResponse<TreeNode[]>> {
     console.log(`[v0] TreeApi.getDepartmentMajors(${departmentId})`)
+
+    // 模拟网络延迟
+    await new Promise(resolve => setTimeout(resolve, 500))
 
     // 类型断言为后端响应格式
     const backendResponse = departmentsData as BackendResponse<{
@@ -206,14 +209,19 @@ export class TreeApi {
       return { data: null, error: response.error, status: response.status }
     }
 
-    const { data: majorsData } = response.data
+    const { data: allMajorsData } = response.data
+
+    // 根据departmentId过滤专业数据
+    // departmentId 是字符串格式，需要与 parent.value 比较
+    const filteredMajorsData = allMajorsData.filter((item) => item.parent.value === departmentId)
+    console.log(`[v0] TreeApi.getDepartmentMajors() 过滤结果: 总共 ${allMajorsData.length} 个专业，院系 ${departmentId} 有 ${filteredMajorsData.length} 个专业`)
 
     // 从major-detail.json获取详细数据格式
     const majorDetailResponse = majorDetailData as BackendResponse<any>
     const detailData = majorDetailResponse.data || {}
 
-    // 将data数组转换为TreeNode数组，使用major-detail.json的metadata格式
-    const majors: TreeNode[] = majorsData.map((item) => ({
+    // 将过滤后的data数组转换为TreeNode数组，使用major-detail.json的metadata格式
+    const majors: TreeNode[] = filteredMajorsData.map((item) => ({
       id: `major-${item.self.value}`,
       name: item.self.label,
       type: "major" as const,
@@ -255,14 +263,17 @@ export class TreeApi {
 
   /**
    * 获取专业的课程列表
-   * Mock阶段：所有专业都返回courses.json中的数据（忽略专业ID匹配）
+   * 根据majorId过滤courses.json中的数据
    * @param majorId 专业ID（从metadata.majorId获取）
    * @returns 课程TreeNode数组
    */
   async getMajorCourses(majorId: string): Promise<ApiResponse<TreeNode[]>> {
-    console.log(`[v0] TreeApi.getMajorCourses(${majorId}) 开始加载课程数据 [Mock模式]`)
+    console.log(`[v0] TreeApi.getMajorCourses(${majorId}) 开始加载课程数据`)
 
-    // Mock阶段：所有专业都返回courses.json中的数据
+    // 模拟网络延迟
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    // 获取courses.json数据
     const backendResponse = coursesData as BackendResponse<
       Array<{
         lang: number
@@ -309,22 +320,24 @@ export class TreeApi {
       return { data: null, error: response.error, status: response.status }
     }
 
-    const coursesArray = response.data
-    console.log(`[v0] TreeApi.getMajorCourses() 原始数据包含 ${coursesArray.length} 个课程`)
+    const allCoursesArray = response.data
+    console.log(`[v0] TreeApi.getMajorCourses() 原始数据包含 ${allCoursesArray.length} 个课程`)
 
-    // 将data数组转换为TreeNode数组
-    // Mock阶段：为了让所有专业都能显示课程，我们将课程的parentMajorId替换为当前专业ID
-    const courses: TreeNode[] = coursesArray.map((item, index) => ({
+    // 根据majorId过滤课程数据
+    // majorId 是字符串格式，需要与 parent.value 比较
+    const filteredCoursesArray = allCoursesArray.filter((item) => item.parent.value === majorId)
+    console.log(`[v0] TreeApi.getMajorCourses() 过滤结果: 专业 ${majorId} 有 ${filteredCoursesArray.length} 个课程`)
+
+    // 将过滤后的data数组转换为TreeNode数组
+    const courses: TreeNode[] = filteredCoursesArray.map((item, index) => ({
       id: `course-${majorId}-${item.self.value}-${index}`, // 使用组合ID避免不同专业间的课程ID冲突
       name: item.self.label,
       type: "course" as const,
       children: [], // 课程节点没有子节点
       metadata: {
         courseId: item.self.value,
-        parentMajorId: majorId, // Mock阶段：使用当前专业ID
-        parentMajorName: `专业-${majorId}`, // Mock阶段：使用占位符
-        originalParentMajorId: item.parent.value, // 保留原始专业ID供参考
-        originalParentMajorName: item.parent.label, // 保留原始专业名称供参考
+        parentMajorId: majorId,
+        parentMajorName: item.parent.label,
         managers: item.manager,
         btnMenus: item.btnMenus,
         coverMenus: item.coverMenus,
