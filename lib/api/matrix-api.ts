@@ -1,4 +1,5 @@
 import { StorageAdapter } from "./storage-adapter"
+import { HttpAdapter } from "./http-adapter"
 import type { ApiResponse } from "./types"
 
 export interface CourseMatrix {
@@ -32,8 +33,64 @@ export interface MajorIndicatorCourseSupports {
   supports: Record<string, IndicatorCourseSupport[]>
 }
 
+// 项目矩阵数据接口
+export interface ProjectMatrixDataResponse {
+  code: string
+  message: string
+  data: {
+    courseId: number
+    projects: Array<{
+      project: {
+        id: number
+        uniqueCode: string
+        courseUnitId: number
+        name: string
+        product: string
+        theoryPeriod: string
+        practicePeriod: string
+        indexNo: number
+      }
+      goals: Array<{
+        id: number
+        projectId: number
+        description: string
+        product: string
+      }>
+    }>
+    ksas: Array<{
+      id: number
+      majorId: number
+      courseUnitId: number
+      title: string
+      description: string
+      level: number
+    }>
+    relates: Array<{
+      name: string
+      code: string
+      relate: number
+    }>
+    data: any[]
+  }
+}
+
+// KSA列表数据接口
+export interface KsaListResponse {
+  code: string
+  message: string
+  data: Array<{
+    id: number
+    majorId: number
+    courseUnitId: number
+    title: string
+    description: string
+    level: number
+  }>
+}
+
 export class MatrixApi {
   private storage = new StorageAdapter()
+  private http = new HttpAdapter()
 
   async getCourseMatrix(courseId: string): Promise<ApiResponse<CourseMatrix>> {
     return this.storage.get<CourseMatrix>(`courseMatrix-${courseId}`)
@@ -236,6 +293,66 @@ export class MatrixApi {
       return {
         data: null,
         error: `获取课程支撑的指标点失败: ${error instanceof Error ? error.message : String(error)}`,
+      }
+    }
+  }
+
+  // 获取项目矩阵数据（包含项目章节列表和KSA数据）
+  async getProjectMatrixData(courseId: string): Promise<ApiResponse<ProjectMatrixDataResponse>> {
+    try {
+      const endpoint = `/api/v4/webpage/triplematrix/projectmatrixdata?courseId=${courseId}`
+      console.log("[getProjectMatrixData] 调用接口:", endpoint)
+
+      const response = await this.http.get<ProjectMatrixDataResponse>(endpoint)
+
+      if (response.error) {
+        console.error("[getProjectMatrixData] 接口调用失败:", response.error)
+        return {
+          data: null,
+          error: response.error,
+        }
+      }
+
+      console.log("[getProjectMatrixData] 接口调用成功:", response.data)
+      return {
+        data: response.data,
+        error: null,
+      }
+    } catch (error) {
+      console.error("[getProjectMatrixData] 异常:", error)
+      return {
+        data: null,
+        error: `获取项目矩阵数据失败: ${error instanceof Error ? error.message : String(error)}`,
+      }
+    }
+  }
+
+  // 获取KSA列表数据
+  async getKsaList(majorId: string, courseId: string): Promise<ApiResponse<KsaListResponse>> {
+    try {
+      const endpoint = `/api/major/v2.0/ksalist?majorid=${majorId}&courseid=${courseId}`
+      console.log("[getKsaList] 调用接口:", endpoint)
+
+      const response = await this.http.get<KsaListResponse>(endpoint)
+
+      if (response.error) {
+        console.error("[getKsaList] 接口调用失败:", response.error)
+        return {
+          data: null,
+          error: response.error,
+        }
+      }
+
+      console.log("[getKsaList] 接口调用成功:", response.data)
+      return {
+        data: response.data,
+        error: null,
+      }
+    } catch (error) {
+      console.error("[getKsaList] 异常:", error)
+      return {
+        data: null,
+        error: `获取KSA列表失败: ${error instanceof Error ? error.message : String(error)}`,
       }
     }
   }

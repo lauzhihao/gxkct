@@ -45,10 +45,10 @@ export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, maj
     return matchesSearch && matchesMyCourses
   })
 
-  // 获取讲师名称，如果没有则返回"未设置"
-  const getInstructorName = (course: any) => {
+  // 获取讲师数组
+  const getInstructors = (course: any) => {
     const instructors = course.metadata?.instructors || []
-    return instructors.length > 0 ? instructors.join(", ") : "未设置"
+    return instructors.length > 0 ? instructors : ["未设置"]
   }
 
   // 判断讲师是否已设置（有有效的讲师名称）
@@ -161,30 +161,33 @@ export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, maj
                 </div>
               </div>
 
-              <div className="absolute bottom-3 left-3">
-                <div
-                  className={cn(
-                    "flex items-center gap-[6px] px-[8px] py-[2px] rounded border",
-                    isInstructorSet(course)
-                      ? "bg-primary border-primary"
-                      : "bg-muted border-muted-foreground/30",
-                  )}
-                >
-                  <User
+              <div className="absolute bottom-3 left-3 flex flex-wrap gap-1 max-w-[calc(100%-24px)]">
+                {getInstructors(course).map((instructor, index) => (
+                  <div
+                    key={index}
                     className={cn(
-                      "w-[13px] h-[13px]",
-                      isInstructorSet(course) ? "text-white" : "text-muted-foreground",
-                    )}
-                  />
-                  <span
-                    className={cn(
-                      "text-[13px] font-medium line-clamp-1",
-                      isInstructorSet(course) ? "text-white" : "text-muted-foreground",
+                      "flex items-center gap-[6px] px-[8px] py-[2px] rounded border",
+                      isInstructorSet(course)
+                        ? "bg-primary border-primary"
+                        : "bg-muted border-muted-foreground/30",
                     )}
                   >
-                    {getInstructorName(course)}
-                  </span>
-                </div>
+                    <User
+                      className={cn(
+                        "w-[13px] h-[13px]",
+                        isInstructorSet(course) ? "text-white" : "text-muted-foreground",
+                      )}
+                    />
+                    <span
+                      className={cn(
+                        "text-[13px] font-medium",
+                        isInstructorSet(course) ? "text-white" : "text-muted-foreground",
+                      )}
+                    >
+                      {instructor}
+                    </span>
+                  </div>
+                ))}
               </div>
             </button>
           ))}

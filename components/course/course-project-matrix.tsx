@@ -1,12 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Grid3x3, Edit, Check, X, Loader2, Target, Plus, Trash2, BookMarked } from "lucide-react"
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
+import { Grid3x3, Edit, Check, X, Loader2, Plus, Trash2, BookMarked } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { TreeNode } from "@/types"
+import { api } from "@/lib/api"
+import { SupportLabel } from "@/components/support-label"
 
 interface CourseProjectMatrixProps {
   node: TreeNode
@@ -16,16 +19,22 @@ interface CourseProjectMatrixProps {
 export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps) {
   const [isEditingProjectMatrix, setIsEditingProjectMatrix] = useState(false)
   const [isSavingProjectMatrix, setIsSavingProjectMatrix] = useState(false)
-  const [projectMatrixData, setProjectMatrixData] = useState<Record<string, any>>({})
+  const [projectMatrixData, setProjectMatrixData] = useState<any>(null)
   const [chapterTaskObjectives, setChapterTaskObjectives] = useState<Record<string, any[]>>({})
   const [ksaData, setKsaData] = useState<Record<string, { knowledge: string; skills: string; attitude: string }>>({})
   const [courseMatrixData, setCourseMatrixData] = useState<Record<string, any[]>>({})
+  const [isLoadingProjectMatrix, setIsLoadingProjectMatrix] = useState(false)
+
+  // 防止在StrictMode下重复调用API
+  const hasLoadedRef = useRef(false)
+  const prevNodeIdRef = useRef<string | null>(null)
 
   const [taskObjectivesDialogOpen, setTaskObjectivesDialogOpen] = useState(false)
   const [selectedChapterForTasks, setSelectedChapterForTasks] = useState<string | null>(null)
   const [newTaskObjective, setNewTaskObjective] = useState("")
   const [newTaskStandard, setNewTaskStandard] = useState("")
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
+  const [focusedCell, setFocusedCell] = useState<string | null>(null)
 
   const [ksaDialogOpen, setKsaDialogOpen] = useState(false)
   const [selectedKsaCell, setSelectedKsaCell] = useState<{
@@ -45,6 +54,7 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
   const [editingKsaContent, setEditingKsaContent] = useState("")
 
   useEffect(() => {
+    // 从metadata加载本地数据
     if (node.metadata?.projectMatrixData) {
       setProjectMatrixData(node.metadata.projectMatrixData)
     }
@@ -57,7 +67,62 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
     if (node.metadata?.courseMatrixData) {
       setCourseMatrixData(node.metadata.courseMatrixData)
     }
-  }, [node.metadata])
+
+    // 当node改变时，重置ref
+    if (prevNodeIdRef.current !== node.id) {
+      hasLoadedRef.current = false
+      prevNodeIdRef.current = node.id
+    }
+
+    // 防止在StrictMode下重复调用
+    if (hasLoadedRef.current) {
+      return
+    }
+    hasLoadedRef.current = true
+
+    // 调用API获取项目矩阵数据和KSA列表
+    const loadProjectMatrixData = async () => {
+      try {
+        setIsLoadingProjectMatrix(true)
+
+        // 从node.metadata中获取courseId和majorId
+        const courseId = (node.metadata as any)?.courseId
+        const majorId = (node.metadata as any)?.parentMajorId
+
+        if (!courseId) {
+          console.warn("[CourseProjectMatrix] 缺少courseId")
+          return
+        }
+
+        // 获取项目矩阵数据（包含项目章节列表）
+        const projectMatrixResponse = await api.matrices.getProjectMatrixData(String(courseId))
+        if (projectMatrixResponse.error) {
+          console.error("[CourseProjectMatrix] 获取项目矩阵数据失败:", projectMatrixResponse.error)
+        } else if (projectMatrixResponse.data) {
+          console.log("[CourseProjectMatrix] 项目矩阵数据加载成功:", projectMatrixResponse.data)
+          // 保存API返回的项目矩阵数据
+          setProjectMatrixData(projectMatrixResponse.data)
+        }
+
+        // 获取KSA列表数据
+        if (majorId && courseId) {
+          const ksaListResponse = await api.matrices.getKsaList(String(majorId), String(courseId))
+          if (ksaListResponse.error) {
+            console.error("[CourseProjectMatrix] 获取KSA列表失败:", ksaListResponse.error)
+          } else if (ksaListResponse.data) {
+            console.log("[CourseProjectMatrix] KSA列表加载成功:", ksaListResponse.data)
+            // 可以在这里处理KSA列表数据
+          }
+        }
+      } catch (error) {
+        console.error("[CourseProjectMatrix] 加载数据异常:", error)
+      } finally {
+        setIsLoadingProjectMatrix(false)
+      }
+    }
+
+    loadProjectMatrixData()
+  }, [node.id])
 
   const handleSaveProjectMatrix = async (isAutoSave = false) => {
     setIsSavingProjectMatrix(true)
@@ -375,360 +440,318 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
           )}
         </div>
 
-        {node.metadata?.chapters && node.metadata.chapters.length > 0 ? (
+        {isLoadingProjectMatrix ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-5 h-5 animate-spin text-primary mr-2" />
+            <span className="text-muted-foreground">加载项目矩阵数据中...</span>
+          </div>
+        ) : projectMatrixData?.projects && projectMatrixData.projects.length > 0 ? (
           <Accordion type="multiple" className="space-y-3">
-            {node.metadata.chapters.map((chapter: any, chapterIdx: number) => {
-              const chapterId = chapter.id || `chapter-${chapterIdx}`
-              const chapterName = chapter.name || `章节${chapterIdx + 1}`
+            {projectMatrixData.projects.map((projectItem: any, projectIdx: number) => {
+              const project = projectItem.project
+              const goals = projectItem.goals || []
+              const projectId = project.id || `project-${projectIdx}`
+              const projectName = project.name || `项目${projectIdx + 1}`
 
-              const chapterCoursePoints: Array<{ id: string; title: string; description: string }> = []
-              if (node.metadata?.teachingObjectives && courseMatrixData) {
-                node.metadata.teachingObjectives.forEach((objective: any, objIdx: number) => {
-                  const points = objective.points || []
-                  points.forEach((point: any, pointIdx: number) => {
-                    const objectiveId = objective.id || `obj-${objIdx}`
-                    const pointId =
-                      typeof point === "string"
-                        ? `point-${objIdx}-${pointIdx}`
-                        : point.id || `point-${objIdx}-${pointIdx}`
-                    const key = `${objectiveId}-${pointId}-${chapterId}`
-                    const coursePoints = courseMatrixData[key] || []
-
-                    coursePoints.forEach((cp) => {
-                      if (!chapterCoursePoints.find((existing) => existing.id === cp.id)) {
-                        chapterCoursePoints.push({
-                          id: cp.id,
-                          title: cp.name,
-                          description: cp.description || cp.name,
-                        })
-                      }
-                    })
-                  })
-                })
-              }
-
-              const taskObjectives = chapterTaskObjectives[chapterId] || []
+              const taskObjectives = chapterTaskObjectives[projectId] || []
 
               return (
-                <AccordionItem key={chapterId} value={chapterId} className="border border-border rounded-lg">
+                <AccordionItem key={projectId} value={projectId} className="border border-border rounded-lg">
                   <div className="relative">
                     <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-secondary/30 rounded-t-lg">
                       <div className="flex items-center gap-3">
                         <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-sm font-medium text-primary">
-                          {chapterIdx + 1}
+                          {projectIdx + 1}
                         </div>
-                        <span className="text-base font-semibold text-foreground">{chapterName}</span>
-                        {chapterCoursePoints.length > 0 && (
-                          <span className="text-xs text-muted-foreground">({chapterCoursePoints.length} 个课点)</span>
-                        )}
+                        <div className="flex-1 text-left">
+                          <span className="text-base font-semibold text-foreground">{projectName}</span>
+                          {goals.length > 0 && (
+                            <span className="text-xs text-muted-foreground ml-2">({goals.length} 个教学目标)</span>
+                          )}
+                        </div>
                       </div>
                     </AccordionTrigger>
-                    <div className="absolute right-5 top-1/2 -translate-y-1/2 z-10">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleOpenTaskObjectivesDialog(chapterId)
-                        }}
-                        className="gap-2"
-                      >
-                        <Target className="w-4 h-4" />
-                        教学任务目标
-                      </Button>
+                    <div className="absolute right-5 top-1/2 -translate-y-1/2 z-10 flex gap-2">
+                      {isEditingProjectMatrix && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleOpenTaskObjectivesDialog(projectId)
+                            }}
+                            className="gap-2"
+                          >
+                            <Plus className="w-4 h-4" />
+                            添加
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-2 text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                   <AccordionContent className="px-5 pb-5">
                     <div className="border-t border-dashed border-border mb-4" />
 
-                    {chapterCoursePoints.length > 0 && taskObjectives.length > 0 ? (
-                      <div className="rounded-lg border border-border overflow-hidden">
+                    {/* 项目矩阵表格 */}
+                    {goals.length > 0 ? (
+                      <div className="border border-border overflow-hidden w-[98%] mx-[1%]">
                         <div className="overflow-x-auto">
-                          <table className="w-full text-sm border-collapse">
+                          <table className="w-auto text-xs border-collapse border border-border" style={{ tableLayout: 'fixed' }}>
                             <thead>
-                              <tr className="border-b border-border bg-secondary/50">
-                                <th
-                                  rowSpan={2}
-                                  className="text-left p-3 text-muted-foreground font-medium border-r border-border min-w-[120px]"
-                                >
+                              {/* 第一行表头 */}
+                              <tr className="bg-secondary/50 border-b border-border">
+                                <th rowSpan={2} className="text-center p-2 text-muted-foreground font-medium border-r border-border w-[100px] align-middle">
                                   课点
                                 </th>
-                                {taskObjectives.map((task) => (
-                                  <th
-                                    key={task.id}
-                                    rowSpan={2}
-                                    className="text-center p-3 text-muted-foreground font-medium border-r border-border min-w-[150px]"
-                                  >
-                                    <div className="text-xs leading-relaxed">{task.objective}</div>
+                                {goals.map((goal: any, goalIdx: number) => (
+                                  <th key={goal.id || goalIdx} rowSpan={2} className="text-left p-2 text-muted-foreground font-medium border-r border-border align-middle">
+                                    <div className="text-xs whitespace-normal break-words">{goal.description}</div>
                                   </th>
                                 ))}
-                                <th
-                                  rowSpan={2}
-                                  className="text-center p-3 text-muted-foreground font-medium border-r border-border min-w-[120px]"
-                                >
+                                <th rowSpan={2} className="text-center p-2 text-muted-foreground font-medium border-r border-border w-[120px] align-middle">
                                   学法
                                 </th>
-                                <th
-                                  rowSpan={2}
-                                  className="text-center p-3 text-muted-foreground font-medium border-r border-border min-w-[120px]"
-                                >
+                                <th rowSpan={2} className="text-center p-2 text-muted-foreground font-medium border-r border-border w-[220px] align-middle">
                                   教法
                                 </th>
-                                <th
-                                  rowSpan={2}
-                                  className="text-center p-3 text-muted-foreground font-medium border-r border-border min-w-[150px]"
-                                >
+                                <th rowSpan={2} className="text-center p-2 text-muted-foreground font-medium border-r border-border w-[280px] align-middle">
                                   课点学习产出及测量
                                 </th>
-                                <th className="text-center p-3 text-muted-foreground font-medium" colSpan={2}>
+                                <th colSpan={2} className="text-center p-2 text-muted-foreground font-medium border-r border-border align-middle">
                                   教学安排
                                 </th>
                               </tr>
-                              <tr className="border-b border-border bg-secondary/30">
-                                <th className="text-center p-2 text-xs text-muted-foreground font-medium border-r border-border">
+                              {/* 第二行表头 - 仅教学安排的子列 */}
+                              <tr className="bg-secondary/50 border-b border-border">
+                                <th className="text-center p-1 text-muted-foreground font-medium border-r border-border w-[70px] align-middle whitespace-nowrap text-xs">
                                   开课周数
                                 </th>
-                                <th className="text-center p-2 text-xs text-muted-foreground font-medium">学时数</th>
+                                <th className="text-center p-1 text-muted-foreground font-medium w-[60px] align-middle whitespace-nowrap text-xs">
+                                  学时数
+                                </th>
                               </tr>
                             </thead>
                             <tbody>
-                              {chapterCoursePoints.map((coursePoint) => {
-                                const rowKey = `${chapterId}-${coursePoint.id}`
-                                const rowData = projectMatrixData[rowKey] || {}
-
-                                const coursePointIndex =
-                                  node.metadata?.coursePoints?.findIndex(
-                                    (cp: any) =>
-                                      (cp.id || `cp-${node.metadata.coursePoints.indexOf(cp)}`) === coursePoint.id,
-                                  ) + 1 || 0
-
-                                return (
-                                  <tr key={coursePoint.id} className="border-b border-border hover:bg-secondary/20">
-                                    <td className="p-3 border-r border-border">
-                                      <div className="relative group/tooltip">
-                                        <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-blue-100 border border-blue-300 text-blue-700 cursor-pointer">
-                                          {coursePointIndex}
-                                        </span>
-                                        <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded shadow-lg whitespace-nowrap opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-150 pointer-events-none z-50 max-w-xs">
-                                          <div className="font-semibold mb-1">{coursePoint.title}</div>
-                                          <div className="text-gray-300">{coursePoint.description}</div>
-                                          <div className="absolute top-full left-4 -mt-1 border-4 border-transparent border-t-gray-800"></div>
-                                        </div>
-                                      </div>
+                              {projectMatrixData?.data
+                                ?.filter((item: any) => item.courseMatrix?.projectId === projectId)
+                                .map((item: any, rowIdx: number) => (
+                                  <tr key={item.courseMatrix?.id || rowIdx} className="border-b border-border hover:bg-secondary/20">
+                                    <td className="p-2 text-center border-r border-border">
+                                      <SupportLabel
+                                        title={item.courseMatrix?.point?.title}
+                                        desc={item.courseMatrix?.point?.description}
+                                        type={item.courseMatrix?.relate?.relate === 0 ? "strong" : "weak"}
+                                        size="md"
+                                        tipsPosition="right"
+                                      />
                                     </td>
-                                    {taskObjectives.map((task) => {
-                                      const ksaKey = `${chapterId}-${coursePoint.id}-${task.id}`
-                                      const ksaSupportData = ksaData[ksaKey] || {}
-                                      const hasKsa = Object.keys(ksaSupportData).length > 0
-
-                                      // Get the course point to access its info points
-                                      const fullCoursePoint = node.metadata?.coursePoints?.find(
-                                        (cp: any) => cp.id === coursePoint.id,
-                                      )
+                                    {goals.map((goal: any, goalIdx: number) => {
+                                      // 查找该教学目标对应的所有projectMatrix
+                                      const goalProjectMatrices = item.projectMatrices?.filter(
+                                        (pm: any) => pm.taskGoalId === goal.id
+                                      ) || []
 
                                       return (
-                                        <td key={task.id} className="p-3 text-center border-r border-border">
+                                        <td key={goal.id || goalIdx} className="p-2 text-center border-r border-border text-foreground">
                                           {isEditingProjectMatrix ? (
-                                            <button
-                                              onClick={() => handleOpenKsaDialog(chapterId, coursePoint.id, task.id)}
-                                              className={cn(
-                                                "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all group",
-                                                hasKsa
-                                                  ? "border-primary bg-primary/20 hover:bg-primary/30"
-                                                  : "border-dashed border-primary/40 hover:border-primary hover:bg-primary/10",
-                                              )}
-                                              title="设置KSA支撑关系"
-                                            >
-                                              <Plus
-                                                className={cn(
-                                                  "w-3 h-3",
-                                                  hasKsa ? "text-primary" : "text-primary/60 group-hover:text-primary",
-                                                )}
-                                              />
-                                            </button>
-                                          ) : hasKsa ? (
-                                            <div className="flex flex-wrap gap-1 justify-center">
-                                              {Object.entries(ksaSupportData).map(([infoPointId, support]) => {
-                                                // Find the info point details
-                                                const infoPoint = fullCoursePoint?.infoPoints?.find(
-                                                  (ip: any) => ip.id === infoPointId,
-                                                )
-                                                if (!infoPoint) return null
-
-                                                const colorClass =
-                                                  infoPoint.type === "K"
-                                                    ? "bg-blue-100 border-blue-300 text-blue-700"
-                                                    : infoPoint.type === "S"
-                                                      ? "bg-green-100 border-green-300 text-green-700"
-                                                      : "bg-purple-100 border-purple-300 text-purple-700"
-
-                                                return (
-                                                  <div key={infoPointId} className="relative group/tooltip">
-                                                    <span
-                                                      className={cn(
-                                                        "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium border cursor-pointer",
-                                                        colorClass,
-                                                        support === "weak" && "opacity-60",
-                                                      )}
-                                                    >
-                                                      {infoPoint.id}
-                                                      {support === "strong" && (
-                                                        <span className="text-[10px] font-bold">●</span>
-                                                      )}
-                                                    </span>
-                                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded shadow-lg whitespace-nowrap opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-150 pointer-events-none z-50 max-w-xs">
-                                                      <div className="font-semibold mb-1">
-                                                        {infoPoint.id} ({infoPoint.type})
-                                                      </div>
-                                                      <div className="text-gray-300 mb-1">{infoPoint.content}</div>
-                                                      <div className="text-yellow-300 text-[10px]">
-                                                        {support === "strong" ? "强支撑" : "弱支撑"}
-                                                      </div>
-                                                      <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800"></div>
-                                                    </div>
-                                                  </div>
-                                                )
-                                              })}
+                                            <div className={`flex items-center justify-center gap-2 flex-wrap ${goalProjectMatrices.length === 0 ? 'min-h-[32px]' : ''}`}>
+                                              {goalProjectMatrices.map((pm: any, pmIdx: number) => (
+                                                <SupportLabel
+                                                  key={pm.id || pmIdx}
+                                                  title={`${pm.ksa?.title}${pm.ksa?.level}`}
+                                                  desc={pm.ksa?.description}
+                                                  type={pm.relate?.relate === 0 ? "strong" : "weak"}
+                                                  size="md"
+                                                />
+                                              ))}
+                                              <button
+                                                onClick={() => {}}
+                                                className="w-4 h-4 rounded-full border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/10 flex items-center justify-center transition-all group flex-shrink-0"
+                                              >
+                                                <Plus className="w-2 h-2 text-primary/60 group-hover:text-primary" />
+                                              </button>
                                             </div>
                                           ) : (
-                                            <span className="text-xs text-muted-foreground">-</span>
+                                            <div className="flex items-center justify-center gap-2 flex-wrap min-h-[32px]">
+                                              {goalProjectMatrices.length > 0 ? (
+                                                goalProjectMatrices.map((pm: any, pmIdx: number) => (
+                                                  <SupportLabel
+                                                    key={pm.id || pmIdx}
+                                                    title={`${pm.ksa?.title}${pm.ksa?.level}`}
+                                                    desc={pm.ksa?.description}
+                                                    type={pm.relate?.relate === 0 ? "strong" : "weak"}
+                                                    size="md"
+                                                  />
+                                                ))
+                                              ) : (
+                                                <span className="text-xs text-muted-foreground">-</span>
+                                              )}
+                                            </div>
                                           )}
                                         </td>
                                       )
                                     })}
-                                    <td className="p-2 border-r border-border">
+                                    <td className="p-2 text-center border-r border-border text-foreground w-[120px] overflow-hidden">
                                       {isEditingProjectMatrix ? (
-                                        <input
-                                          type="text"
-                                          value={rowData[`${coursePoint.id}-learningMethod`] || ""}
-                                          onChange={(e) => {
-                                            setProjectMatrixData((prev) => ({
-                                              ...prev,
-                                              [rowKey]: {
-                                                ...prev[rowKey],
-                                                [`${coursePoint.id}-learningMethod`]: e.target.value,
-                                              },
-                                            }))
-                                          }}
-                                          className="w-full px-2 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
-                                          placeholder="输入学法"
-                                        />
+                                        focusedCell === `study-${item.courseMatrix?.id}` ? (
+                                          <textarea
+                                            autoFocus
+                                            value={item.courseMatrix?.study || ''}
+                                            onChange={() => {}}
+                                            onBlur={() => setFocusedCell(null)}
+                                            className="w-full px-2 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"
+                                            placeholder="输入学法"
+                                            rows={4}
+                                          />
+                                        ) : (
+                                          <input
+                                            type="text"
+                                            value={item.courseMatrix?.study || ''}
+                                            onChange={() => {}}
+                                            onFocus={() => setFocusedCell(`study-${item.courseMatrix?.id}`)}
+                                            className="w-full px-2 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                            placeholder="输入学法"
+                                          />
+                                        )
                                       ) : (
-                                        <span className="text-xs text-foreground">
-                                          {rowData[`${coursePoint.id}-learningMethod`] || "-"}
-                                        </span>
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <span className="text-xs line-clamp-1 cursor-help">{item.courseMatrix?.study || '-'}</span>
+                                            </TooltipTrigger>
+                                            {item.courseMatrix?.study && (
+                                              <TooltipContent side="top" align="center">
+                                                {item.courseMatrix.study}
+                                              </TooltipContent>
+                                            )}
+                                          </Tooltip>
+                                        </TooltipProvider>
                                       )}
                                     </td>
-                                    <td className="p-2 border-r border-border">
+                                    <td className="p-2 text-center border-r border-border text-foreground w-[220px] overflow-hidden">
                                       {isEditingProjectMatrix ? (
-                                        <input
-                                          type="text"
-                                          value={rowData[`${coursePoint.id}-teachingMethod`] || ""}
-                                          onChange={(e) => {
-                                            setProjectMatrixData((prev) => ({
-                                              ...prev,
-                                              [rowKey]: {
-                                                ...prev[rowKey],
-                                                [`${coursePoint.id}-teachingMethod`]: e.target.value,
-                                              },
-                                            }))
-                                          }}
-                                          className="w-full px-2 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
-                                          placeholder="输入教法"
-                                        />
+                                        focusedCell === `teach-${item.courseMatrix?.id}` ? (
+                                          <textarea
+                                            autoFocus
+                                            value={item.courseMatrix?.teach || ''}
+                                            onChange={() => {}}
+                                            onBlur={() => setFocusedCell(null)}
+                                            className="w-full px-2 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"
+                                            placeholder="输入教法"
+                                            rows={4}
+                                          />
+                                        ) : (
+                                          <input
+                                            type="text"
+                                            value={item.courseMatrix?.teach || ''}
+                                            onChange={() => {}}
+                                            onFocus={() => setFocusedCell(`teach-${item.courseMatrix?.id}`)}
+                                            className="w-full px-2 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                            placeholder="输入教法"
+                                          />
+                                        )
                                       ) : (
-                                        <span className="text-xs text-foreground">
-                                          {rowData[`${coursePoint.id}-teachingMethod`] || "-"}
-                                        </span>
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <span className="text-xs line-clamp-1 cursor-help">{item.courseMatrix?.teach || '-'}</span>
+                                            </TooltipTrigger>
+                                            {item.courseMatrix?.teach && (
+                                              <TooltipContent side="top" align="center">
+                                                {item.courseMatrix.teach}
+                                              </TooltipContent>
+                                            )}
+                                          </Tooltip>
+                                        </TooltipProvider>
                                       )}
                                     </td>
-                                    <td className="p-2 border-r border-border">
+                                    <td className="p-2 text-center border-r border-border text-foreground w-[280px] overflow-hidden">
                                       {isEditingProjectMatrix ? (
-                                        <input
-                                          type="text"
-                                          value={rowData[`${coursePoint.id}-output`] || ""}
-                                          onChange={(e) => {
-                                            setProjectMatrixData((prev) => ({
-                                              ...prev,
-                                              [rowKey]: {
-                                                ...prev[rowKey],
-                                                [`${coursePoint.id}-output`]: e.target.value,
-                                              },
-                                            }))
-                                          }}
-                                          className="w-full px-2 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
-                                          placeholder="输入产出及测量"
-                                        />
+                                        focusedCell === `product-${item.courseMatrix?.id}` ? (
+                                          <textarea
+                                            autoFocus
+                                            value={item.courseMatrix?.product || ''}
+                                            onChange={() => {}}
+                                            onBlur={() => setFocusedCell(null)}
+                                            className="w-full px-2 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"
+                                            placeholder="输入学习产出"
+                                            rows={6}
+                                          />
+                                        ) : (
+                                          <input
+                                            type="text"
+                                            value={item.courseMatrix?.product || ''}
+                                            onChange={() => {}}
+                                            onFocus={() => setFocusedCell(`product-${item.courseMatrix?.id}`)}
+                                            className="w-full px-2 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                            placeholder="输入学习产出"
+                                          />
+                                        )
                                       ) : (
-                                        <span className="text-xs text-foreground">
-                                          {rowData[`${coursePoint.id}-output`] || "-"}
-                                        </span>
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <span className="text-xs line-clamp-1 cursor-help">{item.courseMatrix?.product || '-'}</span>
+                                            </TooltipTrigger>
+                                            {item.courseMatrix?.product && (
+                                              <TooltipContent side="top" align="center">
+                                                {item.courseMatrix.product}
+                                              </TooltipContent>
+                                            )}
+                                          </Tooltip>
+                                        </TooltipProvider>
                                       )}
                                     </td>
-                                    <td className="p-2 border-r border-border">
+                                    {/* 教学安排 - 开课周数 */}
+                                    <td className="p-1 text-center border-r border-border text-foreground w-[70px]">
                                       {isEditingProjectMatrix ? (
                                         <input
                                           type="text"
-                                          value={rowData[`${coursePoint.id}-weeks`] || ""}
-                                          onChange={(e) => {
-                                            setProjectMatrixData((prev) => ({
-                                              ...prev,
-                                              [rowKey]: {
-                                                ...prev[rowKey],
-                                                [`${coursePoint.id}-weeks`]: e.target.value,
-                                              },
-                                            }))
-                                          }}
-                                          className="w-full px-2 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                          value={item.courseMatrix?.week || ''}
+                                          onChange={() => {}}
+                                          className="w-full px-0.5 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
                                           placeholder="周数"
                                         />
                                       ) : (
-                                        <span className="text-xs text-foreground">
-                                          {rowData[`${coursePoint.id}-weeks`] || "-"}
-                                        </span>
+                                        <span className="text-xs">{item.courseMatrix?.week || '-'}</span>
                                       )}
                                     </td>
-                                    <td className="p-2">
+                                    {/* 教学安排 - 学时数 */}
+                                    <td className="p-1 text-center text-foreground w-[60px]">
                                       {isEditingProjectMatrix ? (
                                         <input
                                           type="text"
-                                          value={rowData[`${coursePoint.id}-hours`] || ""}
-                                          onChange={(e) => {
-                                            setProjectMatrixData((prev) => ({
-                                              ...prev,
-                                              [rowKey]: {
-                                                ...prev[rowKey],
-                                                [`${coursePoint.id}-hours`]: e.target.value,
-                                              },
-                                            }))
-                                          }}
-                                          className="w-full px-2 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                          value={item.courseMatrix?.period || ''}
+                                          onChange={() => {}}
+                                          className="w-full px-0.5 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
                                           placeholder="学时"
                                         />
                                       ) : (
-                                        <span className="text-xs text-foreground">
-                                          {rowData[`${coursePoint.id}-hours`] || "-"}
-                                        </span>
+                                        <span className="text-xs">{item.courseMatrix?.period || '-'}</span>
                                       )}
                                     </td>
                                   </tr>
-                                )
-                              })}
+                                ))}
+                              {/* 最后一行 - 教学目标的学习产出及测量评价标准 */}
+                              <tr className="bg-secondary/30 border-b border-border font-medium">
+                                <td colSpan={goals.length + 5} className="p-3 text-left text-foreground">
+                                  教学目标的学习产出及测量评价标准
+                                </td>
+                              </tr>
                             </tbody>
                           </table>
                         </div>
                       </div>
                     ) : (
-                      <div className="text-center py-12 text-muted-foreground">
-                        <Grid3x3 className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                        <p className="text-sm mb-2">暂无项目矩阵数据</p>
-                        <p className="text-xs">
-                          {chapterCoursePoints.length === 0 && "请先在课程矩阵中为该章节关联课点"}
-                          {chapterCoursePoints.length > 0 &&
-                            taskObjectives.length === 0 &&
-                            '请点击"教学任务目标"按钮添加任务目标'}
-                        </p>
-                      </div>
+                      <div className="text-center py-6 text-muted-foreground">暂无教学目标</div>
                     )}
                   </AccordionContent>
                 </AccordionItem>
@@ -738,8 +761,8 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
         ) : (
           <div className="text-center py-12 text-muted-foreground">
             <BookMarked className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p className="text-sm mb-2">暂无章节项目数据</p>
-            <p className="text-xs">请先在课程信息中添加章节项目信息</p>
+            <p className="text-sm mb-2">暂无项目数据</p>
+            <p className="text-xs">项目矩阵数据加载中或暂无项目信息</p>
           </div>
         )}
       </div>

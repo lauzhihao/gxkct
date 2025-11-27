@@ -202,6 +202,8 @@ export function TeachingObjectivesEditor({
       const parentMajorId = (node?.metadata as any)?.parentMajorId
       if (courseId && parentMajorId && api && api.courseGoals) {
         console.log("[TeachingObjectivesEditor] 教学目标自动保存:", updatedGoals)
+        // 调用API保存教学目标
+        await api.courseGoals.updateCourseGoals(String(courseId), String(parentMajorId), updatedGoals)
       }
     } catch (error) {
       console.error("[TeachingObjectivesEditor] 自动保存教学目标失败:", error)
@@ -308,7 +310,7 @@ export function TeachingObjectivesEditor({
                   placeholder="筛选教学目标..."
                   value={teachingObjectivesFilterKeyword}
                   onChange={(e) => setTeachingObjectivesFilterKeyword(e.target.value)}
-                  className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground"
+                  className="flex-1 bg-transparent outline-none text-base placeholder:text-muted-foreground"
                 />
                 {teachingObjectivesFilterKeyword && !isFilteringTeachingObjectives && (
                   <button
@@ -355,7 +357,7 @@ export function TeachingObjectivesEditor({
                 className="gap-2 bg-transparent"
                 disabled={isSavingTeachingObjectives || isAutoSavingTeachingObjectives}
               >
-                <X className="w-4 h-4" />
+                <ArrowLeft className="w-4 h-4" />
                 退出
               </Button>
               <Button
@@ -416,7 +418,7 @@ export function TeachingObjectivesEditor({
                           {goalIdx + 1}
                         </div>
                         <div className="flex-1 text-left min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">
+                          <p className="text-base font-medium text-foreground truncate">
                             {highlightKeyword(goal.description, debouncedFilterKeyword)}
                           </p>
                         </div>
@@ -443,7 +445,7 @@ export function TeachingObjectivesEditor({
                                     finishAddingObjectiveForGoal(goal.id)
                                   }
                                 }}
-                                className="flex-1 px-3 py-2 text-base resize-none focus:outline-none bg-transparent focus:ring-0 min-h-[80px]"
+                                className="flex-1 px-3 py-2 text-lg resize-none focus:outline-none bg-transparent focus:ring-0 min-h-[80px]"
                               />
                             ) : (
                               <input
@@ -459,7 +461,7 @@ export function TeachingObjectivesEditor({
                                     finishAddingObjectiveForGoal(goal.id)
                                   }
                                 }}
-                                className="flex-1 px-3 py-2 text-base focus:outline-none focus:ring-0 bg-transparent border-b border-transparent hover:border-border focus:border-primary"
+                                className="flex-1 px-3 py-2 text-lg focus:outline-none focus:ring-0 bg-transparent border-b border-transparent hover:border-border focus:border-primary"
                               />
                             )}
                           </div>
@@ -484,7 +486,7 @@ export function TeachingObjectivesEditor({
                                       value={objective.description || ""}
                                       onChange={(e) => updateTeachingObjective(objective.id, e.target.value.slice(0, 500))}
                                       onBlur={() => toggleGoalObjectiveEditMode(goal.id, objective.id, false)}
-                                      className="flex-1 px-3 py-2 text-base resize-none focus:outline-none bg-transparent focus:ring-0 min-h-[80px]"
+                                      className="flex-1 px-3 py-2 text-lg resize-none focus:outline-none bg-transparent focus:ring-0 min-h-[80px]"
                                     />
                                   ) : (
                                     <input
@@ -493,7 +495,7 @@ export function TeachingObjectivesEditor({
                                       value={objective.description || ""}
                                       onChange={(e) => updateTeachingObjective(objective.id, e.target.value.slice(0, 500))}
                                       onFocus={() => toggleGoalObjectiveEditMode(goal.id, objective.id, true)}
-                                      className="flex-1 text-base text-foreground bg-transparent border-b border-transparent hover:border-border focus:border-primary focus:outline-none px-1 py-0.5"
+                                      className="flex-1 text-lg text-foreground bg-transparent border-b border-transparent hover:border-border focus:border-primary focus:outline-none px-1 py-0.5"
                                     />
                                   )}
                                   <Button
@@ -502,7 +504,7 @@ export function TeachingObjectivesEditor({
                                     onClick={() => removeGoalObjective(goal.id, objective.id)}
                                     className="gap-1 text-red-500 hover:text-red-600 hover:bg-red-50 h-5 px-1 flex-shrink-0 self-center"
                                   >
-                                    <X className="w-3 h-3" />
+                                    <Trash2 className="w-3 h-3" />
                                   </Button>
                                 </div>
                               )
@@ -510,7 +512,7 @@ export function TeachingObjectivesEditor({
                           </div>
                         ) : (
                           !goalInput?.isEditing && (
-                            <div className="text-center py-3 text-muted-foreground text-sm">
+                            <div className="text-center py-3 text-muted-foreground text-base">
                               暂无教学目标
                             </div>
                           )
@@ -538,7 +540,7 @@ export function TeachingObjectivesEditor({
               className="gap-2 bg-transparent"
               disabled={isSavingTeachingObjectives || isAutoSavingTeachingObjectives}
             >
-              <X className="w-4 h-4" />
+              <ArrowLeft className="w-4 h-4" />
               退出
             </Button>
             <Button

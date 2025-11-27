@@ -382,9 +382,11 @@ export class TreeApi {
    * 获取专业的课程列表
    * 调用 /api/v4/webpage/majorindex/courses 接口获取课程数据
    * @param majorId 专业ID（从metadata.majorId获取）
+   * @param deptName 部门名称（可选）
+   * @param collegeName 学院名称（可选）
    * @returns 课程TreeNode数组
    */
-  async getMajorCourses(majorId: string): Promise<ApiResponse<TreeNode[]>> {
+  async getMajorCourses(majorId: string, deptName?: string, collegeName?: string): Promise<ApiResponse<TreeNode[]>> {
     console.log(`[TreeApi] getMajorCourses(${majorId}) 开始加载课程数据`)
 
     // 调用API获取课程数据
@@ -453,6 +455,8 @@ export class TreeApi {
           courseId: item.self.value,
           parentMajorId: majorId,
           parentMajorName: item.parent.label,
+          parentDeptName: deptName, // 部门名称
+          collegeName: collegeName, // 学院名称
           managers: item.manager,
           instructors: instructors, // 讲师名称数组（已过滤"未记录"）
           hasUnrecordedOnly: hasUnrecordedOnly, // 标记是否全部为"未记录"

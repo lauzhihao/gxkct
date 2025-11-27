@@ -125,24 +125,24 @@ export function CourseBasicInfo({ name, courseDetail, courseNameData, createTime
         )}
 
         {/* 课程定位 */}
-        {courseDetail?.position && (
+        {courseDetail?.position !== undefined && courseDetail?.position !== null && (
           <div className="flex flex-row items-center gap-3">
             <div className="flex items-center gap-1 text-sm text-muted-foreground flex-shrink-0">
               <BookOpen className="w-3 h-3" />
               <span>课程定位</span>
             </div>
-            <div className="text-base font-medium text-foreground">{courseDetail.position}</div>
+            <div className="text-base font-medium text-foreground">{courseDetail.position || "未设置"}</div>
           </div>
         )}
 
         {/* 课程标准 */}
-        {courseDetail?.criterion && (
+        {courseDetail?.criterion !== undefined && courseDetail?.criterion !== null && (
           <div className="flex flex-row items-center gap-3">
             <div className="flex items-center gap-1 text-sm text-muted-foreground flex-shrink-0">
               <FileText className="w-3 h-3" />
               <span>课程标准</span>
             </div>
-            <div className="text-base font-medium text-foreground">{courseDetail.criterion}</div>
+            <div className="text-base font-medium text-foreground">{courseDetail.criterion || "未设置"}</div>
           </div>
         )}
       </div>

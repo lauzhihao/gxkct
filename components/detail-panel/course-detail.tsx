@@ -1,9 +1,10 @@
 "use client"
 import { useState, useEffect } from "react"
 import type { DetailPanelProps } from "./types"
-import { BookOpen, Calendar, Pencil, Trash2 } from "lucide-react"
+import { BookOpen, Calendar, Pencil, Trash2, User, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Accordion } from "@/components/ui/accordion"
 import AddCourseForm from "@/components/add-course-form"
@@ -167,8 +168,9 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
   if (isLoading) {
     return (
       <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl p-6 flex items-center justify-center min-h-[500px]">
-        <div className="text-center text-muted-foreground">
-          <div className="text-lg">加载课程详情中...</div>
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-3" />
+          <div className="text-lg text-muted-foreground">加载课程详情中...</div>
         </div>
       </div>
     )
@@ -189,6 +191,21 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
   const collegeId = courseNameData.college.id
   const createTime = courseDetailInfo.course.createTime
   const majorId = courseDetailInfo.course.majorId
+
+  // 从 metadata 中获取专业名称
+  const majorName = (metadata as any)?.parentMajorName || courseNameData.major || "未设置"
+
+  // 获取讲师数组
+  const getInstructors = () => {
+    const instructors = (metadata as any)?.instructors || []
+    return instructors.length > 0 ? instructors : ["未设置"]
+  }
+
+  // 判断讲师是否已设置（有有效的讲师名称）
+  const isInstructorSet = () => {
+    const instructors = (metadata as any)?.instructors || []
+    return instructors.length > 0
+  }
 
   // 如果正在编辑教学目标，显示TeachingObjectivesEditor
   if (isEditingTeachingObjectives) {
@@ -214,45 +231,75 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
       <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6 border-b border-border">
-          <div className="flex items-start justify-between">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center flex-shrink-0">
-                <BookOpen className="w-6 h-6 text-primary" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center flex-shrink-0">
+                <BookOpen className="w-8 h-8 text-primary" />
               </div>
-              <div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">{courseNameData.name}</h2>
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary">{courseNameData.major}</Badge>
-                  <Badge variant="outline">{courseNameData.department.name}</Badge>
-                  <Badge variant="outline">
-                    <Calendar className="w-3 h-3 mr-1" />
-                    {courseNameData.college.name}
-                  </Badge>
+              <div className="flex flex-col gap-1">
+                <h2 className="text-2xl font-bold text-foreground leading-tight">{courseNameData.name}</h2>
+                <div className="flex flex-wrap gap-1 items-center">
+                  {getInstructors().map((instructor, index) => (
+                    <div
+                      key={index}
+                      className={cn(
+                        "flex items-center gap-1 px-1.5 py-0.5 rounded border text-xs",
+                        isInstructorSet()
+                          ? "bg-primary border-primary"
+                          : "bg-muted border-muted-foreground/30",
+                      )}
+                    >
+                      <User className={cn(
+                        "w-3 h-3",
+                        isInstructorSet() ? "text-white" : "text-muted-foreground",
+                      )} />
+                      <span className={cn(
+                        "font-medium",
+                        isInstructorSet() ? "text-white" : "text-muted-foreground",
+                      )}>
+                        {instructor}
+                      </span>
+                    </div>
+                  ))}
+                  {majorName && (
+                    <Badge variant="secondary" className="text-sm px-2 py-0.5 w-fit">@{majorName}</Badge>
+                  )}
                 </div>
               </div>
             </div>
-            <div className="flex gap-2">
-              {onUpdateNode && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setIsEditingCourse(true)}
-                  className="gap-2 hover:bg-primary/10"
-                >
-                  <Pencil className="w-4 h-4 text-primary" />
-                </Button>
-              )}
-              {onDelete && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setIsDeleteDialogOpen(true)}
-                  className="gap-2 hover:bg-red-500/10 text-red-500"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              )}
-            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 mt-2">
+            {(metadata as any)?.parentDeptName && (
+              <Badge variant="outline">{(metadata as any).parentDeptName}</Badge>
+            )}
+            {(metadata as any)?.collegeName && (
+              <Badge variant="outline">
+                <Calendar className="w-3 h-3 mr-1" />
+                {(metadata as any).collegeName}
+              </Badge>
+            )}
+          </div>
+          <div className="flex gap-2 absolute top-6 right-6">
+            {onUpdateNode && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setIsEditingCourse(true)}
+                className="gap-2 hover:bg-primary/10"
+              >
+                <Pencil className="w-4 h-4 text-primary" />
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setIsDeleteDialogOpen(true)}
+                className="gap-2 hover:bg-red-500/10 text-red-500"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            )}
           </div>
         </div>
 

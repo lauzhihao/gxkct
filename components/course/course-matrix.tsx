@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Pencil, X, Check, Loader2, Plus, BookMarked, GripVertical, Search, Settings, Trash2, Star, Flag } from "lucide-react"
+import { Pencil, X, Check, Loader2, Plus, BookMarked, GripVertical, Search, Settings, Trash2, Flag } from "lucide-react"
 import { FileUpload } from "@/components/ui/file-upload"
 import { cn } from "@/lib/utils"
 import type { TreeNode } from "@/types"
@@ -13,6 +13,7 @@ import type { CourseGoal } from "@/lib/api/course-goals-api"
 import type { CoursePoint as ApiCoursePoint } from "@/lib/api/course-points-api"
 import { showSuccess, showError } from "@/lib/toast-utils"
 import type { ProjectTeachGoalData, Project, ProjectTeachGoal } from "@/lib/api/project-teach-goal-api"
+import { SupportLabel } from "@/components/support-label"
 
 interface CourseMatrixProps {
   node: TreeNode
@@ -721,7 +722,7 @@ export function CourseMatrix({ node, onUpdateNode, majorId, onEditTeachingObject
                               className="flex-shrink-0 p-1 text-muted-foreground hover:text-red-600 transition-colors"
                               title="删除项目"
                             >
-                              <X className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
                             <button
                               draggable
@@ -752,49 +753,19 @@ export function CourseMatrix({ node, onUpdateNode, majorId, onEditTeachingObject
                               {isEditingCourseMatrix ? (
                                 <div className="flex flex-col items-center gap-2">
                                   {coursePoints.length > 0 && (
-                                    <div className="flex flex-wrap gap-1 justify-center">
+                                    <div className="flex flex-wrap gap-2 justify-center">
                                       {coursePoints.map((cp) => (
-                                        <div key={cp.id} className="relative group/tooltip">
-                                          <span
-                                            className={cn(
-                                              "inline-flex items-center gap-1 px-2 py-1 rounded text-sm font-medium cursor-pointer",
-                                              cp.support === "strong" && "bg-orange-100 border border-orange-300 text-orange-700",
-                                              cp.support === "weak" && "bg-green-100 border border-green-300 text-green-700",
-                                            )}
-                                          >
-                                            {cp.support === "strong" ? (
-                                              <Star className="w-3 h-3 fill-current" />
-                                            ) : (
-                                              <Star className="w-3 h-3" />
-                                            )}
-                                            {coursePointTitleMap.get(cp.id) || cp.name || cp.id}
-                                            <button
-                                              onClick={() =>
-                                                handleRemoveCoursePoint(String(goal.id), String(child.id), String(project.id), cp.id)
-                                              }
-                                              className="hover:text-red-600 transition-colors"
-                                            >
-                                              <X className="w-3 h-3" />
-                                            </button>
-                                          </span>
-                                          <div
-                                            className={cn(
-                                              "absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-white text-sm rounded shadow-lg whitespace-nowrap opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-150 pointer-events-none z-50",
-                                              cp.support === "strong" && "bg-orange-600",
-                                              cp.support === "weak" && "bg-green-600",
-                                            )}
-                                          >
-                                            <div className="flex items-center gap-1">
-                                              {cp.support === "strong" ? "⭐" : "☆"}
-                                              <span>{coursePointTitleMap.get(cp.id) || cp.name || cp.id}</span>
-                                              {cp.description && (
-                                                <>
-                                                  <span>:</span>
-                                                  <span>{cp.description}</span>
-                                                </>
-                                              )}
-                                            </div>
-                                          </div>
+                                        <div key={cp.id} className="relative group/label">
+                                          <SupportLabel
+                                            title={coursePointTitleMap.get(cp.id) || cp.name || cp.id}
+                                            desc={cp.description}
+                                            type={cp.support}
+                                            showRemoveButton={true}
+                                            onRemove={() =>
+                                              handleRemoveCoursePoint(String(goal.id), String(child.id), String(project.id), cp.id)
+                                            }
+                                            size="md"
+                                          />
                                         </div>
                                       ))}
                                     </div>
@@ -807,34 +778,16 @@ export function CourseMatrix({ node, onUpdateNode, majorId, onEditTeachingObject
                                   </button>
                                 </div>
                               ) : (
-                                <div className="flex flex-wrap gap-1 justify-center">
+                                <div className="flex flex-wrap gap-2 justify-center">
                                   {coursePoints.length > 0 ? (
                                     coursePoints.map((cp) => (
-                                      <div key={cp.id} className="relative group/tooltip">
-                                        <span
-                                          className={cn(
-                                            "inline-flex items-center gap-1 px-2 py-1 rounded text-sm font-medium cursor-pointer",
-                                            cp.support === "strong" && "bg-orange-100 border border-orange-300 text-orange-700",
-                                            cp.support === "weak" && "bg-green-100 border border-green-300 text-green-700",
-                                          )}
-                                        >
-                                          {cp.support === "strong" ? (
-                                            <Star className="w-3 h-3 fill-current" />
-                                          ) : (
-                                            <Star className="w-3 h-3" />
-                                          )}
-                                          {coursePointTitleMap.get(cp.id) || cp.name || cp.id}
-                                        </span>
-                                        <div
-                                          className={cn(
-                                            "absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-white text-xs rounded shadow-lg whitespace-nowrap opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-150 pointer-events-none z-50",
-                                            cp.support === "strong" && "bg-orange-600",
-                                            cp.support === "weak" && "bg-green-600",
-                                          )}
-                                        >
-                                          {cp.description || cp.name}
-                                        </div>
-                                      </div>
+                                      <SupportLabel
+                                        key={cp.id}
+                                        title={coursePointTitleMap.get(cp.id) || cp.name || cp.id}
+                                        desc={cp.description}
+                                        type={cp.support}
+                                        size="md"
+                                      />
                                     ))
                                   ) : (
                                     <span className="text-xs text-muted-foreground">-</span>
@@ -849,7 +802,8 @@ export function CourseMatrix({ node, onUpdateNode, majorId, onEditTeachingObject
                       ))}
                       {isEditingCourseMatrix && (
                         <tr className="border-b border-border hover:bg-white/50 transition-colors">
-                          <td colSpan={2 + secondLevelHeaderCount} className="p-3 text-center">
+                          <td className="p-3 text-center border-r border-border bg-secondary/20" style={{ width: '60px' }}></td>
+                          <td className="p-3 text-center border-r border-border bg-white/80" style={{ minWidth: '300px' }}>
                             <button
                               onClick={handleAddProject}
                               className="inline-flex items-center justify-center w-8 h-8 rounded-full border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/10 transition-all group"
@@ -857,6 +811,9 @@ export function CourseMatrix({ node, onUpdateNode, majorId, onEditTeachingObject
                               <Plus className="w-4 h-4 text-primary/60 group-hover:text-primary" />
                             </button>
                           </td>
+                          {Array.from({ length: secondLevelHeaderCount }).map((_, idx) => (
+                            <td key={`add-row-${idx}`} className="p-3 text-center border-r border-border" style={{ width: '500px' }}></td>
+                          ))}
                         </tr>
                       )}
                     </tbody>
