@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
-import { Grid3x3, Edit, Check, X, Loader2, Plus, Trash2, BookMarked } from "lucide-react"
+import { Grid3x3, Edit, Check, X, Loader2, Plus, Trash2, BookMarked, Settings, Flag } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { TreeNode } from "@/types"
 import { api } from "@/lib/api"
@@ -432,17 +432,23 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
             </Button>
           </div>
         ) : (
-          <Button size="sm" onClick={() => setIsEditingProjectMatrix(true)} className="gap-2">
-            <Edit className="w-4 h-4" />
-            编辑
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => setKsaDialogOpen(true)} className="gap-2">
+              <Settings className="w-4 h-4" />
+              KSA
+            </Button>
+            <Button size="sm" onClick={() => setIsEditingProjectMatrix(true)} className="gap-2">
+              <Edit className="w-4 h-4" />
+              编辑
+            </Button>
+          </div>
         )}
       </div>
 
       {isLoadingProjectMatrix ? (
         <div className="flex items-center justify-center py-8">
           <Loader2 className="w-5 h-5 animate-spin text-primary mr-2" />
-          <span className="text-muted-foreground">加载项目矩阵数据中...</span>
+          <span className="text-muted-foreground">加载中</span>
         </div>
       ) : projectMatrixData?.projects && projectMatrixData.projects.length > 0 ? (
         <Accordion type="multiple" className="space-y-3">
@@ -471,28 +477,19 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
                     </div>
                   </AccordionTrigger>
                   <div className="absolute right-5 top-1/2 -translate-y-1/2 z-10 flex gap-2">
-                    {isEditingProjectMatrix && (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleOpenTaskObjectivesDialog(projectId)
-                          }}
-                          className="gap-2"
-                        >
-                          <Plus className="w-4 h-4" />
-                          添加
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="gap-2 text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </>
+                    {!isEditingProjectMatrix && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleOpenTaskObjectivesDialog(projectId)
+                        }}
+                        className="gap-2"
+                      >
+                        <Flag className="w-4 h-4" />
+                        任务目标
+                      </Button>
                     )}
                   </div>
                 </div>

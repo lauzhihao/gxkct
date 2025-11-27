@@ -828,7 +828,7 @@ export function CourseMatrix({ node, onUpdateNode, majorId, onEditTeachingObject
             {isLoadingProjectTeachGoal ? (
               <>
                 <Loader2 className="w-6 h-6 mx-auto mb-3 animate-spin" />
-                <p className="text-sm mb-2">加载数据中...</p>
+                <p className="text-sm mb-2">加载中</p>
               </>
             ) : (
               <>

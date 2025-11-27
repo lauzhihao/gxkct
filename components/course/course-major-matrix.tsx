@@ -198,7 +198,7 @@ export function CourseMajorMatrix({ node, majorNode, majorId, onUpdateNode }: Co
       {isLoadingMatrix ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-6 h-6 animate-spin text-primary mr-2" />
-          <span className="text-muted-foreground">加载专业矩阵数据中...</span>
+          <span className="text-muted-foreground">加载中</span>
         </div>
       ) : graduationRequirements.length > 0 ? (
         <div className="rounded-lg border border-border bg-card/50 overflow-hidden">

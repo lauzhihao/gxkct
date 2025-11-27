@@ -147,7 +147,7 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">加载课程信息中...</p>
+            <p className="text-muted-foreground">加载中</p>
           </div>
         </div>
       )
@@ -170,7 +170,7 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
       <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl p-6 flex items-center justify-center min-h-[500px]">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-3" />
-          <div className="text-lg text-muted-foreground">加载课程详情中...</div>
+          <div className="text-lg text-muted-foreground">加载中</div>
         </div>
       </div>
     )
