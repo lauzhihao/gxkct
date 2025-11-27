@@ -1,8 +1,7 @@
 import type { TreeNode } from "@/types"
 import { StorageAdapter } from "./storage-adapter"
-import type { ApiResponse, BackendResponse } from "./types"
+import type { ApiResponse } from "./types"
 import { getCurrentUserId } from "./auth-config"
-import majorDetailData from "@/mock-data/major-detail.json"
 
 export class TreeApi {
   private storage = new StorageAdapter()
@@ -330,36 +329,50 @@ export class TreeApi {
     const { data: majorsData } = majorsResponse.data
     console.log(`[TreeApi] getDepartmentMajors() API返回 ${majorsData.length} 个专业，departmentId=${departmentId}`)
 
-    // 从major-detail.json获取详细数据格式
-    const majorDetailResponse = majorDetailData as BackendResponse<any>
-    const detailData = majorDetailResponse.data || {}
+    // 为每个专业获取详细信息
+    const majors: TreeNode[] = await Promise.all(
+      majorsData.map(async (item) => {
+        let detailData: any = {}
 
-    // 将data数组转换为TreeNode数组
-    const majors: TreeNode[] = majorsData.map((item) => ({
-      id: `major-${item.self.value}`,
-      name: item.self.label,
-      type: "major" as const,
-      children: [],
-      metadata: {
-        code: detailData.majorClass || "",
-        majorLevel: detailData.majorLevel || "",
-        majorClass: detailData.majorClass || "",
-        feature: detailData.feature || "",
-        careerLevel: detailData.careerLevel || "",
-        demandType: detailData.demandType || "",
-        demandArea: detailData.demandArea || "",
-        professionsVOS: detailData.professionsVOS || [],
-        position: detailData.position || "",
-        requiresVOS: detailData.requiresVOS || [],
-        majorId: item.self.value,
-        parentDeptId: item.parent.value,
-        parentDeptName: item.parent.label,
-        managers: item.manager,
-        btnMenus: item.btnMenus,
-        coverMenus: item.coverMenus,
-        lang: item.lang,
-      },
-    }))
+        // 调用API获取该专业的详细信息
+        try {
+          const majorDetailResponse = await this.storage.getFromApi<any>(
+            `/api/major/v2.0/detail?majorid=${item.self.value}`
+          )
+          if (majorDetailResponse.data) {
+            detailData = majorDetailResponse.data
+          }
+        } catch (error) {
+          console.warn(`[TreeApi] 获取专业 ${item.self.value} 的详细信息失败:`, error)
+        }
+
+        return {
+          id: `major-${item.self.value}`,
+          name: item.self.label,
+          type: "major" as const,
+          children: [],
+          metadata: {
+            code: detailData.majorClass || "",
+            majorLevel: detailData.majorLevel || "",
+            majorClass: detailData.majorClass || "",
+            feature: detailData.feature || "",
+            careerLevel: detailData.careerLevel || "",
+            demandType: detailData.demandType || "",
+            demandArea: detailData.demandArea || "",
+            professionsVOS: detailData.professionsVOS || [],
+            position: detailData.position || "",
+            requiresVOS: detailData.requiresVOS || [],
+            majorId: item.self.value,
+            parentDeptId: item.parent.value,
+            parentDeptName: item.parent.label,
+            managers: item.manager,
+            btnMenus: item.btnMenus,
+            coverMenus: item.coverMenus,
+            lang: item.lang,
+          },
+        }
+      })
+    )
 
     console.log(`[TreeApi] getDepartmentMajors() 返回 ${majors.length} 个专业`)
     return { data: majors, error: null, status: 200 }

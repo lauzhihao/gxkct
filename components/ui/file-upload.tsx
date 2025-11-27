@@ -37,6 +37,8 @@ export interface FileUploadProps {
   accept?: string
   // 自定义按钮样式
   buttonClassName?: string
+  // 是否禁用上传按钮
+  disabled?: boolean
 }
 
 export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
@@ -50,6 +52,7 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
       onUpload,
       accept,
       buttonClassName,
+      disabled = false,
     },
     ref,
   ) => {
@@ -218,6 +221,7 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
           size="sm"
           variant="outline"
           onClick={() => setIsDialogOpen(true)}
+          disabled={disabled}
           className={cn('gap-2 bg-transparent', buttonClassName)}
         >
           <Upload className="w-4 h-4" />

@@ -86,15 +86,15 @@ export function CourseThreeLevelMatrix({ node, onUpdateNode, treeData, majorCour
           <TabsTrigger value="projectMatrix">项目矩阵</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="majorMatrix" className="mt-6">
+        <TabsContent value="majorMatrix" className="mt-6  pb-2.5">
           <CourseMajorMatrix node={node} majorNode={majorNode} majorId={majorId} onUpdateNode={onUpdateNode} />
         </TabsContent>
 
-        <TabsContent value="courseMatrix" className="mt-6">
-          <CourseMatrix node={node} onUpdateNode={onUpdateNode} />
+        <TabsContent value="courseMatrix" className="mt-6  pb-2.5">
+          <CourseMatrix node={node} onUpdateNode={onUpdateNode} majorId={majorId} />
         </TabsContent>
 
-        <TabsContent value="projectMatrix" className="mt-6">
+        <TabsContent value="projectMatrix" className="mt-6  pb-2.5">
           <CourseProjectMatrix node={node} onUpdate={handleUpdateMetadata} />
         </TabsContent>
       </Tabs>

@@ -33,6 +33,12 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
   const [courseDetailData, setCourseDetailData] = useState<CombinedCourseDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
+  // 当节点改变时，退出编辑模式
+  useEffect(() => {
+    setIsEditingCourse(false)
+    setIsDeleteDialogOpen(false)
+  }, [node?.id])
+
   // 加载课程详情数据
   useEffect(() => {
     const loadCourseDetail = async () => {
@@ -41,25 +47,27 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
         // 从metadata中获取真实的courseId
         const courseId = (metadata as any)?.courseId
         if (!courseId) {
-          console.error("无法获取课程ID")
+          console.error("[CourseDetail] 无法获取课程ID")
           setIsLoading(false)
           return
         }
+        console.log(`[CourseDetail] 开始加载课程详情，courseId: ${courseId}`)
         const response = await api.courseDetail.getCourseDetail(courseId)
         if (response.data) {
+          console.log(`[CourseDetail] 课程详情加载成功`)
           setCourseDetailData(response.data)
         }
       } catch (error) {
-        console.error("加载课程详情失败:", error)
+        console.error("[CourseDetail] 加载课程详情失败:", error)
       } finally {
         setIsLoading(false)
       }
     }
 
-    if (node?.id) {
+    if (node?.id && (metadata as any)?.courseId) {
       loadCourseDetail()
     }
-  }, [node?.id, metadata])
+  }, [node?.id, (metadata as any)?.courseId])
 
   if (!node || node.type !== "course") return null
 

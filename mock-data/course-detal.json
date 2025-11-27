@@ -3,1341 +3,160 @@
     "message": "success",
     "data": {
         "course": {
-            "id": 8622,
-            "majorId": 3895,
+            "id": 8198,
+            "majorId": 3899,
             "classId": 1,
-            "typeId": 1,
-            "name": "大学英语IV",
-            "position": null,
-            "introduction": "《大学英语》课程属于通识课，依据教育部《大学英语教学指南》（2020版）要求，课程（基础性、整体性、综合性和广博性特征）肩负培养学生综合素质（扩宽视野、避免偏狭、独立思考、判断、社会责任感和健全人格）的任务；从学科角度，《大学英语》应培养学生综合应用能力（书面交流与专业文书翻译）、学术研究（深造学习、参加学术活动）（较高层次）、专业发展（使用英语从事本专业工作）和国际交流的能力。根据学校各本科专业对《大学英语》课程提出的要求，《大学英语》应在跨文化背景下日常、业务及学术交流、专业材料对译等方面。鉴于我校本科生英语基础差异性较大，《大学英语》课程设计系内分层教学，即高考入学成绩90分（或100分）以上进入卓越班、90分（或100分）以下进入普通班，基础极弱学生进入起点班学习，日语语种入学学生进入大学日语班学习，俄语语种入学学生进入大学俄语班学习，设计差异性教学内容、实施手段以及考核标准，使全体本科生具备基本的运用英语进行交流、学习和工作的英语运用能力。\n",
-            "criterion": null,
-            "theoryPeriod": 48.0,
-            "practicePeriod": 0.0,
+            "typeId": 2,
+            "name": "测量学",
+            "position": "",
+            "introduction": "《测量学》课程是工程管理专业开设的一门学科基础课程，通过本课程的学习，使学生掌握工程建设从规划设计阶段、施工阶段、竣工运营管理阶段的工程测量知识，具备施工测量实践技能，解决工程建设中的测量问题。主要培养学生具备二级建造师的综合管理能力，达到专业对应职业要求。",
+            "criterion": "",
+            "theoryPeriod": 24.0,
+            "practicePeriod": 16.0,
             "courseMatrixVOS": [
                 {
-                    "id": 28636,
-                    "courseUnitId": 8622,
+                    "id": 26913,
+                    "courseUnitId": 8198,
                     "courseClassId": null,
                     "courseTypeId": null,
-                    "name": "项目1：结构分析",
-                    "theoryPeriod": "8",
+                    "name": "章节1：绪论",
+                    "theoryPeriod": "2",
                     "practicePeriod": "0"
                 },
                 {
-                    "id": 28637,
-                    "courseUnitId": 8622,
+                    "id": 26914,
+                    "courseUnitId": 8198,
                     "courseClassId": null,
                     "courseTypeId": null,
-                    "name": "项目2：建筑结构",
-                    "theoryPeriod": "8",
+                    "name": "项目1（子项目1）：水准测量",
+                    "theoryPeriod": "4",
+                    "practicePeriod": "8"
+                },
+                {
+                    "id": 26918,
+                    "courseUnitId": 8198,
+                    "courseClassId": null,
+                    "courseTypeId": null,
+                    "name": "项目1（子项目2）四等水准测量",
+                    "theoryPeriod": "0",
                     "practicePeriod": "0"
                 },
                 {
-                    "id": 28638,
-                    "courseUnitId": 8622,
+                    "id": 26915,
+                    "courseUnitId": 8198,
                     "courseClassId": null,
                     "courseTypeId": null,
-                    "name": "项目3：数字语句",
-                    "theoryPeriod": "8",
+                    "name": "项目2： 校园北区建设项目角度测量",
+                    "theoryPeriod": "4",
+                    "practicePeriod": "4"
+                },
+                {
+                    "id": 26916,
+                    "courseUnitId": 8198,
+                    "courseClassId": null,
+                    "courseTypeId": null,
+                    "name": "项目3（子项目1）距离测量",
+                    "theoryPeriod": "10",
                     "practicePeriod": "0"
                 },
                 {
-                    "id": 28639,
-                    "courseUnitId": 8622,
+                    "id": 26919,
+                    "courseUnitId": 8198,
                     "courseClassId": null,
                     "courseTypeId": null,
-                    "name": "项目4：项目成本",
-                    "theoryPeriod": "8",
+                    "name": "项目3（子项目2）导线测量",
+                    "theoryPeriod": "0",
                     "practicePeriod": "0"
                 },
                 {
-                    "id": 28640,
-                    "courseUnitId": 8622,
+                    "id": 26917,
+                    "courseUnitId": 8198,
                     "courseClassId": null,
                     "courseTypeId": null,
-                    "name": "项目5：智能技术",
-                    "theoryPeriod": "8",
-                    "practicePeriod": "0"
-                },
-                {
-                    "id": 28641,
-                    "courseUnitId": 8622,
-                    "courseClassId": null,
-                    "courseTypeId": null,
-                    "name": "项目6：智能建筑",
-                    "theoryPeriod": "8",
-                    "practicePeriod": "0"
+                    "name": "项目4：校园北区建设项目地形图观测",
+                    "theoryPeriod": "4",
+                    "practicePeriod": "4"
                 }
             ],
-            "createTime": "2024-03-29T04:42:58.000+00:00"
+            "createTime": "2024-03-24T15:25:00.000+00:00"
         },
         "pointksa": {
             "points": [
                 {
-                    "id": 225096,
-                    "title": "课点1 ",
-                    "description": "简单句的句型"
+                    "id": 227761,
+                    "title": "课点1",
+                    "description": "测量学的内容和内涵"
                 },
                 {
-                    "id": 225097,
-                    "title": "课点2",
-                    "description": "简单句的实践"
-                },
-                {
-                    "id": 225098,
-                    "title": "课点3 ",
-                    "description": "限制性定语从句关系代词的分类"
-                },
-                {
-                    "id": 225099,
-                    "title": "课点4",
-                    "description": "限制性定语从句关系代词的用法"
-                },
-                {
-                    "id": 225100,
-                    "title": "课点5",
-                    "description": "限制性定语从句关系副词的分类"
-                },
-                {
-                    "id": 225101,
-                    "title": "课点6",
-                    "description": "限制性定语从句关系副词的用法"
-                },
-                {
-                    "id": 225102,
-                    "title": "课点7",
-                    "description": "建筑结构词汇"
-                },
-                {
-                    "id": 225103,
-                    "title": "课点8",
-                    "description": "建筑经济合同"
-                },
-                {
-                    "id": 225104,
+                    "id": 227809,
                     "title": "课点9",
-                    "description": "建筑结构语句"
-                },
-                {
-                    "id": 225105,
-                    "title": "课点10",
-                    "description": "建筑结构语篇"
-                },
-                {
-                    "id": 225106,
-                    "title": "课点11",
-                    "description": "非限制性定语从句的用法"
-                },
-                {
-                    "id": 225107,
-                    "title": "课点12",
-                    "description": "非限定性定语从句实践"
-                },
-                {
-                    "id": 225108,
-                    "title": "课点13",
-                    "description": "Dialogue 1"
-                },
-                {
-                    "id": 225109,
-                    "title": "课点14",
-                    "description": "Practical writing 1"
-                },
-                {
-                    "id": 225110,
-                    "title": "课点15",
-                    "description": "Extensive Reading 1"
-                },
-                {
-                    "id": 225111,
-                    "title": "课点16",
-                    "description": "项目汇报总结1"
-                },
-                {
-                    "id": 225112,
-                    "title": "课点17",
-                    "description": "同位语从句的用法及引导词"
-                },
-                {
-                    "id": 225113,
-                    "title": "课点18",
-                    "description": "建筑装饰设计说明写作"
-                },
-                {
-                    "id": 225114,
-                    "title": "课点19",
-                    "description": "表语从句的引导词"
-                },
-                {
-                    "id": 225115,
-                    "title": "课点20",
-                    "description": "表语从句的用法"
-                },
-                {
-                    "id": 225116,
-                    "title": "课点21",
-                    "description": "宾语从句的引导词"
-                },
-                {
-                    "id": 225117,
-                    "title": "课点22",
-                    "description": "宾语从句的用法"
-                },
-                {
-                    "id": 225118,
-                    "title": "课点23",
-                    "description": "主语从句的引导词"
-                },
-                {
-                    "id": 225119,
-                    "title": "课点24",
-                    "description": "主语从句的用法"
-                },
-                {
-                    "id": 225120,
-                    "title": "课点25",
-                    "description": "成本词汇"
-                },
-                {
-                    "id": 225121,
-                    "title": "课点26",
-                    "description": "成本语篇"
-                },
-                {
-                    "id": 225122,
-                    "title": "课点27",
-                    "description": "Dialogue 2"
-                },
-                {
-                    "id": 225123,
-                    "title": "课点28",
-                    "description": "语法扩展"
-                },
-                {
-                    "id": 225124,
-                    "title": "课点29",
-                    "description": "Practical Writing 2"
-                },
-                {
-                    "id": 225125,
-                    "title": "课点30",
-                    "description": "Extensive Reading 2"
-                },
-                {
-                    "id": 225126,
-                    "title": "课点31",
-                    "description": "成本分析元素"
-                },
-                {
-                    "id": 225127,
-                    "title": "课点32",
-                    "description": "项目汇报总结2"
-                },
-                {
-                    "id": 225128,
-                    "title": "课点33",
-                    "description": "时间状语从句的用法"
-                },
-                {
-                    "id": 225129,
-                    "title": "课点34",
-                    "description": "地点状语从句的用法"
-                },
-                {
-                    "id": 225130,
-                    "title": "课点35",
-                    "description": "原因状语从句的用法"
-                },
-                {
-                    "id": 225131,
-                    "title": "课点36",
-                    "description": "目的状语从句的用法"
-                },
-                {
-                    "id": 225132,
-                    "title": "课点37",
-                    "description": "结果状语从句的用法"
-                },
-                {
-                    "id": 225133,
-                    "title": "课点38",
-                    "description": "条件状语从句的用法"
-                },
-                {
-                    "id": 225134,
-                    "title": "课点39",
-                    "description": "让步、比较、方式状语从句的用法"
-                },
-                {
-                    "id": 225135,
-                    "title": "课点40",
-                    "description": "智能技术简介"
-                },
-                {
-                    "id": 225136,
-                    "title": "课点41",
-                    "description": "智能建筑词汇"
-                },
-                {
-                    "id": 225137,
-                    "title": "课点42",
-                    "description": "智能建筑语篇"
-                },
-                {
-                    "id": 225138,
-                    "title": "课点43",
-                    "description": "重点语句分析"
-                },
-                {
-                    "id": 225139,
-                    "title": "课点44",
-                    "description": "重点语句翻译"
-                },
-                {
-                    "id": 225140,
-                    "title": "课点45",
-                    "description": "Dialogues 3"
-                },
-                {
-                    "id": 225141,
-                    "title": "课点46",
-                    "description": "扩展听力"
-                },
-                {
-                    "id": 225142,
-                    "title": "课点47",
-                    "description": "项目汇报总结3"
-                },
-                {
-                    "id": 225143,
-                    "title": "课点48",
-                    "description": "学期总结"
+                    "description": "水准路线测量原理"
                 }
             ],
             "ksas": [
                 {
-                    "id": 488432,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "简单句的使用规则",
+                    "id": 495159,
+                    "majorId": 3899,
+                    "courseUnitId": 8198,
+                    "title": "A",
+                    "description": "精益求精、工匠精神",
                     "level": 1
                 },
                 {
-                    "id": 488433,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "简单句结构",
+                    "id": 495160,
+                    "majorId": 3899,
+                    "courseUnitId": 8198,
+                    "title": "A",
+                    "description": "国家-军事及科技强国",
                     "level": 2
                 },
                 {
-                    "id": 488434,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "关系代词的分类",
+                    "id": 495161,
+                    "majorId": 3899,
+                    "courseUnitId": 8198,
+                    "title": "A",
+                    "description": "辨析意识",
                     "level": 3
                 },
                 {
-                    "id": 488435,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
+                    "id": 495162,
+                    "majorId": 3899,
+                    "courseUnitId": 8198,
                     "title": "K",
-                    "description": "关系代词的使用规则",
-                    "level": 4
-                },
-                {
-                    "id": 488436,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "关系副词的分类",
-                    "level": 5
-                },
-                {
-                    "id": 488437,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "关系副词的特征",
-                    "level": 6
-                },
-                {
-                    "id": 488438,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "常见词汇",
-                    "level": 7
-                },
-                {
-                    "id": 488439,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "扩展词汇",
-                    "level": 8
-                },
-                {
-                    "id": 488440,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "常见建筑经济合同",
-                    "level": 9
-                },
-                {
-                    "id": 488441,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "主语从句的定义",
+                    "description": "水准测量内业计算方法",
                     "level": 10
                 },
                 {
-                    "id": 488442,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
+                    "id": 495163,
+                    "majorId": 3899,
+                    "courseUnitId": 8198,
                     "title": "K",
-                    "description": "引导词的用法",
+                    "description": "水准测量的误差分析",
                     "level": 11
                 },
                 {
-                    "id": 488443,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
+                    "id": 495164,
+                    "majorId": 3899,
+                    "courseUnitId": 8198,
                     "title": "K",
-                    "description": "分译法的定义",
+                    "description": "了解水准仪的检验和校正",
                     "level": 12
                 },
                 {
-                    "id": 488444,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
+                    "id": 495165,
+                    "majorId": 3899,
+                    "courseUnitId": 8198,
                     "title": "K",
-                    "description": "分译法的用法",
+                    "description": "掌握电子水准仪的构造和使用方法",
                     "level": 13
                 },
                 {
-                    "id": 488445,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
+                    "id": 495166,
+                    "majorId": 3899,
+                    "courseUnitId": 8198,
                     "title": "K",
-                    "description": "非限定性定语从句的定义",
+                    "description": "掌握水平角的概念及计算",
                     "level": 14
-                },
-                {
-                    "id": 488446,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "非限定性定语从句的用法",
-                    "level": 15
-                },
-                {
-                    "id": 488447,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "英文对话特征",
-                    "level": 16
-                },
-                {
-                    "id": 488448,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "英文对话示例",
-                    "level": 17
-                },
-                {
-                    "id": 488449,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "译后仿写方法",
-                    "level": 18
-                },
-                {
-                    "id": 488450,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "结构类仿写注意事项",
-                    "level": 19
-                },
-                {
-                    "id": 488451,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "语篇主旨分析方法",
-                    "level": 20
-                },
-                {
-                    "id": 488452,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "语篇结构分析方法",
-                    "level": 21
-                },
-                {
-                    "id": 488453,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "英文总结特征",
-                    "level": 22
-                },
-                {
-                    "id": 488454,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "英文总结分类",
-                    "level": 23
-                },
-                {
-                    "id": 488455,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "掌握同位语从句的定义",
-                    "level": 24
-                },
-                {
-                    "id": 488456,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "说明性语句特征",
-                    "level": 25
-                },
-                {
-                    "id": 488457,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "表语从句的定义",
-                    "level": 26
-                },
-                {
-                    "id": 488458,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "表语从句的引导词",
-                    "level": 27
-                },
-                {
-                    "id": 488459,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "表语从句的翻译",
-                    "level": 28
-                },
-                {
-                    "id": 488460,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "表语从句的写作",
-                    "level": 29
-                },
-                {
-                    "id": 488461,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "宾语从句的定义",
-                    "level": 30
-                },
-                {
-                    "id": 488462,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "宾语从句的引导词",
-                    "level": 31
-                },
-                {
-                    "id": 488463,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "宾语从句的翻译",
-                    "level": 32
-                },
-                {
-                    "id": 488464,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "宾语从句的写作",
-                    "level": 33
-                },
-                {
-                    "id": 488465,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "主语从句的定义",
-                    "level": 34
-                },
-                {
-                    "id": 488466,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "主语从句的引导词",
-                    "level": 35
-                },
-                {
-                    "id": 488467,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "主语从句的翻译",
-                    "level": 36
-                },
-                {
-                    "id": 488468,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "主语从句的写作",
-                    "level": 37
-                },
-                {
-                    "id": 488469,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "掌握成本表述词汇",
-                    "level": 38
-                },
-                {
-                    "id": 488470,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "掌握建筑成本相关词汇",
-                    "level": 39
-                },
-                {
-                    "id": 488471,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "掌握语篇分析的基本方法",
-                    "level": 40
-                },
-                {
-                    "id": 488472,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "掌握英文对话的提升技巧",
-                    "level": 41
-                },
-                {
-                    "id": 488473,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "How to develop a dialogue",
-                    "level": 42
-                },
-                {
-                    "id": 488474,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "掌握成本语篇中语法1",
-                    "level": 43
-                },
-                {
-                    "id": 488475,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "掌握成本语篇中语法2",
-                    "level": 44
-                },
-                {
-                    "id": 488476,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "掌握英文写作技巧",
-                    "level": 45
-                },
-                {
-                    "id": 488477,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "掌握分析类语篇特征",
-                    "level": 46
-                },
-                {
-                    "id": 488478,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "掌握扩展阅读语篇相关细节",
-                    "level": 47
-                },
-                {
-                    "id": 488479,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "掌握扩展语篇内涵文化知识",
-                    "level": 48
-                },
-                {
-                    "id": 488480,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "成本分析词句知识",
-                    "level": 49
-                },
-                {
-                    "id": 488481,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "成本分析项目反思",
-                    "level": 50
-                },
-                {
-                    "id": 488482,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "项目总结方法",
-                    "level": 51
-                },
-                {
-                    "id": 488483,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "项目总结技巧",
-                    "level": 52
-                },
-                {
-                    "id": 488484,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "时间状语从句的引导词",
-                    "level": 53
-                },
-                {
-                    "id": 488485,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "地点状语从句的引导词",
-                    "level": 54
-                },
-                {
-                    "id": 488486,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "原因状语从句的引导词",
-                    "level": 55
-                },
-                {
-                    "id": 488487,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "目的状语从句的引导词",
-                    "level": 56
-                },
-                {
-                    "id": 488488,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "结果状语从句的引导词",
-                    "level": 57
-                },
-                {
-                    "id": 488489,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "条件状语从句的引导词",
-                    "level": 58
-                },
-                {
-                    "id": 488490,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "条件状语从句的用法",
-                    "level": 59
-                },
-                {
-                    "id": 488491,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "让步、比较、方式状语从句的用法",
-                    "level": 60
-                },
-                {
-                    "id": 488492,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "智能技术简介的常用句式",
-                    "level": 61
-                },
-                {
-                    "id": 488493,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "掌握智能建筑相关词汇",
-                    "level": 62
-                },
-                {
-                    "id": 488494,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "掌握智能建筑语篇结构和内容",
-                    "level": 63
-                },
-                {
-                    "id": 488495,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "语篇主旨句分析",
-                    "level": 64
-                },
-                {
-                    "id": 488496,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "语篇主旨句翻译",
-                    "level": 65
-                },
-                {
-                    "id": 488497,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "掌握智能语篇相关细节",
-                    "level": 66
-                },
-                {
-                    "id": 488498,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "听力技巧1",
-                    "level": 67
-                },
-                {
-                    "id": 488499,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "掌握项目汇报用语",
-                    "level": 68
-                },
-                {
-                    "id": 488500,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "掌握总结的表达方法",
-                    "level": 69
-                },
-                {
-                    "id": 488501,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "K",
-                    "description": "掌握总结的类型",
-                    "level": 70
-                },
-                {
-                    "id": 488502,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够运用简单句撰写建筑经济合同",
-                    "level": 1
-                },
-                {
-                    "id": 488503,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够运用简单句进行专业写作",
-                    "level": 2
-                },
-                {
-                    "id": 488504,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够运用限制性定语从句撰写建筑经济合同",
-                    "level": 3
-                },
-                {
-                    "id": 488505,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够撰写建筑经济合同的英文标题",
-                    "level": 4
-                },
-                {
-                    "id": 488506,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够运用形容词撰写建筑经济合同",
-                    "level": 5
-                },
-                {
-                    "id": 488507,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够运用关系副词撰写建筑经济合同",
-                    "level": 6
-                },
-                {
-                    "id": 488508,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "运用结构词汇造句",
-                    "level": 7
-                },
-                {
-                    "id": 488509,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够运用并列连词撰写建筑经济合同",
-                    "level": 8
-                },
-                {
-                    "id": 488510,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够运用主语句撰写建筑装饰设计说明的句子进行翻译",
-                    "level": 9
-                },
-                {
-                    "id": 488511,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够运用分译法对建筑结构语句进行翻译",
-                    "level": 10
-                },
-                {
-                    "id": 488512,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够对非限定性定于从根据进行翻译",
-                    "level": 11
-                },
-                {
-                    "id": 488513,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够正确找出建筑装饰设计说明中非限定性定语从句",
-                    "level": 12
-                },
-                {
-                    "id": 488514,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够对建筑装结构语篇中非限定性定语从句进行翻译",
-                    "level": 13
-                },
-                {
-                    "id": 488515,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "根据英文对话具体要求进行小组对话",
-                    "level": 14
-                },
-                {
-                    "id": 488516,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "进行结构语篇仿写",
-                    "level": 15
-                },
-                {
-                    "id": 488517,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "对扩展语篇进行试译",
-                    "level": 16
-                },
-                {
-                    "id": 488518,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "根据英文总结要求进行项目总结",
-                    "level": 17
-                },
-                {
-                    "id": 488519,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够运用同位语撰写建筑装饰设计说明的句子进行翻译",
-                    "level": 18
-                },
-                {
-                    "id": 488520,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "把握名词性从句进行说明的语段、语篇的方法和技巧",
-                    "level": 19
-                },
-                {
-                    "id": 488521,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够运用表语从句建筑装成本表述的句子进行翻译",
-                    "level": 20
-                },
-                {
-                    "id": 488522,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够正确找出建筑成本语篇中表语从句的句子",
-                    "level": 21
-                },
-                {
-                    "id": 488523,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够对含表语从句的建筑成本核算语句进行分析",
-                    "level": 22
-                },
-                {
-                    "id": 488524,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够运用宾语从句完成建筑成本语句分析",
-                    "level": 23
-                },
-                {
-                    "id": 488525,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够运用宾语从句进行造句",
-                    "level": 24
-                },
-                {
-                    "id": 488526,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够运用宾语从句进行造句",
-                    "level": 25
-                },
-                {
-                    "id": 488527,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够运用主语从句对建筑成本语句进行分析",
-                    "level": 26
-                },
-                {
-                    "id": 488528,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够运用所学词汇进行语段写作与翻译",
-                    "level": 27
-                },
-                {
-                    "id": 488529,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够对复杂语篇中不同语句进行综合理解",
-                    "level": 28
-                },
-                {
-                    "id": 488530,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够恰分析建筑成本语篇",
-                    "level": 29
-                },
-                {
-                    "id": 488531,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够完成加入名词性从句对话",
-                    "level": 30
-                },
-                {
-                    "id": 488532,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能运用恰当语法进行语篇分析",
-                    "level": 31
-                },
-                {
-                    "id": 488533,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够恰当运用结果状语从句",
-                    "level": 32
-                },
-                {
-                    "id": 488534,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "通过扩展语篇对成果内容进行完善",
-                    "level": 33
-                },
-                {
-                    "id": 488535,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "把握分析元素，对项目成果进行反思",
-                    "level": 34
-                },
-                {
-                    "id": 488536,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "运用复杂句式完成项目总结报告并进行汇报",
-                    "level": 35
-                },
-                {
-                    "id": 488537,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够准确使用时间状语从句进行智能技术发展汇报",
-                    "level": 36
-                },
-                {
-                    "id": 488538,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够把握相关语篇中地点状语从句的应用",
-                    "level": 37
-                },
-                {
-                    "id": 488539,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够根据需要完成智能技术语句（篇）中的地点状语从句",
-                    "level": 38
-                },
-                {
-                    "id": 488540,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够根据语意正确书写原因状语从句",
-                    "level": 39
-                },
-                {
-                    "id": 488541,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够恰当运用目的状语从句",
-                    "level": 40
-                },
-                {
-                    "id": 488542,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够恰当运用结果状语从句",
-                    "level": 41
-                },
-                {
-                    "id": 488543,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够恰当运用条件状语从句于对话及语句中",
-                    "level": 42
-                },
-                {
-                    "id": 488544,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够恰当运用让步、比较、方式状语从句进行语段分析",
-                    "level": 43
-                },
-                {
-                    "id": 488545,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够准确运用智能技术简介常用句式",
-                    "level": 44
-                },
-                {
-                    "id": 488546,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够在掌握智能建筑词汇基础上进行英语运用",
-                    "level": 45
-                },
-                {
-                    "id": 488547,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够对智能建筑语篇进行分析",
-                    "level": 46
-                },
-                {
-                    "id": 488548,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够对智能建筑语篇进行翻译或仿写",
-                    "level": 47
-                },
-                {
-                    "id": 488549,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "能够对语篇主旨句进行扩展",
-                    "level": 48
-                },
-                {
-                    "id": 488550,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "根据语篇细节形成对话并展示",
-                    "level": 49
-                },
-                {
-                    "id": 488551,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "运用听力解题的方法",
-                    "level": 50
-                },
-                {
-                    "id": 488552,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "进行项目口头汇报",
-                    "level": 51
-                },
-                {
-                    "id": 488553,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "S",
-                    "description": "对学期项目及学习能让进行总结",
-                    "level": 52
-                },
-                {
-                    "id": 488554,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "A",
-                    "description": "专业认知",
-                    "level": 1
-                },
-                {
-                    "id": 488555,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "A",
-                    "description": "热爱家园",
-                    "level": 2
-                },
-                {
-                    "id": 488556,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "A",
-                    "description": "严谨态度",
-                    "level": 3
-                },
-                {
-                    "id": 488557,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "A",
-                    "description": "职业认知",
-                    "level": 4
-                },
-                {
-                    "id": 488558,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "A",
-                    "description": "语言沟通艺术性",
-                    "level": 5
-                },
-                {
-                    "id": 488559,
-                    "majorId": 3895,
-                    "courseUnitId": 8622,
-                    "title": "A",
-                    "description": "树立创新意识",
-                    "level": 6
                 }
             ]
         }

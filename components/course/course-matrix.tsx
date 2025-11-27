@@ -1,19 +1,26 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Pencil, X, Check, Loader2, Plus, BookMarked } from "lucide-react"
+import { Pencil, X, Check, Loader2, Plus, BookMarked, GripVertical, Search, Settings, Trash2 } from "lucide-react"
+import { FileUpload } from "@/components/ui/file-upload"
 import { cn } from "@/lib/utils"
-import type { TreeNode, CoursePoint } from "@/types"
+import type { TreeNode } from "@/types"
 import { api } from "@/lib/api"
+import type { CourseGoal } from "@/lib/api/course-goals-api"
+import type { CoursePoint as ApiCoursePoint } from "@/lib/api/course-points-api"
+import { showSuccess, showError } from "@/lib/toast-utils"
+import type { ProjectTeachGoalData, Project, ProjectTeachGoal } from "@/lib/api/project-teach-goal-api"
 
 interface CourseMatrixProps {
   node: TreeNode
   onUpdateNode?: (nodeId: string, updates: Partial<TreeNode>) => void
+  majorId?: string | number
 }
 
-export function CourseMatrix({ node, onUpdateNode }: CourseMatrixProps) {
+export function CourseMatrix({ node, onUpdateNode, majorId }: CourseMatrixProps) {
   const [isEditingCourseMatrix, setIsEditingCourseMatrix] = useState(false)
   const [courseMatrixData, setCourseMatrixData] = useState<
     Record<string, Array<{ id: string; name: string; description: string; support: "strong" | "weak" }>>
@@ -26,6 +33,108 @@ export function CourseMatrix({ node, onUpdateNode }: CourseMatrixProps) {
     chapterId: string
   } | null>(null)
   const [selectedCoursePoints, setSelectedCoursePoints] = useState<Record<string, "strong" | "weak">>({})
+  const [courseGoals, setCourseGoals] = useState<CourseGoal[]>([])
+  const [isLoadingGoals, setIsLoadingGoals] = useState(false)
+  const [projectTeachGoalData, setProjectTeachGoalData] = useState<ProjectTeachGoalData | null>(null)
+  const [isLoadingProjectTeachGoal, setIsLoadingProjectTeachGoal] = useState(false)
+  const [editingProjectNames, setEditingProjectNames] = useState<Record<string, string>>({})
+  const [draggedProjectId, setDraggedProjectId] = useState<string | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const [isShowCoursePointsDialog, setIsShowCoursePointsDialog] = useState(false)
+  const [coursePointsList, setCoursePointsList] = useState<ApiCoursePoint[]>([])
+  const [isLoadingCoursePoints, setIsLoadingCoursePoints] = useState(false)
+  const [coursePointsSearch, setCoursePointsSearch] = useState("")
+  const [editingCoursePointId, setEditingCoursePointId] = useState<number | null>(null)
+  const [editingCoursePointData, setEditingCoursePointData] = useState<Partial<ApiCoursePoint>>({})
+  const [selectedCoursePointIds, setSelectedCoursePointIds] = useState<Set<number>>(new Set())
+  const [isDeletingCoursePoints, setIsDeletingCoursePoints] = useState(false)
+  const [deletingCoursePointId, setDeletingCoursePointId] = useState<number | null>(null)
+  const [newCoursePoint, setNewCoursePoint] = useState<Partial<ApiCoursePoint> | null>(null)
+  const [isSavingNewCoursePoint, setIsSavingNewCoursePoint] = useState(false)
+  const [isSavingEditingCoursePoint, setIsSavingEditingCoursePoint] = useState(false)
+
+  // 防止在StrictMode下重复调用API
+  const hasLoadedRef = useRef(false)
+  const prevNodeIdRef = useRef<string | null>(null)
+  const prevMajorIdRef = useRef<string | number | undefined>(undefined)
+
+  // 加载项目、教学目标、课程目标和课点数据
+  useEffect(() => {
+    if (node?.type === "course" && node?.id) {
+      // 当node或majorId改变时，重置ref
+      if (prevNodeIdRef.current !== node.id || prevMajorIdRef.current !== majorId) {
+        hasLoadedRef.current = false
+        prevNodeIdRef.current = node.id
+        prevMajorIdRef.current = majorId
+      }
+
+      // 防止在StrictMode下重复调用
+      if (hasLoadedRef.current) {
+        return
+      }
+      hasLoadedRef.current = true
+
+      const loadAllData = async () => {
+        try {
+          const courseId = (node.metadata as any)?.courseId
+          const parentMajorId = (node.metadata as any)?.parentMajorId
+
+          if (!courseId) {
+            console.warn("[CourseMatrix] 缺少courseId")
+            return
+          }
+
+          // 并行加载所有API请求
+          setIsLoadingProjectTeachGoal(true)
+          setIsLoadingGoals(true)
+          setIsLoadingCoursePoints(true)
+
+          const [projectTeachGoalResponse, courseGoalsResponse, coursePointsResponse] = await Promise.all([
+            // 加载项目和教学目标
+            api.projectTeachGoal.getProjectTeachGoal(String(courseId)),
+            // 加载课程目标
+            parentMajorId ? api.courseGoals.getCourseGoals(String(courseId), String(parentMajorId)) : Promise.resolve({ data: null, error: null, status: 200 }),
+            // 加载课点列表
+            majorId ? api.coursePoints.getCoursePoints(String(majorId), String(courseId)) : Promise.resolve({ data: null, error: null, status: 200 }),
+          ])
+
+          // 处理项目和教学目标数据
+          console.log("[CourseMatrix] 项目和教学目标API响应:", projectTeachGoalResponse)
+          if (projectTeachGoalResponse.data) {
+            console.log("[CourseMatrix] 项目和教学目标数据加载成功:", projectTeachGoalResponse.data)
+            setProjectTeachGoalData(projectTeachGoalResponse.data)
+          } else {
+            console.warn("[CourseMatrix] 项目和教学目标数据为空或加载失败:", projectTeachGoalResponse.error)
+          }
+
+          // 处理课程目标数据
+          console.log("[CourseMatrix] 课程目标API响应:", courseGoalsResponse)
+          if (courseGoalsResponse.data) {
+            console.log("[CourseMatrix] 课程目标数据加载成功:", courseGoalsResponse.data)
+            setCourseGoals(courseGoalsResponse.data)
+          } else {
+            console.warn("[CourseMatrix] 课程目标数据为空或加载失败:", courseGoalsResponse.error)
+          }
+
+          // 处理课点列表数据
+          console.log("[CourseMatrix] 课点列表API响应:", coursePointsResponse)
+          if (coursePointsResponse.data) {
+            console.log("[CourseMatrix] 课点列表加载成功:", coursePointsResponse.data)
+            setCoursePointsList(coursePointsResponse.data)
+          } else {
+            console.warn("[CourseMatrix] 课点列表为空或加载失败:", coursePointsResponse.error)
+          }
+        } catch (error) {
+          console.error("[CourseMatrix] 加载数据失败:", error)
+        } finally {
+          setIsLoadingProjectTeachGoal(false)
+          setIsLoadingGoals(false)
+          setIsLoadingCoursePoints(false)
+        }
+      }
+      loadAllData()
+    }
+  }, [node?.id, node?.type, majorId])
 
   useEffect(() => {
     if (node?.type === "course" && node?.id) {
@@ -57,7 +166,7 @@ export function CourseMatrix({ node, onUpdateNode }: CourseMatrixProps) {
       }
       loadMatrix()
     }
-  }, [node?.id, node?.type, node.metadata])
+  }, [node?.id, node?.type])
 
   useEffect(() => {
     if (!isEditingCourseMatrix) return
@@ -73,6 +182,15 @@ export function CourseMatrix({ node, onUpdateNode }: CourseMatrixProps) {
     setIsSavingCourseMatrix(true)
 
     try {
+      // 更新项目名称
+      if (projectTeachGoalData && projectTeachGoalData.projects) {
+        projectTeachGoalData.projects.forEach((project) => {
+          if (editingProjectNames[project.id] !== undefined) {
+            project.name = editingProjectNames[project.id]
+          }
+        })
+      }
+
       if (node?.id && api && api.matrices) {
         await api.matrices.updateCourseMatrix(node.id, courseMatrixData)
       }
@@ -85,6 +203,9 @@ export function CourseMatrix({ node, onUpdateNode }: CourseMatrixProps) {
           },
         })
       }
+
+      // 清空编辑状态
+      setEditingProjectNames({})
     } catch (error) {
       console.error("[CourseMatrix] 保存课程矩阵失败:", error)
     }
@@ -103,6 +224,8 @@ export function CourseMatrix({ node, onUpdateNode }: CourseMatrixProps) {
     } else {
       setCourseMatrixData({})
     }
+    // 清空编辑状态
+    setEditingProjectNames({})
     setIsEditingCourseMatrix(false)
   }
 
@@ -192,272 +315,840 @@ export function CourseMatrix({ node, onUpdateNode }: CourseMatrixProps) {
     })
   }
 
+  // 新增课点
+  const handleAddNewCoursePoint = () => {
+    const tempId = `temp-${Date.now()}`
+    const newCoursePointData = {
+      id: tempId as any,
+      title: "",
+      description: "",
+      uniqueCode: "",
+      majorId: 0,
+      courseUnitId: 0,
+      relate: 0,
+      createTime: "",
+      updateTime: "",
+      deleted: 0,
+    }
+    setNewCoursePoint(newCoursePointData)
+    setEditingCoursePointData(newCoursePointData)
+    // 在列表首行插入新课点
+    setCoursePointsList([newCoursePointData, ...coursePointsList])
+    // 自动进入编辑模式
+    setEditingCoursePointId(tempId as any)
+  }
+
+  // 保存新增课点
+  const handleSaveNewCoursePoint = async () => {
+    if (!editingCoursePointData.title?.trim()) {
+      return
+    }
+
+    setIsSavingNewCoursePoint(true)
+    try {
+      // 模拟接口调用，1秒延迟
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
+      // 更新临时课点为真实数据（保留临时ID，实际应用中会从API获取真实ID）
+      const newData: ApiCoursePoint = {
+        id: newCoursePoint?.id as any,
+        title: editingCoursePointData.title,
+        description: editingCoursePointData.description || "",
+        uniqueCode: "",
+        majorId: majorId ? Number(majorId) : 0,
+        courseUnitId: node?.id ? Number(node.id) : 0,
+        relate: 0,
+        createTime: new Date().toISOString(),
+        updateTime: new Date().toISOString(),
+        deleted: 0,
+      }
+
+      // 重新排序列表
+      setCoursePointsList((prev) => {
+        return prev.sort((a, b) => {
+          const lengthDiff = a.title.length - b.title.length
+          if (lengthDiff !== 0) {
+            return lengthDiff
+          }
+          return a.title.localeCompare(b.title)
+        })
+      })
+      setNewCoursePoint(null)
+      setEditingCoursePointId(null)
+      setEditingCoursePointData({})
+      showSuccess("课点创建成功")
+    } catch (error) {
+      console.error("创建课点失败:", error)
+      showError("创建课点失败，请重试")
+    } finally {
+      setIsSavingNewCoursePoint(false)
+    }
+  }
+
+  // 添加新项目
+  const handleAddProject = () => {
+    if (projectTeachGoalData) {
+      const newProject: Project = {
+        id: `project-${Date.now()}`,
+        name: "新项目/章节",
+      }
+      setProjectTeachGoalData({
+        ...projectTeachGoalData,
+        projects: [...projectTeachGoalData.projects, newProject],
+      })
+    }
+  }
+
+  // 删除项目
+  const handleDeleteProject = (projectId: string | number) => {
+    if (projectTeachGoalData) {
+      setProjectTeachGoalData({
+        ...projectTeachGoalData,
+        projects: projectTeachGoalData.projects.filter((p) => p.id !== projectId),
+      })
+      // 清空该项目的编辑状态
+      setEditingProjectNames((prev) => {
+        const newState = { ...prev }
+        delete newState[String(projectId)]
+        return newState
+      })
+    }
+  }
+
+  // 处理拖动开始
+  const handleDragStart = (projectId: string | number) => {
+    setDraggedProjectId(String(projectId))
+  }
+
+  // 处理拖动结束
+  const handleDragEnd = () => {
+    setDraggedProjectId(null)
+    setDragOverIndex(null)
+  }
+
+  // 处理拖动悬停
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    setDragOverIndex(index)
+  }
+
+  // 处理拖动离开
+  const handleDragLeave = () => {
+    setDragOverIndex(null)
+  }
+
+  // 处理拖动放下
+  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault()
+    if (!draggedProjectId || !projectTeachGoalData) return
+
+    const draggedIndex = projectTeachGoalData.projects.findIndex((p) => p.id === draggedProjectId)
+    if (draggedIndex === -1 || draggedIndex === targetIndex) {
+      setDraggedProjectId(null)
+      setDragOverIndex(null)
+      return
+    }
+
+    // 创建新的项目数组
+    const newProjects = [...projectTeachGoalData.projects]
+    const [draggedProject] = newProjects.splice(draggedIndex, 1)
+    newProjects.splice(targetIndex, 0, draggedProject)
+
+    setProjectTeachGoalData({
+      ...projectTeachGoalData,
+      projects: newProjects,
+    })
+
+    setDraggedProjectId(null)
+    setDragOverIndex(null)
+  }
+
   return (
     <>
       <div className="rounded-lg border border-border bg-secondary/30 backdrop-blur-sm p-6">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 ">
           <h3 className="text-lg font-semibold text-foreground">课程矩阵</h3>
-          {!isEditingCourseMatrix ? (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setIsEditingCourseMatrix(true)}
-              className="gap-2 bg-transparent"
-            >
-              <Pencil className="w-3.5 h-3.5" />
-              编辑矩阵
-            </Button>
-          ) : (
-            <div className="flex gap-2">
+          <div className="flex items-center gap-3">
+            {!isEditingCourseMatrix && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {}}
+                  className="gap-2 bg-transparent"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  教学目标
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    // 打开弹窗时清除搜索框、行内编辑状态、删除状态和课点选中状态
+                    setCoursePointsSearch("")
+                    setEditingCoursePointId(null)
+                    setEditingCoursePointData({})
+                    setDeletingCoursePointId(null)
+                    setIsDeletingCoursePoints(false)
+                    setSelectedCoursePointIds(new Set())
+                    setIsShowCoursePointsDialog(true)
+                  }}
+                  disabled={isLoadingCoursePoints || coursePointsList.length === 0}
+                  className="gap-2 bg-transparent"
+                >
+                  {isLoadingCoursePoints ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      加载中
+                    </>
+                  ) : (
+                    <>
+                      <Settings className="w-3.5 h-3.5" />
+                      课点管理
+                    </>
+                  )}
+                </Button>
+              </>
+            )}
+            {!isEditingCourseMatrix ? (
               <Button
                 size="sm"
                 variant="outline"
-                onClick={handleCancelCourseMatrix}
+                onClick={() => setIsEditingCourseMatrix(true)}
                 className="gap-2 bg-transparent"
-                disabled={isSavingCourseMatrix}
               >
-                <X className="w-3.5 h-3.5" />
-                取消
+                <Pencil className="w-3.5 h-3.5" />
+                编辑
               </Button>
-              <Button
-                size="sm"
-                onClick={() => handleSaveCourseMatrix(false)}
-                className="gap-2"
-                disabled={isSavingCourseMatrix}
-              >
-                {isSavingCourseMatrix ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    保存中
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-3.5 h-3.5" />
-                    保存
-                  </>
-                )}
-              </Button>
-            </div>
-          )}
+            ) : (
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCancelCourseMatrix}
+                  className="gap-2 bg-transparent"
+                  disabled={isSavingCourseMatrix}
+                >
+                  <X className="w-3.5 h-3.5" />
+                  退出
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => handleSaveCourseMatrix(false)}
+                  className="gap-2"
+                  disabled={isSavingCourseMatrix}
+                >
+                  {isSavingCourseMatrix ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      保存中
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      保存
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
 
-        {node.metadata?.teachingObjectives &&
-          node.metadata?.chapters &&
-          node.metadata.teachingObjectives.length > 0 &&
-          node.metadata.chapters.length > 0 ? (
+        {projectTeachGoalData && projectTeachGoalData.goals && projectTeachGoalData.goals.length > 0 && projectTeachGoalData.projects && projectTeachGoalData.projects.length > 0 ? (
           <div className="rounded-lg border border-border bg-card/50 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="text-sm border-collapse" style={{ width: 'auto', minWidth: '100%' }}>
-                <thead>
-                  <tr className="border-b border-border bg-secondary/50">
-                    <th className="text-left p-3 text-muted-foreground font-medium border-r border-border whitespace-nowrap">
-                      教学目标
-                    </th>
-                    <th className="text-left p-3 text-muted-foreground font-medium border-r border-border whitespace-nowrap">
-                      指标点
-                    </th>
-                    {node.metadata.chapters.map((chapter: any, idx: number) => (
-                      <th
-                        key={chapter.id || idx}
-                        className="text-center p-3 text-muted-foreground font-medium border-r border-border whitespace-nowrap"
-                      >
-                        {chapter.name || `章节${idx + 1}`}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {node.metadata.teachingObjectives.map((objective: any, objIdx: number) => {
-                    const points = objective.points || []
-                    const rowCount = points.length || 1
+              {(() => {
+                // 计算第二层表头的总数
+                const secondLevelHeaderCount = projectTeachGoalData.goals.reduce((count, goal) => {
+                  const children = (goal.children && goal.children.length > 0) ? goal.children : []
+                  return count + children.length
+                }, 0)
 
-                    return points.length > 0 ? (
-                      points.map((point: any, pointIdx: number) => {
-                        const objectiveId = objective.id || `obj-${objIdx}`
-                        const pointId =
-                          typeof point === "string"
-                            ? `point-${objIdx}-${pointIdx}`
-                            : point.id || `point-${objIdx}-${pointIdx}`
-                        const pointContent = typeof point === "string" ? point : point.content || point.name || point
+                // 固定列宽
+                const fixedColWidth = 60 // 序号
+                const secondLevelColWidth = 500 // 第二层表头固定宽度
 
-                        return (
-                          <tr
-                            key={`${objectiveId}-${pointIdx}`}
-                            className="border-b border-border hover:bg-white/50 transition-colors"
-                          >
-                            {pointIdx === 0 && (
-                              <td
-                                rowSpan={rowCount}
-                                className="p-3 align-top border-r border-border bg-secondary/20"
-                                style={{ minWidth: '200px', maxWidth: '400px' }}
+                // 计算总宽度：序号(60px) + 项目/章节(auto) + 第二层表头(500px * 数量)
+                const totalWidth = 60 + (secondLevelColWidth * secondLevelHeaderCount)
+
+                return (
+                  <table className="text-base border-collapse" style={{ width: totalWidth, tableLayout: 'auto' }}>
+                    <thead>
+                      <tr className="border-b border-border bg-primary/10">
+                        <th className="text-center p-3 text-muted-foreground font-medium border-r border-border whitespace-nowrap" style={{ width: '60px' }} rowSpan={2}>
+                          序号
+                        </th>
+                        <th className="text-center p-3 text-muted-foreground font-medium border-r border-border whitespace-nowrap" rowSpan={2} style={{ minWidth: '300px' }}>
+                          项目/章节
+                        </th>
+                        {projectTeachGoalData.goals.map((goal: ProjectTeachGoal, idx: number) => {
+                          const children = (goal.children && goal.children.length > 0) ? goal.children : []
+                          return children.length > 0 ? (
+                            <th
+                              key={goal.id || idx}
+                              colSpan={children.length}
+                              className="text-center p-3 text-muted-foreground font-medium border-r border-border bg-primary/10"
+                              style={{ width: `${500 * children.length}px` }}
+                            >
+                              <div className="break-words">{goal.description || `目标${idx + 1}`}</div>
+                            </th>
+                          ) : null
+                        })}
+                      </tr>
+                      <tr className="border-b border-border bg-primary/5">
+                        {projectTeachGoalData.goals.map((goal: ProjectTeachGoal) => {
+                          const children = (goal.children && goal.children.length > 0) ? goal.children : []
+                          return children.map((child: ProjectTeachGoal, childIdx: number) => {
+                            const cellKey = `${goal.id}-${childIdx}`
+                            const childText = child.description || `子目标${childIdx + 1}`
+
+                            return (
+                              <th
+                                key={cellKey}
+                                className="text-center p-3 text-muted-foreground font-medium border-r border-border bg-primary/5"
+                                style={{ width: `${secondLevelColWidth}px` }}
                               >
-                                <div className="flex items-start gap-3">
-                                  <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-sm font-medium text-primary">
-                                    {objIdx + 1}
-                                  </div>
-                                  <div className="flex-1 text-sm text-foreground leading-relaxed break-words">
-                                    {objective.content || objective.name || "未设置"}
-                                  </div>
+                                <div className="text-sm leading-relaxed break-words">
+                                  {childText}
                                 </div>
-                              </td>
-                            )}
+                              </th>
+                            )
+                          })
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {projectTeachGoalData.projects.map((project: Project, projectIdx: number) => (
+                    <tr
+                      key={project.id}
+                      draggable={isEditingCourseMatrix}
+                      onDragStart={() => handleDragStart(project.id)}
+                      onDragEnd={handleDragEnd}
+                      onDragOver={(e) => handleDragOver(e, projectIdx)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, projectIdx)}
+                      className={cn(
+                        "border-b border-border transition-colors",
+                        isEditingCourseMatrix ? "cursor-move hover:bg-blue-50/50" : "hover:bg-white/50",
+                        dragOverIndex === projectIdx && draggedProjectId ? "bg-blue-100/50" : ""
+                      )}
+                    >
+                      <td className="p-3 text-center border-r border-border bg-secondary/20 font-medium">
+                        {projectIdx + 1}
+                      </td>
+                      <td className="p-3 border-r border-border bg-white/80 whitespace-nowrap" style={{ minWidth: '300px' }}>
+                        {isEditingCourseMatrix ? (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="text"
+                              value={editingProjectNames[project.id] !== undefined ? editingProjectNames[project.id] : project.name}
+                              onChange={(e) => {
+                                setEditingProjectNames((prev) => ({
+                                  ...prev,
+                                  [project.id]: e.target.value,
+                                }))
+                              }}
+                              placeholder="输入项目/章节名称"
+                              className="h-9 flex-1"
+                            />
+                            <button
+                              onClick={() => handleDeleteProject(project.id)}
+                              className="flex-shrink-0 p-1 text-muted-foreground hover:text-red-600 transition-colors"
+                              title="删除项目"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                            <button
+                              draggable
+                              onDragStart={(e) => {
+                                e.stopPropagation()
+                                handleDragStart(project.id)
+                              }}
+                              className="flex-shrink-0 p-1 text-muted-foreground hover:text-primary transition-colors cursor-grab active:cursor-grabbing"
+                              title="拖动调整顺序"
+                            >
+                              <GripVertical className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="text-base text-foreground">
+                            {project.name}
+                          </div>
+                        )}
+                      </td>
+                      {projectTeachGoalData.goals.map((goal: ProjectTeachGoal) => {
+                        const children = (goal.children && goal.children.length > 0) ? goal.children : []
+                        return children.map((child: ProjectTeachGoal, childIdx: number) => {
+                          const key = `${goal.id}-${child.id}-${project.id}`
+                          const coursePoints = courseMatrixData[key] || []
 
-                            <td className="p-3 border-r border-border bg-white/80" style={{ minWidth: '250px', maxWidth: '500px' }}>
-                              <div className="flex items-start gap-2">
-                                <span className="text-sm text-muted-foreground flex-shrink-0 mt-0.5">
-                                  {objIdx + 1}.{pointIdx + 1}
-                                </span>
-                                <div className="flex-1 text-sm text-foreground leading-relaxed break-words">{pointContent}</div>
-                              </div>
-                            </td>
-
-                            {node.metadata.chapters.map((chapter: any, chapterIdx: number) => {
-                              const chapterId = chapter.id || `chapter-${chapterIdx}`
-                              const key = `${objectiveId}-${pointId}-${chapterId}`
-                              const coursePoints = courseMatrixData[key] || []
-
-                              return (
-                                <td key={chapterId} className="p-3 text-center border-r border-border" style={{ minWidth: '120px' }}>
-                                  {isEditingCourseMatrix ? (
-                                    <div className="flex flex-col items-center gap-2">
-                                      {coursePoints.length > 0 && (
-                                        <div className="flex flex-wrap gap-1 justify-center">
-                                          {coursePoints.map((cp) => (
-                                            <div key={cp.id} className="relative group/tooltip">
-                                              <span
-                                                className={cn(
-                                                  "inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium cursor-pointer",
-                                                  cp.support === "strong" &&
-                                                  "bg-orange-100 border border-orange-300 text-orange-700",
-                                                  cp.support === "weak" &&
-                                                  "bg-green-100 border border-green-300 text-green-700",
-                                                )}
-                                              >
-                                                {coursePointIndexMap.get(cp.id) || cp.id}
-                                                <button
-                                                  onClick={() =>
-                                                    handleRemoveCoursePoint(objectiveId, pointId, chapterId, cp.id)
-                                                  }
-                                                  className="hover:text-red-600 transition-colors"
-                                                >
-                                                  <X className="w-3 h-3" />
-                                                </button>
-                                              </span>
-                                              <div
-                                                className={cn(
-                                                  "absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-white text-xs rounded shadow-lg whitespace-nowrap opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-150 pointer-events-none z-50",
-                                                  cp.support === "strong" && "bg-orange-600",
-                                                  cp.support === "weak" && "bg-green-600",
-                                                )}
-                                              >
-                                                {cp.description || cp.name}
-                                                <div
-                                                  className={cn(
-                                                    "absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent",
-                                                    cp.support === "strong" && "border-t-orange-600",
-                                                    cp.support === "weak" && "border-t-green-600",
-                                                  )}
-                                                ></div>
-                                              </div>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      )}
-                                      <button
-                                        onClick={() => handleAddCoursePoint(objectiveId, pointId, chapterId)}
-                                        className="w-4 h-4 rounded-full border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/10 flex items-center justify-center transition-all group"
-                                        title={`为指标点"${pointContent}"添加课点`}
-                                      >
-                                        <Plus className="w-2 h-2 text-primary/60 group-hover:text-primary" />
-                                      </button>
-                                    </div>
-                                  ) : (
+                          return (
+                            <td key={`${goal.id}-${childIdx}`} className="p-3 text-center border-r border-border" style={{ width: '500px' }}>
+                              {isEditingCourseMatrix ? (
+                                <div className="flex flex-col items-center gap-2">
+                                  {coursePoints.length > 0 && (
                                     <div className="flex flex-wrap gap-1 justify-center">
-                                      {coursePoints.length > 0 ? (
-                                        coursePoints.map((cp) => (
-                                          <div key={cp.id} className="relative group/tooltip">
-                                            <span
-                                              className={cn(
-                                                "inline-block px-2 py-1 rounded text-xs font-medium cursor-pointer",
-                                                cp.support === "strong" &&
-                                                "bg-orange-100 border border-orange-300 text-orange-700",
-                                                cp.support === "weak" &&
-                                                "bg-green-100 border border-green-300 text-green-700",
-                                              )}
+                                      {coursePoints.map((cp) => (
+                                        <div key={cp.id} className="relative group/tooltip">
+                                          <span
+                                            className={cn(
+                                              "inline-flex items-center gap-1 px-2 py-1 rounded text-sm font-medium cursor-pointer",
+                                              cp.support === "strong" && "bg-orange-100 border border-orange-300 text-orange-700",
+                                              cp.support === "weak" && "bg-green-100 border border-green-300 text-green-700",
+                                            )}
+                                          >
+                                            {coursePointIndexMap.get(cp.id) || cp.id}
+                                            <button
+                                              onClick={() =>
+                                                handleRemoveCoursePoint(String(goal.id), String(child.id), String(project.id), cp.id)
+                                              }
+                                              className="hover:text-red-600 transition-colors"
                                             >
-                                              {coursePointIndexMap.get(cp.id) || cp.id}
-                                            </span>
-                                            <div
-                                              className={cn(
-                                                "absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-white text-xs rounded shadow-lg whitespace-nowrap opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-150 pointer-events-none z-50",
-                                                cp.support === "strong" && "bg-orange-600",
-                                                cp.support === "weak" && "bg-green-600",
-                                              )}
-                                            >
-                                              {cp.description || cp.name}
-                                              <div
-                                                className={cn(
-                                                  "absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent",
-                                                  cp.support === "strong" && "border-t-orange-600",
-                                                  cp.support === "weak" && "border-t-green-600",
-                                                )}
-                                              ></div>
-                                            </div>
+                                              <X className="w-3 h-3" />
+                                            </button>
+                                          </span>
+                                          <div
+                                            className={cn(
+                                              "absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-white text-sm rounded shadow-lg whitespace-nowrap opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-150 pointer-events-none z-50",
+                                              cp.support === "strong" && "bg-orange-600",
+                                              cp.support === "weak" && "bg-green-600",
+                                            )}
+                                          >
+                                            {cp.description || cp.name}
                                           </div>
-                                        ))
-                                      ) : (
-                                        <span className="text-xs text-muted-foreground">-</span>
-                                      )}
+                                        </div>
+                                      ))}
                                     </div>
                                   )}
-                                </td>
-                              )
-                            })}
-                          </tr>
-                        )
-                      })
-                    ) : (
-                      <tr
-                        key={objective.id || objIdx}
-                        className="border-b border-border hover:bg-white/50 transition-colors"
-                      >
-                        <td className="p-3 border-r border-border bg-secondary/20" style={{ minWidth: '200px', maxWidth: '400px' }}>
-                          <div className="flex items-start gap-3">
-                            <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-sm font-medium text-primary">
-                              {objIdx + 1}
-                            </div>
-                            <div className="flex-1 text-sm text-foreground leading-relaxed break-words">
-                              {objective.content || objective.name || "未设置"}
-                            </div>
-                          </div>
-                        </td>
-                        <td
-                          className="p-3 text-center text-muted-foreground text-sm border-r border-border bg-white/80"
-                          style={{ minWidth: '250px', maxWidth: '500px' }}
-                          colSpan={1}
-                        >
-                          暂无指标点
-                        </td>
-                        {node.metadata.chapters.map((chapter: any, chapterIdx: number) => (
-                          <td key={chapter.id || chapterIdx} className="p-3 text-center border-r border-border" style={{ minWidth: '120px' }}>
-                            <span className="text-xs text-muted-foreground">-</span>
+                                  <button
+                                    onClick={() => handleAddCoursePoint(String(goal.id), String(child.id), String(project.id))}
+                                    className="w-4 h-4 rounded-full border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/10 flex items-center justify-center transition-all group"
+                                  >
+                                    <Plus className="w-2 h-2 text-primary/60 group-hover:text-primary" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex flex-wrap gap-1 justify-center">
+                                  {coursePoints.length > 0 ? (
+                                    coursePoints.map((cp) => (
+                                      <div key={cp.id} className="relative group/tooltip">
+                                        <span
+                                          className={cn(
+                                            "inline-block px-2 py-1 rounded text-sm font-medium cursor-pointer",
+                                            cp.support === "strong" && "bg-orange-100 border border-orange-300 text-orange-700",
+                                            cp.support === "weak" && "bg-green-100 border border-green-300 text-green-700",
+                                          )}
+                                        >
+                                          {coursePointIndexMap.get(cp.id) || cp.id}
+                                        </span>
+                                        <div
+                                          className={cn(
+                                            "absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-white text-xs rounded shadow-lg whitespace-nowrap opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-150 pointer-events-none z-50",
+                                            cp.support === "strong" && "bg-orange-600",
+                                            cp.support === "weak" && "bg-green-600",
+                                          )}
+                                        >
+                                          {cp.description || cp.name}
+                                        </div>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">-</span>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                          )
+                        })
+                      })}
+                    </tr>
+                      ))}
+                      {isEditingCourseMatrix && (
+                        <tr className="border-b border-border hover:bg-white/50 transition-colors">
+                          <td colSpan={2 + secondLevelHeaderCount} className="p-3 text-center">
+                            <button
+                              onClick={handleAddProject}
+                              className="inline-flex items-center justify-center w-8 h-8 rounded-full border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/10 transition-all group"
+                            >
+                              <Plus className="w-4 h-4 text-primary/60 group-hover:text-primary" />
+                            </button>
                           </td>
-                        ))}
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                )
+              })()}
             </div>
           </div>
         ) : (
           <div className="text-center py-12 text-muted-foreground">
             <BookMarked className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p className="text-sm mb-2">暂无课程矩阵数据</p>
-            <p className="text-xs">请先在课程信息中添加教学目标和章节信息</p>
+            {isLoadingProjectTeachGoal || isLoadingGoals ? (
+              <>
+                <Loader2 className="w-6 h-6 mx-auto mb-3 animate-spin" />
+                <p className="text-sm mb-2">加载数据中...</p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm mb-2">暂无课程矩阵数据</p>
+                <p className="text-xs">请先在课程信息中添加教学目标和章节信息</p>
+              </>
+            )}
           </div>
         )}
       </div>
+
+      {/* 课点管理弹窗 */}
+      <Dialog
+        open={isShowCoursePointsDialog}
+        onOpenChange={(open) => {
+          // 如果删除或编辑未完成，禁止关闭弹窗
+          if (!open && (isDeletingCoursePoints || deletingCoursePointId !== null || isSavingNewCoursePoint || isSavingEditingCoursePoint)) {
+            return
+          }
+          setIsShowCoursePointsDialog(open)
+        }}
+      >
+        <DialogContent className="!max-w-2xl max-h-[80vh] flex flex-col p-0 gap-0">
+          {/* 固定Header */}
+          <DialogHeader className="border-b border-border px-6 py-4 flex-shrink-0">
+            <DialogTitle>课点管理</DialogTitle>
+          </DialogHeader>
+
+          {/* 固定搜索工具栏 */}
+          <div className="px-6 py-3 flex-shrink-0 bg-background">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="relative flex-1 min-w-0">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground flex-shrink-0" />
+                <input
+                  type="text"
+                  placeholder="搜索课点..."
+                  value={coursePointsSearch}
+                  onChange={(e) => setCoursePointsSearch(e.target.value)}
+                  disabled={editingCoursePointId !== null || isDeletingCoursePoints || deletingCoursePointId !== null}
+                  className="w-full pl-10 pr-4 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-2 flex-shrink-0"
+                onClick={handleAddNewCoursePoint}
+                disabled={isSavingNewCoursePoint || editingCoursePointId !== null || isDeletingCoursePoints || deletingCoursePointId !== null}
+              >
+                <Plus className="w-4 h-4" />
+                新增
+              </Button>
+              <div className="flex-shrink-0">
+                <FileUpload
+                  buttonText="上传"
+                  fileType="Excel文件"
+                  maxFileSize={10 * 1024 * 1024}
+                  maxFileCount={1}
+                  accept=".xlsx,.xls"
+                  disabled={editingCoursePointId !== null || isDeletingCoursePoints || deletingCoursePointId !== null}
+                  onUpload={async (files) => {
+                    // TODO: 将文件上传到OSS，返回文件地址
+                    // 目前mock返回文件地址
+                    return files.map((file) => `/uploads/${file.name}`)
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 可滚动内容区域 - 只有表格body滚动 */}
+          <div className="flex-1 overflow-hidden flex flex-col">
+            {isLoadingCoursePoints ? (
+              <div className="flex items-center justify-center py-8 flex-1">
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
+              </div>
+            ) : coursePointsList.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground text-sm flex-1 flex items-center justify-center">
+                暂无课点数据
+              </div>
+            ) : (
+              <div className="flex flex-col overflow-hidden flex-1">
+                {/* 固定表头 */}
+                <div className="overflow-x-auto border-b border-border flex-shrink-0">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border bg-secondary/30">
+                        <th className="px-4 py-3 text-center text-sm font-medium text-foreground w-12">
+                          <input
+                            type="checkbox"
+                            checked={selectedCoursePointIds.size === coursePointsList.filter((cp) =>
+                              cp.title.toLowerCase().includes(coursePointsSearch.toLowerCase()) ||
+                              cp.description.toLowerCase().includes(coursePointsSearch.toLowerCase())
+                            ).length && coursePointsList.filter((cp) =>
+                              cp.title.toLowerCase().includes(coursePointsSearch.toLowerCase()) ||
+                              cp.description.toLowerCase().includes(coursePointsSearch.toLowerCase())
+                            ).length > 0}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                const filtered = coursePointsList.filter((cp) =>
+                                  cp.title.toLowerCase().includes(coursePointsSearch.toLowerCase()) ||
+                                  cp.description.toLowerCase().includes(coursePointsSearch.toLowerCase())
+                                )
+                                setSelectedCoursePointIds(new Set(filtered.map((cp) => cp.id)))
+                              } else {
+                                setSelectedCoursePointIds(new Set())
+                              }
+                            }}
+                            className="w-4 h-4 cursor-pointer"
+                          />
+                        </th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-foreground w-[150px]">课点名称</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-foreground">课点描述</th>
+                        <th className="px-4 py-3 text-center text-sm font-medium text-foreground w-24">操作</th>
+                      </tr>
+                    </thead>
+                  </table>
+                </div>
+
+                {/* 可滚动表格body */}
+                <div className="overflow-y-auto flex-1">
+                  <table className="w-full">
+                    <tbody>
+                      {coursePointsList
+                        .filter((cp) =>
+                          cp.title.toLowerCase().includes(coursePointsSearch.toLowerCase()) ||
+                          cp.description.toLowerCase().includes(coursePointsSearch.toLowerCase())
+                        )
+                        .sort((a, b) => {
+                          // 按课点名称长度升序排列
+                          const lengthDiff = a.title.length - b.title.length
+                          if (lengthDiff !== 0) {
+                            return lengthDiff
+                          }
+                          // 如果长度相同，按字母顺序排列
+                          return a.title.localeCompare(b.title)
+                        })
+                        .map((coursePoint) => (
+                          <tr key={coursePoint.id} className="border-b border-border hover:bg-secondary/20 transition-colors">
+                            <td className="px-4 py-3 text-center w-12">
+                              <input
+                                type="checkbox"
+                                checked={selectedCoursePointIds.has(coursePoint.id)}
+                                onChange={(e) => {
+                                  const newSelected = new Set(selectedCoursePointIds)
+                                  if (e.target.checked) {
+                                    newSelected.add(coursePoint.id)
+                                  } else {
+                                    newSelected.delete(coursePoint.id)
+                                  }
+                                  setSelectedCoursePointIds(newSelected)
+                                }}
+                                disabled={editingCoursePointId !== null || isDeletingCoursePoints || deletingCoursePointId !== null}
+                                className="w-4 h-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-sm w-[150px]">
+                              {editingCoursePointId === coursePoint.id ? (
+                                <Input
+                                  type="text"
+                                  value={editingCoursePointData.title || coursePoint.title}
+                                  onChange={(e) =>
+                                    setEditingCoursePointData((prev) => ({
+                                      ...prev,
+                                      title: e.target.value,
+                                    }))
+                                  }
+                                  className="h-8"
+                                />
+                              ) : (
+                                coursePoint.title
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              {editingCoursePointId === coursePoint.id ? (
+                                <Input
+                                  type="text"
+                                  value={editingCoursePointData.description || coursePoint.description}
+                                  onChange={(e) =>
+                                    setEditingCoursePointData((prev) => ({
+                                      ...prev,
+                                      description: e.target.value,
+                                    }))
+                                  }
+                                  className="h-8"
+                                />
+                              ) : (
+                                coursePoint.description
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-center w-24">
+                              <div className="flex items-center justify-center gap-2">
+                                {editingCoursePointId === coursePoint.id ? (
+                                  <>
+                                    <button
+                                      onClick={async () => {
+                                        // 如果是新增课点，调用保存函数
+                                        if (newCoursePoint && coursePoint.id === newCoursePoint.id) {
+                                          await handleSaveNewCoursePoint()
+                                        } else {
+                                          // 编辑行：调用接口保存
+                                          setIsSavingEditingCoursePoint(true)
+                                          try {
+                                            // 调用API更新课点（API内部会处理1秒延迟）
+                                            const response = await api.coursePoints.updateCoursePoint(coursePoint.id, editingCoursePointData)
+                                            if (response.error) {
+                                              showError(response.error)
+                                              return
+                                            }
+                                            // 接口返回正确后退出编辑模式
+                                            setEditingCoursePointId(null)
+                                            setEditingCoursePointData({})
+                                            showSuccess("课点更新成功")
+                                          } catch (error) {
+                                            console.error("更新课点失败:", error)
+                                            showError("更新课点失败，请重试")
+                                          } finally {
+                                            setIsSavingEditingCoursePoint(false)
+                                          }
+                                        }
+                                      }}
+                                      disabled={isSavingNewCoursePoint || isSavingEditingCoursePoint || !editingCoursePointData.title?.trim()}
+                                      className="p-1 text-muted-foreground hover:text-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                      title="提交"
+                                    >
+                                      {isSavingNewCoursePoint || isSavingEditingCoursePoint ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                      ) : (
+                                        <Check className="w-4 h-4" />
+                                      )}
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        // 如果是新增课点，检查是否有空字段，有则移除该行
+                                        if (newCoursePoint && coursePoint.id === newCoursePoint.id) {
+                                          if (!editingCoursePointData.title?.trim() || !editingCoursePointData.description?.trim()) {
+                                            // 有空字段，直接移除该行
+                                            setCoursePointsList((prev) => prev.filter((cp) => cp.id !== coursePoint.id))
+                                            setNewCoursePoint(null)
+                                          }
+                                        } else {
+                                          // 编辑行：恢复原内容
+                                          setEditingCoursePointData({})
+                                        }
+                                        // 退出编辑模式
+                                        setEditingCoursePointId(null)
+                                      }}
+                                      disabled={isSavingNewCoursePoint || isSavingEditingCoursePoint}
+                                      className="p-1 text-muted-foreground hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                      title="取消"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() => {
+                                        setEditingCoursePointId(coursePoint.id)
+                                        setEditingCoursePointData(coursePoint)
+                                      }}
+                                      disabled={editingCoursePointId !== null || isDeletingCoursePoints || deletingCoursePointId !== null}
+                                      className="p-1 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                      title="编辑"
+                                    >
+                                      <Pencil className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={async () => {
+                                        setDeletingCoursePointId(coursePoint.id)
+                                        try {
+                                          // 调用API删除课点（API内部会处理1秒延迟）
+                                          const response = await api.coursePoints.deleteCoursePoint(coursePoint.id)
+                                          if (response.error) {
+                                            showError(response.error)
+                                            return
+                                          }
+                                          setCoursePointsList((prev) => prev.filter((cp) => cp.id !== coursePoint.id))
+                                        } catch (error) {
+                                          console.error("删除课点失败:", error)
+                                          showError("删除课点失败，请重试")
+                                        } finally {
+                                          setDeletingCoursePointId(null)
+                                        }
+                                      }}
+                                      disabled={editingCoursePointId !== null || isDeletingCoursePoints || deletingCoursePointId !== null}
+                                      className="p-1 text-muted-foreground hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                      title="删除"
+                                    >
+                                      {deletingCoursePointId === coursePoint.id ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                      ) : (
+                                        <Trash2 className="w-4 h-4" />
+                                      )}
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 固定Footer */}
+          <div className="border-t border-border px-6 py-4 flex items-center justify-between flex-shrink-0">
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={async () => {
+                if (selectedCoursePointIds.size === 0) return
+                setIsDeletingCoursePoints(true)
+                try {
+                  const deleteCount = selectedCoursePointIds.size
+                  // 调用API删除课点（API内部会处理1秒延迟）
+                  for (const id of selectedCoursePointIds) {
+                    const response = await api.coursePoints.deleteCoursePoint(id)
+                    if (response.error) {
+                      showError(response.error)
+                      return
+                    }
+                  }
+                  setCoursePointsList((prev) => prev.filter((cp) => !selectedCoursePointIds.has(cp.id)))
+                  setSelectedCoursePointIds(new Set())
+                  showSuccess(`成功删除 ${deleteCount} 个课点`)
+                } catch (error) {
+                  console.error("删除课点失败:", error)
+                  showError("删除课点失败，请重试")
+                } finally {
+                  setIsDeletingCoursePoints(false)
+                }
+              }}
+              disabled={selectedCoursePointIds.size === 0 || isDeletingCoursePoints}
+              className="gap-2"
+            >
+              {isDeletingCoursePoints ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4" />
+              )}
+              删除选中 ({selectedCoursePointIds.size})
+            </Button>
+            <Button variant="outline" onClick={() => {
+              setIsShowCoursePointsDialog(false)
+              setSelectedCoursePointIds(new Set())
+              setNewCoursePoint(null)
+              setEditingCoursePointId(null)
+              setEditingCoursePointData({})
+              setIsSavingEditingCoursePoint(false)
+              setDeletingCoursePointId(null)
+            }}>
+              关闭
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isAddCoursePointDialogOpen} onOpenChange={setIsAddCoursePointDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">

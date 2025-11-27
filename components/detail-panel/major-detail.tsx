@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type { TreeNode } from "@/types"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -53,6 +53,14 @@ export function MajorDetail({
   const [isEditingMajor, setIsEditingMajor] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isQuickCreateCourseOpen, setIsQuickCreateCourseOpen] = useState(false)
+
+  // 当节点改变时，退出编辑模式
+  useEffect(() => {
+    setIsEditingMajor(false)
+    setIsAddingCourse(false)
+    setIsDeleteDialogOpen(false)
+    setIsQuickCreateCourseOpen(false)
+  }, [node?.id])
 
   const handleDeleteNode = (nodeId: string) => {
     if (onDeleteNode) {

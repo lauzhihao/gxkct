@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { FileUpload } from "@/components/ui/file-upload"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion"
 import { useToast } from "@/hooks/use-toast"
 import { api } from "@/lib/api"
 
@@ -48,7 +49,13 @@ interface AddCourseFormProps {
   courseDetailData?: any
 }
 
-const courseNatureOptions = ["通识教育课", "学科基础课", "专业课", "集中实践教育环节", "综合教育"]
+const courseNatureOptions = [
+  { id: 1, name: "通识教育课" },
+  { id: 2, name: "学科基础课" },
+  { id: 3, name: "专业课" },
+  { id: 4, name: "集中实践教学环节" },
+  { id: 5, name: "综合教育" },
+]
 
 function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = false, courseDetailData }: AddCourseFormProps) {
   const { toast } = useToast()
@@ -83,13 +90,55 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
   const [openingDate, setOpeningDate] = useState(initialData?.metadata?.openingDate || "")
   const [courseType, setCourseType] = useState(initialData?.metadata?.courseType || "必修")
   const [courseName, setCourseName] = useState(initialData?.name || "")
-  const [courseNature, setCourseNature] = useState(initialData?.metadata?.courseNature || "")
+  const [courseNatureId, setCourseNatureId] = useState<number>(initialData?.metadata?.courseNatureId || 0)
+  const [introduction, setIntroduction] = useState(initialData?.metadata?.introduction || "")
+  const [theoryPeriod, setTheoryPeriod] = useState(initialData?.metadata?.theoryPeriod || 0)
+  const [practicePeriod, setPracticePeriod] = useState(initialData?.metadata?.practicePeriod || 0)
+
+  // 获取课程性质名称
+  const courseNatureName = useMemo(() => {
+    const option = courseNatureOptions.find(opt => opt.id === courseNatureId)
+    return option?.name || ""
+  }, [courseNatureId])
+
+  // 在编辑模式下，使用传入的 courseDetailData 初始化表单字段
+  useEffect(() => {
+    if (!isEditMode || !courseDetailData) return
+
+    const courseData = courseDetailData.courseDetailData?.course
+    if (courseData) {
+      console.log(`[AddCourseForm] 使用 courseDetailData 初始化表单字段`)
+      setCourseName(courseData.name || initialData?.name || "")
+      setIntroduction(courseData.introduction || "")
+      setTheoryPeriod(courseData.theoryPeriod || 0)
+      setPracticePeriod(courseData.practicePeriod || 0)
+      // 根据 typeId 设置课程性质
+      if (courseData.typeId) {
+        setCourseNatureId(courseData.typeId)
+      }
+      // 从 createTime 提取日期部分
+      if (courseData.createTime) {
+        const dateStr = courseData.createTime.split("T")[0]
+        setOpeningDate(dateStr)
+      }
+    }
+  }, [isEditMode, courseDetailData, initialData?.name])
 
   // Tab 2: Teaching Objectives
   const [teachingObjectives, setTeachingObjectives] = useState<TeachingObjective[]>(
     initialData?.metadata?.teachingObjectives || [{ id: "1", content: "", points: [""] }],
   )
   const [objectivesFile, setObjectivesFile] = useState<File | null>(null)
+  const [courseGoals, setCourseGoals] = useState<any[]>([])
+  const [isLoadingGoals, setIsLoadingGoals] = useState(false)
+  // 追踪每个课程目标下的教学目标输入框状态：goalId -> { inputValue, isMultiline, isEditing }
+  const [goalObjectiveInputs, setGoalObjectiveInputs] = useState<{ [key: number]: { inputValue: string; isMultiline: boolean; isEditing: boolean } }>({})
+  // 追踪每个课程目标下的教学目标列表：goalId -> TeachingObjective[]（包含 children）
+  const [goalObjectives, setGoalObjectives] = useState<{ [key: number]: Array<TeachingObjective & { children?: TeachingObjective[] }> }>({})
+  // 追踪子项的编辑状态：`${goalId}-${objectiveId}-${childIdx}` -> { isEditing, inputValue }
+  const [childrenEditStates, setChildrenEditStates] = useState<{ [key: string]: { isEditing: boolean; inputValue: string } }>({})
+  // 追踪教学目标的编辑状态：`${goalId}-${objectiveId}` -> { isMultiline }
+  const [goalObjectiveEditStates, setGoalObjectiveEditStates] = useState<{ [key: string]: { isMultiline: boolean } }>({})
 
   // Tab 3: Course Point Information Library
   const [coursePoints, setCoursePoints] = useState<CoursePoint[]>(
@@ -113,6 +162,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
 
   const lastObjectiveRef = useRef<HTMLInputElement>(null)
   const lastPointRef = useRef<HTMLInputElement>(null)
+  const hasLoadedGoalsRef = useRef(false)
   const [majorIndicators, setMajorIndicators] = useState<Array<{ requirementId: string; indicatorIndex: number; content: string }>>([])
 
   // 加载专业的指标点，并过滤出该课程支撑的指标点
@@ -201,6 +251,54 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
     loadCourseObjectiveIndicators()
   }, [isEditMode, realCourseId, realMajorId])
 
+  // 加载课程目标数据
+  useEffect(() => {
+    const loadCourseGoalsData = async () => {
+      if (!isEditMode || !realCourseId || !realMajorId) return
+
+      // 防止重复加载（React StrictMode 会执行两次）
+      if (hasLoadedGoalsRef.current) return
+      hasLoadedGoalsRef.current = true
+
+      setIsLoadingGoals(true)
+      try {
+        console.log(`[AddCourseForm] 加载课程目标，courseId: ${realCourseId}, majorId: ${realMajorId}`)
+        const response = await api.courseGoals.getCourseGoals(realCourseId, realMajorId)
+        if (response.data) {
+          console.log(`[AddCourseForm] 课程目标加载成功`, response.data)
+          setCourseGoals(response.data)
+
+          // 初始化 goalObjectives，将 children 也添加到教学目标列表中
+          const initialGoalObjectives: Record<number, Array<TeachingObjective & { children?: TeachingObjective[] }>> = {}
+          response.data.forEach((goal: any) => {
+            const objectives: Array<TeachingObjective & { children?: TeachingObjective[] }> = []
+
+            // 如果有 children，添加到教学目标列表
+            if (goal.children && goal.children.length > 0) {
+              goal.children.forEach((child: any) => {
+                objectives.push({
+                  id: child.id.toString(),
+                  content: child.description,
+                  points: [""],
+                  children: [],
+                })
+              })
+            }
+
+            initialGoalObjectives[goal.id] = objectives
+          })
+          setGoalObjectives(initialGoalObjectives)
+        }
+      } catch (error) {
+        console.error("[AddCourseForm] 加载课程目标失败:", error)
+      } finally {
+        setIsLoadingGoals(false)
+      }
+    }
+
+    loadCourseGoalsData()
+  }, [isEditMode, realCourseId, realMajorId])
+
   // Teaching Objectives functions
   const addTeachingObjective = () => {
     const newId = Date.now().toString()
@@ -222,7 +320,155 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
     setTeachingObjectives(teachingObjectives.map((obj) => (obj.id === id ? { ...obj, supportedIndicators: indicators } : obj)))
   }
 
+  // 课程目标下的教学目标处理函数
+  const startAddingObjectiveForGoal = (goalId: number) => {
+    setGoalObjectiveInputs((prev) => ({
+      ...prev,
+      [goalId]: { inputValue: "", isMultiline: false, isEditing: true },
+    }))
+  }
 
+  const updateGoalObjectiveInput = (goalId: number, value: string) => {
+    setGoalObjectiveInputs((prev) => ({
+      ...prev,
+      [goalId]: { ...prev[goalId], inputValue: value },
+    }))
+  }
+
+  const toggleGoalObjectiveMultiline = (goalId: number, isMultiline: boolean) => {
+    setGoalObjectiveInputs((prev) => ({
+      ...prev,
+      [goalId]: { ...prev[goalId], isMultiline },
+    }))
+  }
+
+  const finishAddingObjectiveForGoal = (goalId: number) => {
+    const input = goalObjectiveInputs[goalId]
+    if (!input || !input.inputValue.trim()) {
+      setGoalObjectiveInputs((prev) => ({
+        ...prev,
+        [goalId]: { inputValue: "", isMultiline: false, isEditing: false },
+      }))
+      return
+    }
+
+    // 添加到该课程目标的教学目标列表
+    const newObjective: TeachingObjective & { children?: TeachingObjective[] } = {
+      id: Date.now().toString(),
+      content: input.inputValue.trim(),
+      points: [""],
+      children: [],
+    }
+
+    setGoalObjectives((prev) => ({
+      ...prev,
+      [goalId]: [...(prev[goalId] || []), newObjective],
+    }))
+
+    // 清空输入框
+    setGoalObjectiveInputs((prev) => ({
+      ...prev,
+      [goalId]: { inputValue: "", isMultiline: false, isEditing: false },
+    }))
+  }
+
+  const removeGoalObjective = (goalId: number, objectiveId: string) => {
+    setGoalObjectives((prev) => ({
+      ...prev,
+      [goalId]: (prev[goalId] || []).filter((obj) => obj.id !== objectiveId),
+    }))
+  }
+
+  const toggleGoalObjectiveEditMode = (goalId: number, objectiveId: string, isMultiline: boolean) => {
+    const key = `${goalId}-${objectiveId}`
+    setGoalObjectiveEditStates((prev) => ({
+      ...prev,
+      [key]: { isMultiline },
+    }))
+  }
+
+  // 子项编辑函数
+  const startEditingChild = (goalId: number, objectiveId: string, childIdx: number, currentValue: string) => {
+    const key = `${goalId}-${objectiveId}-${childIdx}`
+    setChildrenEditStates((prev) => ({
+      ...prev,
+      [key]: { isEditing: true, inputValue: currentValue },
+    }))
+  }
+
+  const updateChildInput = (goalId: number, objectiveId: string, childIdx: number, value: string) => {
+    const key = `${goalId}-${objectiveId}-${childIdx}`
+    setChildrenEditStates((prev) => ({
+      ...prev,
+      [key]: { ...prev[key], inputValue: value },
+    }))
+  }
+
+  const finishEditingChild = (goalId: number, objectiveId: string, childIdx: number) => {
+    const key = `${goalId}-${objectiveId}-${childIdx}`
+    const editState = childrenEditStates[key]
+    if (!editState) return
+
+    // 更新子项内容
+    setGoalObjectives((prev) => ({
+      ...prev,
+      [goalId]: (prev[goalId] || []).map((obj) => {
+        if (obj.id === objectiveId && obj.children) {
+          return {
+            ...obj,
+            children: obj.children.map((child, idx) =>
+              idx === childIdx ? { ...child, content: editState.inputValue.trim() } : child
+            ),
+          }
+        }
+        return obj
+      }),
+    }))
+
+    // 清空编辑状态
+    setChildrenEditStates((prev) => {
+      const newState = { ...prev }
+      delete newState[key]
+      return newState
+    })
+  }
+
+  const removeChild = (goalId: number, objectiveId: string, childIdx: number) => {
+    setGoalObjectives((prev) => ({
+      ...prev,
+      [goalId]: (prev[goalId] || []).map((obj) => {
+        if (obj.id === objectiveId && obj.children) {
+          return {
+            ...obj,
+            children: obj.children.filter((_, idx) => idx !== childIdx),
+          }
+        }
+        return obj
+      }),
+    }))
+  }
+
+  const addChildToObjective = (goalId: number, objectiveId: string) => {
+    setGoalObjectives((prev) => ({
+      ...prev,
+      [goalId]: (prev[goalId] || []).map((obj) => {
+        if (obj.id === objectiveId) {
+          return {
+            ...obj,
+            children: [
+              ...(obj.children || []),
+              {
+                id: Date.now().toString(),
+                content: "",
+                points: [""],
+              },
+            ],
+          }
+        }
+        return obj
+      }),
+    }))
+  }
 
   // Course Points functions
   const addCoursePoint = () => {
@@ -352,7 +598,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
   const handleSubmit = () => {
     setIsLoading(true)
 
-    if (!courseName.trim() || !courseNature) {
+    if (!courseName.trim() || !courseNatureId) {
       toast({
         variant: "destructive",
         title: "表单验证失败",
@@ -369,7 +615,11 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
       metadata: {
         openingDate,
         courseType,
-        courseNature,
+        courseNatureId,
+        courseNatureName: courseNatureName,
+        introduction,
+        theoryPeriod,
+        practicePeriod,
         teachingObjectives,
         coursePoints,
         chapters,
@@ -377,16 +627,14 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
       children: initialData?.children || [],
     }
 
-    setTimeout(() => {
-      toast({
-        variant: "success",
-        title: "保存成功",
-        description: isEditMode ? "课程信息已成功更新" : "课程信息已成功保存",
-        duration: 3000,
-      })
-      onSubmit(courseData)
-      setIsLoading(false)
-    }, 1000)
+    toast({
+      variant: "success",
+      title: "保存成功",
+      description: isEditMode ? "课程信息已成功更新" : "课程信息已成功保存",
+      duration: 3000,
+    })
+    onSubmit(courseData)
+    setIsLoading(false)
   }
 
   const totalTheoryHours = chapters.reduce((sum, ch) => sum + (ch.theoryHours || 0), 0)
@@ -549,7 +797,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
                   <Popover open={courseNaturePopoverOpen} onOpenChange={setCourseNaturePopoverOpen}>
                     <PopoverTrigger asChild>
                       <Button variant="outline" className="w-full justify-between bg-transparent">
-                        <span className="truncate">{courseNature || "请选择课程性质"}</span>
+                        <span className="truncate">{courseNatureName || "请选择课程性质"}</span>
                         <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
                       </Button>
                     </PopoverTrigger>
@@ -557,21 +805,59 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
                       <div className="max-h-[300px] overflow-y-auto p-2">
                         {courseNatureOptions.map((option) => (
                           <button
-                            key={option}
+                            key={option.id}
                             onClick={() => {
-                              setCourseNature(option)
+                              setCourseNatureId(option.id)
                               setCourseNaturePopoverOpen(false)
                             }}
                             className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-accent hover:text-white ${
-                              courseNature === option ? "bg-[var(--naive-primary)] text-white" : ""
+                              courseNatureId === option.id ? "bg-[var(--naive-primary)] text-white" : ""
                             }`}
                           >
-                            {option}
+                            {option.name}
                           </button>
                         ))}
                       </div>
                     </PopoverContent>
                   </Popover>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="theory-period">理论学时</Label>
+                  <Input
+                    id="theory-period"
+                    type="number"
+                    min="0"
+                    placeholder="例如：32"
+                    value={theoryPeriod}
+                    onChange={(e) => setTheoryPeriod(Number.parseInt(e.target.value) || 0)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="practice-period">实践学时</Label>
+                  <Input
+                    id="practice-period"
+                    type="number"
+                    min="0"
+                    placeholder="例如：16"
+                    value={practicePeriod}
+                    onChange={(e) => setPracticePeriod(Number.parseInt(e.target.value) || 0)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="introduction">课程介绍</Label>
+                  <textarea
+                    id="introduction"
+                    placeholder="输入课程介绍"
+                    value={introduction}
+                    onChange={(e) => setIntroduction(e.target.value.slice(0, 1024))}
+                    maxLength={1024}
+                    className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
+                    rows={4}
+                  />
+                  <div className="text-xs text-muted-foreground text-right">{introduction.length}/1024</div>
                 </div>
               </div>
             </div>
@@ -598,10 +884,6 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
                   >
                     <Star className="w-4 h-4" />
                     AI一键生成
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={addTeachingObjective} className="gap-2 bg-transparent">
-                    <Plus className="w-4 h-4" />
-                    添加教学目标
                   </Button>
                   <FileUpload
                     buttonText="上传Excel"
@@ -635,89 +917,159 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
                 </div>
               )}
 
-              {/* 按指标点分组显示教学目标 */}
-              <div className="space-y-4">
-                {majorIndicators.map((indicator, indicatorIdx) => {
-                  const indicatorKey = `${indicator.requirementId}-${indicator.indicatorIndex}`
-                  // 获取支撑该指标点的所有教学目标
-                  const objectivesForIndicator = teachingObjectives.filter((obj) =>
-                    obj.supportedIndicators?.includes(indicatorKey)
-                  )
+              {/* 课程目标显示 */}
+              {isLoadingGoals ? (
+                <div className="flex items-center justify-center py-6">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                    <p className="text-sm text-muted-foreground">加载课程目标中...</p>
+                  </div>
+                </div>
+              ) : courseGoals.length > 0 ? (
+                <Accordion
+                  type="multiple"
+                  className="space-y-3"
+                  defaultValue={courseGoals
+                    .map((goal, idx) => goal.children && goal.children.length > 0 ? `goal-${goal.id}` : null)
+                    .filter(Boolean) as string[]}
+                >
+                    {courseGoals.map((goal, goalIdx) => {
+                      const goalObjectivesList = goalObjectives[goal.id] || []
+                      const goalInput = goalObjectiveInputs[goal.id]
+                      const hasChildren = goal.children && goal.children.length > 0
+                      const accordionValue = `goal-${goal.id}`
 
-                  return (
-                    <div key={indicatorKey} className="border border-border rounded-lg overflow-hidden">
-                      {/* 指标点卡片标题 */}
-                      <div className="bg-secondary/50 px-4 py-3 border-b border-border">
-                        <div className="flex items-center gap-3">
-                          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-medium text-primary">
-                            {indicatorIdx + 1}
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-foreground">{indicator.content}</p>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              const newId = Date.now().toString()
-                              const newObjective: TeachingObjective = {
-                                id: newId,
-                                content: "",
-                                points: [""],
-                                supportedIndicators: [indicatorKey],
-                              }
-                              setTeachingObjectives([newObjective, ...teachingObjectives])
-                              setTimeout(() => lastObjectiveRef.current?.focus(), 0)
-                            }}
-                            className="gap-2 bg-transparent"
-                          >
-                            <Plus className="w-4 h-4" />
-                            添加教学目标
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* 教学目标列表 */}
-                      <div className="p-4 space-y-3">
-                        {objectivesForIndicator.length === 0 ? (
-                          <div className="text-center py-6 text-muted-foreground text-sm">
-                            暂无教学目标
-                          </div>
-                        ) : (
-                          objectivesForIndicator.map((objective, objIndex) => (
-                            <div key={objective.id} className="flex items-start gap-3 p-3 bg-background rounded-lg border border-border">
-                              <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-medium text-primary mt-1">
-                                {objIndex + 1}
+                      return (
+                        <AccordionItem
+                          key={goal.id}
+                          value={accordionValue}
+                          className="rounded-lg border border-border bg-secondary/10 backdrop-blur-sm"
+                          defaultOpen={hasChildren}
+                        >
+                          <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                            <div className="flex items-start gap-3 w-full">
+                              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-accent/10 border border-primary/30 flex items-center justify-center text-xs font-medium text-primary">
+                                {goalIdx + 1}
                               </div>
-                              <div className="flex-1 relative">
-                                <textarea
-                                  ref={objIndex === 0 ? lastObjectiveRef as any : null}
-                                  placeholder="输入教学目标内容（最多500字）"
-                                  value={objective.content}
-                                  onChange={(e) => updateTeachingObjective(objective.id, e.target.value.slice(0, 500))}
-                                  maxLength={500}
-                                  className="w-full min-h-[80px] p-2 rounded-lg border border-border bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                />
-                                <div className="absolute right-2 bottom-2 text-xs text-muted-foreground">
-                                  {objective.content.length}/500
-                                </div>
+                              <div className="flex-1 text-left">
+                                <p className="text-sm font-medium text-foreground leading-relaxed">{goal.description}</p>
                               </div>
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => removeTeachingObjective(objective.id)}
-                                className="gap-2 text-red-500 hover:text-red-600 hover:bg-red-50 mt-1 flex-shrink-0"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  startAddingObjectiveForGoal(goal.id)
+                                }}
+                                className="gap-1 h-6 w-6 p-0 flex-shrink-0 text-primary hover:bg-primary/10"
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Plus className="w-4 h-4" />
                               </Button>
                             </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+                          </AccordionTrigger>
+
+                          <AccordionContent className="px-4 pb-4">
+                            <div className="border-t border-dashed border-border mb-4" />
+
+                            {/* 教学目标列表 */}
+                            <div className="space-y-3">
+                              {/* 教学目标输入框 */}
+                              {goalInput?.isEditing && (
+                                <div className="flex items-center gap-2 mb-3 pl-6 p-2 bg-card/20 rounded-md border border-border">
+                                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[0.7rem] font-medium text-primary">
+                                    {String.fromCharCode(97 + goalObjectivesList.length)}
+                                  </div>
+                                  {goalInput.isMultiline ? (
+                                    <textarea
+                                      autoFocus
+                                      placeholder="输入教学目标内容"
+                                      value={goalInput.inputValue}
+                                      onChange={(e) => updateGoalObjectiveInput(goal.id, e.target.value)}
+                                      onBlur={() => finishAddingObjectiveForGoal(goal.id)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter" && e.ctrlKey) {
+                                          finishAddingObjectiveForGoal(goal.id)
+                                        }
+                                      }}
+                                      className="flex-1 px-3 py-2 border border-border rounded-md text-[1.05rem] resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[80px]"
+                                    />
+                                  ) : (
+                                    <input
+                                      autoFocus
+                                      type="text"
+                                      placeholder="输入教学目标内容"
+                                      value={goalInput.inputValue}
+                                      onChange={(e) => updateGoalObjectiveInput(goal.id, e.target.value)}
+                                      onFocus={() => toggleGoalObjectiveMultiline(goal.id, true)}
+                                      onBlur={() => finishAddingObjectiveForGoal(goal.id)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                          finishAddingObjectiveForGoal(goal.id)
+                                        }
+                                      }}
+                                      className="flex-1 px-3 py-2 border border-border rounded-md text-[1.05rem] focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                    />
+                                  )}
+                                </div>
+                              )}
+
+                              {/* 教学目标列表 */}
+                              {goalObjectivesList.length > 0 ? (
+                                <div className="space-y-2 pl-6">
+                                  {goalObjectivesList.map((objective, objIdx) => {
+                                    const editKey = `${goal.id}-${objective.id}`
+                                    const editState = goalObjectiveEditStates[editKey]
+                                    const isMultiline = editState?.isMultiline
+
+                                    return (
+                                      <div key={objective.id} className="flex items-center gap-2 p-2 bg-card/20 rounded-md border border-border">
+                                        <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[0.7rem] font-medium text-primary">
+                                          {String.fromCharCode(97 + objIdx)}
+                                        </div>
+                                        {isMultiline ? (
+                                          <textarea
+                                            placeholder="输入教学目标内容"
+                                            value={objective.content}
+                                            onChange={(e) => updateTeachingObjective(objective.id, e.target.value.slice(0, 500))}
+                                            onBlur={() => toggleGoalObjectiveEditMode(goal.id, objective.id, false)}
+                                            className="flex-1 px-3 py-2 border border-border rounded-md text-[1.05rem] resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[80px]"
+                                          />
+                                        ) : (
+                                          <input
+                                            type="text"
+                                            placeholder="输入教学目标内容"
+                                            value={objective.content}
+                                            onChange={(e) => updateTeachingObjective(objective.id, e.target.value.slice(0, 500))}
+                                            onFocus={() => toggleGoalObjectiveEditMode(goal.id, objective.id, true)}
+                                            className="flex-1 text-[1.05rem] text-foreground bg-transparent border-b border-transparent hover:border-border focus:border-primary focus:outline-none px-1 py-0.5"
+                                          />
+                                        )}
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => removeGoalObjective(goal.id, objective.id)}
+                                          className="gap-1 text-red-500 hover:text-red-600 hover:bg-red-50 h-5 px-1 flex-shrink-0"
+                                        >
+                                          <X className="w-3 h-3" />
+                                        </Button>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              ) : (
+                                !goalInput?.isEditing && (
+                                  <div className="text-center py-3 text-muted-foreground text-xs">
+                                    暂无教学目标
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      )
+                    })}
+                  </Accordion>
+              ) : null}
             </div>
           </TabsContent>
 

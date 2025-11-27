@@ -7,8 +7,12 @@ import { PreferenceApi, type UserPreference } from "./preference-api"
 import { TeachingTaskApi } from "./teaching-task-api"
 import { CourseDetailApi, type CombinedCourseDetail, type MajorDetailData } from "./course-detail-api"
 import { OccupationApi, type OccupationBookData } from "./occupation-api"
+import { CourseGoalsApi, type CourseGoal } from "./course-goals-api"
+import { CoursePointsApi, type CoursePoint } from "./course-points-api"
+import { ProjectTeachGoalApi, type ProjectTeachGoalData, type Project, type ProjectTeachGoal } from "./project-teach-goal-api"
 import { initializeMockData, resetMockData } from "./data-initializer"
 import { getApiConfig, buildApiUrl, type ApiConfig } from "./config"
+import { StorageAdapter } from "./storage-adapter"
 import {
   getStoredAuthToken,
   setStoredAuthToken,
@@ -24,6 +28,7 @@ import {
 } from "./auth-config"
 
 // 创建API实例
+const storageAdapter = new StorageAdapter()
 export const api = {
   tree: new TreeApi(),
   users: new UserApi(),
@@ -34,13 +39,16 @@ export const api = {
   teachingTasks: new TeachingTaskApi(),
   courseDetail: new CourseDetailApi(),
   occupation: new OccupationApi(),
+  courseGoals: new CourseGoalsApi(),
+  coursePoints: new CoursePointsApi(storageAdapter),
+  projectTeachGoal: new ProjectTeachGoalApi(),
 }
 
 // 导出API类
 export { TreeApi, UserApi, MatrixApi, ResourceApi, ConfigApi, PreferenceApi, TeachingTaskApi, CourseDetailApi, OccupationApi }
 
 // 导出类型
-export type { User, CourseMatrix, ProjectMatrix, MajorMatrixData, FileData, CourseResourceData, ScoringData, ThemeConfig, UserPreference, CombinedCourseDetail, MajorDetailData, OccupationBookData }
+export type { User, CourseMatrix, ProjectMatrix, MajorMatrixData, FileData, CourseResourceData, ScoringData, ThemeConfig, UserPreference, CombinedCourseDetail, MajorDetailData, OccupationBookData, CoursePoint, ProjectTeachGoalData, Project, ProjectTeachGoal }
 export type { ApiResponse, BackendResponse } from "./types"
 
 // 导出初始化函数

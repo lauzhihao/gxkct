@@ -627,16 +627,14 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
       children: initialData?.children || [],
     }
 
-    setTimeout(() => {
-      toast({
-        variant: "success",
-        title: "保存成功",
-        description: isEditMode ? "专业信息已成功更新" : "专业信息已成功保存",
-        duration: 3000, // Updated success toast duration to 3 seconds
-      })
-      onSubmit(majorData)
-      setIsLoading(false)
-    }, 3000)
+    toast({
+      variant: "success",
+      title: "保存成功",
+      description: isEditMode ? "专业信息已成功更新" : "专业信息已成功保存",
+      duration: 3000,
+    })
+    onSubmit(majorData)
+    setIsLoading(false)
   }
 
   const filteredProvinces = provinces.filter((province) =>
