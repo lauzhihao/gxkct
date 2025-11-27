@@ -25,13 +25,18 @@ import { CourseChapters } from "@/components/course/course-chapters"
 import { CourseResources } from "@/components/course/course-resources"
 import { CourseSupervision } from "@/components/course/course-supervision"
 import { CourseThreeLevelMatrix } from "@/components/course/course-three-level-matrix"
+import { TeachingObjectivesEditor } from "@/components/course/teaching-objectives-editor"
 
 export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelect, treeData, majorCourses }: DetailPanelProps) {
   const metadata = node.metadata || {}
   const [isEditingCourse, setIsEditingCourse] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isEditingTeachingObjectives, setIsEditingTeachingObjectives] = useState(false)
   const [courseDetailData, setCourseDetailData] = useState<CombinedCourseDetail | null>(null)
+  const [courseGoals, setCourseGoals] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState("info")
+  const [activeMatrixTab, setActiveMatrixTab] = useState("courseMatrix")
 
   // 当节点改变时，退出编辑模式
   useEffect(() => {
@@ -68,6 +73,34 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
       loadCourseDetail()
     }
   }, [node?.id, (metadata as any)?.courseId])
+
+  // 加载教学目标数据
+  useEffect(() => {
+    const loadCourseGoals = async () => {
+      try {
+        const courseId = (metadata as any)?.courseId
+        const parentMajorId = (metadata as any)?.parentMajorId
+
+        if (!courseId || !parentMajorId) {
+          console.warn("[CourseDetail] 无法获取课程ID或专业ID")
+          return
+        }
+
+        console.log(`[CourseDetail] 开始加载教学目标，courseId: ${courseId}, majorId: ${parentMajorId}`)
+        const response = await api.courseGoals.getCourseGoals(String(courseId), String(parentMajorId))
+        if (response.data) {
+          console.log(`[CourseDetail] 教学目标加载成功:`, response.data)
+          setCourseGoals(response.data)
+        }
+      } catch (error) {
+        console.error("[CourseDetail] 加载教学目标失败:", error)
+      }
+    }
+
+    if (isEditingTeachingObjectives) {
+      loadCourseGoals()
+    }
+  }, [isEditingTeachingObjectives, (metadata as any)?.courseId, (metadata as any)?.parentMajorId])
 
   if (!node || node.type !== "course") return null
 
@@ -157,6 +190,25 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
   const createTime = courseDetailInfo.course.createTime
   const majorId = courseDetailInfo.course.majorId
 
+  // 如果正在编辑教学目标，显示TeachingObjectivesEditor
+  if (isEditingTeachingObjectives) {
+    return (
+      <TeachingObjectivesEditor
+        isOpen={true}
+        onClose={() => {
+          setIsEditingTeachingObjectives(false)
+          setActiveTab("matrix")
+        }}
+        courseGoals={courseGoals}
+        node={node}
+        majorIndicators={[]}
+        teachingObjectiveIndicatorMap={{}}
+        isLoadingMajorIndicators={false}
+        isLoadingTeachingObjectiveIndicators={false}
+      />
+    )
+  }
+
   return (
     <>
       <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl overflow-hidden">
@@ -205,8 +257,8 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-auto">
-          <Tabs defaultValue="info" className="w-full">
+        <div>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="w-full h-10 bg-secondary/50 backdrop-blur-sm border-b border-border rounded-none p-0">
               <TabsTrigger value="info" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">课程信息</TabsTrigger>
               <TabsTrigger value="resources" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">课程资源</TabsTrigger>
@@ -242,7 +294,7 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
             </TabsContent>
 
             <TabsContent value="matrix" className="space-y-4 mt-4 px-6">
-              <CourseThreeLevelMatrix node={node} onUpdateNode={onUpdateNode} treeData={treeData} majorCourses={majorCourses} majorId={majorId} />
+              <CourseThreeLevelMatrix node={node} onUpdateNode={onUpdateNode} treeData={treeData} majorCourses={majorCourses} majorId={majorId} onEditTeachingObjectives={() => setIsEditingTeachingObjectives(true)} activeMatrixTab={activeMatrixTab} onActiveMatrixTabChange={setActiveMatrixTab} />
             </TabsContent>
 
             <TabsContent value="supervision" className="space-y-4 mt-4 px-6">

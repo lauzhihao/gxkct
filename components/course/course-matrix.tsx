@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Pencil, X, Check, Loader2, Plus, BookMarked, GripVertical, Search, Settings, Trash2 } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Pencil, X, Check, Loader2, Plus, BookMarked, GripVertical, Search, Settings, Trash2, Star, Flag } from "lucide-react"
 import { FileUpload } from "@/components/ui/file-upload"
 import { cn } from "@/lib/utils"
 import type { TreeNode } from "@/types"
@@ -18,9 +18,10 @@ interface CourseMatrixProps {
   node: TreeNode
   onUpdateNode?: (nodeId: string, updates: Partial<TreeNode>) => void
   majorId?: string | number
+  onEditTeachingObjectives?: () => void
 }
 
-export function CourseMatrix({ node, onUpdateNode, majorId }: CourseMatrixProps) {
+export function CourseMatrix({ node, onUpdateNode, majorId, onEditTeachingObjectives }: CourseMatrixProps) {
   const [isEditingCourseMatrix, setIsEditingCourseMatrix] = useState(false)
   const [courseMatrixData, setCourseMatrixData] = useState<
     Record<string, Array<{ id: string; name: string; description: string; support: "strong" | "weak" }>>
@@ -34,7 +35,6 @@ export function CourseMatrix({ node, onUpdateNode, majorId }: CourseMatrixProps)
   } | null>(null)
   const [selectedCoursePoints, setSelectedCoursePoints] = useState<Record<string, "strong" | "weak">>({})
   const [courseGoals, setCourseGoals] = useState<CourseGoal[]>([])
-  const [isLoadingGoals, setIsLoadingGoals] = useState(false)
   const [projectTeachGoalData, setProjectTeachGoalData] = useState<ProjectTeachGoalData | null>(null)
   const [isLoadingProjectTeachGoal, setIsLoadingProjectTeachGoal] = useState(false)
   const [editingProjectNames, setEditingProjectNames] = useState<Record<string, string>>({})
@@ -52,6 +52,12 @@ export function CourseMatrix({ node, onUpdateNode, majorId }: CourseMatrixProps)
   const [newCoursePoint, setNewCoursePoint] = useState<Partial<ApiCoursePoint> | null>(null)
   const [isSavingNewCoursePoint, setIsSavingNewCoursePoint] = useState(false)
   const [isSavingEditingCoursePoint, setIsSavingEditingCoursePoint] = useState(false)
+  const [isAutoSavePaused, setIsAutoSavePaused] = useState(false)
+  const [coursePointsSearchInDialog, setCoursePointsSearchInDialog] = useState("")
+  const [majorIndicators, setMajorIndicators] = useState<Array<{ requirementId: string; indicatorIndex: number; content: string }>>([])
+  const [isLoadingMajorIndicators, setIsLoadingMajorIndicators] = useState(false)
+  const [teachingObjectiveIndicatorMap, setTeachingObjectiveIndicatorMap] = useState<Record<string, string[]>>({})
+  const [isLoadingTeachingObjectiveIndicators, setIsLoadingTeachingObjectiveIndicators] = useState(false)
 
   // 防止在StrictMode下重复调用API
   const hasLoadedRef = useRef(false)
@@ -86,32 +92,30 @@ export function CourseMatrix({ node, onUpdateNode, majorId }: CourseMatrixProps)
 
           // 并行加载所有API请求
           setIsLoadingProjectTeachGoal(true)
-          setIsLoadingGoals(true)
           setIsLoadingCoursePoints(true)
+          setIsLoadingMajorIndicators(true)
+          setIsLoadingTeachingObjectiveIndicators(true)
 
-          const [projectTeachGoalResponse, courseGoalsResponse, coursePointsResponse] = await Promise.all([
-            // 加载项目和教学目标
-            api.projectTeachGoal.getProjectTeachGoal(String(courseId)),
-            // 加载课程目标
+          const [courseGoalsResponse, coursePointsResponse, indicatorSupportsResponse, teachingObjectiveIndicatorsResponse, projectTeachGoalResponse] = await Promise.all([
+            // 加载课程目标（教学目标编辑页面使用）
             parentMajorId ? api.courseGoals.getCourseGoals(String(courseId), String(parentMajorId)) : Promise.resolve({ data: null, error: null, status: 200 }),
             // 加载课点列表
             majorId ? api.coursePoints.getCoursePoints(String(majorId), String(courseId)) : Promise.resolve({ data: null, error: null, status: 200 }),
+            // 加载课程支撑的指标点
+            majorId ? api.matrices.getCourseIndicatorSupports(String(courseId), String(majorId)) : Promise.resolve({ data: [], error: null, status: 200 }),
+            // 加载教学目标与指标点的关系
+            majorId ? api.matrices.getCourseTeachingObjectiveIndicators(String(courseId), String(majorId)) : Promise.resolve({ data: {}, error: null, status: 200 }),
+            // 加载项目和教学目标数据
+            api.projectTeachGoal.getProjectTeachGoal(String(courseId)),
           ])
 
-          // 处理项目和教学目标数据
-          console.log("[CourseMatrix] 项目和教学目标API响应:", projectTeachGoalResponse)
-          if (projectTeachGoalResponse.data) {
-            console.log("[CourseMatrix] 项目和教学目标数据加载成功:", projectTeachGoalResponse.data)
-            setProjectTeachGoalData(projectTeachGoalResponse.data)
-          } else {
-            console.warn("[CourseMatrix] 项目和教学目标数据为空或加载失败:", projectTeachGoalResponse.error)
-          }
-
-          // 处理课程目标数据
+          // 处理课程目标数据（教学目标编辑页面使用）
           console.log("[CourseMatrix] 课程目标API响应:", courseGoalsResponse)
           if (courseGoalsResponse.data) {
             console.log("[CourseMatrix] 课程目标数据加载成功:", courseGoalsResponse.data)
             setCourseGoals(courseGoalsResponse.data)
+
+  
           } else {
             console.warn("[CourseMatrix] 课程目标数据为空或加载失败:", courseGoalsResponse.error)
           }
@@ -124,17 +128,72 @@ export function CourseMatrix({ node, onUpdateNode, majorId }: CourseMatrixProps)
           } else {
             console.warn("[CourseMatrix] 课点列表为空或加载失败:", coursePointsResponse.error)
           }
+
+          // 处理指标点数据
+          console.log("[CourseMatrix] 课程支撑的指标点API响应:", indicatorSupportsResponse)
+          if (indicatorSupportsResponse.data && indicatorSupportsResponse.data.length > 0) {
+            // 从localStorage中获取专业数据，提取所有指标点
+            const majorData = localStorage.getItem(`major-${majorId}`)
+            if (majorData) {
+              const parsed = JSON.parse(majorData)
+              const allIndicators: Array<{ requirementId: string; indicatorIndex: number; content: string }> = []
+
+              if (parsed.metadata?.graduationRequirements) {
+                parsed.metadata.graduationRequirements.forEach((req: any) => {
+                  req.indicators?.forEach((indicator: string, index: number) => {
+                    allIndicators.push({
+                      requirementId: req.id,
+                      indicatorIndex: index,
+                      content: indicator,
+                    })
+                  })
+                })
+              }
+
+              // 过滤出该课程支撑的指标点
+              const supportedIndicatorKeys = new Set(indicatorSupportsResponse.data)
+              const filteredIndicators = allIndicators.filter((indicator) => {
+                const key = `${indicator.requirementId}-${indicator.indicatorIndex}`
+                return supportedIndicatorKeys.has(key)
+              })
+              console.log("[CourseMatrix] 过滤后的指标点:", filteredIndicators)
+              setMajorIndicators(filteredIndicators)
+            }
+          } else {
+            console.warn("[CourseMatrix] 课程支撑的指标点为空或加载失败:", indicatorSupportsResponse.error)
+          }
+
+          // 处理教学目标与指标点的关系
+          console.log("[CourseMatrix] 教学目标与指标点关系API响应:", teachingObjectiveIndicatorsResponse)
+          if (teachingObjectiveIndicatorsResponse.data) {
+            console.log("[CourseMatrix] 教学目标与指标点关系加载成功:", teachingObjectiveIndicatorsResponse.data)
+            setTeachingObjectiveIndicatorMap(teachingObjectiveIndicatorsResponse.data)
+          } else {
+            console.warn("[CourseMatrix] 教学目标与指标点关系为空或加载失败:", teachingObjectiveIndicatorsResponse.error)
+          }
+
+          // 处理项目和教学目标数据
+          console.log("[CourseMatrix] 项目和教学目标API响应:", projectTeachGoalResponse)
+          if (projectTeachGoalResponse.data) {
+            console.log("[CourseMatrix] 项目和教学目标数据加载成功:", projectTeachGoalResponse.data)
+            setProjectTeachGoalData(projectTeachGoalResponse.data)
+          } else {
+            console.warn("[CourseMatrix] 项目和教学目标数据为空或加载失败:", projectTeachGoalResponse.error)
+          }
         } catch (error) {
           console.error("[CourseMatrix] 加载数据失败:", error)
         } finally {
           setIsLoadingProjectTeachGoal(false)
-          setIsLoadingGoals(false)
           setIsLoadingCoursePoints(false)
+          setIsLoadingMajorIndicators(false)
+          setIsLoadingTeachingObjectiveIndicators(false)
         }
       }
       loadAllData()
     }
   }, [node?.id, node?.type, majorId])
+
+
 
   useEffect(() => {
     if (node?.type === "course" && node?.id) {
@@ -169,14 +228,14 @@ export function CourseMatrix({ node, onUpdateNode, majorId }: CourseMatrixProps)
   }, [node?.id, node?.type])
 
   useEffect(() => {
-    if (!isEditingCourseMatrix) return
+    if (!isEditingCourseMatrix || isAutoSavePaused) return
 
     const autoSaveInterval = setInterval(() => {
       handleSaveCourseMatrix(true)
     }, 10000)
 
     return () => clearInterval(autoSaveInterval)
-  }, [isEditingCourseMatrix, courseMatrixData])
+  }, [isEditingCourseMatrix, courseMatrixData, isAutoSavePaused])
 
   const handleSaveCourseMatrix = async (isAutoSave = false) => {
     setIsSavingCourseMatrix(true)
@@ -230,8 +289,23 @@ export function CourseMatrix({ node, onUpdateNode, majorId }: CourseMatrixProps)
   }
 
   const handleAddCoursePoint = (objectiveId: string, pointId: string, chapterId: string) => {
+    // 暂停自动保存
+    setIsAutoSavePaused(true)
+
+    // 清除搜索框
+    setCoursePointsSearch("")
+    setCoursePointsSearchInDialog("")
+
+    // 获取单元格中已存在的课点数据
+    const key = `${objectiveId}-${pointId}-${chapterId}`
+    const existingCoursePoints = courseMatrixData[key] || []
+    const initialSelections: Record<string, "strong" | "weak"> = {}
+    existingCoursePoints.forEach((cp) => {
+      initialSelections[cp.id] = cp.support
+    })
+
     setSelectedMatrixCell({ objectiveId, pointId, chapterId })
-    setSelectedCoursePoints({})
+    setSelectedCoursePoints(initialSelections)
     setIsAddCoursePointDialogOpen(true)
   }
 
@@ -256,18 +330,15 @@ export function CourseMatrix({ node, onUpdateNode, majorId }: CourseMatrixProps)
 
     const key = `${selectedMatrixCell.objectiveId}-${selectedMatrixCell.pointId}-${selectedMatrixCell.chapterId}`
 
+    // 从coursePointsList构建课点数据映射
     const coursePointsMap = new Map()
-    if (node?.metadata?.coursePoints) {
-      node.metadata.coursePoints.forEach((cp: CoursePoint, idx: number) => {
-        const id = cp.id || `cp-${idx}`
-        const title = cp.title || `课点 ${idx + 1}`
-        const description = cp.description || ""
-        coursePointsMap.set(id, { title, description })
-      })
-    }
+    coursePointsList.forEach((cp: ApiCoursePoint) => {
+      const id = String(cp.id)
+      coursePointsMap.set(id, { title: cp.title, description: cp.description })
+    })
 
     setCourseMatrixData((prev) => {
-      const existing = prev[key] || []
+      // 清空旧数据，按最新的关系重新设置
       const newPoints = Object.entries(selectedCoursePoints).map(([id, support]) => {
         const pointData = coursePointsMap.get(id) || { title: id, description: "" }
         return {
@@ -278,19 +349,9 @@ export function CourseMatrix({ node, onUpdateNode, majorId }: CourseMatrixProps)
         }
       })
 
-      const merged = [...existing]
-      newPoints.forEach((newPoint) => {
-        const existingIndex = merged.findIndex((cp) => cp.id === newPoint.id)
-        if (existingIndex >= 0) {
-          merged[existingIndex] = newPoint
-        } else {
-          merged.push(newPoint)
-        }
-      })
-
       return {
         ...prev,
-        [key]: merged,
+        [key]: newPoints,
       }
     })
 
@@ -307,13 +368,16 @@ export function CourseMatrix({ node, onUpdateNode, majorId }: CourseMatrixProps)
     }))
   }
 
+
+
+  // 从coursePointsList构建课点索引映射和标题映射
   const coursePointIndexMap = new Map()
-  if (node?.metadata?.coursePoints) {
-    node.metadata.coursePoints.forEach((cp: CoursePoint, idx: number) => {
-      const id = cp.id || `cp-${idx}`
-      coursePointIndexMap.set(id, idx + 1)
-    })
-  }
+  const coursePointTitleMap = new Map()
+  coursePointsList.forEach((cp: ApiCoursePoint, idx: number) => {
+    const id = String(cp.id)
+    coursePointIndexMap.set(id, idx + 1)
+    coursePointTitleMap.set(id, cp.title)
+  })
 
   // 新增课点
   const handleAddNewCoursePoint = () => {
@@ -474,10 +538,10 @@ export function CourseMatrix({ node, onUpdateNode, majorId }: CourseMatrixProps)
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => {}}
+                  onClick={() => onEditTeachingObjectives?.()}
                   className="gap-2 bg-transparent"
                 >
-                  <Pencil className="w-3.5 h-3.5" />
+                  <Flag className="w-3.5 h-3.5" />
                   教学目标
                 </Button>
                 <Button
@@ -518,7 +582,7 @@ export function CourseMatrix({ node, onUpdateNode, majorId }: CourseMatrixProps)
                 className="gap-2 bg-transparent"
               >
                 <Pencil className="w-3.5 h-3.5" />
-                编辑
+                编辑矩阵
               </Button>
             ) : (
               <div className="flex gap-2">
@@ -698,7 +762,12 @@ export function CourseMatrix({ node, onUpdateNode, majorId }: CourseMatrixProps)
                                               cp.support === "weak" && "bg-green-100 border border-green-300 text-green-700",
                                             )}
                                           >
-                                            {coursePointIndexMap.get(cp.id) || cp.id}
+                                            {cp.support === "strong" ? (
+                                              <Star className="w-3 h-3 fill-current" />
+                                            ) : (
+                                              <Star className="w-3 h-3" />
+                                            )}
+                                            {coursePointTitleMap.get(cp.id) || cp.name || cp.id}
                                             <button
                                               onClick={() =>
                                                 handleRemoveCoursePoint(String(goal.id), String(child.id), String(project.id), cp.id)
@@ -715,7 +784,16 @@ export function CourseMatrix({ node, onUpdateNode, majorId }: CourseMatrixProps)
                                               cp.support === "weak" && "bg-green-600",
                                             )}
                                           >
-                                            {cp.description || cp.name}
+                                            <div className="flex items-center gap-1">
+                                              {cp.support === "strong" ? "⭐" : "☆"}
+                                              <span>{coursePointTitleMap.get(cp.id) || cp.name || cp.id}</span>
+                                              {cp.description && (
+                                                <>
+                                                  <span>:</span>
+                                                  <span>{cp.description}</span>
+                                                </>
+                                              )}
+                                            </div>
                                           </div>
                                         </div>
                                       ))}
@@ -735,12 +813,17 @@ export function CourseMatrix({ node, onUpdateNode, majorId }: CourseMatrixProps)
                                       <div key={cp.id} className="relative group/tooltip">
                                         <span
                                           className={cn(
-                                            "inline-block px-2 py-1 rounded text-sm font-medium cursor-pointer",
+                                            "inline-flex items-center gap-1 px-2 py-1 rounded text-sm font-medium cursor-pointer",
                                             cp.support === "strong" && "bg-orange-100 border border-orange-300 text-orange-700",
                                             cp.support === "weak" && "bg-green-100 border border-green-300 text-green-700",
                                           )}
                                         >
-                                          {coursePointIndexMap.get(cp.id) || cp.id}
+                                          {cp.support === "strong" ? (
+                                            <Star className="w-3 h-3 fill-current" />
+                                          ) : (
+                                            <Star className="w-3 h-3" />
+                                          )}
+                                          {coursePointTitleMap.get(cp.id) || cp.name || cp.id}
                                         </span>
                                         <div
                                           className={cn(
@@ -785,7 +868,7 @@ export function CourseMatrix({ node, onUpdateNode, majorId }: CourseMatrixProps)
         ) : (
           <div className="text-center py-12 text-muted-foreground">
             <BookMarked className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            {isLoadingProjectTeachGoal || isLoadingGoals ? (
+            {isLoadingProjectTeachGoal ? (
               <>
                 <Loader2 className="w-6 h-6 mx-auto mb-3 animate-spin" />
                 <p className="text-sm mb-2">加载数据中...</p>
@@ -799,6 +882,8 @@ export function CourseMatrix({ node, onUpdateNode, majorId }: CourseMatrixProps)
           </div>
         )}
       </div>
+
+
 
       {/* 课点管理弹窗 */}
       <Dialog
@@ -1150,79 +1235,134 @@ export function CourseMatrix({ node, onUpdateNode, majorId }: CourseMatrixProps)
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isAddCoursePointDialogOpen} onOpenChange={setIsAddCoursePointDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>选择课点并设置支撑度</DialogTitle>
+      <Dialog
+        open={isAddCoursePointDialogOpen}
+        onOpenChange={(open) => {
+          setIsAddCoursePointDialogOpen(open)
+          // 关闭弹窗时恢复自动保存
+          if (!open) {
+            setIsAutoSavePaused(false)
+          }
+        }}
+      >
+        <DialogContent className="!max-w-2xl max-h-[80vh] flex flex-col p-0 gap-0">
+          {/* 固定Header */}
+          <DialogHeader className="border-b border-border px-6 py-4 flex-shrink-0">
+            <DialogTitle>设置课点支撑度</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 py-4">
-            {node?.metadata?.coursePoints && node.metadata.coursePoints.length > 0 ? (
-              node.metadata.coursePoints.map((coursePoint: CoursePoint, idx: number) => {
-                const cpId = coursePoint.id || `cp-${idx}`
-                const cpTitle = coursePoint.title || `课点 ${idx + 1}`
-                const isStrongSelected = selectedCoursePoints[cpId] === "strong"
-                const isWeakSelected = selectedCoursePoints[cpId] === "weak"
 
-                return (
-                  <div
-                    key={cpId}
-                    className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-secondary/30 transition-colors"
-                  >
-                    <div className="flex items-center gap-3 flex-1">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-medium text-primary">
-                        {idx + 1}
-                      </span>
-                      <span className="text-sm text-foreground">{cpTitle}</span>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant={isStrongSelected ? "default" : "outline"}
-                        onClick={() => handleToggleCoursePointSelection(cpId, "strong")}
-                        className={cn(
-                          "gap-1",
-                          isStrongSelected && "bg-orange-500 hover:bg-orange-600 text-white border-orange-500",
-                        )}
-                      >
-                        强支撑
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={isWeakSelected ? "default" : "outline"}
-                        onClick={() => handleToggleCoursePointSelection(cpId, "weak")}
-                        className={cn(
-                          "gap-1",
-                          isWeakSelected && "bg-green-500 hover:bg-green-600 text-white border-green-500",
-                        )}
-                      >
-                        弱支撑
-                      </Button>
-                    </div>
-                  </div>
-                )
-              })
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">暂无课点数据</div>
-            )}
+          {/* 固定搜索工具栏 */}
+          <div className="px-6 py-3 flex-shrink-0 bg-background border-b border-border">
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground flex-shrink-0" />
+              <input
+                type="text"
+                placeholder="搜索课点..."
+                value={coursePointsSearchInDialog}
+                onChange={(e) => setCoursePointsSearchInDialog(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
           </div>
-          <DialogFooter>
+
+          {/* 可滚动内容区域 */}
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            <div className="space-y-3">
+              {coursePointsList && coursePointsList.length > 0 ? (
+                coursePointsList
+                  .filter((cp) =>
+                    cp.title.toLowerCase().includes(coursePointsSearchInDialog.toLowerCase()) ||
+                    cp.description.toLowerCase().includes(coursePointsSearchInDialog.toLowerCase())
+                  )
+                  .sort((a, b) => {
+                    // 按课点名称长度升序排列
+                    const lengthDiff = a.title.length - b.title.length
+                    if (lengthDiff !== 0) {
+                      return lengthDiff
+                    }
+                    // 如果长度相同，按字母顺序排列
+                    return a.title.localeCompare(b.title)
+                  })
+                  .map((coursePoint: ApiCoursePoint, idx: number) => {
+                    const cpId = String(coursePoint.id)
+                    const cpTitle = coursePoint.title || `课点 ${idx + 1}`
+                    const isStrongSelected = selectedCoursePoints[cpId] === "strong"
+                    const isWeakSelected = selectedCoursePoints[cpId] === "weak"
+
+                    return (
+                      <div
+                        key={cpId}
+                        className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-secondary/30 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 flex-1">
+                          <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-medium text-primary">
+                            {idx + 1}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-foreground truncate">{cpTitle}</div>
+                            {coursePoint.description && (
+                              <div className="text-xs text-muted-foreground truncate">{coursePoint.description}</div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex gap-2 flex-shrink-0">
+                          <Button
+                            size="sm"
+                            variant={isStrongSelected ? "default" : "outline"}
+                            onClick={() => handleToggleCoursePointSelection(cpId, "strong")}
+                            className={cn(
+                              "gap-1",
+                              isStrongSelected && "bg-orange-500 hover:bg-orange-600 text-white border-orange-500",
+                            )}
+                          >
+                            强支撑
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={isWeakSelected ? "default" : "outline"}
+                            onClick={() => handleToggleCoursePointSelection(cpId, "weak")}
+                            className={cn(
+                              "gap-1",
+                              isWeakSelected && "bg-green-500 hover:bg-green-600 text-white border-green-500",
+                            )}
+                          >
+                            弱支撑
+                          </Button>
+                        </div>
+                      </div>
+                    )
+                  })
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">暂无课点数据</div>
+              )}
+            </div>
+          </div>
+
+          {/* 固定Footer */}
+          <div className="border-t border-border px-6 py-4 flex items-center justify-end gap-2 flex-shrink-0">
             <Button
               variant="outline"
               onClick={() => {
                 setIsAddCoursePointDialogOpen(false)
                 setSelectedMatrixCell(null)
                 setSelectedCoursePoints({})
+                // 恢复自动保存
+                setIsAutoSavePaused(false)
               }}
             >
               取消
             </Button>
             <Button
-              onClick={handleConfirmCoursePointSelection}
+              onClick={() => {
+                handleConfirmCoursePointSelection()
+                // 恢复自动保存
+                setIsAutoSavePaused(false)
+              }}
               disabled={Object.keys(selectedCoursePoints).length === 0}
             >
               确认 {Object.keys(selectedCoursePoints).length > 0 && `(${Object.keys(selectedCoursePoints).length})`}
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </>

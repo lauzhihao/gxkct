@@ -14,9 +14,12 @@ interface CourseThreeLevelMatrixProps {
   treeData?: TreeNode
   majorCourses?: Map<string, TreeNode[]>
   majorId?: string | number
+  onEditTeachingObjectives?: () => void
+  activeMatrixTab?: string
+  onActiveMatrixTabChange?: (tab: string) => void
 }
 
-export function CourseThreeLevelMatrix({ node, onUpdateNode, treeData, majorCourses, majorId }: CourseThreeLevelMatrixProps) {
+export function CourseThreeLevelMatrix({ node, onUpdateNode, treeData, majorCourses, majorId, onEditTeachingObjectives, activeMatrixTab = "majorMatrix", onActiveMatrixTabChange }: CourseThreeLevelMatrixProps) {
   const metadata = node.metadata || {}
   const [majorNode, setMajorNode] = useState<TreeNode | undefined>(undefined)
 
@@ -79,7 +82,7 @@ export function CourseThreeLevelMatrix({ node, onUpdateNode, treeData, majorCour
       </div>
 
       {/* Tabs for Course Matrix, Project Matrix and Major Matrix */}
-      <Tabs defaultValue="majorMatrix" className="w-full">
+      <Tabs value={activeMatrixTab} onValueChange={onActiveMatrixTabChange} className="w-full">
         <TabsList className="w-full grid grid-cols-3 h-10 bg-secondary/50">
           <TabsTrigger value="majorMatrix">专业矩阵</TabsTrigger>
           <TabsTrigger value="courseMatrix">课程矩阵</TabsTrigger>
@@ -91,7 +94,7 @@ export function CourseThreeLevelMatrix({ node, onUpdateNode, treeData, majorCour
         </TabsContent>
 
         <TabsContent value="courseMatrix" className="mt-6  pb-2.5">
-          <CourseMatrix node={node} onUpdateNode={onUpdateNode} majorId={majorId} />
+          <CourseMatrix node={node} onUpdateNode={onUpdateNode} majorId={majorId} onEditTeachingObjectives={onEditTeachingObjectives} />
         </TabsContent>
 
         <TabsContent value="projectMatrix" className="mt-6  pb-2.5">
