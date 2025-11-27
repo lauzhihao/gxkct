@@ -76,13 +76,13 @@ export function UniversityDetail({ node, onNodeSelect, onAddDepartment, onSetCur
       <div className="flex-1 overflow-auto">
         <Tabs defaultValue="overview" className="w-full">
           <TabsList className="w-full h-10 bg-secondary/50 backdrop-blur-sm border-b border-border rounded-none p-0">
-            <TabsTrigger value="overview" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
+            <TabsTrigger value="overview" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
               学校概览
             </TabsTrigger>
-            <TabsTrigger value="members" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
+            <TabsTrigger value="members" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
               成员管理
             </TabsTrigger>
-            <TabsTrigger value="teaching-quality" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
+            <TabsTrigger value="teaching-quality" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
               教学质量
             </TabsTrigger>
           </TabsList>

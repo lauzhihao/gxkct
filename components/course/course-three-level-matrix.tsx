@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Grid3x3 } from "lucide-react"
+import { Tabs, TabsContent } from "@/components/ui/tabs"
+import { UnderlineTabsList, UnderlineTabsTrigger } from "@/components/ui/underline-tabs"
 import type { TreeNode } from "@/types"
 import { CourseMatrix } from "./course-matrix"
 import { CourseProjectMatrix } from "./course-project-matrix"
@@ -67,41 +67,28 @@ export function CourseThreeLevelMatrix({ node, onUpdateNode, treeData, majorCour
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-          <Grid3x3 className="w-5 h-5 text-primary" />
-        </div>
-        <div>
-          <h3 className="text-lg font-semibold text-foreground">矩阵管理</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            管理课程目标、课点与章节项目之间的关联关系
-          </p>
-        </div>
-      </div>
-
+    <>
       {/* Tabs for Course Matrix, Project Matrix and Major Matrix */}
       <Tabs value={activeMatrixTab} onValueChange={onActiveMatrixTabChange} className="w-full">
-        <TabsList className="w-full grid grid-cols-3 h-10 bg-secondary/50">
-          <TabsTrigger value="majorMatrix">专业矩阵</TabsTrigger>
-          <TabsTrigger value="courseMatrix">课程矩阵</TabsTrigger>
-          <TabsTrigger value="projectMatrix">项目矩阵</TabsTrigger>
-        </TabsList>
+        <UnderlineTabsList className="grid grid-cols-3">
+          <UnderlineTabsTrigger value="majorMatrix">专业矩阵</UnderlineTabsTrigger>
+          <UnderlineTabsTrigger value="courseMatrix">课程矩阵</UnderlineTabsTrigger>
+          <UnderlineTabsTrigger value="projectMatrix">项目矩阵</UnderlineTabsTrigger>
+        </UnderlineTabsList>
 
-        <TabsContent value="majorMatrix" className="mt-6  pb-2.5">
+        <TabsContent value="majorMatrix" className="mt-2 pb-2.5">
           <CourseMajorMatrix node={node} majorNode={majorNode} majorId={majorId} onUpdateNode={onUpdateNode} />
         </TabsContent>
 
-        <TabsContent value="courseMatrix" className="mt-6  pb-2.5">
+        <TabsContent value="courseMatrix" className="mt-2 pb-2.5">
           <CourseMatrix node={node} onUpdateNode={onUpdateNode} majorId={majorId} onEditTeachingObjectives={onEditTeachingObjectives} />
         </TabsContent>
 
-        <TabsContent value="projectMatrix" className="mt-6  pb-2.5">
+        <TabsContent value="projectMatrix" className="mt-2 pb-2.5">
           <CourseProjectMatrix node={node} onUpdate={handleUpdateMetadata} />
         </TabsContent>
       </Tabs>
-    </div>
+    </>
   )
 }
 

@@ -390,121 +390,120 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
 
   return (
     <>
-      <div className="rounded-lg border border-border bg-secondary/30 backdrop-blur-sm p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Grid3x3 className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-foreground">项目矩阵</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">管理每个章节/项目的教学任务目标和实施细节</p>
-            </div>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Grid3x3 className="w-5 h-5 text-primary" />
           </div>
-          {isEditingProjectMatrix ? (
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleCancelProjectMatrix}
-                disabled={isSavingProjectMatrix}
-                className="gap-2 bg-transparent"
-              >
-                <X className="w-3.5 h-3.5" />
-                取消
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => handleSaveProjectMatrix(false)}
-                disabled={isSavingProjectMatrix}
-                className="gap-2"
-              >
-                {isSavingProjectMatrix ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    保存中
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-3.5 h-3.5" />
-                    保存
-                  </>
-                )}
-              </Button>
-            </div>
-          ) : (
-            <Button size="sm" onClick={() => setIsEditingProjectMatrix(true)} className="gap-2">
-              <Edit className="w-4 h-4" />
-              编辑
-            </Button>
-          )}
+          <div>
+            <h3 className="text-lg font-semibold text-foreground">项目矩阵</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">管理每个章节/项目的教学任务目标和实施细节</p>
+          </div>
         </div>
-
-        {isLoadingProjectMatrix ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-5 h-5 animate-spin text-primary mr-2" />
-            <span className="text-muted-foreground">加载项目矩阵数据中...</span>
+        {isEditingProjectMatrix ? (
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleCancelProjectMatrix}
+              disabled={isSavingProjectMatrix}
+              className="gap-2 bg-transparent"
+            >
+              <X className="w-3.5 h-3.5" />
+              取消
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => handleSaveProjectMatrix(false)}
+              disabled={isSavingProjectMatrix}
+              className="gap-2"
+            >
+              {isSavingProjectMatrix ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  保存中
+                </>
+              ) : (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  保存
+                </>
+              )}
+            </Button>
           </div>
-        ) : projectMatrixData?.projects && projectMatrixData.projects.length > 0 ? (
-          <Accordion type="multiple" className="space-y-3">
-            {projectMatrixData.projects.map((projectItem: any, projectIdx: number) => {
-              const project = projectItem.project
-              const goals = projectItem.goals || []
-              const projectId = project.id || `project-${projectIdx}`
-              const projectName = project.name || `项目${projectIdx + 1}`
+        ) : (
+          <Button size="sm" onClick={() => setIsEditingProjectMatrix(true)} className="gap-2">
+            <Edit className="w-4 h-4" />
+            编辑
+          </Button>
+        )}
+      </div>
 
-              const taskObjectives = chapterTaskObjectives[projectId] || []
+      {isLoadingProjectMatrix ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-5 h-5 animate-spin text-primary mr-2" />
+          <span className="text-muted-foreground">加载项目矩阵数据中...</span>
+        </div>
+      ) : projectMatrixData?.projects && projectMatrixData.projects.length > 0 ? (
+        <Accordion type="multiple" className="space-y-3">
+          {projectMatrixData.projects.map((projectItem: any, projectIdx: number) => {
+            const project = projectItem.project
+            const goals = projectItem.goals || []
+            const projectId = project.id || `project-${projectIdx}`
+            const projectName = project.name || `项目${projectIdx + 1}`
 
-              return (
-                <AccordionItem key={projectId} value={projectId} className="border border-border rounded-lg">
-                  <div className="relative">
-                    <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-secondary/30 rounded-t-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-sm font-medium text-primary">
-                          {projectIdx + 1}
-                        </div>
-                        <div className="flex-1 text-left">
-                          <span className="text-base font-semibold text-foreground">{projectName}</span>
-                          {goals.length > 0 && (
-                            <span className="text-xs text-muted-foreground ml-2">({goals.length} 个教学目标)</span>
-                          )}
-                        </div>
+            const taskObjectives = chapterTaskObjectives[projectId] || []
+
+            return (
+              <AccordionItem key={projectId} value={projectId} className="border border-border rounded-lg">
+                <div className="relative">
+                  <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-secondary/30 rounded-t-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-sm font-medium text-primary">
+                        {projectIdx + 1}
                       </div>
-                    </AccordionTrigger>
-                    <div className="absolute right-5 top-1/2 -translate-y-1/2 z-10 flex gap-2">
-                      {isEditingProjectMatrix && (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleOpenTaskObjectivesDialog(projectId)
-                            }}
-                            className="gap-2"
-                          >
-                            <Plus className="w-4 h-4" />
-                            添加
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="gap-2 text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </>
-                      )}
+                      <div className="flex-1 text-left">
+                        <span className="text-base font-semibold text-foreground">{projectName}</span>
+                        {goals.length > 0 && (
+                          <span className="text-xs text-muted-foreground ml-2">({goals.length} 个教学目标)</span>
+                        )}
+                      </div>
                     </div>
+                  </AccordionTrigger>
+                  <div className="absolute right-5 top-1/2 -translate-y-1/2 z-10 flex gap-2">
+                    {isEditingProjectMatrix && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleOpenTaskObjectivesDialog(projectId)
+                          }}
+                          className="gap-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          添加
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-2 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </>
+                    )}
                   </div>
-                  <AccordionContent className="px-5 pb-5">
-                    <div className="border-t border-dashed border-border mb-4" />
+                </div>
+                <AccordionContent className="px-5 pb-5">
+                  <div className="border-t border-dashed border-border mb-4" />
 
-                    {/* 项目矩阵表格 */}
-                    {goals.length > 0 ? (
-                      <div className="border border-border overflow-hidden w-[98%] mx-[1%]">
-                        <div className="overflow-x-auto">
-                          <table className="w-auto text-xs border-collapse border border-border" style={{ tableLayout: 'fixed' }}>
+                  {/* 项目矩阵表格 */}
+                  {goals.length > 0 ? (
+                    <div className="border border-border overflow-hidden w-[98%] mx-[1%]">
+                      <div className="overflow-x-auto">
+                        <table className="w-auto text-xs border-collapse border border-border" style={{ tableLayout: 'fixed' }}>
                             <thead>
                               {/* 第一行表头 */}
                               <tr className="bg-secondary/50 border-b border-border">
@@ -765,7 +764,6 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
             <p className="text-xs">项目矩阵数据加载中或暂无项目信息</p>
           </div>
         )}
-      </div>
 
       <Dialog open={taskObjectivesDialogOpen} onOpenChange={setTaskObjectivesDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
