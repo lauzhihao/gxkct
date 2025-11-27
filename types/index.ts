@@ -171,6 +171,10 @@ export interface CourseMetadata {
   resources?: Resource[]
   teachingMaterials?: TeachingMaterial[]
   courseMajorMatrixSupportLevels?: Record<string, string>
+  projectMatrixData?: any
+  chapterTaskObjectives?: Record<string, any[]>
+  ksaData?: Record<string, Record<string, "strong" | "weak">>
+  courseMatrixData?: Record<string, any[]>
 }
 
 // 联合类型的元数据

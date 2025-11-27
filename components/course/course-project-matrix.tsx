@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
 import { Grid3x3, Edit, Check, X, Loader2, Plus, Trash2, BookMarked, Settings, Flag } from "lucide-react"
@@ -21,9 +21,10 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
   const [isSavingProjectMatrix, setIsSavingProjectMatrix] = useState(false)
   const [projectMatrixData, setProjectMatrixData] = useState<any>(null)
   const [chapterTaskObjectives, setChapterTaskObjectives] = useState<Record<string, any[]>>({})
-  const [ksaData, setKsaData] = useState<Record<string, { knowledge: string; skills: string; attitude: string }>>({})
-  const [courseMatrixData, setCourseMatrixData] = useState<Record<string, any[]>>({})
+  const [ksaData, setKsaData] = useState<Record<string, Record<string, "strong" | "weak">>>({})
   const [isLoadingProjectMatrix, setIsLoadingProjectMatrix] = useState(false)
+  const [ksaListData, setKsaListData] = useState<any[]>([])
+  const [isLoadingKsaList, setIsLoadingKsaList] = useState(true)
 
   // 防止在StrictMode下重复调用API
   const hasLoadedRef = useRef(false)
@@ -48,24 +49,23 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
   const [ksaSearchK, setKsaSearchK] = useState("")
   const [ksaSearchS, setKsaSearchS] = useState("")
   const [ksaSearchA, setKsaSearchA] = useState("")
-  const [addingKsaType, setAddingKsaType] = useState<"K" | "S" | "A" | null>(null)
-  const [newKsaContent, setNewKsaContent] = useState("")
-  const [editingKsaId, setEditingKsaId] = useState<string | null>(null)
-  const [editingKsaContent, setEditingKsaContent] = useState("")
+
+  // KSA管理相关状态
+  const [newRowKsaType, setNewRowKsaType] = useState<string | null>(null) // 跟踪哪个分类有新增行
+  const [newRowTitle, setNewRowTitle] = useState("") // 新增行的标题
+  const [newRowDescription, setNewRowDescription] = useState("") // 新增行的描述
 
   useEffect(() => {
     // 从metadata加载本地数据
-    if (node.metadata?.projectMatrixData) {
-      setProjectMatrixData(node.metadata.projectMatrixData)
+    const metadata = node.metadata as any
+    if (metadata?.projectMatrixData) {
+      setProjectMatrixData(metadata.projectMatrixData)
     }
-    if (node.metadata?.chapterTaskObjectives) {
-      setChapterTaskObjectives(node.metadata.chapterTaskObjectives)
+    if (metadata?.chapterTaskObjectives) {
+      setChapterTaskObjectives(metadata.chapterTaskObjectives)
     }
-    if (node.metadata?.ksaData) {
-      setKsaData(node.metadata.ksaData)
-    }
-    if (node.metadata?.courseMatrixData) {
-      setCourseMatrixData(node.metadata.courseMatrixData)
+    if (metadata?.ksaData) {
+      setKsaData(metadata.ksaData)
     }
 
     // 当node改变时，重置ref
@@ -86,16 +86,16 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
         setIsLoadingProjectMatrix(true)
 
         // 从node.metadata中获取courseId和majorId
-        const courseId = (node.metadata as any)?.courseId
-        const majorId = (node.metadata as any)?.parentMajorId
+        const courseIdValue = (node.metadata as any)?.courseId
+        const majorIdValue = (node.metadata as any)?.parentMajorId
 
-        if (!courseId) {
+        if (!courseIdValue) {
           console.warn("[CourseProjectMatrix] 缺少courseId")
           return
         }
 
         // 获取项目矩阵数据（包含项目章节列表）
-        const projectMatrixResponse = await api.matrices.getProjectMatrixData(String(courseId))
+        const projectMatrixResponse = await api.matrices.getProjectMatrixData(String(courseIdValue))
         if (projectMatrixResponse.error) {
           console.error("[CourseProjectMatrix] 获取项目矩阵数据失败:", projectMatrixResponse.error)
         } else if (projectMatrixResponse.data) {
@@ -105,14 +105,39 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
         }
 
         // 获取KSA列表数据
-        if (majorId && courseId) {
-          const ksaListResponse = await api.matrices.getKsaList(String(majorId), String(courseId))
-          if (ksaListResponse.error) {
-            console.error("[CourseProjectMatrix] 获取KSA列表失败:", ksaListResponse.error)
-          } else if (ksaListResponse.data) {
-            console.log("[CourseProjectMatrix] KSA列表加载成功:", ksaListResponse.data)
-            // 可以在这里处理KSA列表数据
+        if (majorIdValue && courseIdValue) {
+          try {
+            const ksaListResponse = await api.matrices.getKsaList(String(majorIdValue), String(courseIdValue))
+            console.log("[CourseProjectMatrix] KSA列表响应:", ksaListResponse)
+            if (ksaListResponse.error) {
+              console.error("[CourseProjectMatrix] 获取KSA列表失败:", ksaListResponse.error)
+              // 如果API调用失败，尝试使用模拟数据
+              console.log("[CourseProjectMatrix] 使用模拟数据")
+              const mockKsaData = [
+                { id: 1, title: "K", description: "知识点1", level: 1 },
+                { id: 2, title: "K", description: "知识点2", level: 2 },
+                { id: 3, title: "S", description: "技能点1", level: 1 },
+                { id: 4, title: "S", description: "技能点2", level: 2 },
+                { id: 5, title: "A", description: "态度点1", level: 1 },
+                { id: 6, title: "A", description: "态度点2", level: 2 },
+              ]
+              setKsaListData(mockKsaData)
+            } else if (ksaListResponse.data) {
+              console.log("[CourseProjectMatrix] KSA列表加载成功:", ksaListResponse.data)
+              // ksaListResponse.data 已经是处理后的KSA数组，不需要再取.data字段
+              const ksaArray = Array.isArray(ksaListResponse.data) ? ksaListResponse.data : []
+              console.log("[CourseProjectMatrix] 提取的KSA数组:", ksaArray)
+              setKsaListData(ksaArray)
+            }
+          } catch (error) {
+            console.error("[CourseProjectMatrix] 获取KSA列表异常:", error)
+          } finally {
+            // KSA列表加载完成（无论成功或失败）
+            setIsLoadingKsaList(false)
           }
+        } else {
+          // 如果缺少majorId或courseId，直接标记为加载完成
+          setIsLoadingKsaList(false)
         }
       } catch (error) {
         console.error("[CourseProjectMatrix] 加载数据异常:", error)
@@ -141,14 +166,15 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
   }
 
   const handleCancelProjectMatrix = () => {
-    if (node.metadata?.projectMatrixData) {
-      setProjectMatrixData(node.metadata.projectMatrixData)
+    const metadata = node.metadata as any
+    if (metadata?.projectMatrixData) {
+      setProjectMatrixData(metadata.projectMatrixData)
     }
-    if (node.metadata?.chapterTaskObjectives) {
-      setChapterTaskObjectives(node.metadata.chapterTaskObjectives)
+    if (metadata?.chapterTaskObjectives) {
+      setChapterTaskObjectives(metadata.chapterTaskObjectives)
     }
-    if (node.metadata?.ksaData) {
-      setKsaData(node.metadata.ksaData)
+    if (metadata?.ksaData) {
+      setKsaData(metadata.ksaData)
     }
     setIsEditingProjectMatrix(false)
   }
@@ -234,6 +260,10 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
   }
 
   const handleOpenKsaDialog = (chapterId: string, coursePointId: string, taskId: string) => {
+    console.log("[handleOpenKsaDialog] 打开KSA对话框", { chapterId, coursePointId, taskId })
+    console.log("[handleOpenKsaDialog] ksaListData:", ksaListData)
+    console.log("[handleOpenKsaDialog] ksaListData长度:", ksaListData?.length)
+
     setSelectedKsaCell({ chapterId, coursePointId, taskId })
 
     // Load existing KSA support data
@@ -241,112 +271,19 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
     const existingKsa = ksaData[ksaKey] || {}
     setSelectedKsaSupport(existingKsa)
 
-    // Reset search and editing states
+    // Reset search states
     setKsaSearchK("")
     setKsaSearchS("")
     setKsaSearchA("")
-    setAddingKsaType(null)
-    setNewKsaContent("")
-    setEditingKsaId(null)
-    setEditingKsaContent("")
 
     setKsaDialogOpen(true)
   }
 
-  const handleAddKsaInfoPoint = (type: "K" | "S" | "A") => {
-    setAddingKsaType(type)
-    setNewKsaContent("")
-  }
 
-  const handleSaveNewKsaInfoPoint = (type: "K" | "S" | "A", coursePointId: string) => {
-    if (!newKsaContent.trim()) return
 
-    // Find the course point and add new info point
-    const updatedCoursePoints = (node.metadata?.coursePoints || []).map((cp: any) => {
-      if (cp.id === coursePointId) {
-        const existingInfoPoints = cp.infoPoints || []
-        // Generate new ID based on type and existing count
-        const typePoints = existingInfoPoints.filter((ip: any) => ip.type === type)
-        const newId = `${type}${typePoints.length + 1}`
 
-        return {
-          ...cp,
-          infoPoints: [
-            ...existingInfoPoints,
-            {
-              id: newId,
-              type: type,
-              content: newKsaContent.trim(),
-            },
-          ],
-        }
-      }
-      return cp
-    })
 
-    // Update the node metadata
-    onUpdate({ coursePoints: updatedCoursePoints })
 
-    setAddingKsaType(null)
-    setNewKsaContent("")
-  }
-
-  const handleCancelAddKsaInfoPoint = () => {
-    setAddingKsaType(null)
-    setNewKsaContent("")
-  }
-
-  const handleEditKsaInfoPoint = (infoPointId: string, content: string) => {
-    setEditingKsaId(infoPointId)
-    setEditingKsaContent(content)
-  }
-
-  const handleSaveEditKsaInfoPoint = (coursePointId: string) => {
-    if (!editingKsaId || !editingKsaContent.trim()) return
-
-    const updatedCoursePoints = (node.metadata?.coursePoints || []).map((cp: any) => {
-      if (cp.id === coursePointId) {
-        return {
-          ...cp,
-          infoPoints: (cp.infoPoints || []).map((ip: any) =>
-            ip.id === editingKsaId ? { ...ip, content: editingKsaContent.trim() } : ip,
-          ),
-        }
-      }
-      return cp
-    })
-
-    onUpdate({ coursePoints: updatedCoursePoints })
-
-    setEditingKsaId(null)
-    setEditingKsaContent("")
-  }
-
-  const handleCancelEditKsaInfoPoint = () => {
-    setEditingKsaId(null)
-    setEditingKsaContent("")
-  }
-
-  const handleDeleteKsaInfoPoint = (coursePointId: string, infoPointId: string) => {
-    const updatedCoursePoints = (node.metadata?.coursePoints || []).map((cp: any) => {
-      if (cp.id === coursePointId) {
-        return {
-          ...cp,
-          infoPoints: (cp.infoPoints || []).filter((ip: any) => ip.id !== infoPointId),
-        }
-      }
-      return cp
-    })
-
-    onUpdate({ coursePoints: updatedCoursePoints })
-
-    // Also remove from selected support if exists
-    setSelectedKsaSupport((prev) => {
-      const newSupport = { ...prev }
-      delete newSupport[infoPointId]
-      return newSupport
-    })
-  }
 
   const handleToggleKsaSupport = (infoPointId: string) => {
     setSelectedKsaSupport((prev) => {
@@ -368,6 +305,17 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
   const handleSaveKsa = () => {
     if (!selectedKsaCell) return
 
+    // 如果是全局KSA管理模式，只关闭弹窗
+    if (selectedKsaCell.chapterId === "global") {
+      setKsaDialogOpen(false)
+      setSelectedKsaCell(null)
+      setSelectedKsaSupport({})
+      setKsaSearchK("")
+      setKsaSearchS("")
+      setKsaSearchA("")
+      return
+    }
+
     const ksaKey = `${selectedKsaCell.chapterId}-${selectedKsaCell.coursePointId}-${selectedKsaCell.taskId}`
 
     // Save the selected KSA support data
@@ -382,10 +330,6 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
     setKsaSearchK("")
     setKsaSearchS("")
     setKsaSearchA("")
-    setAddingKsaType(null)
-    setNewKsaContent("")
-    setEditingKsaId(null)
-    setEditingKsaContent("")
   }
 
   return (
@@ -433,13 +377,36 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
           </div>
         ) : (
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => setKsaDialogOpen(true)} className="gap-2">
-              <Settings className="w-4 h-4" />
-              KSA
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                // 打开全局KSA管理弹窗，设置一个虚拟的selectedKsaCell以显示所有KSA数据
+                setSelectedKsaCell({ chapterId: "global", coursePointId: "global", taskId: "global" })
+                setSelectedKsaSupport({})
+                setKsaSearchK("")
+                setKsaSearchS("")
+                setKsaSearchA("")
+                setKsaDialogOpen(true)
+              }}
+              disabled={isLoadingKsaList}
+              className="gap-2"
+            >
+              {isLoadingKsaList ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  加载中
+                </>
+              ) : (
+                <>
+                  <Settings className="w-4 h-4" />
+                  设置KSA
+                </>
+              )}
             </Button>
             <Button size="sm" onClick={() => setIsEditingProjectMatrix(true)} className="gap-2">
               <Edit className="w-4 h-4" />
-              编辑
+              编辑矩阵
             </Button>
           </div>
         )}
@@ -458,8 +425,6 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
             const projectId = project.id || `project-${projectIdx}`
             const projectName = project.name || `项目${projectIdx + 1}`
 
-            const taskObjectives = chapterTaskObjectives[projectId] || []
-
             return (
               <AccordionItem key={projectId} value={projectId} className="border border-border rounded-lg">
                 <div className="relative">
@@ -470,9 +435,6 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
                       </div>
                       <div className="flex-1 text-left">
                         <span className="text-base font-semibold text-foreground">{projectName}</span>
-                        {goals.length > 0 && (
-                          <span className="text-xs text-muted-foreground ml-2">({goals.length} 个教学目标)</span>
-                        )}
                       </div>
                     </div>
                   </AccordionTrigger>
@@ -569,8 +531,9 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
                                                 />
                                               ))}
                                               <button
-                                                onClick={() => {}}
+                                                onClick={() => handleOpenKsaDialog(projectId, item.courseMatrix?.point?.id, goal.id)}
                                                 className="w-4 h-4 rounded-full border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/10 flex items-center justify-center transition-all group flex-shrink-0"
+                                                title="添加KSA支撑关系"
                                               >
                                                 <Plus className="w-2 h-2 text-primary/60 group-hover:text-primary" />
                                               </button>
@@ -869,50 +832,50 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
       <Dialog open={ksaDialogOpen} onOpenChange={setKsaDialogOpen}>
         <DialogContent className="h-[85vh] flex flex-col" style={{ width: '75vw', maxWidth: '75vw' }}>
           <DialogHeader>
-            <DialogTitle>设置KSA支撑关系</DialogTitle>
+            <DialogTitle>
+              {selectedKsaCell?.chapterId === "global" ? "KSA库管理" : "设置KSA支撑关系"}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedKsaCell?.chapterId === "global" ? "查看和管理课程的KSA数据" : "选择KSA项目并设置支撑强度"}
+            </DialogDescription>
           </DialogHeader>
           {selectedKsaCell &&
             (() => {
-              // Find the course point
-              const coursePoint = node.metadata?.coursePoints?.find(
-                (cp: any) => cp.id === selectedKsaCell.coursePointId,
-              )
+              // Group KSA list data by type (handle both uppercase and lowercase)
+              const knowledgePoints = ksaListData?.filter((ksa: any) => ksa.title?.toUpperCase() === "K") || []
+              const skillPoints = ksaListData?.filter((ksa: any) => ksa.title?.toUpperCase() === "S") || []
+              const attitudePoints = ksaListData?.filter((ksa: any) => ksa.title?.toUpperCase() === "A") || []
 
-              if (!coursePoint) {
+              // Check if we have any KSA data
+              if (!ksaListData || ksaListData.length === 0) {
                 return (
                   <div className="py-8 text-center text-muted-foreground">
-                    <p className="text-sm">未找到课点信息</p>
+                    <p className="text-sm">暂无KSA数据</p>
                   </div>
                 )
               }
-
-              // Group info points by type
-              const knowledgePoints = coursePoint.infoPoints?.filter((ip: any) => ip.type === "K") || []
-              const skillPoints = coursePoint.infoPoints?.filter((ip: any) => ip.type === "S") || []
-              const attitudePoints = coursePoint.infoPoints?.filter((ip: any) => ip.type === "A") || []
 
               // Filter by search
               const filteredKnowledgePoints = knowledgePoints.filter(
                 (p: any) =>
                   !ksaSearchK ||
-                  p.id.toLowerCase().includes(ksaSearchK.toLowerCase()) ||
-                  p.content.toLowerCase().includes(ksaSearchK.toLowerCase()),
+                  p.id?.toString().includes(ksaSearchK) ||
+                  p.description?.toLowerCase().includes(ksaSearchK.toLowerCase()),
               )
               const filteredSkillPoints = skillPoints.filter(
                 (p: any) =>
                   !ksaSearchS ||
-                  p.id.toLowerCase().includes(ksaSearchS.toLowerCase()) ||
-                  p.content.toLowerCase().includes(ksaSearchS.toLowerCase()),
+                  p.id?.toString().includes(ksaSearchS) ||
+                  p.description?.toLowerCase().includes(ksaSearchS.toLowerCase()),
               )
               const filteredAttitudePoints = attitudePoints.filter(
                 (p: any) =>
                   !ksaSearchA ||
-                  p.id.toLowerCase().includes(ksaSearchA.toLowerCase()) ||
-                  p.content.toLowerCase().includes(ksaSearchA.toLowerCase()),
+                  p.id?.toString().includes(ksaSearchA) ||
+                  p.description?.toLowerCase().includes(ksaSearchA.toLowerCase()),
               )
 
               const renderInfoPointList = (
-                type: "K" | "S" | "A",
                 title: string,
                 points: any[],
                 filteredPoints: any[],
@@ -921,74 +884,106 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
                 colorClass: string,
                 bgClass: string,
                 borderClass: string,
+                ksaType: string,
               ) => (
-                <div className="flex-1 flex flex-col min-h-0">
-                  {/* Header */}
-                  <div className="flex items-center justify-between mb-3">
+                <div className="flex-1 flex flex-col min-h-0 border rounded-lg shadow-sm overflow-hidden">
+                  {/* Card Header */}
+                  <div className={`px-4 py-3 ${bgClass} border-b ${borderClass}`}>
                     <h4 className={`text-sm font-semibold ${colorClass}`}>
                       {title} ({points.length})
                     </h4>
-                    <button
-                      onClick={() => handleAddKsaInfoPoint(type)}
-                      className={cn(
-                        "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",
-                        `${borderClass} hover:${bgClass}`,
-                      )}
-                      title="添加信息点"
-                    >
-                      <Plus className={`w-4 h-4 ${colorClass}`} />
-                    </button>
                   </div>
 
-                  {/* Search */}
-                  <div className="mb-2">
+                  {/* Search - Fixed */}
+                  <div className="px-3 py-2 border-b border-border flex-shrink-0 bg-background flex items-center gap-2">
                     <input
                       type="text"
                       value={searchValue}
                       onChange={(e) => onSearchChange(e.target.value)}
                       placeholder={`搜索${title.split("（")[0]}...`}
-                      className="w-full px-3 py-1.5 text-xs border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      className="flex-1 px-2 py-1.5 text-xs border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
                     />
+                    <button
+                      onClick={() => setNewRowKsaType(ksaType)}
+                      className="flex-shrink-0 p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+                      title="新增"
+                    >
+                      <Plus className="w-4 h-4 text-gray-600" />
+                    </button>
                   </div>
 
-                  {/* List */}
-                  <div className="flex-1 overflow-y-auto border border-border rounded-lg bg-background/50 min-h-0">
-                    <div className="p-2 space-y-1.5">
-                      {/* Add new form */}
-                      {addingKsaType === type && (
-                        <div className={cn("p-2 rounded-lg border-2 border-dashed", borderClass, bgClass)}>
-                          <input
-                            type="text"
-                            value={newKsaContent}
-                            onChange={(e) => setNewKsaContent(e.target.value)}
-                            placeholder="输入内容..."
-                            className="w-full px-2 py-1 text-sm border border-border rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/50 mb-2"
-                            autoFocus
-                          />
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => handleSaveNewKsaInfoPoint(type, coursePoint.id)}
-                              className="flex-1 px-2 py-1 text-xs bg-primary text-white rounded hover:bg-primary/90 transition-colors flex items-center justify-center gap-1"
-                            >
-                              <Check className="w-3 h-3" />
-                              保存
-                            </button>
-                            <button
-                              onClick={handleCancelAddKsaInfoPoint}
-                              className="flex-1 px-2 py-1 text-xs bg-secondary text-foreground rounded hover:bg-secondary/80 transition-colors flex items-center justify-center gap-1"
-                            >
-                              <X className="w-3 h-3" />
-                              取消
-                            </button>
+                  {/* List - Scrollable */}
+                  <div className="flex-1 overflow-y-auto min-h-0 bg-background">
+                    <div className="p-3 space-y-2">
+                      {/* New Row */}
+                      {newRowKsaType === ksaType && (
+                        <div className="p-2 rounded-lg border border-dashed border-gray-300 bg-gray-50">
+                          <div className="flex items-start gap-2">
+                            <div className="flex-1 min-w-0 space-y-2">
+                              <input
+                                type="text"
+                                value={newRowTitle}
+                                onChange={(e) => setNewRowTitle(e.target.value)}
+                                placeholder="输入标题"
+                                className="w-full px-2 py-1 text-xs border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+                              />
+                              <textarea
+                                value={newRowDescription}
+                                onChange={(e) => setNewRowDescription(e.target.value)}
+                                placeholder="输入描述"
+                                className="w-full px-2 py-1 text-xs border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                                rows={2}
+                              />
+                            </div>
+                            <div className="flex flex-col gap-1 flex-shrink-0">
+                              <button
+                                onClick={() => {
+                                  setNewRowKsaType(null)
+                                  setNewRowTitle("")
+                                  setNewRowDescription("")
+                                }}
+                                className="px-2 py-0.5 text-xs rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 transition-all whitespace-nowrap"
+                                title="取消"
+                              >
+                                取消
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  if (!newRowTitle || !newRowDescription) {
+                                    alert("请填写标题和描述")
+                                    return
+                                  }
+                                  // 调用API新增KSA
+                                  const result = await api.matrices.addKsa({
+                                    majorId: parseInt((node.metadata as any)?.parentMajorId || "0"),
+                                    courseUnitId: parseInt((node.metadata as any)?.courseId || "0"),
+                                    title: ksaType,
+                                    description: newRowDescription,
+                                    level: 1,
+                                  })
+                                  if (!result.error && result.data) {
+                                    setKsaListData([...ksaListData, result.data])
+                                    setNewRowKsaType(null)
+                                    setNewRowTitle("")
+                                    setNewRowDescription("")
+                                  } else {
+                                    alert("新增失败: " + result.error)
+                                  }
+                                }}
+                                className="px-2 py-0.5 text-xs rounded border border-green-300 bg-green-50 text-green-600 hover:bg-green-100 transition-all whitespace-nowrap"
+                                title="保存"
+                              >
+                                保存
+                              </button>
+                            </div>
                           </div>
                         </div>
                       )}
 
-                      {/* Info points */}
+                      {/* KSA points */}
                       {filteredPoints.length > 0 ? (
                         filteredPoints.map((point: any) => {
                           const support = selectedKsaSupport[point.id]
-                          const isEditing = editingKsaId === point.id
 
                           return (
                             <div
@@ -998,41 +993,46 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
                                 support ? `${borderClass} ${bgClass}` : "border-border bg-background",
                               )}
                             >
-                              {isEditing ? (
-                                <div>
-                                  <input
-                                    type="text"
-                                    value={editingKsaContent}
-                                    onChange={(e) => setEditingKsaContent(e.target.value)}
-                                    className="w-full px-2 py-1 text-sm border border-border rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary/50 mb-2"
-                                    autoFocus
-                                  />
-                                  <div className="flex gap-1">
-                                    <button
-                                      onClick={() => handleSaveEditKsaInfoPoint(coursePoint.id)}
-                                      className="flex-1 px-2 py-1 text-xs bg-primary text-white rounded hover:bg-primary/90 transition-colors flex items-center justify-center gap-1"
-                                    >
-                                      <Check className="w-3 h-3" />
-                                      保存
-                                    </button>
-                                    <button
-                                      onClick={handleCancelEditKsaInfoPoint}
-                                      className="flex-1 px-2 py-1 text-xs bg-secondary text-foreground rounded hover:bg-secondary/80 transition-colors flex items-center justify-center gap-1"
-                                    >
-                                      <X className="w-3 h-3" />
-                                      取消
-                                    </button>
+                              <div className="flex items-start gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className={`text-xs font-medium mb-1 ${colorClass}`}>
+                                    {point.title}{point.level}
+                                  </div>
+                                  <div className="text-sm text-foreground leading-relaxed break-words">
+                                    {point.description}
                                   </div>
                                 </div>
-                              ) : (
-                                <div className="flex items-start gap-2">
-                                  <div className="flex-1 min-w-0">
-                                    <div className={`text-xs font-medium mb-1 ${colorClass}`}>{point.id}</div>
-                                    <div className="text-sm text-foreground leading-relaxed break-words">
-                                      {point.content}
-                                    </div>
-                                  </div>
-                                  <div className="flex flex-col gap-1 flex-shrink-0">
+                                <div className="flex flex-col gap-1 flex-shrink-0">
+                                  {selectedKsaCell?.chapterId === "global" ? (
+                                    <>
+                                      <button
+                                        onClick={() => {
+                                          // 编辑逻辑：可以在这里添加编辑功能
+                                          alert("编辑功能开发中")
+                                        }}
+                                        className="px-2 py-0.5 text-xs rounded border border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all whitespace-nowrap"
+                                        title="编辑"
+                                      >
+                                        编辑
+                                      </button>
+                                      <button
+                                        onClick={async () => {
+                                          if (confirm("确定删除此KSA吗？")) {
+                                            const result = await api.matrices.deleteKsa(point.id)
+                                            if (!result.error) {
+                                              setKsaListData(ksaListData.filter((k: any) => k.id !== point.id))
+                                            } else {
+                                              alert("删除失败: " + result.error)
+                                            }
+                                          }
+                                        }}
+                                        className="px-2 py-0.5 text-xs rounded border border-red-300 bg-red-50 text-red-600 hover:bg-red-100 transition-all whitespace-nowrap"
+                                        title="删除"
+                                      >
+                                        删除
+                                      </button>
+                                    </>
+                                  ) : (
                                     <button
                                       onClick={() => handleToggleKsaSupport(point.id)}
                                       className={cn(
@@ -1047,31 +1047,15 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
                                     >
                                       {!support ? "未选" : support === "strong" ? "强支撑" : "弱支撑"}
                                     </button>
-                                    <div className="flex gap-0.5">
-                                      <button
-                                        onClick={() => handleEditKsaInfoPoint(point.id, point.content)}
-                                        className="p-1 rounded hover:bg-secondary transition-colors"
-                                        title="编辑"
-                                      >
-                                        <Edit className="w-3 h-3 text-muted-foreground" />
-                                      </button>
-                                      <button
-                                        onClick={() => handleDeleteKsaInfoPoint(coursePoint.id, point.id)}
-                                        className="p-1 rounded hover:bg-secondary transition-colors"
-                                        title="删除"
-                                      >
-                                        <Trash2 className="w-3 h-3 text-muted-foreground hover:text-red-600" />
-                                      </button>
-                                    </div>
-                                  </div>
+                                  )}
                                 </div>
-                              )}
+                              </div>
                             </div>
                           )
                         })
                       ) : (
                         <div className="text-center py-8 text-muted-foreground text-sm">
-                          {searchValue ? "无匹配结果" : "暂无信息点"}
+                          {searchValue ? "无匹配结果" : "暂无KSA数据"}
                         </div>
                       )}
                     </div>
@@ -1080,17 +1064,10 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
               )
 
               return (
-                <div className="flex-1 flex flex-col min-h-0 space-y-4 py-4">
-                  {/* Course point info */}
-                  <div className="p-3 rounded-lg bg-secondary/30 border border-border flex-shrink-0">
-                    <div className="text-xs text-muted-foreground mb-1">课点内容</div>
-                    <div className="text-sm font-medium text-foreground">{coursePoint.content}</div>
-                  </div>
-
+                <div className="flex-1 flex flex-col min-h-0 space-y-4 py-4 px-4">
                   {/* KSA Lists */}
-                  <div className="flex-1 grid grid-cols-3 gap-4 min-h-0">
+                  <div className="flex-1 grid grid-cols-3 gap-3 min-h-0">
                     {renderInfoPointList(
-                      "K",
                       "知识（Knowledge）",
                       knowledgePoints,
                       filteredKnowledgePoints,
@@ -1099,9 +1076,9 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
                       "text-blue-700",
                       "bg-blue-50",
                       "border-blue-300",
+                      "K",
                     )}
                     {renderInfoPointList(
-                      "S",
                       "技能（Skills）",
                       skillPoints,
                       filteredSkillPoints,
@@ -1110,9 +1087,9 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
                       "text-green-700",
                       "bg-green-50",
                       "border-green-300",
+                      "S",
                     )}
                     {renderInfoPointList(
-                      "A",
                       "态度（Attitude）",
                       attitudePoints,
                       filteredAttitudePoints,
@@ -1121,29 +1098,8 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
                       "text-purple-700",
                       "bg-purple-50",
                       "border-purple-300",
+                      "A",
                     )}
-                  </div>
-
-                  {/* Statistics */}
-                  <div className="pt-3 border-t border-border flex-shrink-0">
-                    <div className="text-sm text-muted-foreground">
-                      已选择：
-                      <span className="font-medium text-foreground ml-2">
-                        {Object.keys(selectedKsaSupport).length} 个信息点
-                      </span>
-                      <span className="ml-4">
-                        强支撑：
-                        <span className="font-medium text-foreground ml-1">
-                          {Object.values(selectedKsaSupport).filter((s) => s === "strong").length}
-                        </span>
-                      </span>
-                      <span className="ml-4">
-                        弱支撑：
-                        <span className="font-medium text-foreground ml-1">
-                          {Object.values(selectedKsaSupport).filter((s) => s === "weak").length}
-                        </span>
-                      </span>
-                    </div>
                   </div>
                 </div>
               )
@@ -1159,15 +1115,13 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
                 setKsaSearchK("")
                 setKsaSearchS("")
                 setKsaSearchA("")
-                setAddingKsaType(null)
-                setNewKsaContent("")
-                setEditingKsaId(null)
-                setEditingKsaContent("")
               }}
             >
-              取消
+              {selectedKsaCell?.chapterId === "global" ? "关闭" : "取消"}
             </Button>
-            <Button onClick={handleSaveKsa}>确认</Button>
+            {selectedKsaCell?.chapterId !== "global" && (
+              <Button onClick={handleSaveKsa}>确认</Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -356,4 +356,41 @@ export class MatrixApi {
       }
     }
   }
+
+  // 新增KSA
+  async addKsa(data: {
+    majorId: number
+    courseUnitId: number
+    title: string
+    description: string
+    level: number
+  }): Promise<ApiResponse<any>> {
+    console.log("[addKsa] 新增KSA:", data)
+    return {
+      data: { id: Date.now(), ...data },
+      error: null,
+    }
+  }
+
+  // 更新KSA
+  async updateKsa(ksaId: number, data: {
+    title?: string
+    description?: string
+    level?: number
+  }): Promise<ApiResponse<any>> {
+    console.log("[updateKsa] 更新KSA:", ksaId, data)
+    return {
+      data: { id: ksaId, ...data },
+      error: null,
+    }
+  }
+
+  // 删除KSA
+  async deleteKsa(ksaId: number): Promise<ApiResponse<boolean>> {
+    console.log("[deleteKsa] 删除KSA:", ksaId)
+    return {
+      data: true,
+      error: null,
+    }
+  }
 }
