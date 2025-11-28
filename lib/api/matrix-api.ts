@@ -2,6 +2,37 @@ import { StorageAdapter } from "./storage-adapter"
 import { HttpAdapter } from "./http-adapter"
 import type { ApiResponse } from "./types"
 
+// 课程矩阵中的单个课点项
+export interface CourseMatrixItem {
+  id: number
+  courseUnitId: number
+  projectId: number
+  graduateRequireId: number
+  point: {
+    id: number
+    title: string
+    description: string
+  }
+  relate: {
+    name: string
+    code: string
+    relate: number
+  }
+  study: string
+  teach: string
+  product: string
+  week: string
+  period: string
+}
+
+// 课程矩阵API响应
+export interface CourseMatrixResponse {
+  code: string
+  message: string
+  data: CourseMatrixItem[]
+  success: boolean
+}
+
 export interface CourseMatrix {
   objectives: any[]
   coursePoints: any[]
@@ -92,12 +123,68 @@ export class MatrixApi {
   private storage = new StorageAdapter()
   private http = new HttpAdapter()
 
-  async getCourseMatrix(courseId: string): Promise<ApiResponse<CourseMatrix>> {
-    return this.storage.get<CourseMatrix>(`courseMatrix-${courseId}`)
+  async getCourseMatrix(courseId: string): Promise<ApiResponse<CourseMatrixItem[]>> {
+    try {
+      const endpoint = `/api/matrix/coursematrix?courseId=${courseId}`
+      console.log("[getCourseMatrix] 调用接口:", endpoint)
+
+      const response = await this.http.get<CourseMatrixItem[]>(endpoint)
+
+      if (response.error) {
+        console.error("[getCourseMatrix] 接口调用失败:", response.error)
+        return {
+          data: null,
+          error: response.error,
+        }
+      }
+
+      // response.data 已经是数组了（handleBackendResponse已经提取了后端响应中的data字段）
+      const courseMatrixData = Array.isArray(response.data) ? response.data : []
+      console.log("[getCourseMatrix] 接口调用成功，获取课程矩阵数据:", courseMatrixData.length, "条")
+
+      return {
+        data: courseMatrixData,
+        error: null,
+      }
+    } catch (error) {
+      console.error("[getCourseMatrix] 异常:", error)
+      return {
+        data: null,
+        error: `获取课程矩阵失败: ${error instanceof Error ? error.message : String(error)}`,
+      }
+    }
   }
 
-  async updateCourseMatrix(courseId: string, matrix: CourseMatrix): Promise<ApiResponse<CourseMatrix>> {
-    return this.storage.set(`courseMatrix-${courseId}`, matrix)
+  async updateCourseMatrix(courseId: string, matrix: CourseMatrixItem[]): Promise<ApiResponse<CourseMatrixItem[]>> {
+    try {
+      const endpoint = `/api/matrix/coursematrix?courseId=${courseId}`
+      console.log("[updateCourseMatrix] 调用接口:", endpoint, "数据:", matrix)
+
+      const response = await this.http.put<CourseMatrixItem[]>(endpoint, matrix)
+
+      if (response.error) {
+        console.error("[updateCourseMatrix] 接口调用失败:", response.error)
+        return {
+          data: null,
+          error: response.error,
+        }
+      }
+
+      // response.data 已经是数组了（handleBackendResponse已经提取了后端响应中的data字段）
+      const updatedData = Array.isArray(response.data) ? response.data : matrix
+      console.log("[updateCourseMatrix] 接口调用成功，更新课程矩阵数据:", updatedData.length, "条")
+
+      return {
+        data: updatedData,
+        error: null,
+      }
+    } catch (error) {
+      console.error("[updateCourseMatrix] 异常:", error)
+      return {
+        data: null,
+        error: `保存课程矩阵失败: ${error instanceof Error ? error.message : String(error)}`,
+      }
+    }
   }
 
   async getProjectMatrix(courseId: string): Promise<ApiResponse<ProjectMatrix>> {
@@ -291,7 +378,7 @@ export class MatrixApi {
     } catch (error) {
       console.error("[getCourseIndicatorSupports] 异常:", error)
       return {
-        data: null,
+        data: [],
         error: `获取课程支撑的指标点失败: ${error instanceof Error ? error.message : String(error)}`,
       }
     }

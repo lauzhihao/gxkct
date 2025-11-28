@@ -52,8 +52,9 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
 
   // KSA管理相关状态
   const [newRowKsaType, setNewRowKsaType] = useState<string | null>(null) // 跟踪哪个分类有新增行
-  const [newRowTitle, setNewRowTitle] = useState("") // 新增行的标题
   const [newRowDescription, setNewRowDescription] = useState("") // 新增行的描述
+  const [editingKsaId, setEditingKsaId] = useState<number | null>(null) // 当前编辑的KSA ID
+  const [editingDescription, setEditingDescription] = useState("") // 编辑中的描述
 
   useEffect(() => {
     // 从metadata加载本地数据
@@ -185,7 +186,7 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
   }
 
   const handleAddTaskObjective = () => {
-    if (!selectedChapterForTasks || !newTaskObjective.trim() || !newTaskStandard.trim()) return
+    if (!selectedChapterForTasks || !newTaskObjective.trim()) return
 
     const newTask = {
       id: `task-${Date.now()}`,
@@ -220,7 +221,7 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
   }
 
   const handleUpdateTaskObjective = () => {
-    if (!selectedChapterForTasks || !editingTaskId || !newTaskObjective.trim() || !newTaskStandard.trim()) return
+    if (!selectedChapterForTasks || !editingTaskId || !newTaskObjective.trim()) return
 
     const updatedTaskObjectives = {
       ...chapterTaskObjectives,
@@ -400,7 +401,7 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
               ) : (
                 <>
                   <Settings className="w-4 h-4" />
-                  设置KSA
+                  KSA
                 </>
               )}
             </Button>
@@ -757,7 +758,7 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
               <Button
                 size="sm"
                 onClick={editingTaskId ? handleUpdateTaskObjective : handleAddTaskObjective}
-                disabled={!newTaskObjective.trim() || !newTaskStandard.trim()}
+                disabled={!newTaskObjective.trim()}
                 className="w-full gap-2"
               >
                 {editingTaskId ? (
@@ -855,25 +856,31 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
                 )
               }
 
-              // Filter by search
-              const filteredKnowledgePoints = knowledgePoints.filter(
-                (p: any) =>
-                  !ksaSearchK ||
-                  p.id?.toString().includes(ksaSearchK) ||
-                  p.description?.toLowerCase().includes(ksaSearchK.toLowerCase()),
-              )
-              const filteredSkillPoints = skillPoints.filter(
-                (p: any) =>
-                  !ksaSearchS ||
-                  p.id?.toString().includes(ksaSearchS) ||
-                  p.description?.toLowerCase().includes(ksaSearchS.toLowerCase()),
-              )
-              const filteredAttitudePoints = attitudePoints.filter(
-                (p: any) =>
-                  !ksaSearchA ||
-                  p.id?.toString().includes(ksaSearchA) ||
-                  p.description?.toLowerCase().includes(ksaSearchA.toLowerCase()),
-              )
+              // Filter by search and sort by level
+              const filteredKnowledgePoints = knowledgePoints
+                .filter(
+                  (p: any) =>
+                    !ksaSearchK ||
+                    p.id?.toString().includes(ksaSearchK) ||
+                    p.description?.toLowerCase().includes(ksaSearchK.toLowerCase()),
+                )
+                .sort((a: any, b: any) => (a.level || 0) - (b.level || 0))
+              const filteredSkillPoints = skillPoints
+                .filter(
+                  (p: any) =>
+                    !ksaSearchS ||
+                    p.id?.toString().includes(ksaSearchS) ||
+                    p.description?.toLowerCase().includes(ksaSearchS.toLowerCase()),
+                )
+                .sort((a: any, b: any) => (a.level || 0) - (b.level || 0))
+              const filteredAttitudePoints = attitudePoints
+                .filter(
+                  (p: any) =>
+                    !ksaSearchA ||
+                    p.id?.toString().includes(ksaSearchA) ||
+                    p.description?.toLowerCase().includes(ksaSearchA.toLowerCase()),
+                )
+                .sort((a: any, b: any) => (a.level || 0) - (b.level || 0))
 
               const renderInfoPointList = (
                 title: string,
@@ -888,24 +895,26 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
               ) => (
                 <div className="flex-1 flex flex-col min-h-0 border rounded-lg shadow-sm overflow-hidden">
                   {/* Card Header */}
-                  <div className={`px-4 py-3 ${bgClass} border-b ${borderClass}`}>
+                  <div className={`px-4 py-3 ${bgClass} ${borderClass}`}>
                     <h4 className={`text-sm font-semibold ${colorClass}`}>
                       {title} ({points.length})
                     </h4>
                   </div>
 
                   {/* Search - Fixed */}
-                  <div className="px-3 py-2 border-b border-border flex-shrink-0 bg-background flex items-center gap-2">
+                  <div className="px-3 py-2 flex-shrink-0 bg-background flex items-center gap-2">
                     <input
                       type="text"
                       value={searchValue}
                       onChange={(e) => onSearchChange(e.target.value)}
                       placeholder={`搜索${title.split("（")[0]}...`}
-                      className="flex-1 px-2 py-1.5 text-xs border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      disabled={editingKsaId !== null}
+                      className="flex-1 px-2 py-1.5 text-xs border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                     <button
                       onClick={() => setNewRowKsaType(ksaType)}
-                      className="flex-shrink-0 p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+                      disabled={editingKsaId !== null}
+                      className="flex-shrink-0 p-1.5 rounded-md hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       title="新增"
                     >
                       <Plus className="w-4 h-4 text-gray-600" />
@@ -917,63 +926,60 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
                     <div className="p-3 space-y-2">
                       {/* New Row */}
                       {newRowKsaType === ksaType && (
-                        <div className="p-2 rounded-lg border border-dashed border-gray-300 bg-gray-50">
+                        <div className="p-2 rounded-lg border border-blue-300 bg-blue-50">
                           <div className="flex items-start gap-2">
-                            <div className="flex-1 min-w-0 space-y-2">
-                              <input
-                                type="text"
-                                value={newRowTitle}
-                                onChange={(e) => setNewRowTitle(e.target.value)}
-                                placeholder="输入标题"
-                                className="w-full px-2 py-1 text-xs border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
-                              />
-                              <textarea
-                                value={newRowDescription}
-                                onChange={(e) => setNewRowDescription(e.target.value)}
-                                placeholder="输入描述"
-                                className="w-full px-2 py-1 text-xs border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-                                rows={2}
-                              />
-                            </div>
+                            <textarea
+                              value={newRowDescription}
+                              onChange={(e) => setNewRowDescription(e.target.value)}
+                              placeholder="输入描述"
+                              className="flex-1 px-2 py-1 text-xs border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                              rows={2}
+                              disabled={editingKsaId !== null}
+                            />
                             <div className="flex flex-col gap-1 flex-shrink-0">
                               <button
-                                onClick={() => {
-                                  setNewRowKsaType(null)
-                                  setNewRowTitle("")
-                                  setNewRowDescription("")
-                                }}
-                                className="px-2 py-0.5 text-xs rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 transition-all whitespace-nowrap"
-                                title="取消"
-                              >
-                                取消
-                              </button>
-                              <button
                                 onClick={async () => {
-                                  if (!newRowTitle || !newRowDescription) {
-                                    alert("请填写标题和描述")
+                                  if (!newRowDescription) {
+                                    alert("请填写描述")
                                     return
                                   }
+                                  // 计算该分类的最大level
+                                  const maxLevel = filteredPoints.reduce((max: number, point: any) => {
+                                    return Math.max(max, point.level || 1)
+                                  }, 0)
+
                                   // 调用API新增KSA
                                   const result = await api.matrices.addKsa({
                                     majorId: parseInt((node.metadata as any)?.parentMajorId || "0"),
                                     courseUnitId: parseInt((node.metadata as any)?.courseId || "0"),
-                                    title: ksaType,
+                                    title: "KSA",
                                     description: newRowDescription,
-                                    level: 1,
+                                    level: maxLevel + 1,
                                   })
                                   if (!result.error && result.data) {
                                     setKsaListData([...ksaListData, result.data])
                                     setNewRowKsaType(null)
-                                    setNewRowTitle("")
                                     setNewRowDescription("")
                                   } else {
                                     alert("新增失败: " + result.error)
                                   }
                                 }}
-                                className="px-2 py-0.5 text-xs rounded border border-green-300 bg-green-50 text-green-600 hover:bg-green-100 transition-all whitespace-nowrap"
+                                disabled={editingKsaId !== null}
+                                className="p-1 rounded hover:bg-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="保存"
                               >
-                                保存
+                                <Check className="w-4 h-4 text-green-600" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setNewRowKsaType(null)
+                                  setNewRowDescription("")
+                                }}
+                                disabled={editingKsaId !== null}
+                                className="p-1 rounded hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="取消"
+                              >
+                                <X className="w-4 h-4 text-gray-600" />
                               </button>
                             </div>
                           </div>
@@ -984,59 +990,116 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
                       {filteredPoints.length > 0 ? (
                         filteredPoints.map((point: any) => {
                           const support = selectedKsaSupport[point.id]
+                          const isEditing = editingKsaId === point.id
 
                           return (
                             <div
                               key={point.id}
                               className={cn(
                                 "p-2 rounded-lg border transition-all",
-                                support ? `${borderClass} ${bgClass}` : "border-border bg-background",
+                                isEditing && "border-blue-300 bg-blue-50",
+                                !isEditing && support ? `${borderClass} ${bgClass}` : !isEditing && "border-border bg-background",
                               )}
                             >
                               <div className="flex items-start gap-2">
                                 <div className="flex-1 min-w-0">
-                                  <div className={`text-xs font-medium mb-1 ${colorClass}`}>
-                                    {point.title}{point.level}
-                                  </div>
-                                  <div className="text-sm text-foreground leading-relaxed break-words">
-                                    {point.description}
-                                  </div>
+                                  {isEditing ? (
+                                    <textarea
+                                      value={editingDescription}
+                                      onChange={(e) => setEditingDescription(e.target.value)}
+                                      className="w-full px-2 py-1 text-xs border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                                      rows={2}
+                                    />
+                                  ) : (
+                                    <>
+                                      <div className={`text-xs font-medium mb-1 ${colorClass}`}>
+                                        {point.title}{point.level}
+                                      </div>
+                                      <div className="text-sm text-foreground leading-relaxed break-words">
+                                        {point.description}
+                                      </div>
+                                    </>
+                                  )}
                                 </div>
                                 <div className="flex flex-col gap-1 flex-shrink-0">
                                   {selectedKsaCell?.chapterId === "global" ? (
-                                    <>
-                                      <button
-                                        onClick={() => {
-                                          // 编辑逻辑：可以在这里添加编辑功能
-                                          alert("编辑功能开发中")
-                                        }}
-                                        className="px-2 py-0.5 text-xs rounded border border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all whitespace-nowrap"
-                                        title="编辑"
-                                      >
-                                        编辑
-                                      </button>
-                                      <button
-                                        onClick={async () => {
-                                          if (confirm("确定删除此KSA吗？")) {
-                                            const result = await api.matrices.deleteKsa(point.id)
-                                            if (!result.error) {
-                                              setKsaListData(ksaListData.filter((k: any) => k.id !== point.id))
-                                            } else {
-                                              alert("删除失败: " + result.error)
+                                    isEditing ? (
+                                      <div className="flex flex-col gap-1">
+                                        <button
+                                          onClick={async () => {
+                                            if (!editingDescription) {
+                                              alert("请填写描述")
+                                              return
                                             }
-                                          }
-                                        }}
-                                        className="px-2 py-0.5 text-xs rounded border border-red-300 bg-red-50 text-red-600 hover:bg-red-100 transition-all whitespace-nowrap"
-                                        title="删除"
-                                      >
-                                        删除
-                                      </button>
-                                    </>
+                                            const result = await api.matrices.updateKsa(point.id, {
+                                              description: editingDescription,
+                                            })
+                                            if (!result.error) {
+                                              setKsaListData(
+                                                ksaListData.map((k: any) =>
+                                                  k.id === point.id ? { ...k, description: editingDescription } : k,
+                                                ),
+                                              )
+                                              setEditingKsaId(null)
+                                              setEditingDescription("")
+                                            } else {
+                                              alert("更新失败: " + result.error)
+                                            }
+                                          }}
+                                          className="p-1 rounded hover:bg-green-200 transition-colors"
+                                          title="保存"
+                                        >
+                                          <Check className="w-4 h-4 text-green-600" />
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            setEditingKsaId(null)
+                                            setEditingDescription("")
+                                          }}
+                                          className="p-1 rounded hover:bg-gray-200 transition-colors"
+                                          title="取消"
+                                        >
+                                          <X className="w-4 h-4 text-gray-600" />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <button
+                                          onClick={() => {
+                                            setEditingKsaId(point.id)
+                                            setEditingDescription(point.description)
+                                          }}
+                                          disabled={editingKsaId !== null || newRowKsaType !== null}
+                                          className="p-1 rounded hover:bg-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                          title="编辑"
+                                        >
+                                          <Edit className="w-4 h-4 text-blue-600" />
+                                        </button>
+                                        <button
+                                          onClick={async () => {
+                                            if (confirm("确定删除此KSA吗？")) {
+                                              const result = await api.matrices.deleteKsa(point.id)
+                                              if (!result.error) {
+                                                setKsaListData(ksaListData.filter((k: any) => k.id !== point.id))
+                                              } else {
+                                                alert("删除失败: " + result.error)
+                                              }
+                                            }
+                                          }}
+                                          disabled={editingKsaId !== null || newRowKsaType !== null}
+                                          className="p-1 rounded hover:bg-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                          title="删除"
+                                        >
+                                          <Trash2 className="w-4 h-4 text-red-600" />
+                                        </button>
+                                      </>
+                                    )
                                   ) : (
                                     <button
                                       onClick={() => handleToggleKsaSupport(point.id)}
+                                      disabled={editingKsaId !== null || newRowKsaType !== null}
                                       className={cn(
-                                        "px-2 py-0.5 text-xs rounded border transition-all whitespace-nowrap",
+                                        "px-2 py-0.5 text-xs rounded border transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed",
                                         !support && "border-gray-300 bg-white text-gray-600 hover:bg-gray-50",
                                         support === "strong" &&
                                         `${borderClass} ${bgClass} ${colorClass} font-medium`,

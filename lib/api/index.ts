@@ -1,6 +1,6 @@
 import { TreeApi } from "./tree-api"
 import { UserApi, type User } from "./user-api"
-import { MatrixApi, type CourseMatrix, type ProjectMatrix, type MajorMatrixData } from "./matrix-api"
+import { MatrixApi, type CourseMatrix, type ProjectMatrix, type MajorMatrixData, type CourseMatrixItem, type CourseMatrixResponse } from "./matrix-api"
 import { ResourceApi, type FileData, type CourseResourceData, type ScoringData } from "./resource-api"
 import { ConfigApi, type ThemeConfig } from "./config-api"
 import { PreferenceApi, type UserPreference } from "./preference-api"
@@ -48,7 +48,7 @@ export const api = {
 export { TreeApi, UserApi, MatrixApi, ResourceApi, ConfigApi, PreferenceApi, TeachingTaskApi, CourseDetailApi, OccupationApi }
 
 // 导出类型
-export type { User, CourseMatrix, ProjectMatrix, MajorMatrixData, FileData, CourseResourceData, ScoringData, ThemeConfig, UserPreference, CombinedCourseDetail, MajorDetailData, OccupationBookData, CoursePoint, ProjectTeachGoalData, Project, ProjectTeachGoal }
+export type { User, CourseMatrix, ProjectMatrix, MajorMatrixData, CourseMatrixItem, CourseMatrixResponse, FileData, CourseResourceData, ScoringData, ThemeConfig, UserPreference, CombinedCourseDetail, MajorDetailData, OccupationBookData, CoursePoint, ProjectTeachGoalData, Project, ProjectTeachGoal }
 export type { ApiResponse, BackendResponse } from "./types"
 
 // 导出初始化函数

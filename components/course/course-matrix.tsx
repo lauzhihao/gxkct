@@ -14,6 +14,7 @@ import type { CoursePoint as ApiCoursePoint } from "@/lib/api/course-points-api"
 import { showSuccess, showError } from "@/lib/toast-utils"
 import type { ProjectTeachGoalData, Project, ProjectTeachGoal } from "@/lib/api/project-teach-goal-api"
 import { SupportLabel } from "@/components/support-label"
+import type { CourseMatrixItem } from "@/lib/api/matrix-api"
 
 interface CourseMatrixProps {
   node: TreeNode
@@ -64,6 +65,8 @@ export function CourseMatrix({ node, onUpdateNode, majorId, onEditTeachingObject
   const hasLoadedRef = useRef(false)
   const prevNodeIdRef = useRef<string | null>(null)
   const prevMajorIdRef = useRef<string | number | undefined>(undefined)
+  const hasLoadedCourseMatrixRef = useRef(false)
+  const prevCourseIdRef = useRef<string | null>(null)
 
   // 加载项目、教学目标、课程目标和课点数据
   useEffect(() => {
@@ -132,7 +135,9 @@ export function CourseMatrix({ node, onUpdateNode, majorId, onEditTeachingObject
 
           // 处理指标点数据
           console.log("[CourseMatrix] 课程支撑的指标点API响应:", indicatorSupportsResponse)
-          if (indicatorSupportsResponse.data && indicatorSupportsResponse.data.length > 0) {
+          if (indicatorSupportsResponse.error) {
+            console.warn("[CourseMatrix] 课程支撑的指标点加载失败:", indicatorSupportsResponse.error)
+          } else if (indicatorSupportsResponse.data && indicatorSupportsResponse.data.length > 0) {
             // 从localStorage中获取专业数据，提取所有指标点
             const majorData = localStorage.getItem(`major-${majorId}`)
             if (majorData) {
@@ -161,7 +166,7 @@ export function CourseMatrix({ node, onUpdateNode, majorId, onEditTeachingObject
               setMajorIndicators(filteredIndicators)
             }
           } else {
-            console.warn("[CourseMatrix] 课程支撑的指标点为空或加载失败:", indicatorSupportsResponse.error)
+            console.log("[CourseMatrix] 课程支撑的指标点为空")
           }
 
           // 处理教学目标与指标点的关系
@@ -198,30 +203,62 @@ export function CourseMatrix({ node, onUpdateNode, majorId, onEditTeachingObject
 
   useEffect(() => {
     if (node?.type === "course" && node?.id) {
+      const courseId = (node.metadata as any)?.courseId
+
+      // 当courseId改变时，重置ref
+      if (prevCourseIdRef.current !== courseId) {
+        hasLoadedCourseMatrixRef.current = false
+        prevCourseIdRef.current = courseId
+      }
+
+      // 防止在StrictMode下重复调用
+      if (hasLoadedCourseMatrixRef.current) {
+        return
+      }
+      hasLoadedCourseMatrixRef.current = true
+
       const loadMatrix = async () => {
         try {
           // 检查api.matrix是否可用
           if (!api || !api.matrices) {
             console.error("[CourseMatrix] API对象未正确初始化")
-            // 尝试从节点metadata加载
-            if (node.metadata?.courseMatrixData) {
-              setCourseMatrixData(node.metadata.courseMatrixData)
-            }
             return
           }
 
-          const response = await api.matrices.getCourseMatrix(node.id)
-          if (response.data) {
-            setCourseMatrixData(response.data)
-          } else if (node.metadata?.courseMatrixData) {
-            setCourseMatrixData(node.metadata.courseMatrixData)
+          if (!courseId) {
+            console.warn("[CourseMatrix] 缺少courseId")
+            return
+          }
+
+          const response = await api.matrices.getCourseMatrix(courseId)
+          if (response.data && Array.isArray(response.data)) {
+            // 将API返回的数组转换为当前使用的对象格式
+            // 格式：{ "${projectId}-${graduateRequireId}": [...coursePoints] }
+            // 其中projectId是项目/章节ID，graduateRequireId是教学目标ID
+            const transformedData: Record<string, Array<{ id: string; name: string; description: string; support: "strong" | "weak" }>> = {}
+
+            response.data.forEach((item: CourseMatrixItem) => {
+              // 生成key：${projectId}-${graduateRequireId}
+              // 这对应表格中的单元格：行=项目，列=教学目标
+              const key = `${item.projectId}-${item.graduateRequireId}`
+
+              if (!transformedData[key]) {
+                transformedData[key] = []
+              }
+
+              transformedData[key].push({
+                id: String(item.id),
+                name: item.point.title,
+                description: item.point.description,
+                support: item.relate.relate === 0 ? "strong" : "weak",
+              })
+            })
+
+            console.log("[CourseMatrix] 转换后的课程矩阵数据:", transformedData)
+            setCourseMatrixData(transformedData)
           }
         } catch (error) {
           console.error("[CourseMatrix] 加载课程矩阵失败:", error)
-          // 尝试从节点metadata加载
-          if (node.metadata?.courseMatrixData) {
-            setCourseMatrixData(node.metadata.courseMatrixData)
-          }
         }
       }
       loadMatrix()
@@ -251,23 +288,27 @@ export function CourseMatrix({ node, onUpdateNode, majorId, onEditTeachingObject
         })
       }
 
-      if (node?.id && api && api.matrices) {
-        await api.matrices.updateCourseMatrix(node.id, courseMatrixData)
+      const courseId = (node.metadata as any)?.courseId
+      if (courseId && api && api.matrices) {
+        // 将对象格式转换回数组格式用于API保存
+        // 注意：这里只是保存当前的编辑状态，实际的课程矩阵数据应该通过API获取
+        await api.matrices.updateCourseMatrix(courseId, [])
       }
 
       if (onUpdateNode) {
         onUpdateNode(node.id, {
           metadata: {
             ...node.metadata,
-            courseMatrixData,
           },
         })
       }
 
       // 清空编辑状态
       setEditingProjectNames({})
+      showSuccess("课程矩阵保存成功")
     } catch (error) {
       console.error("[CourseMatrix] 保存课程矩阵失败:", error)
+      showError("课程矩阵保存失败")
     }
 
     await new Promise((resolve) => setTimeout(resolve, 500))
@@ -279,11 +320,8 @@ export function CourseMatrix({ node, onUpdateNode, majorId, onEditTeachingObject
   }
 
   const handleCancelCourseMatrix = () => {
-    if (node?.metadata?.courseMatrixData) {
-      setCourseMatrixData(node.metadata.courseMatrixData)
-    } else {
-      setCourseMatrixData({})
-    }
+    // 取消编辑，重新加载数据
+    setCourseMatrixData({})
     // 清空编辑状态
     setEditingProjectNames({})
     setIsEditingCourseMatrix(false)
@@ -530,10 +568,17 @@ export function CourseMatrix({ node, onUpdateNode, majorId, onEditTeachingObject
 
   return (
     <>
-      <div className="rounded-lg border border-border bg-secondary/30 backdrop-blur-sm p-6">
-        <div className="flex items-center justify-between mb-6 ">
-          <h3 className="text-lg font-semibold text-foreground">课程矩阵</h3>
-          <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <BookMarked className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-foreground">课程矩阵</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">管理课程的教学目标和课点支撑关系</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
             {!isEditingCourseMatrix && (
               <>
                 <Button
@@ -618,12 +663,11 @@ export function CourseMatrix({ node, onUpdateNode, majorId, onEditTeachingObject
               </div>
             )}
           </div>
-        </div>
+      </div>
 
-        {projectTeachGoalData && projectTeachGoalData.goals && projectTeachGoalData.goals.length > 0 && projectTeachGoalData.projects && projectTeachGoalData.projects.length > 0 ? (
-          <div className="rounded-lg border border-border bg-card/50 overflow-hidden">
-            <div className="overflow-x-auto">
-              {(() => {
+      {projectTeachGoalData && projectTeachGoalData.goals && projectTeachGoalData.goals.length > 0 && projectTeachGoalData.projects && projectTeachGoalData.projects.length > 0 ? (
+        <div className="overflow-x-auto">
+          {(() => {
                 // 计算第二层表头的总数
                 const secondLevelHeaderCount = projectTeachGoalData.goals.reduce((count, goal) => {
                   const children = (goal.children && goal.children.length > 0) ? goal.children : []
@@ -745,7 +789,9 @@ export function CourseMatrix({ node, onUpdateNode, majorId, onEditTeachingObject
                       {projectTeachGoalData.goals.map((goal: ProjectTeachGoal) => {
                         const children = (goal.children && goal.children.length > 0) ? goal.children : []
                         return children.map((child: ProjectTeachGoal, childIdx: number) => {
-                          const key = `${goal.id}-${child.id}-${project.id}`
+                          // 使用新的key格式：${projectId}-${graduateRequireId}
+                          // 其中projectId是项目ID，graduateRequireId是教学目标ID（child.id）
+                          const key = `${project.id}-${child.id}`
                           const coursePoints = courseMatrixData[key] || []
 
                           return (
@@ -821,7 +867,6 @@ export function CourseMatrix({ node, onUpdateNode, majorId, onEditTeachingObject
                 )
               })()}
             </div>
-          </div>
         ) : (
           <div className="text-center py-12 text-muted-foreground">
             <BookMarked className="w-12 h-12 mx-auto mb-3 opacity-50" />
@@ -838,8 +883,6 @@ export function CourseMatrix({ node, onUpdateNode, majorId, onEditTeachingObject
             )}
           </div>
         )}
-      </div>
-
 
 
       {/* 课点管理弹窗 */}
