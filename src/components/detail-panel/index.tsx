@@ -1,10 +1,10 @@
 "use client"
 
 import type { DetailPanelProps } from "./types"
-import { UniversityDetail } from "./university-detail"
-import { DepartmentDetail } from "./department-detail"
-import { MajorDetail } from "./major-detail"
-import { CourseDetail } from "./course-detail"
+import { UniversityDetail } from "@/modules/universities"
+import { DepartmentDetail } from "@/modules/departments"
+import { MajorDetail } from "@/modules/majors"
+import { CourseDetail } from "@/modules/courses"
 import { FileText } from "lucide-react"
 
 export function DetailPanel(props: DetailPanelProps) {

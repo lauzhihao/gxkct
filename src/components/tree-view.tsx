@@ -41,6 +41,8 @@ import {
 import type { TreeNode } from "@/types"
 import { api } from "@/lib/api"
 import { useTreeSearch } from "@/shared/hooks/use-tree-search"
+import { useDepartmentMajors } from "@/modules/departments/hooks/use-department-majors"
+import { useMajorCourses } from "@/modules/majors/hooks/use-major-courses"
 
 function highlightText(text: string, searchTerm: string) {
   if (!searchTerm.trim()) {
@@ -436,32 +438,15 @@ export const TreeView = React.forwardRef<
   const [isAddSchoolDialogOpen, setIsAddSchoolDialogOpen] = useState(false)
   const [newSchoolName, setNewSchoolName] = useState("")
   const [newSchoolDesc, setNewSchoolDesc] = useState("")
-  // 跟踪已加载专业数据的department节点
-  const [loadedDepartments, setLoadedDepartments] = useState<Set<string>>(new Set())
-  // 存储动态加载的专业数据
-  const [departmentMajors, setDepartmentMajors] = useState<Map<string, TreeNode[]>>(new Map())
-  // 跟踪已加载课程数据的major节点
-  const [loadedMajors, setLoadedMajors] = useState<Set<string>>(new Set())
-  // 存储动态加载的课程数据
-  const [majorCourses, setMajorCourses] = useState<Map<string, TreeNode[]>>(new Map())
-  // 跟踪已加载但没有课程的major节点
-  const [loadedMajorsWithNoCourses, setLoadedMajorsWithNoCourses] = useState<Set<string>>(new Set())
+  const { departmentMajors, loadedDepartments, loadDepartmentMajors } = useDepartmentMajors(onDepartmentMajorsChange)
+  const {
+    majorCourses,
+    loadedMajors,
+    loadedMajorsWithNoCourses,
+    loadMajorCourses,
+  } = useMajorCourses(onMajorCoursesChange)
   // 跟踪是否正在加载数据（搜索或动态加载）
   const [isDataLoading, setIsDataLoading] = useState(false)
-
-  // 当departmentMajors变化时通知父组件
-  useEffect(() => {
-    if (onDepartmentMajorsChange) {
-      onDepartmentMajorsChange(departmentMajors)
-    }
-  }, [departmentMajors, onDepartmentMajorsChange])
-
-  // 当majorCourses变化时通知父组件
-  useEffect(() => {
-    if (onMajorCoursesChange) {
-      onMajorCoursesChange(majorCourses)
-    }
-  }, [majorCourses, onMajorCoursesChange])
 
 
 
@@ -519,23 +504,9 @@ export const TreeView = React.forwardRef<
 
     // 如果是department节点且未加载过专业数据，则加载
     if (node && node.type === "department" && !loadedDepartments.has(nodeId)) {
-      console.log(`[TreeView] 开始加载department ${nodeId} 的专业数据`)
       setIsDataLoading(true)
       try {
-        const response = await api.tree.getDepartmentMajors(nodeId)
-        console.log(`[TreeView] getDepartmentMajors响应:`, response)
-
-        if (response.data && response.data.length > 0) {
-          console.log(`[TreeView] 成功加载 ${response.data.length} 个专业`)
-          setDepartmentMajors((prev) => {
-            const newMap = new Map(prev)
-            newMap.set(nodeId, response.data!)
-            return newMap
-          })
-          setLoadedDepartments((prev) => new Set(prev).add(nodeId))
-        } else {
-          console.log(`[TreeView] 未找到专业数据或加载失败:`, response.error)
-        }
+        await loadDepartmentMajors(nodeId)
       } finally {
         setIsDataLoading(false)
       }
@@ -543,43 +514,15 @@ export const TreeView = React.forwardRef<
 
     // 如果是major节点且未加载过课程数据，则加载
     if (node && node.type === "major" && !loadedMajors.has(nodeId)) {
-      console.log(`[v0] handleToggleExpand: 开始加载major ${nodeId} 的课程数据`)
-      console.log(`[v0] handleToggleExpand: node.metadata =`, node.metadata)
-      // 从metadata中获取majorId
       const majorId = (node.metadata as any)?.majorId || nodeId.replace("major-", "")
-      console.log(`[v0] handleToggleExpand: 使用majorId = ${majorId}`)
-
       setIsDataLoading(true)
       try {
-        const response = await api.tree.getMajorCourses(majorId)
-        console.log(`[v0] handleToggleExpand: API响应 =`, response)
-
-        if (response.data && response.data.length > 0) {
-          console.log(`[v0] handleToggleExpand: 成功加载 ${response.data.length} 个课程，准备更新状态`)
-          console.log(`[v0] handleToggleExpand: 前3个课程 =`, response.data.slice(0, 3).map(c => ({ id: c.id, name: c.name })))
-
-          setMajorCourses((prev) => {
-            const newMap = new Map(prev)
-            newMap.set(nodeId, response.data!)
-            console.log(`[v0] handleToggleExpand: 更新majorCourses, nodeId=${nodeId}, 课程数=${response.data!.length}`)
-            console.log(`[v0] handleToggleExpand: majorCourses.has(${nodeId}) =`, newMap.has(nodeId))
-            return newMap
-          })
-          setLoadedMajors((prev) => new Set(prev).add(nodeId))
-          console.log(`[v0] handleToggleExpand: 状态更新完成`)
-        } else if (response.data && response.data.length === 0) {
-          console.log(`[v0] handleToggleExpand: 该专业没有课程数据`)
-          // 标记为已加载但无课程
-          setLoadedMajorsWithNoCourses((prev) => new Set(prev).add(nodeId))
-          setLoadedMajors((prev) => new Set(prev).add(nodeId))
-        } else {
-          console.log(`[v0] handleToggleExpand: 加载课程数据失败:`, response.error)
-        }
+        await loadMajorCourses(nodeId, majorId)
       } finally {
         setIsDataLoading(false)
       }
     }
-  }, [treeData, expandedNodes, loadedDepartments, departmentMajors, loadedMajors])
+  }, [treeData, expandedNodes, loadedDepartments, departmentMajors, loadedMajors, loadDepartmentMajors, loadMajorCourses])
 
   // 使用useImperativeHandle暴露handleToggleExpand方法给外部调用
   React.useImperativeHandle(ref, () => ({
@@ -691,63 +634,47 @@ export const TreeView = React.forwardRef<
         })
       })
 
-      if (nodesToLoad.length > 0) {
-        setIsDataLoading(true)
+      if (nodesToLoad.length === 0) {
+        return
       }
 
-      // 加载需要的数据
+      setIsDataLoading(true)
       let loadingCount = 0
       const totalToLoad = nodesToLoad.length
 
       nodesToLoad.forEach(({ id, type }) => {
         if (type === "department" && !loadedDepartments.has(id)) {
-          // 异步加载department数据
-          ;(async () => {
-            try {
-              const response = await api.tree.getDepartmentMajors(id)
-              if (response.data && response.data.length > 0) {
-                setDepartmentMajors((prev) => {
-                  const newMap = new Map(prev)
-                  newMap.set(id, response.data!)
-                  return newMap
-                })
-                setLoadedDepartments((prev) => new Set(prev).add(id))
-              }
-            } finally {
-              loadingCount++
-              if (loadingCount === totalToLoad) {
-                setIsDataLoading(false)
-              }
+          loadDepartmentMajors(id).finally(() => {
+            loadingCount++
+            if (loadingCount === totalToLoad) {
+              setIsDataLoading(false)
             }
-          })()
+          })
         } else if (type === "major" && !loadedMajors.has(id)) {
-          // 异步加载major数据
-          ;(async () => {
-            try {
-              const majorId = id.replace("major-", "")
-              const response = await api.tree.getMajorCourses(majorId)
-              if (response.data && response.data.length > 0) {
-                setMajorCourses((prev) => {
-                  const newMap = new Map(prev)
-                  newMap.set(id, response.data!)
-                  return newMap
-                })
-                setLoadedMajors((prev) => new Set(prev).add(id))
-              } else if (response.data && response.data.length === 0) {
-                setLoadedMajorsWithNoCourses((prev) => new Set(prev).add(id))
-                setLoadedMajors((prev) => new Set(prev).add(id))
-              }
-            } finally {
-              loadingCount++
-              if (loadingCount === totalToLoad) {
-                setIsDataLoading(false)
-              }
+          const majorId = id.replace("major-", "")
+          loadMajorCourses(id, majorId).finally(() => {
+            loadingCount++
+            if (loadingCount === totalToLoad) {
+              setIsDataLoading(false)
             }
-          })()
+          })
+        } else {
+          loadingCount++
+          if (loadingCount === totalToLoad) {
+            setIsDataLoading(false)
+          }
         }
       })
     }
-  }, [searchTerm, searchResults, expandedNodes, loadedDepartments, loadedMajors])
+  }, [
+    searchTerm,
+    searchResults,
+    expandedNodes,
+    loadedDepartments,
+    loadedMajors,
+    loadDepartmentMajors,
+    loadMajorCourses,
+  ])
 
 
 
