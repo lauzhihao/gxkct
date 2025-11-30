@@ -1,6 +1,8 @@
 "use client"
 import { useState, useEffect } from "react"
 import { Calendar, BookOpen, FileText, Clock, Tag } from "lucide-react"
+import { formatDate } from "@/shared/utils/date-utils"
+import { getCourseType, createCourseNameMapper } from "@/shared/utils/data-transform"
 
 interface CourseBasicInfoProps {
   name: string
@@ -11,7 +13,7 @@ interface CourseBasicInfoProps {
 }
 
 export function CourseBasicInfo({ name, courseDetail, courseNameData, createTime, metadata }: CourseBasicInfoProps) {
-  const [courseTypeMap, setCourseTypeMap] = useState<Record<number, string>>({})
+  const [getCourseName, setGetCourseName] = useState<(typeId: number | null | undefined) => string>(() => () => "未设置")
 
   // 加载课程类型映射
   useEffect(() => {
@@ -19,42 +21,15 @@ export function CourseBasicInfo({ name, courseDetail, courseNameData, createTime
       try {
         const courseTypesModule = await import("@/mock-data/course-types.json")
         const courseTypesData = courseTypesModule.default.data || []
-        const typeMap: Record<number, string> = {}
-        courseTypesData.forEach((item: any) => {
-          typeMap[item.id] = item.name
-        })
-        setCourseTypeMap(typeMap)
+        // 使用共享的 createCourseNameMapper 创建映射函数
+        const mapper = createCourseNameMapper(courseTypesData)
+        setGetCourseName(() => mapper)
       } catch (error) {
         console.error("加载课程类型失败:", error)
       }
     }
     loadCourseTypes()
   }, [])
-
-  // 格式化日期，只显示日期部分 (YYYY-MM-DD)
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "未设置"
-    try {
-      const date = new Date(dateString)
-      return date.toISOString().split("T")[0]
-    } catch {
-      return "未设置"
-    }
-  }
-
-  // 获取课程性质文本
-  const getCourseName = (typeId: number) => {
-    return courseTypeMap[typeId] || "未设置"
-  }
-
-  // 获取课程类型文本（必修/选修）
-  const getCourseType = (classId: number) => {
-    const courseTypeMap: Record<number, string> = {
-      1: "必修",
-      2: "选修",
-    }
-    return courseTypeMap[classId] || "未设置"
-  }
 
   return (
     <div className="rounded-lg border border-border bg-secondary/30 backdrop-blur-sm p-5">

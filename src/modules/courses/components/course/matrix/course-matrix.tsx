@@ -1,10 +1,10 @@
 "use client"
 
 import type { TreeNode } from "@/types"
-import { CourseMatrixHeader } from "./course-matrix/components/course-matrix-header"
-import { ProjectMatrixTable } from "./course-matrix/components/project-matrix-table"
-import { CoursePointManagerDialog } from "./course-matrix/components/course-point-manager-dialog"
-import { CoursePointSelectionDialog } from "./course-matrix/components/course-point-selection-dialog"
+import { CourseMatrixHeader } from "./course-matrix/course-matrix-header"
+import { ProjectMatrixTable } from "./course-matrix/project-matrix-table"
+import { CoursePointManagerDialog } from "../../dialogs/course-point-manager-dialog"
+import { CoursePointSelectionDialog } from "../../dialogs/course-point-selection-dialog"
 import { CourseMatrixProvider, useCourseMatrixData } from "@/modules/courses/hooks/use-course-matrix-data"
 
 interface CourseMatrixProps {

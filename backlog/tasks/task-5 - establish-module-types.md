@@ -1,9 +1,10 @@
 ---
 id: task-5
 title: 建立模块级类型定义规范
-status: Todo
+status: Completed
 assignee: []
 created_date: '2025-12-01'
+completed_date: '2025-12-01'
 labels:
   - refactor
   - typescript
@@ -107,3 +108,29 @@ import type { CourseBasicInfoProps } from '@/modules/courses/types'
 - 迁移过程中注意检查循环依赖问题
 - 优先处理 courses 模块作为示例，验证可行性后再推广
 - 考虑使用 ESLint 规则禁止在组件文件中定义类型
+
+## Completion Summary
+
+已完成 courses 和 majors 两个主要模块的类型规范化：
+
+**Courses 模块**:
+- 创建 `src/modules/courses/types/` 目录结构
+- 迁移类型: models.ts (10个数据模型类型), components.ts (1个组件Props), hooks.ts (3个hook类型)
+- 更新导入路径: course-project-matrix.tsx, ProjectMatrixContainer.tsx
+- 删除旧文件: course-project-matrix/types.ts
+
+**Majors 模块**:
+- 创建 `src/modules/majors/types/` 目录结构
+- 迁移类型: models.ts (6个数据模型类型), components.ts (8个组件Props), hooks.ts (3个hook类型)
+- 更新导入路径: add-major-form.tsx, use-career-info.ts, use-graduation-requirements.ts
+- 删除旧文件: add-major-form/types.ts
+
+**全局类型清理**:
+- 从 src/types/index.ts 移除课程和专业特定类型
+- 文件行数从228行减少到164行 (减少28%)
+- 保留真正全局共享的类型 (TreeNode, NodeType, InfoPointType等)
+
+**验证结果**:
+- TypeScript 编译检查通过,无类型迁移相关错误
+- 所有导入路径使用模块别名 (@/modules/courses/types, @/modules/majors/types)
+- IDE 类型提示和跳转功能正常

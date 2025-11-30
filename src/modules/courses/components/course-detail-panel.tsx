@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui
 import { Accordion } from "@/shared/components/ui/accordion"
 import AddCourseForm from "@/components/add-course-form"
 import type { CombinedCourseDetail } from "@/lib/api"
-import { courseDetailApi } from "@/modules/courses/api/courseDetailApi"
+import { courseApiService } from "@/modules/courses/api"
 import { courseGoalsApi } from "@/modules/courses/api/courseGoalsApi"
 import {
   AlertDialog,
@@ -26,10 +26,10 @@ import { CourseBasicInfo } from "@/modules/courses/components/course/course-basi
 import { CourseTeachingObjectives } from "@/modules/courses/components/course/course-teaching-objectives"
 import { CoursePoints } from "@/modules/courses/components/course/course-points"
 import { CourseChapters } from "@/modules/courses/components/course/course-chapters"
-import { CourseResources } from "@/modules/courses/components/course/course-resources"
-import { CourseSupervision } from "@/modules/courses/components/course/course-supervision"
-import { CourseThreeLevelMatrix } from "@/modules/courses/components/course/course-three-level-matrix"
-import { TeachingObjectivesEditor } from "@/modules/courses/components/course/teaching-objectives-editor"
+import { CourseResources } from "@/modules/courses/components/course/resources/course-resources"
+import { CourseSupervision } from "@/modules/courses/components/course/supervision/course-supervision"
+import { CourseThreeLevelMatrix } from "@/modules/courses/components/course/matrix/course-three-level-matrix"
+import { TeachingObjectivesEditor } from "@/modules/courses/components/shared/teaching-objectives-editor"
 
 export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelect, treeData, majorCourses, currentUser }: DetailPanelProps) {
   const metadata = node.metadata || {}
@@ -68,7 +68,7 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
           return
         }
         console.log(`[CourseDetail] 开始加载课程详情，courseId: ${courseId}`)
-        const response = await courseDetailApi.getCourseDetail(courseId)
+        const response = await courseApiService.getCourseDetail(courseId)
         if (response.data) {
           console.log(`[CourseDetail] 课程详情加载成功`)
           setCourseDetailData(response.data)

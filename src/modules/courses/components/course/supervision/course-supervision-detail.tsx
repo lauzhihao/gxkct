@@ -9,6 +9,7 @@ import { Textarea } from "@/shared/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/components/ui/tooltip"
 import type { TeachingSupervisoryTask, TeachingQualityStandard } from "@/types"
 import { courseTeachingTasksApi } from "@/modules/courses/api/courseTeachingTasksApi"
+import { formatDate } from "@/shared/utils/date-utils"
 
 interface CourseSupervisionDetailProps {
   task: TeachingSupervisoryTask
@@ -91,16 +92,6 @@ export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetai
 
     setTotalScore(Math.round(total * 100) / 100)
   }, [scores, standards])
-
-  // 格式化日期
-  const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString)
-      return date.toLocaleDateString("zh-CN")
-    } catch {
-      return dateString
-    }
-  }
 
   // 系统指标标签映射
   const getSystemIndicatorLabel = (systemIndicator: string | undefined): string => {

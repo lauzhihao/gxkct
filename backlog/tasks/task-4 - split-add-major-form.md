@@ -1,9 +1,10 @@
 ---
 id: task-4
 title: 拆分 AddMajorForm 大组件
-status: Todo
+status: Completed
 assignee: []
 created_date: '2025-12-01'
+completed_date: '2025-12-01'
 labels:
   - refactor
   - component-split

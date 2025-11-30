@@ -6,6 +6,7 @@ import type { TeachingSupervisoryTask } from "@/types"
 import { Badge } from "@/shared/components/ui/badge"
 import { CourseSupervisionDetail } from "./course-supervision-detail"
 import { courseTeachingTasksApi } from "@/modules/courses/api/courseTeachingTasksApi"
+import { formatDate } from "@/shared/utils/date-utils"
 
 interface CourseSupervisionProps {
   courseId?: string
@@ -39,16 +40,6 @@ export function CourseSupervision({ courseId, collegeId }: CourseSupervisionProp
 
     loadSupervisionTasks()
   }, [collegeId])
-
-  // 格式化日期
-  const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString)
-      return date.toLocaleDateString("zh-CN")
-    } catch {
-      return dateString
-    }
-  }
 
   // 如果选中了任务，显示详情页面
   if (selectedTask) {

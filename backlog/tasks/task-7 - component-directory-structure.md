@@ -1,9 +1,10 @@
 ---
 id: task-7
 title: 统一模块组件目录结构
-status: Todo
+status: Completed
 assignee: []
 created_date: '2025-12-01'
+completed_date: '2025-12-01'
 labels:
   - refactor
   - architecture

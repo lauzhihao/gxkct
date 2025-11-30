@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { majorCoursesApi } from "@/modules/majors/api/majorCoursesApi"
+import { majorApiService } from "@/modules/majors/api"
 import type { TreeNode } from "@/types"
 
 export interface UseMajorCoursesResult {
@@ -24,7 +24,7 @@ export function useMajorCourses(
     async (nodeId: string, majorId: string) => {
       if (loadedMajors.has(nodeId)) return
 
-      const response = await majorCoursesApi.getMajorCourses(majorId)
+      const response = await majorApiService.getMajorCourses(majorId)
       if (response.data && response.data.length > 0) {
         setMajorCourses((prev) => {
           const next = new Map(prev)

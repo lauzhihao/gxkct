@@ -8,7 +8,7 @@ import { Search, Loader2, ChevronLeft, ChevronRight, Plus } from "lucide-react"
 import { api } from "@/lib/api"
 import type { TreeNode } from "@/types"
 import { cn } from "@/shared/utils/utils"
-import { QuickCreateCourseDialog } from "@/modules/majors/components/shared/quick-create-course-dialog"
+import { QuickCreateCourseDialog } from "@/modules/majors/components/dialogs/quick-create-course-dialog"
 import { useToast } from "@/shared/hooks/use-toast"
 
 interface CourseSelectorProps {

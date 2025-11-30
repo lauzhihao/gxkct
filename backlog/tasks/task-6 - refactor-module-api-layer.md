@@ -1,9 +1,10 @@
 ---
 id: task-6
 title: 重构模块 API 层职责
-status: Todo
+status: Completed
 assignee: []
 created_date: '2025-12-01'
+completed_date: '2025-12-01'
 labels:
   - refactor
   - architecture
@@ -139,3 +140,47 @@ export class CourseApiService {
 - 缓存策略需要考虑数据更新后的失效机制
 - 可以使用 SWR 或 React Query 等成熟的数据获取库
 - 数据转换逻辑应该是纯函数，便于测试
+
+## Completion Summary
+
+已完成模块 API 层的重构，采用方案B（增强职责）实现：
+
+**1. 创建通用缓存工具**
+- 文件: `src/shared/utils/api-cache.ts`
+- 实现泛型缓存类 `ApiCache<T>`
+- 支持 TTL（生存时间）机制
+- 提供 get、set、invalidate、invalidatePattern、clear 等方法
+
+**2. Courses 模块 API Service**
+- 文件: `src/modules/courses/api/CourseApiService.ts`
+- 单例模式实现
+- `getCourseDetail()` - 60秒缓存
+- `getMajorDetail()` - 60秒缓存
+- 提供缓存失效方法: invalidateCourseCache, invalidateMajorCache, clearAllCaches
+
+**3. Majors 模块 API Service**
+- 文件: `src/modules/majors/api/MajorApiService.ts`
+- 单例模式实现
+- `getMajorCourses()` - 30秒缓存（课程列表变化频繁）
+- 提供缓存失效方法: invalidateMajorCoursesCache, clearAllCaches
+
+**4. 模块 API 统一导出**
+- `src/modules/courses/api/index.ts` - 导出 courseApiService 和所有旧 API 对象
+- `src/modules/majors/api/index.ts` - 导出 majorApiService 和所有旧 API 对象
+- 保持向后兼容，不破坏现有代码
+
+**5. 示例更新**
+- `course-detail-panel.tsx` - 更新为使用 `courseApiService`
+- `use-major-courses.ts` - 更新为使用 `majorApiService`
+
+**设计特点**:
+- 轻量级实现，无需引入外部库（SWR/React Query）
+- TTL 策略简单有效，避免过度设计
+- 单例模式确保全局缓存一致性
+- 提供手动缓存失效接口，支持写操作后的缓存清理
+- 向后兼容，旧代码无需立即迁移
+
+**性能提升**:
+- 减少重复的网络请求
+- 课程详情、专业详情等频繁访问的数据将被缓存
+- 用户在相同页面多次访问时响应更快

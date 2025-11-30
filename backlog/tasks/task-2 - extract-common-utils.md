@@ -1,9 +1,10 @@
 ---
 id: task-2
 title: 提取公共工具函数到 shared/utils
-status: Todo
+status: Completed
 assignee: []
 created_date: '2025-12-01'
+completed_date: '2025-12-01'
 labels:
   - refactor
   - utils

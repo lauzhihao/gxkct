@@ -17,7 +17,7 @@ import { MajorBasicInfo } from "@/modules/majors/components/major/major-basic-in
 import { MajorMatrix } from "@/modules/majors/components/major/major-matrix"
 import { MajorCourses } from "@/modules/majors/components/major/major-courses"
 import { TeachingQualityStats } from "@/modules/majors/components/shared/teaching-quality-stats"
-import { QuickCreateCourseDialog } from "@/modules/majors/components/shared/quick-create-course-dialog"
+import { QuickCreateCourseDialog } from "@/modules/majors/components/dialogs/quick-create-course-dialog"
 import {
   AlertDialog,
   AlertDialogAction,
