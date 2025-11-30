@@ -7,7 +7,8 @@ import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
 import { ArrowLeft, Plus, Trash2, Upload, FileSpreadsheet, X, Check, Loader2, Calendar, ChevronDown, Star } from "lucide-react"
 import { Card } from "@/shared/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
+import { Tabs, TabsContent } from "@/shared/components/ui/tabs"
+import { UnderlineTabsList, UnderlineTabsTrigger } from "@/shared/components/ui/underline-tabs"
 import { FileUpload } from "@/shared/components/ui/file-upload"
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover"
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/shared/components/ui/accordion"
@@ -157,6 +158,35 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
   const [mainTextbookExpanded, setMainTextbookExpanded] = useState(false)
   const [referenceResourcesExpanded, setReferenceResourcesExpanded] = useState(false)
 
+  // Tab 2: Course Requirements (课程要求)
+  const [attendancePolicy, setAttendancePolicy] = useState(initialData?.metadata?.attendancePolicy || "")
+  const [assignmentPolicy, setAssignmentPolicy] = useState(initialData?.metadata?.assignmentPolicy || "")
+  const [conductRequirements, setConductRequirements] = useState(initialData?.metadata?.conductRequirements || "")
+  const [practiceRequirements, setPracticeRequirements] = useState(initialData?.metadata?.practiceRequirements || "")
+  const [teamworkRequirements, setTeamworkRequirements] = useState(initialData?.metadata?.teamworkRequirements || "")
+  const [bonusRequirements, setBonusRequirements] = useState(initialData?.metadata?.bonusRequirements || "")
+  const [otherSuggestions, setOtherSuggestions] = useState(initialData?.metadata?.otherSuggestions || "")
+
+  // 课程要求字段展开/收起状态
+  const [attendancePolicyExpanded, setAttendancePolicyExpanded] = useState(false)
+  const [assignmentPolicyExpanded, setAssignmentPolicyExpanded] = useState(false)
+  const [conductRequirementsExpanded, setConductRequirementsExpanded] = useState(false)
+  const [practiceRequirementsExpanded, setPracticeRequirementsExpanded] = useState(false)
+  const [teamworkRequirementsExpanded, setTeamworkRequirementsExpanded] = useState(false)
+  const [bonusRequirementsExpanded, setBonusRequirementsExpanded] = useState(false)
+  const [otherSuggestionsExpanded, setOtherSuggestionsExpanded] = useState(false)
+
+  // Tab 3: Assessment and Evaluation (考核评价)
+  const [assessmentMethod, setAssessmentMethod] = useState(initialData?.metadata?.assessmentMethod || "考试")
+  const [assessmentForm, setAssessmentForm] = useState(initialData?.metadata?.assessmentForm || "")
+  const [assessmentFormExpanded, setAssessmentFormExpanded] = useState(false)
+  const [scoreType, setScoreType] = useState(initialData?.metadata?.scoreType || "百分制")
+  const [scoreTable, setScoreTable] = useState<{ headers: string[]; rows: { [key: string]: string }[] }>(
+    initialData?.metadata?.scoreTable || { headers: ["等级", "分值"], rows: [{ "等级": "", "分值": "" }] }
+  )
+  const [assessmentDescription, setAssessmentDescription] = useState(initialData?.metadata?.assessmentDescription || "")
+  const [assessmentDescriptionExpanded, setAssessmentDescriptionExpanded] = useState(false)
+
   // 获取课程性质名称
   const courseNatureName = useMemo(() => {
     const option = courseNatureOptions.find(opt => opt.id === courseNatureId)
@@ -182,6 +212,20 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
       setCredits(courseData.credits || 0)
       setMainTextbook(courseData.mainTextbook || "")
       setReferenceResources(courseData.referenceResources || "")
+      // 初始化课程要求字段
+      setAttendancePolicy(courseData.attendancePolicy || "")
+      setAssignmentPolicy(courseData.assignmentPolicy || "")
+      setConductRequirements(courseData.conductRequirements || "")
+      setPracticeRequirements(courseData.practiceRequirements || "")
+      setTeamworkRequirements(courseData.teamworkRequirements || "")
+      setBonusRequirements(courseData.bonusRequirements || "")
+      setOtherSuggestions(courseData.otherSuggestions || "")
+      // 初始化考核评价字段
+      setAssessmentMethod(courseData.assessmentMethod || "考试")
+      setAssessmentForm(courseData.assessmentForm || "")
+      setScoreType(courseData.scoreType || "百分制")
+      setScoreTable(courseData.scoreTable || { headers: ["等级", "分值"], rows: [{ "等级": "", "分值": "" }] })
+      setAssessmentDescription(courseData.assessmentDescription || "")
       // 根据 typeId 设置课程性质
       if (courseData.typeId) {
         setCourseNatureId(courseData.typeId)
@@ -697,6 +741,20 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
         credits,
         mainTextbook,
         referenceResources,
+        // 课程要求字段
+        attendancePolicy,
+        assignmentPolicy,
+        conductRequirements,
+        practiceRequirements,
+        teamworkRequirements,
+        bonusRequirements,
+        otherSuggestions,
+        // 考核评价字段
+        assessmentMethod,
+        assessmentForm,
+        scoreType,
+        scoreTable,
+        assessmentDescription,
         teachingObjectives,
         coursePoints,
         chapters,
@@ -778,20 +836,20 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
 
       <Card className="p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full h-10 bg-secondary/50 backdrop-blur-sm rounded-none p-0">
-            <TabsTrigger value="basic" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
+          <UnderlineTabsList className="grid grid-cols-4">
+            <UnderlineTabsTrigger value="basic">
               基本信息
-            </TabsTrigger>
-            <TabsTrigger value="objectives" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
-              教学目标
-            </TabsTrigger>
-            <TabsTrigger value="points" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
-              课点信息
-            </TabsTrigger>
-            <TabsTrigger value="chapters" className="flex-1 cursor-pointer hover:bg-accent/50 transition-colors">
+            </UnderlineTabsTrigger>
+            <UnderlineTabsTrigger value="requirements">
+              课程要求
+            </UnderlineTabsTrigger>
+            <UnderlineTabsTrigger value="assessment">
+              考核评价
+            </UnderlineTabsTrigger>
+            <UnderlineTabsTrigger value="chapters">
               章节与项目
-            </TabsTrigger>
-          </TabsList>
+            </UnderlineTabsTrigger>
+          </UnderlineTabsList>
 
           <TabsContent value="basic" className="space-y-6 mt-6">
             <div className="space-y-4">
@@ -1207,430 +1265,531 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
             </div>
           </TabsContent>
 
-          <TabsContent value="objectives" className="space-y-6 mt-6">
+          <TabsContent value="requirements" className="space-y-6 mt-6">
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-sm bg-[var(--naive-primary)]" />
-                  <h3 className="text-base font-semibold text-foreground">教学目标</h3>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    className="gap-2 bg-primary text-white hover:bg-primary/90"
-                    onClick={() => {
-                      toast({
-                        title: "提示",
-                        description: "功能开发中，敬请期待！",
-                        duration: 3000,
-                      })
-                    }}
-                  >
-                    <Star className="w-4 h-4" />
-                    AI一键生成
-                  </Button>
-                  <FileUpload
-                    buttonText="上传Excel"
-                    fileType="Excel文件"
-                    maxFileSize={10 * 1024 * 1024}
-                    maxFileCount={1}
-                    accept=".xlsx,.xls"
-                    onUpload={async (files) => {
-                      // TODO: 将文件上传到OSS，返回文件地址
-                      // 目前mock返回文件地址
-                      return files.map((file) => `/uploads/${file.name}`)
-                    }}
-                  />
-                </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-sm bg-[var(--naive-primary)]" />
+                <h3 className="text-base font-semibold text-foreground">课程要求</h3>
               </div>
               <div className="border-t border-dashed border-border" />
-              {objectivesFile && (
-                <div className="p-3 rounded-lg bg-green-50 border border-green-200 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <FileSpreadsheet className="w-4 h-4 text-green-600" />
-                    <span className="text-sm text-green-700">{objectivesFile.name}</span>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setObjectivesFile(null)}
-                    className="gap-2 text-red-500 hover:text-red-600"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
+
+              {/* 课程要求字段 - 2列布局 */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* 1. 关于课堂出席政策及要求 */}
+                <div className="space-y-2">
+                  <Label htmlFor="attendance-policy">关于课堂出席政策及要求</Label>
+                  {attendancePolicyExpanded ? (
+                    <div className="relative">
+                      <textarea
+                        id="attendance-policy"
+                        placeholder=""
+                        value={attendancePolicy}
+                        onChange={(e) => setAttendancePolicy(e.target.value.slice(0, 500))}
+                        onBlur={() => setAttendancePolicyExpanded(false)}
+                        maxLength={500}
+                        className="w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
+                        rows={4}
+                        autoFocus
+                      />
+                      <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
+                        {attendancePolicy.length}/500
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <Input
+                        id="attendance-policy"
+                        placeholder=""
+                        value={attendancePolicy}
+                        onFocus={() => setAttendancePolicyExpanded(true)}
+                        readOnly
+                        className="cursor-text pr-12"
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                        {attendancePolicy.length}/500
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
 
-              {/* 课程目标显示 */}
-              {isLoadingGoals ? (
-                <div className="flex items-center justify-center py-6">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-                    <p className="text-sm text-muted-foreground">加载课程目标中...</p>
-                  </div>
+                {/* 2. 关于作业提交的政策及要求 */}
+                <div className="space-y-2">
+                  <Label htmlFor="assignment-policy">关于作业提交的政策及要求</Label>
+                  {assignmentPolicyExpanded ? (
+                    <div className="relative">
+                      <textarea
+                        id="assignment-policy"
+                        placeholder=""
+                        value={assignmentPolicy}
+                        onChange={(e) => setAssignmentPolicy(e.target.value.slice(0, 500))}
+                        onBlur={() => setAssignmentPolicyExpanded(false)}
+                        maxLength={500}
+                        className="w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
+                        rows={4}
+                        autoFocus
+                      />
+                      <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
+                        {assignmentPolicy.length}/500
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <Input
+                        id="assignment-policy"
+                        placeholder=""
+                        value={assignmentPolicy}
+                        onFocus={() => setAssignmentPolicyExpanded(true)}
+                        readOnly
+                        className="cursor-text pr-12"
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                        {assignmentPolicy.length}/500
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ) : courseGoals.length > 0 ? (
-                <Accordion
-                  type="multiple"
-                  className="space-y-3"
-                  defaultValue={courseGoals
-                    .map((goal, idx) => goal.children && goal.children.length > 0 ? `goal-${goal.id}` : null)
-                    .filter(Boolean) as string[]}
-                >
-                    {courseGoals.map((goal, goalIdx) => {
-                      const goalObjectivesList = goalObjectives[goal.id] || []
-                      const goalInput = goalObjectiveInputs[goal.id]
-                      const hasChildren = goal.children && goal.children.length > 0
-                      const accordionValue = `goal-${goal.id}`
 
-                      return (
-                        <AccordionItem
-                          key={goal.id}
-                          value={accordionValue}
-                          className="rounded-lg border border-border bg-secondary/10 backdrop-blur-sm"
-                          defaultOpen={hasChildren}
-                        >
-                          <AccordionTrigger className="px-4 py-3 hover:no-underline">
-                            <div className="flex items-start gap-3 w-full">
-                              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-accent/10 border border-primary/30 flex items-center justify-center text-xs font-medium text-primary">
-                                {goalIdx + 1}
-                              </div>
-                              <div className="flex-1 text-left">
-                                <p className="text-sm font-medium text-foreground leading-relaxed">{goal.description}</p>
-                              </div>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  startAddingObjectiveForGoal(goal.id)
-                                }}
-                                className="gap-1 h-6 w-6 p-0 flex-shrink-0 text-primary hover:bg-primary/10"
-                              >
-                                <Plus className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </AccordionTrigger>
+                {/* 3. 关于上课行为规范、诚信学习要求 */}
+                <div className="space-y-2">
+                  <Label htmlFor="conduct-requirements">关于上课行为规范、诚信学习要求</Label>
+                  {conductRequirementsExpanded ? (
+                    <div className="relative">
+                      <textarea
+                        id="conduct-requirements"
+                        placeholder=""
+                        value={conductRequirements}
+                        onChange={(e) => setConductRequirements(e.target.value.slice(0, 500))}
+                        onBlur={() => setConductRequirementsExpanded(false)}
+                        maxLength={500}
+                        className="w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
+                        rows={4}
+                        autoFocus
+                      />
+                      <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
+                        {conductRequirements.length}/500
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <Input
+                        id="conduct-requirements"
+                        placeholder=""
+                        value={conductRequirements}
+                        onFocus={() => setConductRequirementsExpanded(true)}
+                        readOnly
+                        className="cursor-text pr-12"
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                        {conductRequirements.length}/500
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-                          <AccordionContent className="px-4 pb-4">
-                            <div className="border-t border-dashed border-border mb-4" />
+                {/* 4. 关于参与实践环节的要求 */}
+                <div className="space-y-2">
+                  <Label htmlFor="practice-requirements">关于参与实践环节的要求</Label>
+                  {practiceRequirementsExpanded ? (
+                    <div className="relative">
+                      <textarea
+                        id="practice-requirements"
+                        placeholder=""
+                        value={practiceRequirements}
+                        onChange={(e) => setPracticeRequirements(e.target.value.slice(0, 500))}
+                        onBlur={() => setPracticeRequirementsExpanded(false)}
+                        maxLength={500}
+                        className="w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
+                        rows={4}
+                        autoFocus
+                      />
+                      <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
+                        {practiceRequirements.length}/500
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <Input
+                        id="practice-requirements"
+                        placeholder=""
+                        value={practiceRequirements}
+                        onFocus={() => setPracticeRequirementsExpanded(true)}
+                        readOnly
+                        className="cursor-text pr-12"
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                        {practiceRequirements.length}/500
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-                            {/* 教学目标列表 */}
-                            <div className="space-y-3">
-                              {/* 教学目标输入框 */}
-                              {goalInput?.isEditing && (
-                                <div className="flex items-center gap-2 mb-3 pl-6 p-2 bg-card/20 rounded-md border border-border">
-                                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[0.7rem] font-medium text-primary">
-                                    {String.fromCharCode(97 + goalObjectivesList.length)}
-                                  </div>
-                                  {goalInput.isMultiline ? (
-                                    <textarea
-                                      autoFocus
-                                      placeholder="输入教学目标内容"
-                                      value={goalInput.inputValue}
-                                      onChange={(e) => updateGoalObjectiveInput(goal.id, e.target.value)}
-                                      onBlur={() => finishAddingObjectiveForGoal(goal.id)}
-                                      onKeyDown={(e) => {
-                                        if (e.key === "Enter" && e.ctrlKey) {
-                                          finishAddingObjectiveForGoal(goal.id)
-                                        }
-                                      }}
-                                      className="flex-1 px-3 py-2 border border-border rounded-md text-[1.05rem] resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[80px]"
-                                    />
-                                  ) : (
-                                    <input
-                                      autoFocus
-                                      type="text"
-                                      placeholder="输入教学目标内容"
-                                      value={goalInput.inputValue}
-                                      onChange={(e) => updateGoalObjectiveInput(goal.id, e.target.value)}
-                                      onFocus={() => toggleGoalObjectiveMultiline(goal.id, true)}
-                                      onBlur={() => finishAddingObjectiveForGoal(goal.id)}
-                                      onKeyDown={(e) => {
-                                        if (e.key === "Enter") {
-                                          finishAddingObjectiveForGoal(goal.id)
-                                        }
-                                      }}
-                                      className="flex-1 px-3 py-2 border border-border rounded-md text-[1.05rem] focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                    />
-                                  )}
-                                </div>
-                              )}
+                {/* 5. 关于团队学习、分组讨论的要求 */}
+                <div className="space-y-2">
+                  <Label htmlFor="teamwork-requirements">关于团队学习、分组讨论的要求</Label>
+                  {teamworkRequirementsExpanded ? (
+                    <div className="relative">
+                      <textarea
+                        id="teamwork-requirements"
+                        placeholder=""
+                        value={teamworkRequirements}
+                        onChange={(e) => setTeamworkRequirements(e.target.value.slice(0, 500))}
+                        onBlur={() => setTeamworkRequirementsExpanded(false)}
+                        maxLength={500}
+                        className="w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
+                        rows={4}
+                        autoFocus
+                      />
+                      <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
+                        {teamworkRequirements.length}/500
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <Input
+                        id="teamwork-requirements"
+                        placeholder=""
+                        value={teamworkRequirements}
+                        onFocus={() => setTeamworkRequirementsExpanded(true)}
+                        readOnly
+                        className="cursor-text pr-12"
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                        {teamworkRequirements.length}/500
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-                              {/* 教学目标列表 */}
-                              {goalObjectivesList.length > 0 ? (
-                                <div className="space-y-2 pl-6">
-                                  {goalObjectivesList.map((objective, objIdx) => {
-                                    const editKey = `${goal.id}-${objective.id}`
-                                    const editState = goalObjectiveEditStates[editKey]
-                                    const isMultiline = editState?.isMultiline
+                {/* 6. 关于专利、论文等加分项的要求 */}
+                <div className="space-y-2">
+                  <Label htmlFor="bonus-requirements">关于专利、论文等加分项的要求</Label>
+                  {bonusRequirementsExpanded ? (
+                    <div className="relative">
+                      <textarea
+                        id="bonus-requirements"
+                        placeholder=""
+                        value={bonusRequirements}
+                        onChange={(e) => setBonusRequirements(e.target.value.slice(0, 500))}
+                        onBlur={() => setBonusRequirementsExpanded(false)}
+                        maxLength={500}
+                        className="w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
+                        rows={4}
+                        autoFocus
+                      />
+                      <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
+                        {bonusRequirements.length}/500
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <Input
+                        id="bonus-requirements"
+                        placeholder=""
+                        value={bonusRequirements}
+                        onFocus={() => setBonusRequirementsExpanded(true)}
+                        readOnly
+                        className="cursor-text pr-12"
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                        {bonusRequirements.length}/500
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-                                    return (
-                                      <div key={objective.id} className="flex items-center gap-2 p-2 bg-card/20 rounded-md border border-border">
-                                        <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[0.7rem] font-medium text-primary">
-                                          {String.fromCharCode(97 + objIdx)}
-                                        </div>
-                                        {isMultiline ? (
-                                          <textarea
-                                            placeholder="输入教学目标内容"
-                                            value={objective.content}
-                                            onChange={(e) => updateTeachingObjective(objective.id, e.target.value.slice(0, 500))}
-                                            onBlur={() => toggleGoalObjectiveEditMode(goal.id, objective.id, false)}
-                                            className="flex-1 px-3 py-2 border border-border rounded-md text-[1.05rem] resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[80px]"
-                                          />
-                                        ) : (
-                                          <input
-                                            type="text"
-                                            placeholder="输入教学目标内容"
-                                            value={objective.content}
-                                            onChange={(e) => updateTeachingObjective(objective.id, e.target.value.slice(0, 500))}
-                                            onFocus={() => toggleGoalObjectiveEditMode(goal.id, objective.id, true)}
-                                            className="flex-1 text-[1.05rem] text-foreground bg-transparent border-b border-transparent hover:border-border focus:border-primary focus:outline-none px-1 py-0.5"
-                                          />
-                                        )}
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          onClick={() => removeGoalObjective(goal.id, objective.id)}
-                                          className="gap-1 text-red-500 hover:text-red-600 hover:bg-red-50 h-5 px-1 flex-shrink-0"
-                                        >
-                                          <X className="w-3 h-3" />
-                                        </Button>
-                                      </div>
-                                    )
-                                  })}
-                                </div>
-                              ) : (
-                                !goalInput?.isEditing && (
-                                  <div className="text-center py-3 text-muted-foreground text-xs">
-                                    暂无教学目标
-                                  </div>
-                                )
-                              )}
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      )
-                    })}
-                  </Accordion>
-              ) : null}
+                {/* 7. 其他学习建议 */}
+                <div className="space-y-2">
+                  <Label htmlFor="other-suggestions">其他学习建议</Label>
+                  {otherSuggestionsExpanded ? (
+                    <div className="relative">
+                      <textarea
+                        id="other-suggestions"
+                        placeholder=""
+                        value={otherSuggestions}
+                        onChange={(e) => setOtherSuggestions(e.target.value.slice(0, 500))}
+                        onBlur={() => setOtherSuggestionsExpanded(false)}
+                        maxLength={500}
+                        className="w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
+                        rows={4}
+                        autoFocus
+                      />
+                      <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
+                        {otherSuggestions.length}/500
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <Input
+                        id="other-suggestions"
+                        placeholder=""
+                        value={otherSuggestions}
+                        onFocus={() => setOtherSuggestionsExpanded(true)}
+                        readOnly
+                        className="cursor-text pr-12"
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                        {otherSuggestions.length}/500
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </TabsContent>
 
-          <TabsContent value="points" className="space-y-6 mt-6">
+          <TabsContent value="assessment" className="space-y-6 mt-6">
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-sm bg-[var(--naive-primary)]" />
-                  <h3 className="text-base font-semibold text-foreground">课点信息</h3>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="outline" onClick={addCoursePoint} className="gap-2 bg-transparent">
-                    <Plus className="w-4 h-4" />
-                    添加课点
-                  </Button>
-                  <FileUpload
-                    buttonText="上传Excel"
-                    fileType="Excel文件"
-                    maxFileSize={10 * 1024 * 1024}
-                    maxFileCount={1}
-                    accept=".xlsx,.xls"
-                    onUpload={async (files) => {
-                      // TODO: 将文件上传到OSS，返回文件地址
-                      // 目前mock返回文件地址
-                      return files.map((file) => `/uploads/${file.name}`)
-                    }}
-                  />
-                </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-sm bg-[var(--naive-primary)]" />
+                <h3 className="text-base font-semibold text-foreground">考核评价</h3>
               </div>
               <div className="border-t border-dashed border-border" />
-              {pointsFile && (
-                <div className="p-3 rounded-lg bg-green-50 border border-green-200 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <FileSpreadsheet className="w-4 h-4 text-green-600" />
-                    <span className="text-sm text-green-700">{pointsFile.name}</span>
+
+              {/* 1. 考核方式 和 3. 总成绩类型 - 同一行 */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* 1. 考核方式 */}
+                <div className="space-y-2">
+                  <Label>考核方式</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant={assessmentMethod === "考试" ? "default" : "outline"}
+                      onClick={() => setAssessmentMethod("考试")}
+                      className="flex-1"
+                    >
+                      考试
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={assessmentMethod === "考查" ? "default" : "outline"}
+                      onClick={() => setAssessmentMethod("考查")}
+                      className="flex-1"
+                    >
+                      考查
+                    </Button>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setPointsFile(null)}
-                    className="gap-2 text-red-500 hover:text-red-600"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
+                </div>
+
+                {/* 3. 总成绩类型 */}
+                <div className="space-y-2">
+                  <Label>总成绩为</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant={scoreType === "百分制" ? "default" : "outline"}
+                      onClick={() => setScoreType("百分制")}
+                      className="flex-1"
+                    >
+                      百分制
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={scoreType === "五级分制" ? "default" : "outline"}
+                      onClick={() => setScoreType("五级分制")}
+                      className="flex-1"
+                    >
+                      五级分制
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. 具体形式 和 6. 考核评价说明 - 同一行 */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* 2. 具体形式 */}
+                <div className="space-y-2">
+                  <Label htmlFor="assessment-form">具体形式</Label>
+                  {assessmentFormExpanded ? (
+                    <div className="relative">
+                      <textarea
+                        id="assessment-form"
+                        placeholder=""
+                        value={assessmentForm}
+                        onChange={(e) => setAssessmentForm(e.target.value.slice(0, 500))}
+                        onBlur={() => setAssessmentFormExpanded(false)}
+                        maxLength={500}
+                        className="w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
+                        rows={4}
+                        autoFocus
+                      />
+                      <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
+                        {assessmentForm.length}/500
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <Input
+                        id="assessment-form"
+                        placeholder=""
+                        value={assessmentForm}
+                        onFocus={() => setAssessmentFormExpanded(true)}
+                        readOnly
+                        className="cursor-text pr-12"
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                        {assessmentForm.length}/500
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 6. 考核评价说明 */}
+                <div className="space-y-2">
+                  <Label htmlFor="assessment-description">考核评价说明</Label>
+                  {assessmentDescriptionExpanded ? (
+                    <div className="relative">
+                      <textarea
+                        id="assessment-description"
+                        placeholder=""
+                        value={assessmentDescription}
+                        onChange={(e) => setAssessmentDescription(e.target.value.slice(0, 1000))}
+                        onBlur={() => setAssessmentDescriptionExpanded(false)}
+                        maxLength={1000}
+                        className="w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
+                        rows={4}
+                        autoFocus
+                      />
+                      <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
+                        {assessmentDescription.length}/1000
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <Input
+                        id="assessment-description"
+                        placeholder=""
+                        value={assessmentDescription}
+                        onFocus={() => setAssessmentDescriptionExpanded(true)}
+                        readOnly
+                        className="cursor-text pr-12"
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                        {assessmentDescription.length}/1000
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 4. 总成绩表格 */}
+              <div className="space-y-2">
+                <Label>总成绩</Label>
+                <div className="border border-input rounded-md overflow-hidden">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-input bg-secondary/30">
+                        {scoreTable.headers.map((header, idx) => (
+                          <th key={idx} className="border-r border-input p-2 text-center font-medium">
+                            <div className="flex items-center justify-center gap-2">
+                              <Input
+                                value={header}
+                                onChange={(e) => {
+                                  const newHeaders = [...scoreTable.headers]
+                                  newHeaders[idx] = e.target.value
+                                  setScoreTable({ ...scoreTable, headers: newHeaders })
+                                }}
+                                placeholder="表头"
+                                className="text-center text-sm h-8"
+                              />
+                              {scoreTable.headers.length > 1 && (
+                                <button
+                                  onClick={() => {
+                                    const newHeaders = scoreTable.headers.filter((_, i) => i !== idx)
+                                    const newRows = scoreTable.rows.map((row) => {
+                                      const newRow = { ...row }
+                                      delete newRow[header]
+                                      return newRow
+                                    })
+                                    setScoreTable({ headers: newHeaders, rows: newRows })
+                                  }}
+                                  className="text-destructive hover:text-destructive/80"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          </th>
+                        ))}
+                        <th className="p-2 text-center">
+                          <button
+                            onClick={() => {
+                              const newHeader = `列${scoreTable.headers.length + 1}`
+                              setScoreTable({
+                                ...scoreTable,
+                                headers: [...scoreTable.headers, newHeader],
+                                rows: scoreTable.rows.map((row) => ({ ...row, [newHeader]: "" })),
+                              })
+                            }}
+                            className="text-primary hover:text-primary/80"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {scoreTable.rows.map((row, rowIdx) => (
+                        <tr key={rowIdx} className="border-t border-input hover:bg-secondary/20">
+                          {scoreTable.headers.map((header, colIdx) => (
+                            <td key={colIdx} className={`border-r border-input p-2 ${colIdx < scoreTable.headers.length - 1 ? "border-r" : ""}`}>
+                              <Input
+                                value={row[header] || ""}
+                                onChange={(e) => {
+                                  const newRows = [...scoreTable.rows]
+                                  newRows[rowIdx] = { ...newRows[rowIdx], [header]: e.target.value }
+                                  setScoreTable({ ...scoreTable, rows: newRows })
+                                }}
+                                placeholder="输入内容"
+                                className="text-center text-sm h-8"
+                              />
+                            </td>
+                          ))}
+                          <td className="p-2 text-center">
+                            {scoreTable.rows.length > 1 && (
+                              <button
+                                onClick={() => {
+                                  const newRows = scoreTable.rows.filter((_, i) => i !== rowIdx)
+                                  setScoreTable({ ...scoreTable, rows: newRows })
+                                }}
+                                className="text-destructive hover:text-destructive/80"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="border-t border-input">
+                        <td colSpan={scoreTable.headers.length + 1} className="p-2 text-center">
+                          <button
+                            onClick={() => {
+                              const newRow: { [key: string]: string } = {}
+                              scoreTable.headers.forEach((header) => {
+                                newRow[header] = ""
+                              })
+                              setScoreTable({ ...scoreTable, rows: [...scoreTable.rows, newRow] })
+                            }}
+                            className="text-primary hover:text-primary/80 flex items-center justify-center gap-1 mx-auto"
+                          >
+                            <Plus className="w-4 h-4" />
+                            <span>添加行</span>
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* 5. 五级分制说明 */}
+              {scoreType === "五级分制" && (
+                <div className="p-4 bg-secondary/30 rounded-md border border-border">
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    五级分制的成绩等级与分值对应如下：90-100分为优秀，80-89分为良好，70-79分为中等，60-69分为及格，60分以下为不及格（详细列示五级分制的考核标准和具体要求）。
+                  </p>
                 </div>
               )}
 
-              <div className="space-y-4">
-                {coursePoints.map((point, pointIndex) => {
-                  const kPoints = point.infoPoints
-                    .filter((ip) => ip.type === "K")
-                    .sort((a, b) => {
-                      const aNum = Number.parseInt(a.id.substring(1)) || 0
-                      const bNum = Number.parseInt(b.id.substring(1)) || 0
-                      return aNum - bNum
-                    })
-                  const sPoints = point.infoPoints
-                    .filter((ip) => ip.type === "S")
-                    .sort((a, b) => {
-                      const aNum = Number.parseInt(a.id.substring(1)) || 0
-                      const bNum = Number.parseInt(b.id.substring(1)) || 0
-                      return aNum - bNum
-                    })
-                  const aPoints = point.infoPoints
-                    .filter((ip) => ip.type === "A")
-                    .sort((a, b) => {
-                      const aNum = Number.parseInt(a.id.substring(1)) || 0
-                      const bNum = Number.parseInt(b.id.substring(1)) || 0
-                      return aNum - bNum
-                    })
-
-                  return (
-                    <div key={point.id} className="p-4 rounded-lg border border-border bg-card/50 space-y-3">
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-medium text-primary mt-2">
-                          {pointIndex + 1}
-                        </div>
-                        <div className="flex-1 space-y-3">
-                          <div className="flex items-start gap-2">
-                            <div className="relative flex-1">
-                              <Label className="text-sm font-medium mb-1.5 block">课点内容</Label>
-                              <Input
-                                ref={pointIndex === coursePoints.length - 1 ? lastPointRef : null}
-                                placeholder="输入课点内容（最多200字）"
-                                value={point.content}
-                                onChange={(e) => updateCoursePointContent(point.id, e.target.value.slice(0, 200))}
-                                maxLength={200}
-                                className="pr-20"
-                              />
-                              <div className="absolute right-2 top-[34px] flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground">{point.content.length}/200</span>
-                              </div>
-                            </div>
-                            {coursePoints.length > 1 && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => removeCoursePoint(point.id)}
-                                className="gap-2 text-red-500 hover:text-red-600 hover:bg-red-50 mt-7"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            )}
-                          </div>
-
-                          <div className="pl-4 border-l-2 border-primary/30 space-y-3">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-xs text-muted-foreground">信息点（KSA）</Label>
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => addInfoPointWithType(point.id, "K")}
-                                  className="gap-1 h-7 text-xs bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700"
-                                >
-                                  <Plus className="w-3 h-3" />K
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => addInfoPointWithType(point.id, "S")}
-                                  className="gap-1 h-7 text-xs bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
-                                >
-                                  <Plus className="w-3 h-3" />S
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => addInfoPointWithType(point.id, "A")}
-                                  className="gap-1 h-7 text-xs bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-700"
-                                >
-                                  <Plus className="w-3 h-3" />A
-                                </Button>
-                              </div>
-                            </div>
-
-                            <div className="space-y-2">
-                              {kPoints.map((infoPoint) => (
-                                <div key={infoPoint.id} className="flex items-center gap-2">
-                                  <span className="inline-flex items-center justify-center w-10 h-7 rounded text-xs font-medium bg-blue-100 border border-blue-200 text-blue-700 flex-shrink-0">
-                                    {infoPoint.id}
-                                  </span>
-                                  <Input
-                                    placeholder="输入知识点内容（最多200字）"
-                                    value={infoPoint.content}
-                                    onChange={(e) =>
-                                      updateInfoPointContent(point.id, infoPoint.id, e.target.value.slice(0, 200))
-                                    }
-                                    maxLength={200}
-                                    className="h-7 text-sm flex-1"
-                                  />
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => removeInfoPoint(point.id, infoPoint.id)}
-                                    className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 flex-shrink-0"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </Button>
-                                </div>
-                              ))}
-                              {sPoints.map((infoPoint) => (
-                                <div key={infoPoint.id} className="flex items-center gap-2">
-                                  <span className="inline-flex items-center justify-center w-10 h-7 rounded text-xs font-medium bg-green-100 border border-green-200 text-green-700 flex-shrink-0">
-                                    {infoPoint.id}
-                                  </span>
-                                  <Input
-                                    placeholder="输入技能点内容（最多200字）"
-                                    value={infoPoint.content}
-                                    onChange={(e) =>
-                                      updateInfoPointContent(point.id, infoPoint.id, e.target.value.slice(0, 200))
-                                    }
-                                    maxLength={200}
-                                    className="h-7 text-sm flex-1"
-                                  />
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => removeInfoPoint(point.id, infoPoint.id)}
-                                    className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 flex-shrink-0"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </Button>
-                                </div>
-                              ))}
-                              {aPoints.map((infoPoint) => (
-                                <div key={infoPoint.id} className="flex items-center gap-2">
-                                  <span className="inline-flex items-center justify-center w-10 h-7 rounded text-xs font-medium bg-purple-100 border border-purple-200 text-purple-700 flex-shrink-0">
-                                    {infoPoint.id}
-                                  </span>
-                                  <Input
-                                    placeholder="输入态度点内容（最多200字）"
-                                    value={infoPoint.content}
-                                    onChange={(e) =>
-                                      updateInfoPointContent(point.id, infoPoint.id, e.target.value.slice(0, 200))
-                                    }
-                                    maxLength={200}
-                                    className="h-7 text-sm flex-1"
-                                  />
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => removeInfoPoint(point.id, infoPoint.id)}
-                                    className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 flex-shrink-0"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </Button>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
             </div>
           </TabsContent>
 

@@ -300,6 +300,177 @@ export function CourseBasicInfo({ name, courseDetail, courseNameData, createTime
           </div>
         </div>
       )}
+
+      {/* 课程要求 */}
+      {(courseDetail?.attendancePolicy || courseDetail?.assignmentPolicy || courseDetail?.conductRequirements ||
+        courseDetail?.practiceRequirements || courseDetail?.teamworkRequirements || courseDetail?.bonusRequirements ||
+        courseDetail?.otherSuggestions) && (
+        <div className="mt-6 pt-6 border-t border-dashed border-border">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-2 h-2 rounded-sm bg-primary" />
+            <h4 className="text-base font-semibold text-foreground">课程要求</h4>
+          </div>
+          <div className="grid grid-cols-2 gap-6">
+            {/* 关于课堂出席政策及要求 */}
+            {courseDetail?.attendancePolicy && (
+              <div>
+                <div className="text-sm font-medium text-muted-foreground mb-2">关于课堂出席政策及要求</div>
+                <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                  {courseDetail.attendancePolicy}
+                </div>
+              </div>
+            )}
+
+            {/* 关于作业提交的政策及要求 */}
+            {courseDetail?.assignmentPolicy && (
+              <div>
+                <div className="text-sm font-medium text-muted-foreground mb-2">关于作业提交的政策及要求</div>
+                <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                  {courseDetail.assignmentPolicy}
+                </div>
+              </div>
+            )}
+
+            {/* 关于上课行为规范、诚信学习要求 */}
+            {courseDetail?.conductRequirements && (
+              <div>
+                <div className="text-sm font-medium text-muted-foreground mb-2">关于上课行为规范、诚信学习要求</div>
+                <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                  {courseDetail.conductRequirements}
+                </div>
+              </div>
+            )}
+
+            {/* 关于参与实践环节的要求 */}
+            {courseDetail?.practiceRequirements && (
+              <div>
+                <div className="text-sm font-medium text-muted-foreground mb-2">关于参与实践环节的要求</div>
+                <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                  {courseDetail.practiceRequirements}
+                </div>
+              </div>
+            )}
+
+            {/* 关于团队学习、分组讨论的要求 */}
+            {courseDetail?.teamworkRequirements && (
+              <div>
+                <div className="text-sm font-medium text-muted-foreground mb-2">关于团队学习、分组讨论的要求</div>
+                <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                  {courseDetail.teamworkRequirements}
+                </div>
+              </div>
+            )}
+
+            {/* 关于专利、论文等加分项的要求 */}
+            {courseDetail?.bonusRequirements && (
+              <div>
+                <div className="text-sm font-medium text-muted-foreground mb-2">关于专利、论文等加分项的要求</div>
+                <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                  {courseDetail.bonusRequirements}
+                </div>
+              </div>
+            )}
+
+            {/* 其他学习建议 */}
+            {courseDetail?.otherSuggestions && (
+              <div>
+                <div className="text-sm font-medium text-muted-foreground mb-2">其他学习建议</div>
+                <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                  {courseDetail.otherSuggestions}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 考核评价 */}
+      {(courseDetail?.assessmentMethod || courseDetail?.assessmentForm || courseDetail?.scoreType ||
+        courseDetail?.scoreTable || courseDetail?.assessmentDescription) && (
+        <div className="mt-6 pt-6 border-t border-dashed border-border">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-2 h-2 rounded-sm bg-primary" />
+            <h4 className="text-base font-semibold text-foreground">考核评价</h4>
+          </div>
+          <div className="space-y-4">
+            {/* 考核方式 */}
+            {courseDetail?.assessmentMethod && (
+              <div>
+                <div className="text-sm font-medium text-muted-foreground mb-2">考核方式</div>
+                <div className="text-base text-muted-foreground">{courseDetail.assessmentMethod}</div>
+              </div>
+            )}
+
+            {/* 具体形式 */}
+            {courseDetail?.assessmentForm && (
+              <div>
+                <div className="text-sm font-medium text-muted-foreground mb-2">具体形式</div>
+                <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                  {courseDetail.assessmentForm}
+                </div>
+              </div>
+            )}
+
+            {/* 总成绩类型 */}
+            {courseDetail?.scoreType && (
+              <div>
+                <div className="text-sm font-medium text-muted-foreground mb-2">总成绩为</div>
+                <div className="text-base text-muted-foreground">{courseDetail.scoreType}</div>
+              </div>
+            )}
+
+            {/* 总成绩表格 */}
+            {courseDetail?.scoreTable && (
+              <div>
+                <div className="text-sm font-medium text-muted-foreground mb-2">总成绩</div>
+                <div className="border border-input rounded-md overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-input bg-secondary/30">
+                        {courseDetail.scoreTable.headers?.map((header: string, idx: number) => (
+                          <th key={idx} className={`border-input p-2 text-center font-medium ${idx < (courseDetail.scoreTable.headers?.length || 0) - 1 ? "border-r" : ""}`}>
+                            {header}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {courseDetail.scoreTable.rows?.map((row: any, rowIdx: number) => (
+                        <tr key={rowIdx} className="border-t border-input hover:bg-secondary/20">
+                          {courseDetail.scoreTable.headers?.map((header: string, colIdx: number) => (
+                            <td key={colIdx} className={`border-input p-2 text-center ${colIdx < (courseDetail.scoreTable.headers?.length || 0) - 1 ? "border-r" : ""}`}>
+                              {row[header] || "-"}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* 五级分制说明 */}
+            {courseDetail?.scoreType === "五级分制" && (
+              <div className="p-4 bg-secondary/30 rounded-md border border-border">
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  五级分制的成绩等级与分值对应如下：90-100分为优秀，80-89分为良好，70-79分为中等，60-69分为及格，60分以下为不及格（详细列示五级分制的考核标准和具体要求）。
+                </p>
+              </div>
+            )}
+
+            {/* 考核评价说明 */}
+            {courseDetail?.assessmentDescription && (
+              <div>
+                <div className="text-sm font-medium text-muted-foreground mb-2">考核评价说明</div>
+                <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                  {courseDetail.assessmentDescription}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
