@@ -4,6 +4,7 @@ import type { DetailPanelProps } from "@/components/detail-panel/types"
 import { BookOpen, Calendar, Pencil, Trash2, User, Loader2 } from "lucide-react"
 import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
 import { cn } from "@/shared/utils/utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
 import { Accordion } from "@/shared/components/ui/accordion"
@@ -40,6 +41,13 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("info")
   const [activeMatrixTab, setActiveMatrixTab] = useState("courseMatrix")
+  const [selectedSemester, setSelectedSemester] = useState("2024-spring")
+  const [semesters] = useState([
+    { value: "2024-spring", label: "2024年春季学期" },
+    { value: "2024-fall", label: "2024年秋季学期" },
+    { value: "2025-spring", label: "2025年春季学期" },
+    { value: "2025-fall", label: "2025年秋季学期" },
+  ])
 
   // 当节点改变时，退出编辑模式
   useEffect(() => {
@@ -281,27 +289,45 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
               </Badge>
             )}
           </div>
-          <div className="flex gap-2 absolute top-6 right-6">
-            {onUpdateNode && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setIsEditingCourse(true)}
-                className="gap-2 hover:bg-primary/10"
-              >
-                <Pencil className="w-4 h-4 text-primary" />
-              </Button>
-            )}
-            {onDelete && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setIsDeleteDialogOpen(true)}
-                className="gap-2 hover:bg-red-500/10 text-red-500"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            )}
+          <div className="flex flex-col gap-2 absolute top-6 right-6">
+            <div className="flex gap-2 justify-end">
+              {onUpdateNode && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setIsEditingCourse(true)}
+                  className="gap-2 hover:bg-primary/10"
+                >
+                  <Pencil className="w-4 h-4 text-primary" />
+                </Button>
+              )}
+              {onDelete && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                  className="gap-2 hover:bg-red-500/10 text-red-500"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+            <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+              <SelectTrigger className="w-[160px] h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {semesters.map((semester) => (
+                  <SelectItem
+                    key={semester.value}
+                    value={semester.value}
+                    className={selectedSemester === semester.value ? "[&_svg]:text-white" : ""}
+                  >
+                    {semester.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

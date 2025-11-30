@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui
 import { FileUpload } from "@/shared/components/ui/file-upload"
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover"
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/shared/components/ui/accordion"
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/shared/components/ui/table"
 import { useToast } from "@/shared/hooks/use-toast"
 import { api } from "@/lib/api"
 
@@ -94,6 +95,67 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
   const [introduction, setIntroduction] = useState(initialData?.metadata?.introduction || "")
   const [theoryPeriod, setTheoryPeriod] = useState(initialData?.metadata?.theoryPeriod || 0)
   const [practicePeriod, setPracticePeriod] = useState(initialData?.metadata?.practicePeriod || 0)
+  // 新增字段
+  const [teachingClass, setTeachingClass] = useState(initialData?.metadata?.teachingClass || "")
+  const [teachingLocation, setTeachingLocation] = useState(initialData?.metadata?.teachingLocation || "")
+
+  // 课程表数据结构 - 支持多行
+  const defaultScheduleRow = {
+    period: "",
+    sessions: "",
+    monday: "",
+    tuesday: "",
+    wednesday: "",
+    thursday: "",
+    friday: "",
+    saturday: "",
+    sunday: "",
+  }
+
+  const parseTeachingSchedule = (data: any) => {
+    if (typeof data === "string") {
+      try {
+        const parsed = JSON.parse(data)
+        // 如果是数组格式，直接返回；否则转换为数组
+        return Array.isArray(parsed) ? parsed : [parsed]
+      } catch {
+        return [defaultScheduleRow]
+      }
+    }
+    return Array.isArray(data) ? data : (data ? [data] : [defaultScheduleRow])
+  }
+
+  const [teachingScheduleRows, setTeachingScheduleRows] = useState<typeof defaultScheduleRow[]>(() =>
+    parseTeachingSchedule(initialData?.metadata?.teachingTime)
+  )
+
+  // 课程表字段展开/收起状态 - 使用 rowIndex-fieldName 作为key
+  const [scheduleFieldsExpanded, setScheduleFieldsExpanded] = useState<Record<string, boolean>>({})
+
+  // 课程表操作函数
+  const addScheduleRow = () => {
+    setTeachingScheduleRows([...teachingScheduleRows, defaultScheduleRow])
+  }
+
+  const deleteScheduleRow = (index: number) => {
+    if (teachingScheduleRows.length > 1) {
+      setTeachingScheduleRows(teachingScheduleRows.filter((_, i) => i !== index))
+    }
+  }
+
+  const updateScheduleRow = (index: number, field: string, value: string) => {
+    const newRows = [...teachingScheduleRows]
+    newRows[index] = { ...newRows[index], [field]: value }
+    setTeachingScheduleRows(newRows)
+  }
+
+  const [studentCount, setStudentCount] = useState(initialData?.metadata?.studentCount || 0)
+  const [credits, setCredits] = useState(initialData?.metadata?.credits || 0)
+  const [mainTextbook, setMainTextbook] = useState(initialData?.metadata?.mainTextbook || "")
+  const [referenceResources, setReferenceResources] = useState(initialData?.metadata?.referenceResources || "")
+  // 多行文本展开/收起状态
+  const [mainTextbookExpanded, setMainTextbookExpanded] = useState(false)
+  const [referenceResourcesExpanded, setReferenceResourcesExpanded] = useState(false)
 
   // 获取课程性质名称
   const courseNatureName = useMemo(() => {
@@ -112,6 +174,14 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
       setIntroduction(courseData.introduction || "")
       setTheoryPeriod(courseData.theoryPeriod || 0)
       setPracticePeriod(courseData.practicePeriod || 0)
+      // 初始化新增字段
+      setTeachingClass(courseData.teachingClass || "")
+      setTeachingLocation(courseData.teachingLocation || "")
+      setTeachingScheduleRows(parseTeachingSchedule(courseData.teachingTime))
+      setStudentCount(courseData.studentCount || 0)
+      setCredits(courseData.credits || 0)
+      setMainTextbook(courseData.mainTextbook || "")
+      setReferenceResources(courseData.referenceResources || "")
       // 根据 typeId 设置课程性质
       if (courseData.typeId) {
         setCourseNatureId(courseData.typeId)
@@ -620,6 +690,13 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
         introduction,
         theoryPeriod,
         practicePeriod,
+        teachingClass,
+        teachingLocation,
+        teachingTime: JSON.stringify(teachingScheduleRows),
+        studentCount,
+        credits,
+        mainTextbook,
+        referenceResources,
         teachingObjectives,
         coursePoints,
         chapters,
@@ -647,7 +724,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
     <div className="space-y-6 mr-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={onCancel} className="gap-2">
+          <Button variant="ghost" size="sm" onClick={onCancel} className="gap-2 hover:text-white">
             <ArrowLeft className="w-4 h-4" />
             返回
           </Button>
@@ -846,18 +923,285 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
                   />
                 </div>
 
+
+
+                <div className="space-y-2 relative">
+                  <Label htmlFor="teaching-class">授课班级</Label>
+                  <div className="relative">
+                    <Input
+                      id="teaching-class"
+                      placeholder=""
+                      value={teachingClass}
+                      onChange={(e) => setTeachingClass(e.target.value.slice(0, 200))}
+                      maxLength={200}
+                    />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                      {teachingClass.length}/200
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2 relative">
+                  <Label htmlFor="teaching-location">授课地点</Label>
+                  <div className="relative">
+                    <Input
+                      id="teaching-location"
+                      placeholder=""
+                      value={teachingLocation}
+                      onChange={(e) => setTeachingLocation(e.target.value.slice(0, 200))}
+                      maxLength={200}
+                    />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                      {teachingLocation.length}/200
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="introduction">课程介绍</Label>
-                  <textarea
-                    id="introduction"
-                    placeholder="输入课程介绍"
-                    value={introduction}
-                    onChange={(e) => setIntroduction(e.target.value.slice(0, 1024))}
-                    maxLength={1024}
-                    className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
-                    rows={4}
+                  <Label htmlFor="student-count">学生人数</Label>
+                  <Input
+                    id="student-count"
+                    type="number"
+                    min="0"
+                    placeholder=""
+                    value={studentCount}
+                    onChange={(e) => setStudentCount(Number.parseInt(e.target.value) || 0)}
                   />
-                  <div className="text-xs text-muted-foreground text-right">{introduction.length}/1024</div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="credits">学分</Label>
+                  <Input
+                    id="credits"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    placeholder=""
+                    value={credits}
+                    onChange={(e) => setCredits(Number.parseFloat(e.target.value) || 0)}
+                  />
+                </div>
+
+                {/* 主要教材和参考文献放在一行 */}
+                <div className="space-y-2">
+                  <Label htmlFor="main-textbook">课程使用的主要教材</Label>
+                  {mainTextbookExpanded ? (
+                    <div className="relative">
+                      <textarea
+                        id="main-textbook"
+                        placeholder=""
+                        value={mainTextbook}
+                        onChange={(e) => setMainTextbook(e.target.value.slice(0, 500))}
+                        onBlur={() => setMainTextbookExpanded(false)}
+                        maxLength={500}
+                        className="w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
+                        rows={4}
+                        autoFocus
+                      />
+                      <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
+                        {mainTextbook.length}/500
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <Input
+                        id="main-textbook"
+                        placeholder=""
+                        value={mainTextbook}
+                        onFocus={() => setMainTextbookExpanded(true)}
+                        readOnly
+                        className="cursor-text pr-12"
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                        {mainTextbook.length}/500
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="reference-resources">建议阅读材料和参考文献</Label>
+                  {referenceResourcesExpanded ? (
+                    <div className="relative">
+                      <textarea
+                        id="reference-resources"
+                        placeholder=""
+                        value={referenceResources}
+                        onChange={(e) => setReferenceResources(e.target.value.slice(0, 1000))}
+                        onBlur={() => setReferenceResourcesExpanded(false)}
+                        maxLength={1000}
+                        className="w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
+                        rows={4}
+                        autoFocus
+                      />
+                      <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
+                        {referenceResources.length}/1000
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <Input
+                        id="reference-resources"
+                        placeholder=""
+                        value={referenceResources}
+                        onFocus={() => setReferenceResourcesExpanded(true)}
+                        readOnly
+                        className="cursor-text pr-16"
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                        {referenceResources.length}/1000
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 课程介绍和课程表放在最后一行 */}
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="introduction">课程介绍</Label>
+                  <div className="relative">
+                    <textarea
+                      id="introduction"
+                      placeholder="输入课程介绍"
+                      value={introduction}
+                      onChange={(e) => setIntroduction(e.target.value.slice(0, 1024))}
+                      maxLength={1024}
+                      className="w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
+                      rows={10}
+                    />
+                    <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
+                      {introduction.length}/1024
+                    </div>
+                  </div>
+                </div>
+
+                {/* 授课时间课程表 */}
+                <div className="space-y-2 col-span-2">
+                  <Label>授课时间</Label>
+                  <div className="border border-input rounded-md overflow-hidden bg-background">
+                    <Table className="text-xs">
+                      <TableHeader>
+                        <TableRow className="bg-secondary/50 hover:bg-secondary/50">
+                          <TableHead className="w-32 text-center p-2 font-medium">时段</TableHead>
+                          <TableHead className="w-8 text-center p-2 font-medium">节次</TableHead>
+                          <TableHead className="w-8 text-center p-2 font-medium">周一</TableHead>
+                          <TableHead className="w-8 text-center p-2 font-medium">周二</TableHead>
+                          <TableHead className="w-8 text-center p-2 font-medium">周三</TableHead>
+                          <TableHead className="w-8 text-center p-2 font-medium">周四</TableHead>
+                          <TableHead className="w-8 text-center p-2 font-medium">周五</TableHead>
+                          <TableHead className="w-8 text-center p-2 font-medium">周六</TableHead>
+                          <TableHead className="w-8 text-center p-2 font-medium">周日</TableHead>
+                          <TableHead className="w-16 text-center p-2 font-medium">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={addScheduleRow}
+                              className="h-6 w-6 p-0 hover:bg-primary/10 mx-auto"
+                              title="新增行"
+                            >
+                              <Plus className="w-4 h-4 text-primary" />
+                            </Button>
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {teachingScheduleRows.map((row, rowIndex) => {
+                          const isFirstRow = rowIndex === 0
+                          const isLastRow = rowIndex === teachingScheduleRows.length - 1
+                          const dayFields = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+                          return (
+                            <TableRow key={rowIndex} className="hover:bg-secondary/20">
+                              {/* 时段单元格 */}
+                              <TableCell className="p-1 text-center">
+                                {scheduleFieldsExpanded[`${rowIndex}-period`] ? (
+                                  <textarea
+                                    placeholder=""
+                                    value={row.period}
+                                    onChange={(e) => updateScheduleRow(rowIndex, "period", e.target.value)}
+                                    onBlur={() => setScheduleFieldsExpanded({ ...scheduleFieldsExpanded, [`${rowIndex}-period`]: false })}
+                                    className="w-full px-1 py-0.5 text-xs border border-input rounded bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                                    rows={3}
+                                    autoFocus
+                                  />
+                                ) : (
+                                  <Input
+                                    placeholder=""
+                                    value={row.period}
+                                    onFocus={() => setScheduleFieldsExpanded({ ...scheduleFieldsExpanded, [`${rowIndex}-period`]: true })}
+                                    readOnly
+                                    className="cursor-text text-xs h-6 p-0.5 text-center"
+                                  />
+                                )}
+                              </TableCell>
+
+                              {/* 节次单元格 */}
+                              <TableCell className="p-1 text-center">
+                                {scheduleFieldsExpanded[`${rowIndex}-sessions`] ? (
+                                  <textarea
+                                    placeholder=""
+                                    value={row.sessions}
+                                    onChange={(e) => updateScheduleRow(rowIndex, "sessions", e.target.value)}
+                                    onBlur={() => setScheduleFieldsExpanded({ ...scheduleFieldsExpanded, [`${rowIndex}-sessions`]: false })}
+                                    className="w-full px-1 py-0.5 text-xs border border-input rounded bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                                    rows={3}
+                                    autoFocus
+                                  />
+                                ) : (
+                                  <Input
+                                    placeholder=""
+                                    value={row.sessions}
+                                    onFocus={() => setScheduleFieldsExpanded({ ...scheduleFieldsExpanded, [`${rowIndex}-sessions`]: true })}
+                                    readOnly
+                                    className="cursor-text text-xs h-6 p-0.5 text-center"
+                                  />
+                                )}
+                              </TableCell>
+
+                              {/* 周一到周日单元格 */}
+                              {dayFields.map((day) => (
+                                <TableCell key={`${rowIndex}-${day}`} className="p-1 text-center">
+                                  {scheduleFieldsExpanded[`${rowIndex}-${day}`] ? (
+                                    <textarea
+                                      placeholder=""
+                                      value={row[day as keyof typeof row]}
+                                      onChange={(e) => updateScheduleRow(rowIndex, day, e.target.value)}
+                                      onBlur={() => setScheduleFieldsExpanded({ ...scheduleFieldsExpanded, [`${rowIndex}-${day}`]: false })}
+                                      className="w-full px-1 py-0.5 text-xs border border-input rounded bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                                      rows={3}
+                                      autoFocus
+                                    />
+                                  ) : (
+                                    <Input
+                                      placeholder=""
+                                      value={row[day as keyof typeof row]}
+                                      onFocus={() => setScheduleFieldsExpanded({ ...scheduleFieldsExpanded, [`${rowIndex}-${day}`]: true })}
+                                      readOnly
+                                      className="cursor-text text-xs h-6 p-0.5 text-center"
+                                    />
+                                  )}
+                                </TableCell>
+                              ))}
+
+                              {/* 操作列 */}
+                              <TableCell className="p-1 text-center w-16">
+                                {teachingScheduleRows.length > 1 && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => deleteScheduleRow(rowIndex)}
+                                    className="h-6 w-6 p-0 hover:bg-destructive/10 mx-auto"
+                                    title="删除行"
+                                  >
+                                    <Trash2 className="w-3 h-3 text-destructive" />
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
               </div>
             </div>

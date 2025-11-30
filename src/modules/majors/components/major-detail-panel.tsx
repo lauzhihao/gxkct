@@ -5,7 +5,11 @@ import type { TreeNode } from "@/types"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
 import { Button } from "@/shared/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectSeparator } from "@/shared/components/ui/select"
-import { GraduationCap, Pencil, Trash2, User } from "lucide-react"
+import { GraduationCap, Pencil, Trash2, User, Plus } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/shared/components/ui/dialog"
+import { Input } from "@/shared/components/ui/input"
+import { Label } from "@/shared/components/ui/label"
+import { Checkbox } from "@/shared/components/ui/checkbox"
 import { cn } from "@/shared/utils/utils"
 import AddCourseForm from "@/components/add-course-form"
 import { AddMajorForm } from "@/modules/majors/components/forms/add-major-form"
@@ -31,38 +35,123 @@ const SemesterSelector = React.memo(({
   value,
   onChange,
   semesters,
-  onAddSemester
+  onAddSemester,
+  generateDefaultSemesterName
 }: {
   value: string
   onChange: (value: string) => void
   semesters: Array<{ value: string; label: string }>
-  onAddSemester: () => void
-}) => (
-  <Select value={value} onValueChange={onChange}>
-    <SelectTrigger className="w-[160px] h-8 text-xs">
-      <SelectValue />
-    </SelectTrigger>
-    <SelectContent>
-      {semesters.map((semester) => (
-        <SelectItem
-          key={semester.value}
-          value={semester.value}
-          className={value === semester.value ? "[&_svg]:text-white" : ""}
+  onAddSemester: (semesterName: string, shouldSwitch?: boolean) => void
+  generateDefaultSemesterName: () => string
+}) => {
+  const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false)
+  const [newSemesterName, setNewSemesterName] = React.useState("")
+  const [shouldSwitchImmediately, setShouldSwitchImmediately] = React.useState(false)
+
+  const handleOpenDialog = () => {
+    setNewSemesterName(generateDefaultSemesterName())
+    setShouldSwitchImmediately(false)
+    setIsAddDialogOpen(true)
+  }
+
+  const handleConfirmAdd = () => {
+    if (newSemesterName.trim()) {
+      onAddSemester(newSemesterName, shouldSwitchImmediately)
+      setIsAddDialogOpen(false)
+      setNewSemesterName("")
+      setShouldSwitchImmediately(false)
+    }
+  }
+
+  const handleCancel = () => {
+    setIsAddDialogOpen(false)
+    setNewSemesterName("")
+    setShouldSwitchImmediately(false)
+  }
+
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        <Select value={value} onValueChange={onChange}>
+          <SelectTrigger className="w-[160px] h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {semesters.map((semester) => (
+              <SelectItem
+                key={semester.value}
+                value={semester.value}
+                className={value === semester.value ? "[&_svg]:text-white" : ""}
+              >
+                {semester.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="gap-2 hover:bg-primary/10"
+          onClick={handleOpenDialog}
+          title="添加新学期"
         >
-          {semester.label}
-        </SelectItem>
-      ))}
-      <SelectSeparator />
-      <SelectItem
-        value="__add_new__"
-        onSelect={onAddSemester}
-        className="justify-center [&_svg]:hidden hover:!bg-primary hover:!text-white [&:hover_span]:!text-white"
-      >
-        <span className="text-primary">+ 新学期</span>
-      </SelectItem>
-    </SelectContent>
-  </Select>
-))
+          <Plus className="w-4 h-4 text-primary" />
+        </Button>
+      </div>
+
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="!w-[25vw] !h-[12vh]">
+          <DialogHeader>
+            <DialogTitle>创建新学期</DialogTitle>
+            <DialogDescription>请输入新学期的名称，可选择立即切换到该学期。</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="semester-name">学期名称</Label>
+              <Input
+                id="semester-name"
+                value={newSemesterName}
+                onChange={(e) => setNewSemesterName(e.target.value)}
+                placeholder="请输入学期名称"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newSemesterName.trim()) {
+                    handleConfirmAdd()
+                  }
+                }}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="switch-immediately"
+                checked={shouldSwitchImmediately}
+                onCheckedChange={(checked) => setShouldSwitchImmediately(checked as boolean)}
+              />
+              <Label htmlFor="switch-immediately" className="font-normal cursor-pointer">
+                立即切换
+              </Label>
+              {shouldSwitchImmediately && (
+                <p className="text-xs text-red-500 whitespace-nowrap">
+                  切换到该学期后其他学期数据将设置为"只读"，请确认。
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCancel}>
+              取消
+            </Button>
+            <Button
+              onClick={handleConfirmAdd}
+              disabled={!newSemesterName.trim()}
+            >
+              确认
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+})
 
 interface MajorDetailProps {
   node: TreeNode
@@ -100,10 +189,12 @@ export function MajorDetail({
     { value: "2025-spring", label: "2025年春季学期" },
     { value: "2025-fall", label: "2025年秋季学期" },
   ])
+  const [isConfirmingSemesterChange, setIsConfirmingSemesterChange] = useState(false)
+  const [pendingSemesterValue, setPendingSemesterValue] = useState<string | null>(null)
 
-  // 生成新学期的逻辑
-  const generateNewSemester = useCallback(() => {
-    if (semesters.length === 0) return null
+  // 生成默认学期名称
+  const generateDefaultSemesterName = useCallback(() => {
+    if (semesters.length === 0) return ""
 
     // 获取最后一个学期
     const lastSemester = semesters[semesters.length - 1]
@@ -113,7 +204,7 @@ export function MajorDetail({
     const yearMatch = lastLabel.match(/(\d{4})年/)
     const isFall = lastLabel.includes("秋季")
 
-    if (!yearMatch) return null
+    if (!yearMatch) return ""
 
     const lastYear = parseInt(yearMatch[1])
     let newYear = lastYear
@@ -127,29 +218,67 @@ export function MajorDetail({
       newSeason = "秋季"
     }
 
-    const newValue = `${newYear}-${newSeason === "春季" ? "spring" : "fall"}`
-    const newLabel = `${newYear}年${newSeason}学期`
+    return `${newYear}年${newSeason}学期`
+  }, [semesters])
 
-    return { value: newValue, label: newLabel }
+  // 处理添加新学期
+  const handleAddSemester = useCallback((semesterName: string, shouldSwitch: boolean = false) => {
+    // 生成学期值（基于名称）
+    const yearMatch = semesterName.match(/(\d{4})年/)
+    const isFall = semesterName.includes("秋季")
+
+    if (!yearMatch) return
+
+    const year = parseInt(yearMatch[1])
+    const season = isFall ? "fall" : "spring"
+    const newValue = `${year}-${season}`
+
+    // 检查是否已存在
+    if (semesters.some(s => s.value === newValue)) {
+      return
+    }
+
+    // 先添加新学期
+    setSemesters((prev) => [...prev, { value: newValue, label: semesterName }])
+
+    // 如果勾选了立即切换，则切换到新学期
+    if (shouldSwitch) {
+      setSelectedSemester(newValue)
+    }
   }, [semesters])
 
   // 学期选择处理器 - 使用 useCallback 避免重复创建
   const handleSemesterChange = useCallback((value: string) => {
-    if (value === "__add_new__") {
-      // 不处理特殊值，由 onAddSemester 处理
+    // 如果选择的学期与当前学期相同，不做任何操作
+    if (value === selectedSemester) {
       return
     }
-    setSelectedSemester(value)
+    // 所有学期切换都需要确认
+    setPendingSemesterValue(value)
+    setIsConfirmingSemesterChange(true)
+  }, [selectedSemester])
+
+  // 确认切换学期处理器
+  const handleConfirmSemesterChange = useCallback(() => {
+    if (pendingSemesterValue) {
+      setSelectedSemester(pendingSemesterValue)
+    }
+    setIsConfirmingSemesterChange(false)
+    setPendingSemesterValue(null)
+  }, [pendingSemesterValue])
+
+  // 取消切换学期处理器
+  const handleCancelSemesterChange = useCallback(() => {
+    setIsConfirmingSemesterChange(false)
+    setPendingSemesterValue(null)
   }, [])
 
-  // 添加新学期处理器
-  const handleAddSemester = useCallback(() => {
-    const newSemester = generateNewSemester()
-    if (newSemester) {
-      setSemesters((prev) => [...prev, newSemester])
-      setSelectedSemester(newSemester.value)
-    }
-  }, [generateNewSemester])
+  // 获取待切换学期的标签
+  const getPendingSemesterLabel = useCallback(() => {
+    if (!pendingSemesterValue) return ""
+    const semester = semesters.find(s => s.value === pendingSemesterValue)
+    return semester?.label || pendingSemesterValue
+  }, [pendingSemesterValue, semesters])
 
   // 当节点改变时，退出编辑模式
   useEffect(() => {
@@ -245,8 +374,8 @@ export function MajorDetail({
                 )}
               </div>
             </div>
-            <div className="flex flex-col gap-2">
-              <div className="flex gap-2">
+            <div className="flex flex-col gap-2 absolute top-6 right-6">
+              <div className="flex gap-2 justify-end">
                 {onUpdateNode && (
                   <Button
                     size="sm"
@@ -273,6 +402,7 @@ export function MajorDetail({
                 onChange={handleSemesterChange}
                 semesters={semesters}
                 onAddSemester={handleAddSemester}
+                generateDefaultSemesterName={generateDefaultSemesterName}
               />
             </div>
           </div>
@@ -328,6 +458,25 @@ export function MajorDetail({
         majorName={node.name}
         departmentId={(node.metadata as any)?.parentDeptId}
       />
+
+      <AlertDialog open={isConfirmingSemesterChange} onOpenChange={setIsConfirmingSemesterChange}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>切换学期确认</AlertDialogTitle>
+            <AlertDialogDescription>
+              您确定要切换到{getPendingSemesterLabel()}吗？往期数据将会设置为只读。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelSemesterChange}>
+              取消
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSemesterChange}>
+              确定
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>

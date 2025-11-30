@@ -1,7 +1,9 @@
 "use client"
 
 import { BookOpen, Briefcase, Award, ClipboardCheck } from "lucide-react"
+import { useEffect, useState, useRef, useMemo } from "react"
 import type { TreeNode } from "@/types"
+import { TreeApi } from "@/lib/api/tree-api"
 
 interface MajorBasicInfoProps {
   node: TreeNode
@@ -14,11 +16,68 @@ const majorLevelMap: { [key: string]: string } = {
   "3": "中职",
 }
 
+// 创建单例 TreeApi 实例
+const treeApiInstance = new TreeApi()
+
 export function MajorBasicInfo({ node }: MajorBasicInfoProps) {
+  const [detailData, setDetailData] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const hasLoadedRef = useRef(false)
+  const majorIdRef = useRef<string | null>(null)
+
   // 获取专业层次显示文本
   const getMajorLevelText = (level: string | undefined) => {
     if (!level) return "未设置"
     return majorLevelMap[level] || level
+  }
+
+  // 加载专业详情
+  useEffect(() => {
+    const majorId = node.metadata?.majorId
+
+    // 如果已有详情数据或已加载过，不需要加载
+    if (node.metadata?.majorLevel || node.metadata?.feature || !majorId) {
+      return
+    }
+
+    // 如果已经加载过这个专业，不再加载
+    if (hasLoadedRef.current && majorIdRef.current === majorId) {
+      return
+    }
+
+    // 标记为已加载，防止重复请求
+    hasLoadedRef.current = true
+    majorIdRef.current = majorId
+
+    const loadMajorDetail = async () => {
+      setIsLoading(true)
+      try {
+        const response = await treeApiInstance.getMajorDetail(majorId)
+        if (response.data) {
+          setDetailData(response.data)
+        }
+      } catch (error) {
+        console.error("加载专业详情失败:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadMajorDetail()
+  }, [node.metadata?.majorId])
+
+  // 合并本地数据和加载的详情数据
+  const metadata = {
+    ...node.metadata,
+    majorLevel: node.metadata?.majorLevel || detailData?.majorLevel || "",
+    majorClass: node.metadata?.majorClass || detailData?.majorClass || "",
+    feature: node.metadata?.feature || detailData?.feature || "",
+    careerLevel: node.metadata?.careerLevel || detailData?.careerLevel || "",
+    demandType: node.metadata?.demandType || detailData?.demandType || "",
+    demandArea: node.metadata?.demandArea || detailData?.demandArea || "",
+    professionsVOS: node.metadata?.professionsVOS?.length ? node.metadata.professionsVOS : detailData?.professionsVOS || [],
+    position: node.metadata?.position || detailData?.position || "",
+    requiresVOS: node.metadata?.requiresVOS?.length ? node.metadata.requiresVOS : detailData?.requiresVOS || [],
   }
   return (
     <div className="rounded-lg border border-border bg-white/40 backdrop-blur-md p-6 space-y-6">
@@ -35,7 +94,7 @@ export function MajorBasicInfo({ node }: MajorBasicInfoProps) {
               <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
               专业代码
             </div>
-            <div className="text-base font-semibold text-foreground">{node.metadata?.code || "未设置"}</div>
+            <div className="text-base font-semibold text-foreground">{metadata?.code || "未设置"}</div>
           </div>
 
           <div className="rounded-lg border border-border bg-card/50 p-4">
@@ -51,23 +110,23 @@ export function MajorBasicInfo({ node }: MajorBasicInfoProps) {
               <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
               专业层次
             </div>
-            <div className="text-base font-semibold text-foreground">{getMajorLevelText(node.metadata?.majorLevel)}</div>
+            <div className="text-base font-semibold text-foreground">{getMajorLevelText(metadata?.majorLevel)}</div>
           </div>
         </div>
 
-        {node.metadata?.feature && (
+        {metadata?.feature && (
           <div className="rounded-lg border border-border bg-card/50 p-4">
             <div className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
               专业特色
             </div>
-            <div className="text-sm text-foreground leading-relaxed">{node.metadata.feature}</div>
+            <div className="text-sm text-foreground leading-relaxed">{metadata.feature}</div>
           </div>
         )}
       </div>
 
       {/* Career Information Section */}
-      {node.metadata?.professionsVOS && node.metadata.professionsVOS.length > 0 && (
+      {metadata?.professionsVOS && metadata.professionsVOS.length > 0 && (
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
             <Briefcase className="w-5 h-5 text-primary" />
@@ -75,33 +134,33 @@ export function MajorBasicInfo({ node }: MajorBasicInfoProps) {
           </h3>
 
           {/* 职业层次和需求信息 */}
-          {(node.metadata?.careerLevel || node.metadata?.demandType || node.metadata?.demandArea) && (
+          {(metadata?.careerLevel || metadata?.demandType || metadata?.demandArea) && (
             <div className="grid grid-cols-3 gap-4">
-              {node.metadata?.careerLevel && (
+              {metadata?.careerLevel && (
                 <div className="rounded-lg border border-border bg-card/50 p-4">
                   <div className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
                     职业层次
                   </div>
-                  <div className="text-base font-semibold text-foreground">{node.metadata.careerLevel}</div>
+                  <div className="text-base font-semibold text-foreground">{metadata.careerLevel}</div>
                 </div>
               )}
-              {node.metadata?.demandType && (
+              {metadata?.demandType && (
                 <div className="rounded-lg border border-border bg-card/50 p-4">
                   <div className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
                     需求类型
                   </div>
-                  <div className="text-base font-semibold text-foreground">{node.metadata.demandType}</div>
+                  <div className="text-base font-semibold text-foreground">{metadata.demandType}</div>
                 </div>
               )}
-              {node.metadata?.demandArea && (
+              {metadata?.demandArea && (
                 <div className="rounded-lg border border-border bg-card/50 p-4">
                   <div className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
                     需求区域
                   </div>
-                  <div className="text-base font-semibold text-foreground">{node.metadata.demandArea}</div>
+                  <div className="text-base font-semibold text-foreground">{metadata.demandArea}</div>
                 </div>
               )}
             </div>
@@ -109,7 +168,7 @@ export function MajorBasicInfo({ node }: MajorBasicInfoProps) {
 
           {/* 职业方向列表 */}
           <div className="space-y-3">
-            {node.metadata.professionsVOS.map((professionVO: any, index: number) => {
+            {metadata.professionsVOS.map((professionVO: any, index: number) => {
               const professionPath = professionVO.profession
                 ?.map((p: any) => p.name)
                 .join(" / ") || "未设置"
@@ -152,7 +211,7 @@ export function MajorBasicInfo({ node }: MajorBasicInfoProps) {
       )}
 
       {/* Training Information Section */}
-      {node.metadata?.position && (
+      {metadata?.position && (
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
             <Award className="w-5 h-5 text-primary" />
@@ -164,13 +223,13 @@ export function MajorBasicInfo({ node }: MajorBasicInfoProps) {
               <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
               培养定位
             </div>
-            <div className="text-sm text-foreground leading-relaxed">{node.metadata.position}</div>
+            <div className="text-sm text-foreground leading-relaxed">{metadata.position}</div>
           </div>
         </div>
       )}
 
       {/* Graduation Requirements Section */}
-      {node.metadata?.requiresVOS && node.metadata.requiresVOS.length > 0 && (
+      {metadata?.requiresVOS && metadata.requiresVOS.length > 0 && (
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
             <ClipboardCheck className="w-5 h-5 text-primary" />
@@ -178,7 +237,7 @@ export function MajorBasicInfo({ node }: MajorBasicInfoProps) {
           </h3>
 
           <div className="space-y-3">
-            {node.metadata.requiresVOS.map((req: any, reqIndex: number) => (
+            {metadata.requiresVOS.map((req: any, reqIndex: number) => (
               <div key={req.id} className="rounded-lg border border-border bg-card/50 p-4 space-y-3">
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-sm font-medium text-primary">
@@ -212,12 +271,12 @@ export function MajorBasicInfo({ node }: MajorBasicInfoProps) {
       )}
 
       {/* Show message if no detailed data */}
-      {!node.metadata?.code &&
-        !node.metadata?.majorClass &&
-        !node.metadata?.feature &&
-        (!node.metadata?.professionsVOS || node.metadata.professionsVOS.length === 0) &&
-        !node.metadata?.position &&
-        (!node.metadata?.requiresVOS || node.metadata.requiresVOS.length === 0) && (
+      {!metadata?.code &&
+        !metadata?.majorClass &&
+        !metadata?.feature &&
+        (!metadata?.professionsVOS || metadata.professionsVOS.length === 0) &&
+        !metadata?.position &&
+        (!metadata?.requiresVOS || metadata.requiresVOS.length === 0) && (
           <div className="text-center py-12 text-muted-foreground">
             <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
             <p className="text-sm mb-2">暂无详细信息</p>

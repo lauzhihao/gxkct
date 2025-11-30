@@ -147,6 +147,121 @@ export function CourseBasicInfo({ name, courseDetail, courseNameData, createTime
         )}
       </div>
 
+      {/* 新增字段显示 */}
+      <div className="mt-6 pt-6 border-t border-dashed border-border">
+        <div className="grid grid-cols-3 gap-6">
+          {/* 授课班级 */}
+          {courseDetail?.teachingClass && (
+            <div className="flex flex-row items-center gap-3">
+              <div className="flex items-center gap-1 text-sm text-muted-foreground flex-shrink-0">
+                <FileText className="w-3 h-3" />
+                <span>授课班级</span>
+              </div>
+              <div className="text-base font-medium text-foreground">{courseDetail.teachingClass}</div>
+            </div>
+          )}
+
+          {/* 授课地点 */}
+          {courseDetail?.teachingLocation && (
+            <div className="flex flex-row items-center gap-3">
+              <div className="flex items-center gap-1 text-sm text-muted-foreground flex-shrink-0">
+                <FileText className="w-3 h-3" />
+                <span>授课地点</span>
+              </div>
+              <div className="text-base font-medium text-foreground">{courseDetail.teachingLocation}</div>
+            </div>
+          )}
+
+          {/* 授课时间 */}
+          {courseDetail?.teachingTime && (
+            <div className="col-span-3">
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground font-medium">授课时间</span>
+              </div>
+              {(() => {
+                try {
+                  const scheduleData = typeof courseDetail.teachingTime === "string"
+                    ? JSON.parse(courseDetail.teachingTime)
+                    : courseDetail.teachingTime
+
+                  // 支持数组格式（多行）和单对象格式（向后兼容）
+                  const scheduleRows = Array.isArray(scheduleData) ? scheduleData : [scheduleData]
+
+                  return (
+                    <div className="border border-input rounded-md overflow-hidden bg-background">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="bg-secondary/50">
+                            <th className="border-r border-input p-2 text-center font-medium w-32">时段</th>
+                            <th className="border-r border-input p-2 text-center font-medium w-8">节次</th>
+                            <th className="border-r border-input p-2 text-center font-medium w-8">周一</th>
+                            <th className="border-r border-input p-2 text-center font-medium w-8">周二</th>
+                            <th className="border-r border-input p-2 text-center font-medium w-8">周三</th>
+                            <th className="border-r border-input p-2 text-center font-medium w-8">周四</th>
+                            <th className="border-r border-input p-2 text-center font-medium w-8">周五</th>
+                            <th className="border-r border-input p-2 text-center font-medium w-8">周六</th>
+                            <th className="p-2 text-center font-medium w-8">周日</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {scheduleRows.map((row, idx) => (
+                            <tr key={idx} className="border-t border-input hover:bg-secondary/20">
+                              <td className="border-r border-input p-2 text-center whitespace-pre-wrap break-words">
+                                {row.period || "-"}
+                              </td>
+                              <td className="border-r border-input p-2 text-center whitespace-pre-wrap break-words">
+                                {row.sessions || "-"}
+                              </td>
+                              {["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].map((day, dayIdx) => (
+                                <td
+                                  key={day}
+                                  className={`p-2 text-center whitespace-pre-wrap break-words ${dayIdx < 6 ? "border-r border-input" : ""}`}
+                                >
+                                  {row[day] || "-"}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )
+                } catch (error) {
+                  return (
+                    <div className="p-2 border border-input rounded-md bg-muted/30">
+                      {courseDetail.teachingTime}
+                    </div>
+                  )
+                }
+              })()}
+            </div>
+          )}
+
+          {/* 学生人数 */}
+          {courseDetail?.studentCount !== undefined && courseDetail?.studentCount !== null && (
+            <div className="flex flex-row items-center gap-3">
+              <div className="flex items-center gap-1 text-sm text-muted-foreground flex-shrink-0">
+                <FileText className="w-3 h-3" />
+                <span>学生人数</span>
+              </div>
+              <div className="text-base font-medium text-foreground">{courseDetail.studentCount}</div>
+            </div>
+          )}
+
+          {/* 学分 */}
+          {courseDetail?.credits !== undefined && courseDetail?.credits !== null && (
+            <div className="flex flex-row items-center gap-3">
+              <div className="flex items-center gap-1 text-sm text-muted-foreground flex-shrink-0">
+                <FileText className="w-3 h-3" />
+                <span>学分</span>
+              </div>
+              <div className="text-base font-medium text-foreground">{courseDetail.credits}</div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* 课程简介 */}
       {courseDetail?.introduction && (
         <div className="mt-6 pt-6 border-t border-dashed border-border">
@@ -156,6 +271,32 @@ export function CourseBasicInfo({ name, courseDetail, courseNameData, createTime
           </div>
           <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
             {courseDetail.introduction}
+          </div>
+        </div>
+      )}
+
+      {/* 主要教材 */}
+      {courseDetail?.mainTextbook && (
+        <div className="mt-6 pt-6 border-t border-dashed border-border">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-2 h-2 rounded-sm bg-primary" />
+            <h4 className="text-base font-semibold text-foreground">课程使用的主要教材</h4>
+          </div>
+          <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
+            {courseDetail.mainTextbook}
+          </div>
+        </div>
+      )}
+
+      {/* 参考文献 */}
+      {courseDetail?.referenceResources && (
+        <div className="mt-6 pt-6 border-t border-dashed border-border">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-2 h-2 rounded-sm bg-primary" />
+            <h4 className="text-base font-semibold text-foreground">建议阅读材料和参考文献</h4>
+          </div>
+          <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
+            {courseDetail.referenceResources}
           </div>
         </div>
       )}

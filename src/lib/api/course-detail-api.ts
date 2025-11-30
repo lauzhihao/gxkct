@@ -35,6 +35,14 @@ export interface CourseDetailData {
     practicePeriod: number
     courseMatrixVOS: any[]
     createTime: string
+    // 新增字段
+    teachingClass?: string
+    teachingLocation?: string
+    teachingTime?: string
+    studentCount?: number
+    credits?: number
+    mainTextbook?: string
+    referenceResources?: string
   }
   pointksa: {
     points: any[]
@@ -107,6 +115,14 @@ export class CourseDetailApi {
           practicePeriod: number
           courseMatrixVOS: any[]
           createTime: string
+          // 新增字段
+          teachingClass?: string
+          teachingLocation?: string
+          teachingTime?: string
+          studentCount?: number
+          credits?: number
+          mainTextbook?: string
+          referenceResources?: string
         }
         pointksa: {
           points: any[]
