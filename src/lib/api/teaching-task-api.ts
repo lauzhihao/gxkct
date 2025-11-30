@@ -109,6 +109,39 @@ export class TeachingTaskApi {
   }
 
   /**
+   * 归档教学督导任务
+   */
+  async archiveTask(universityId: string, taskId: string): Promise<ApiResponse<TeachingSupervisoryTask>> {
+    // 获取现有任务列表
+    const tasksResponse = await this.getTasks(universityId)
+    if (tasksResponse.error || !tasksResponse.data) {
+      return { data: null, error: tasksResponse.error, status: tasksResponse.status }
+    }
+
+    // 查找并更新任务
+    const tasks = tasksResponse.data
+    const taskIndex = tasks.findIndex((t) => t.id === taskId)
+
+    if (taskIndex === -1) {
+      return { data: null, error: "Task not found", status: 404 }
+    }
+
+    const archivedTask: TeachingSupervisoryTask = {
+      ...tasks[taskIndex],
+      archived: true,
+      updatedAt: new Date().toISOString(),
+    }
+
+    tasks[taskIndex] = archivedTask
+
+    // 保存更新后的任务列表
+    const key = `${this.storageKeyPrefix}${universityId}`
+    await this.storage.set(key, tasks)
+
+    return { data: archivedTask, error: null, status: 200 }
+  }
+
+  /**
    * 按状态过滤任务
    */
   async getTasksByStatus(

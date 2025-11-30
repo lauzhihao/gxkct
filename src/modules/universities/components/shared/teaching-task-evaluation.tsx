@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, Plus, Edit, Copy, Info } from "lucide-react"
+import { ArrowLeft, Plus, Edit, Copy, Info, Archive } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Card } from "@/shared/components/ui/card"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/components/ui/tooltip"
@@ -13,11 +13,13 @@ interface TeachingTaskEvaluationProps {
   onBack: () => void
   onEdit?: () => void
   onCopy?: (task: TeachingSupervisoryTask, standards: TeachingQualityStandard | null) => void
+  onArchive?: (taskId: string) => Promise<void>
 }
 
-export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy }: TeachingTaskEvaluationProps) {
+export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy, onArchive }: TeachingTaskEvaluationProps) {
   const [standards, setStandards] = useState<TeachingQualityStandard | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isArchiving, setIsArchiving] = useState(false)
 
   useEffect(() => {
     const loadStandards = async () => {
@@ -41,6 +43,18 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy }: Teachin
 
     loadStandards()
   }, [task.id])
+
+  const handleArchive = async () => {
+    if (!onArchive) return
+    try {
+      setIsArchiving(true)
+      await onArchive(task.id)
+      onBack()
+    } finally {
+      setIsArchiving(false)
+    }
+  }
+
   const getStatusLabel = (status: string) => {
     const statusMap: Record<string, string> = {
       not_started: "未开始",
@@ -105,7 +119,7 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy }: Teachin
               variant="ghost"
               size="sm"
               onClick={onBack}
-              className="gap-2"
+              className="gap-2 hover:text-white"
             >
               <ArrowLeft className="w-4 h-4" />
               返回
@@ -113,6 +127,18 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy }: Teachin
             <h2 className="text-xl font-bold text-foreground">{task.title}</h2>
           </div>
           <div className="flex items-center gap-2">
+            {onArchive && !task.archived && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleArchive}
+                disabled={isArchiving}
+                className="gap-2 bg-transparent"
+              >
+                <Archive className="w-4 h-4" />
+                {isArchiving ? "归档中..." : "归档"}
+              </Button>
+            )}
             {onEdit && (
               <Button
                 size="sm"

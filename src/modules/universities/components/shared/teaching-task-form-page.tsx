@@ -23,7 +23,7 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
   const [formData, setFormData] = useState<TeachingSupervisoryTask>(task)
   const [standards, setStandards] = useState<EvaluationStandardItem[]>([])
   const [isSaving, setIsSaving] = useState(false)
-  const [autoSaveMessage, setAutoSaveMessage] = useState<string>("")
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"" | "saving" | "saved" | "failed">("")
 
   // 初始化时检查是否有复制的数据
   useEffect(() => {
@@ -80,7 +80,7 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
 
     const autoSaveInterval = setInterval(async () => {
       try {
-        setAutoSaveMessage("自动保存中...")
+        setAutoSaveStatus("saving")
 
         // 为新增任务生成 ID
         const taskToSubmit = {
@@ -111,12 +111,13 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
           )
         }
 
-        setAutoSaveMessage("已自动保存")
+        setAutoSaveStatus("saved")
         // 3秒后清除提示信息
-        setTimeout(() => setAutoSaveMessage(""), 3000)
+        setTimeout(() => setAutoSaveStatus(""), 3000)
       } catch (error) {
         console.error("自动保存失败:", error)
-        setAutoSaveMessage("自动保存失败")
+        setAutoSaveStatus("failed")
+        setTimeout(() => setAutoSaveStatus(""), 3000)
       }
     }, 10000) // 每10秒执行一次
 
@@ -243,7 +244,7 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
 
   // 检查评价标准项是否为空（所有必填字段都为空）
   const isStandardEmpty = (standard: EvaluationStandardItem): boolean => {
-    return !standard.indicator.trim()
+    return !standard.indicator || !standard.indicator.trim()
   }
 
   // 过滤掉空白的评价标准项
@@ -308,7 +309,7 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
               variant="ghost"
               size="sm"
               onClick={onBack}
-              className="gap-2"
+              className="gap-2 hover:text-white"
               disabled={isSaving || isLoading}
             >
               <ArrowLeft className="w-4 h-4" />
@@ -319,14 +320,11 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
             </h2>
           </div>
           <div className="flex items-center gap-2">
-            {autoSaveMessage && isEditMode && (
-              <span className="text-sm text-muted-foreground">{autoSaveMessage}</span>
-            )}
             <Button
               variant="outline"
               onClick={onBack}
               className="gap-2 bg-transparent"
-              disabled={isSaving || isLoading}
+              disabled={isSaving || isLoading || autoSaveStatus === "saving" || autoSaveStatus === "saved"}
             >
               <X className="w-4 h-4" />
               取消
@@ -334,12 +332,28 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
             <Button
               onClick={handleSubmit}
               className="gap-2"
-              disabled={isSaving || isLoading}
+              disabled={isSaving || isLoading || autoSaveStatus === "saving" || autoSaveStatus === "saved"}
+              variant={autoSaveStatus === "saved" ? "default" : autoSaveStatus === "failed" ? "destructive" : "default"}
             >
               {isSaving ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   保存中
+                </>
+              ) : autoSaveStatus === "saving" ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  自动保存中
+                </>
+              ) : autoSaveStatus === "saved" ? (
+                <>
+                  <Check className="w-4 h-4" />
+                  已保存
+                </>
+              ) : autoSaveStatus === "failed" ? (
+                <>
+                  <X className="w-4 h-4" />
+                  保存失败
                 </>
               ) : (
                 <>

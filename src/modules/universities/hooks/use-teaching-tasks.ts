@@ -11,6 +11,7 @@ interface UseTeachingTasksResult {
   updateTask: (task: TeachingSupervisoryTask) => Promise<TeachingSupervisoryTask | null>
   autoSaveTask: (task: TeachingSupervisoryTask) => Promise<void>
   updateTaskStatus: (taskId: string, status: TeachingStatus) => Promise<TeachingSupervisoryTask | null>
+  archiveTask: (taskId: string) => Promise<TeachingSupervisoryTask | null>
 }
 
 export function useTeachingTasks(universityId: string): UseTeachingTasksResult {
@@ -86,6 +87,18 @@ export function useTeachingTasks(universityId: string): UseTeachingTasksResult {
     [tasks, universityId, updateTaskState],
   )
 
+  const archiveTask = useCallback(
+    async (taskId: string) => {
+      const response = await api.teachingTasks.archiveTask(universityId, taskId)
+      if (response.data) {
+        updateTaskState(response.data)
+        return response.data
+      }
+      return null
+    },
+    [universityId, updateTaskState],
+  )
+
   return {
     tasks,
     isLoading,
@@ -93,5 +106,6 @@ export function useTeachingTasks(universityId: string): UseTeachingTasksResult {
     updateTask,
     autoSaveTask,
     updateTaskStatus,
+    archiveTask,
   }
 }

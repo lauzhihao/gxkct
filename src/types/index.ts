@@ -93,6 +93,7 @@ export interface TeachingSupervisoryTask {
   creator?: string // 创建人
   createdAt: string
   updatedAt?: string
+  archived?: boolean // 是否已归档
 }
 
 // 条件表达式（用于系统指标）

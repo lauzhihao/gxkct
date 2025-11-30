@@ -646,7 +646,7 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={onCancel} className="gap-2">
+          <Button variant="ghost" size="sm" onClick={onCancel} className="gap-2 hover:text-white">
             <ArrowLeft className="w-4 h-4" />
             返回
           </Button>

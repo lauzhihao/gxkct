@@ -24,6 +24,7 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
     updateTask: updateTaskRecord,
     autoSaveTask,
     updateTaskStatus,
+    archiveTask,
   } = useTeachingTasks(node.id)
   const [selectedStatus, setSelectedStatus] = useState<"not_started" | "in_progress" | "completed" | null>(null)
   const [selectedTask, setSelectedTask] = useState<TeachingSupervisoryTask | null>(null)
@@ -86,6 +87,10 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
     setPageState("create")
   }
 
+  const handleArchiveTask = async (taskId: string) => {
+    await archiveTask(taskId)
+  }
+
   // 页面状态路由
   if (pageState === "create") {
     const newTask: Omit<TeachingSupervisoryTask, "id" | "createdAt"> & { id?: string; createdAt?: string } = {
@@ -128,6 +133,7 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
         }}
         onEdit={() => setPageState("edit")}
         onCopy={handleCopyTask}
+        onArchive={handleArchiveTask}
       />
     )
   }

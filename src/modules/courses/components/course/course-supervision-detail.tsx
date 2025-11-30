@@ -193,7 +193,7 @@ export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetai
               variant="ghost"
               size="sm"
               onClick={onBack}
-              className="gap-2"
+              className="gap-2 hover:text-white"
             >
               <ArrowLeft className="w-4 h-4" />
               返回
