@@ -17,12 +17,12 @@ import { Label } from "@/shared/components/ui/label"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
 import { useState } from "react"
-import type { DetailPanelProps } from "./types"
+import type { DetailPanelProps } from "@/components/detail-panel/types"
 import { StatisticsCards } from "@/modules/departments/components/shared/statistics-cards"
 import { Members } from "@/shared/components/members"
 import { TeachingQuality } from "@/modules/universities/components/shared/teaching-quality"
 
-export function UniversityDetail({ node, onNodeSelect, onAddDepartment, onSetCurrentSchool, onToggleExpand }: DetailPanelProps) {
+export function UniversityDetail({ node, onNodeSelect, onAddDepartment, onSetCurrentSchool, onToggleExpand, currentUser }: DetailPanelProps) {
   const [newDeptName, setNewDeptName] = useState("")
   const [newDeptDesc, setNewDeptDesc] = useState("")
   const [newDeptDirector, setNewDeptDirector] = useState("")
@@ -92,6 +92,7 @@ export function UniversityDetail({ node, onNodeSelect, onAddDepartment, onSetCur
               node={node}
               onNodeSelect={onNodeSelect}
               onToggleExpand={onToggleExpand}
+              currentUser={currentUser}
               headerAction={
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                   <DialogTrigger asChild>

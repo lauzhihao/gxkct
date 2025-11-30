@@ -30,7 +30,7 @@ import { CourseSupervision } from "@/modules/courses/components/course/course-su
 import { CourseThreeLevelMatrix } from "@/modules/courses/components/course/course-three-level-matrix"
 import { TeachingObjectivesEditor } from "@/modules/courses/components/course/teaching-objectives-editor"
 
-export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelect, treeData, majorCourses }: DetailPanelProps) {
+export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelect, treeData, majorCourses, currentUser }: DetailPanelProps) {
   const metadata = node.metadata || {}
   const [isEditingCourse, setIsEditingCourse] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)

@@ -18,7 +18,7 @@ interface MajorCoursesProps {
 
 export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, majorCourses, departmentId }: MajorCoursesProps) {
   const [courseSearchTerm, setCourseSearchTerm] = useState("")
-  const { showMyCourses, setShowMyCourses } = useMajorCoursePreferences(node.id)
+  const { showMyCourses, setShowMyCourses } = useMajorCoursePreferences()
 
   // 优先使用动态加载的课程数据，如果没有则使用node.children中的课程
   const courses = majorCourses?.has(node.id)
@@ -27,7 +27,7 @@ export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, maj
 
   const filteredCourses = courses.filter((course) => {
     const matchesSearch = !courseSearchTerm || course.name.toLowerCase().includes(courseSearchTerm.toLowerCase())
-    const matchesMyCourses = !showMyCourses || course.metadata?.instructor?.includes(currentUser?.username || "")
+    const matchesMyCourses = !showMyCourses || (course.metadata?.instructors || []).includes(currentUser?.username || "")
     return matchesSearch && matchesMyCourses
   })
 
@@ -49,7 +49,7 @@ export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, maj
   }
 
   return (
-    <div className="rounded-lg border border-border bg-white/40 backdrop-blur-md p-6 space-y-4">
+    <>
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
           <BookMarked className="w-5 h-5 text-primary" />
@@ -179,6 +179,6 @@ export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, maj
           ))}
         </div>
       )}
-    </div>
+    </>
   )
 }

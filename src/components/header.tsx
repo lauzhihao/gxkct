@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Search, ChevronDown, User, X, Palette, Bell } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import {
@@ -13,7 +14,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/shared/components/ui/avatar"
 import { Input } from "@/shared/components/ui/input"
 import { cn } from "@/shared/utils/utils"
-import { api, getStoredAuthUser } from "@/lib/api"
+import { api, getStoredAuthUser, clearAllAuthData } from "@/lib/api"
 
 const COLOR_THEMES = {
   green: {
@@ -196,12 +197,19 @@ const mockNotifications: Notification[] = [
 ]
 
 export function Header({ onResetData, isTreeCollapsed }: HeaderProps) {
+  const router = useRouter()
   const [searchOpen, setSearchOpen] = useState(false)
   const [currentTheme, setCurrentTheme] = useState<keyof typeof COLOR_THEMES>("vercelBlue")
   const [notifications, setNotifications] = useState<Notification[]>(mockNotifications)
   const [userName, setUserName] = useState<string>("用户")
 
   const unreadCount = notifications.filter((n) => !n.read).length
+
+  // 处理退出登录
+  const handleLogout = () => {
+    clearAllAuthData()
+    router.push('/login')
+  }
 
   useEffect(() => {
     // 从认证系统获取用户信息
@@ -400,7 +408,12 @@ export function Header({ onResetData, isTreeCollapsed }: HeaderProps) {
                   <DropdownMenuSeparator />
                 </>
               )}
-              <DropdownMenuItem className="cursor-pointer hover:bg-primary/10 text-red-600">退出登录</DropdownMenuItem>
+              <DropdownMenuItem
+                className="cursor-pointer hover:bg-primary/10 text-red-600"
+                onClick={handleLogout}
+              >
+                退出登录
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 

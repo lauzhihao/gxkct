@@ -16,13 +16,13 @@ import { Label } from "@/shared/components/ui/label"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
 import { useState } from "react"
-import type { DetailPanelProps } from "./types"
+import type { DetailPanelProps } from "@/components/detail-panel/types"
 import { StatisticsCards } from "./shared/statistics-cards"
 import { Members } from "@/shared/components/members"
 import { TeachingQualityStats } from "@/modules/majors/components/shared/teaching-quality-stats"
 import { QuickCreateMajorDialog } from "@/modules/departments/components/shared/quick-create-major-dialog"
 
-export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode, onDeleteNode, departmentMajors, majorCourses, onToggleExpand }: DetailPanelProps) {
+export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode, onDeleteNode, departmentMajors, majorCourses, onToggleExpand, currentUser }: DetailPanelProps) {
   const [newDeptName, setNewDeptName] = useState("")
   const [newDeptDesc, setNewDeptDesc] = useState("")
   const [newDeptDirector, setNewDeptDirector] = useState("")
@@ -131,6 +131,7 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
               departmentMajors={departmentMajors}
               majorCourses={majorCourses}
               onToggleExpand={onToggleExpand}
+              currentUser={currentUser}
               headerAction={
                 <Button
                 size="sm"

@@ -31,11 +31,12 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
   const prevNodeIdRef = useRef<string | null>(null)
 
   const [taskObjectivesDialogOpen, setTaskObjectivesDialogOpen] = useState(false)
-  const [selectedChapterForTasks, setSelectedChapterForTasks] = useState<string | null>(null)
+  const [selectedProjectForTasks, setSelectedProjectForTasks] = useState<string | null>(null)
+  const [projectGoalsForDialog, setProjectGoalsForDialog] = useState<any[]>([])
   const [newTaskObjective, setNewTaskObjective] = useState("")
-  const [newTaskStandard, setNewTaskStandard] = useState("")
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
   const [focusedCell, setFocusedCell] = useState<string | null>(null)
+  const [taskObjectiveSearch, setTaskObjectiveSearch] = useState("")
 
   const [ksaDialogOpen, setKsaDialogOpen] = useState(false)
   const [selectedKsaCell, setSelectedKsaCell] = useState<{
@@ -180,84 +181,10 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
     setIsEditingProjectMatrix(false)
   }
 
-  const handleOpenTaskObjectivesDialog = (chapterId: string) => {
-    setSelectedChapterForTasks(chapterId)
+  const handleOpenTaskObjectivesDialog = (projectId: string, goals: any[] = []) => {
+    setSelectedProjectForTasks(projectId)
+    setProjectGoalsForDialog(goals)
     setTaskObjectivesDialogOpen(true)
-  }
-
-  const handleAddTaskObjective = () => {
-    if (!selectedChapterForTasks || !newTaskObjective.trim()) return
-
-    const newTask = {
-      id: `task-${Date.now()}`,
-      objective: newTaskObjective.trim(),
-      standard: newTaskStandard.trim(),
-    }
-
-    const updatedTaskObjectives = {
-      ...chapterTaskObjectives,
-      [selectedChapterForTasks]: [...(chapterTaskObjectives[selectedChapterForTasks] || []), newTask],
-    }
-
-    setChapterTaskObjectives(updatedTaskObjectives)
-
-    // Auto-save to metadata
-    onUpdate({
-      chapterTaskObjectives: updatedTaskObjectives,
-    })
-
-    setNewTaskObjective("")
-    setNewTaskStandard("")
-  }
-
-  const handleEditTaskObjective = (taskId: string) => {
-    if (!selectedChapterForTasks) return
-    const task = chapterTaskObjectives[selectedChapterForTasks]?.find((t) => t.id === taskId)
-    if (task) {
-      setEditingTaskId(taskId)
-      setNewTaskObjective(task.objective)
-      setNewTaskStandard(task.standard)
-    }
-  }
-
-  const handleUpdateTaskObjective = () => {
-    if (!selectedChapterForTasks || !editingTaskId || !newTaskObjective.trim()) return
-
-    const updatedTaskObjectives = {
-      ...chapterTaskObjectives,
-      [selectedChapterForTasks]: chapterTaskObjectives[selectedChapterForTasks].map((task) =>
-        task.id === editingTaskId
-          ? { ...task, objective: newTaskObjective.trim(), standard: newTaskStandard.trim() }
-          : task,
-      ),
-    }
-
-    setChapterTaskObjectives(updatedTaskObjectives)
-
-    // Auto-save to metadata
-    onUpdate({
-      chapterTaskObjectives: updatedTaskObjectives,
-    })
-
-    setEditingTaskId(null)
-    setNewTaskObjective("")
-    setNewTaskStandard("")
-  }
-
-  const handleDeleteTaskObjective = (taskId: string) => {
-    if (!selectedChapterForTasks) return
-
-    const updatedTaskObjectives = {
-      ...chapterTaskObjectives,
-      [selectedChapterForTasks]: chapterTaskObjectives[selectedChapterForTasks].filter((task) => task.id !== taskId),
-    }
-
-    setChapterTaskObjectives(updatedTaskObjectives)
-
-    // Auto-save to metadata
-    onUpdate({
-      chapterTaskObjectives: updatedTaskObjectives,
-    })
   }
 
   const handleOpenKsaDialog = (chapterId: string, coursePointId: string, taskId: string) => {
@@ -443,10 +370,9 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
                     {!isEditingProjectMatrix && (
                       <Button
                         size="sm"
-                        variant="outline"
                         onClick={(e) => {
                           e.stopPropagation()
-                          handleOpenTaskObjectivesDialog(projectId)
+                          handleOpenTaskObjectivesDialog(projectId, goals)
                         }}
                         className="gap-2"
                       >
@@ -484,7 +410,7 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
                                 <th rowSpan={2} className="text-center p-2 text-muted-foreground font-medium border-r border-border w-[280px] align-middle">
                                   课点学习产出及测量
                                 </th>
-                                <th colSpan={2} className="text-center p-2 text-muted-foreground font-medium border-r border-border align-middle">
+                                <th colSpan={3} className="text-center p-2 text-muted-foreground font-medium border-r border-border align-middle">
                                   教学安排
                                 </th>
                               </tr>
@@ -493,8 +419,11 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
                                 <th className="text-center p-1 text-muted-foreground font-medium border-r border-border w-[70px] align-middle whitespace-nowrap text-xs">
                                   开课周数
                                 </th>
-                                <th className="text-center p-1 text-muted-foreground font-medium w-[60px] align-middle whitespace-nowrap text-xs">
-                                  学时数
+                                <th className="text-center p-1 text-muted-foreground font-medium border-r border-border w-[70px] align-middle whitespace-nowrap text-xs">
+                                  理论学时
+                                </th>
+                                <th className="text-center p-1 text-muted-foreground font-medium w-[70px] align-middle whitespace-nowrap text-xs">
+                                  实践学时
                                 </th>
                               </tr>
                             </thead>
@@ -684,18 +613,32 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
                                         <span className="text-xs">{item.courseMatrix?.week || '-'}</span>
                                       )}
                                     </td>
-                                    {/* 教学安排 - 学时数 */}
-                                    <td className="p-1 text-center text-foreground w-[60px]">
+                                    {/* 教学安排 - 理论学时 */}
+                                    <td className="p-1 text-center text-foreground w-[70px] border-r border-border">
                                       {isEditingProjectMatrix ? (
                                         <input
                                           type="text"
-                                          value={item.courseMatrix?.period || ''}
+                                          value={item.courseMatrix?.theoryPeriod || ''}
                                           onChange={() => {}}
                                           className="w-full px-0.5 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
-                                          placeholder="学时"
+                                          placeholder="理论"
                                         />
                                       ) : (
-                                        <span className="text-xs">{item.courseMatrix?.period || '-'}</span>
+                                        <span className="text-xs">{item.courseMatrix?.theoryPeriod || '-'}</span>
+                                      )}
+                                    </td>
+                                    {/* 教学安排 - 实践学时 */}
+                                    <td className="p-1 text-center text-foreground w-[70px]">
+                                      {isEditingProjectMatrix ? (
+                                        <input
+                                          type="text"
+                                          value={item.courseMatrix?.practicePeriod || ''}
+                                          onChange={() => {}}
+                                          className="w-full px-0.5 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                          placeholder="实践"
+                                        />
+                                      ) : (
+                                        <span className="text-xs">{item.courseMatrix?.practicePeriod || '-'}</span>
                                       )}
                                     </td>
                                   </tr>
@@ -727,101 +670,206 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
         )}
 
       <Dialog open={taskObjectivesDialogOpen} onOpenChange={setTaskObjectivesDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>教学任务目标管理</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1.5 block">任务目标</label>
-                  <input
-                    type="text"
-                    value={newTaskObjective}
-                    onChange={(e) => setNewTaskObjective(e.target.value)}
-                    placeholder="输入任务目标"
-                    className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1.5 block">测量评价标准</label>
-                  <input
-                    type="text"
-                    value={newTaskStandard}
-                    onChange={(e) => setNewTaskStandard(e.target.value)}
-                    placeholder="输入测量评价标准"
-                    className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-              </div>
-              <Button
-                size="sm"
-                onClick={editingTaskId ? handleUpdateTaskObjective : handleAddTaskObjective}
-                disabled={!newTaskObjective.trim()}
-                className="w-full gap-2"
-              >
-                {editingTaskId ? (
-                  <>
-                    <Edit className="w-4 h-4" />
-                    更新任务目标
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-4 h-4" />
-                    添加任务目标
-                  </>
-                )}
-              </Button>
-            </div>
 
-            <div className="border-t border-border pt-4">
-              <h4 className="text-sm font-semibold text-foreground mb-3">已添加的任务目标</h4>
-              {selectedChapterForTasks && chapterTaskObjectives[selectedChapterForTasks]?.length > 0 ? (
-                <div className="space-y-2">
-                  {chapterTaskObjectives[selectedChapterForTasks].map((task, idx) => (
+          {/* 顶部搜索框和加号按钮 */}
+          <div className="flex gap-2 px-6">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                placeholder="搜索教学任务目标..."
+                value={taskObjectiveSearch}
+                onChange={(e) => setTaskObjectiveSearch(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <Button
+              size="sm"
+              onClick={() => {
+                // 在列表顶部新增一行
+                if (!selectedProjectForTasks) return
+                const newGoal = {
+                  id: Date.now(),
+                  projectId: parseInt(selectedProjectForTasks),
+                  description: "",
+                  product: "",
+                }
+                const updatedProjectMatrixData = {
+                  ...projectMatrixData,
+                  projects: projectMatrixData.projects.map((projectItem: any) => {
+                    if (projectItem.project.id === parseInt(selectedProjectForTasks)) {
+                      return {
+                        ...projectItem,
+                        goals: [newGoal, ...(projectItem.goals || [])],
+                      }
+                    }
+                    return projectItem
+                  }),
+                }
+                setProjectMatrixData(updatedProjectMatrixData)
+                setProjectGoalsForDialog([newGoal, ...projectGoalsForDialog])
+                onUpdate({
+                  projectMatrixData: updatedProjectMatrixData,
+                })
+                // 自动进入编辑模式
+                setEditingTaskId(String(newGoal.id))
+                setNewTaskObjective("")
+              }}
+              className="gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              新增
+            </Button>
+          </div>
+
+          {/* 教学任务目标列表 */}
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            <h4 className="text-sm font-semibold text-foreground mb-3">教学任务目标</h4>
+            {projectGoalsForDialog && projectGoalsForDialog.length > 0 ? (
+              <div className="space-y-2">
+                {projectGoalsForDialog
+                  .filter((goal) => {
+                    if (!taskObjectiveSearch) return true
+                    const searchLower = taskObjectiveSearch.toLowerCase()
+                    return goal.description?.toLowerCase().includes(searchLower)
+                  })
+                  .map((goal, idx) => (
                     <div
-                      key={task.id}
+                      key={goal.id}
                       className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-secondary/30 transition-colors"
                     >
                       <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-medium text-primary mt-0.5">
                         {idx + 1}
                       </div>
                       <div className="flex-1 space-y-1">
-                        <div className="text-sm text-foreground font-medium">{task.objective}</div>
-                        <div className="text-xs text-muted-foreground">{task.standard}</div>
+                        {editingTaskId === String(goal.id) ? (
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              value={newTaskObjective}
+                              onChange={(e) => setNewTaskObjective(e.target.value)}
+                              placeholder="输入任务目标"
+                              className="w-full px-2 py-1 text-sm border border-border rounded bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+                              autoFocus
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  if (!newTaskObjective.trim()) return
+                                  const updatedProjectMatrixData = {
+                                    ...projectMatrixData,
+                                    projects: projectMatrixData.projects.map((projectItem: any) => {
+                                      if (projectItem.project.id === parseInt(selectedProjectForTasks!)) {
+                                        return {
+                                          ...projectItem,
+                                          goals: projectItem.goals.map((g: any) =>
+                                            g.id === goal.id
+                                              ? { ...g, description: newTaskObjective.trim() }
+                                              : g,
+                                          ),
+                                        }
+                                      }
+                                      return projectItem
+                                    }),
+                                  }
+                                  setProjectMatrixData(updatedProjectMatrixData)
+                                  setProjectGoalsForDialog(
+                                    projectGoalsForDialog.map((g) =>
+                                      g.id === goal.id ? { ...g, description: newTaskObjective.trim() } : g,
+                                    ),
+                                  )
+                                  onUpdate({
+                                    projectMatrixData: updatedProjectMatrixData,
+                                  })
+                                  setEditingTaskId(null)
+                                  setNewTaskObjective("")
+                                }}
+                                className="gap-1"
+                              >
+                                <Check className="w-3 h-3" />
+                                保存
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setEditingTaskId(null)
+                                  setNewTaskObjective("")
+                                }}
+                                className="gap-1"
+                              >
+                                <X className="w-3 h-3" />
+                                取消
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="text-sm text-foreground font-medium">{goal.description || "未设置"}</div>
+                          </>
+                        )}
                       </div>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => handleEditTaskObjective(task.id)}
-                          className="p-1.5 rounded hover:bg-secondary transition-colors"
-                          title="编辑"
-                        >
-                          <Edit className="w-4 h-4 text-muted-foreground hover:text-foreground" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteTaskObjective(task.id)}
-                          className="p-1.5 rounded hover:bg-secondary transition-colors"
-                          title="删除"
-                        >
-                          <Trash2 className="w-4 h-4 text-muted-foreground hover:text-red-600" />
-                        </button>
-                      </div>
+                      {editingTaskId !== String(goal.id) && (
+                        <div className="flex gap-1 flex-shrink-0">
+                          <button
+                            onClick={() => {
+                              setEditingTaskId(String(goal.id))
+                              setNewTaskObjective(goal.description)
+                            }}
+                            className="p-1.5 rounded hover:bg-secondary transition-colors"
+                            title="编辑"
+                          >
+                            <Edit className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (!selectedProjectForTasks) return
+                              const updatedProjectMatrixData = {
+                                ...projectMatrixData,
+                                projects: projectMatrixData.projects.map((projectItem: any) => {
+                                  if (projectItem.project.id === parseInt(selectedProjectForTasks)) {
+                                    return {
+                                      ...projectItem,
+                                      goals: projectItem.goals.filter((g: any) => g.id !== goal.id),
+                                    }
+                                  }
+                                  return projectItem
+                                }),
+                              }
+                              setProjectMatrixData(updatedProjectMatrixData)
+                              setProjectGoalsForDialog(projectGoalsForDialog.filter((g) => g.id !== goal.id))
+                              onUpdate({
+                                projectMatrixData: updatedProjectMatrixData,
+                              })
+                            }}
+                            className="p-1.5 rounded hover:bg-secondary transition-colors"
+                            title="删除"
+                          >
+                            <Trash2 className="w-4 h-4 text-muted-foreground hover:text-red-600" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground text-sm">暂无任务目标</div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground text-sm">暂无教学任务目标</div>
+            )}
           </div>
+
           <DialogFooter>
             <Button
               onClick={() => {
                 setTaskObjectivesDialogOpen(false)
                 setEditingTaskId(null)
                 setNewTaskObjective("")
-                setNewTaskStandard("")
+                setTaskObjectiveSearch("")
+                setSelectedProjectForTasks(null)
+                setProjectGoalsForDialog([])
               }}
             >
               完成

@@ -25,13 +25,13 @@ export function DetailPanel(props: DetailPanelProps) {
   // Route to appropriate detail component based on node type
   switch (node.type) {
     case "university":
-      return <UniversityDetail {...props} />
+      return <UniversityDetail {...props} currentUser={props.currentUser} />
     case "department":
-      return <DepartmentDetail {...props} />
+      return <DepartmentDetail {...props} currentUser={props.currentUser} />
     case "major":
-      return <MajorDetail {...props} />
+      return <MajorDetail {...props} currentUser={props.currentUser} />
     case "course":
-      return <CourseDetail {...props} />
+      return <CourseDetail {...props} currentUser={props.currentUser} />
     default:
       return (
         <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl p-6 flex items-center justify-center min-h-[500px]">

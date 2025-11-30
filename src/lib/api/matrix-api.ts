@@ -22,7 +22,10 @@ export interface CourseMatrixItem {
   teach: string
   product: string
   week: string
-  period: string
+  period?: string
+  // 拆分学时数为理论学时和实践学时
+  theoryPeriod?: string
+  practicePeriod?: string
 }
 
 // 课程矩阵API响应

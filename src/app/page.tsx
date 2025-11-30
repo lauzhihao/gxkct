@@ -6,7 +6,7 @@ import { DetailPanel } from "@/components/detail-panel"
 import { Header } from "@/components/header"
 import { useTreeData } from "@/shared/hooks/use-tree-data"
 import { useLocalStorage } from "@/shared/hooks/use-local-storage"
-import { api } from "@/lib/api"
+import { api, getStoredAuthUser } from "@/lib/api"
 import { findStarredNode, getFirstNode } from "@/shared/utils/tree-operations"
 import { cn } from "@/shared/utils/utils"
 import type { TreeNode } from "@/types"
@@ -22,11 +22,23 @@ export default function Page() {
   const [isTreeCollapsed, setIsTreeCollapsed] = useLocalStorage<boolean>(TREE_COLLAPSED_STORAGE_KEY, false)
   const [departmentMajors, setDepartmentMajors] = useState<Map<string, TreeNode[]>>(new Map())
   const [majorCourses, setMajorCourses] = useState<Map<string, TreeNode[]>>(new Map())
+  const [currentUser, setCurrentUser] = useState<{ username: string; role: string } | null>(null)
   // 添加ref来存储TreeView的handleToggleExpand方法
   const treeViewRef = useRef<{ toggleExpand: (nodeId: string) => void }>(null)
   const treeDataHook = useTreeData(initialData)
   const hasInitialized = useRef(false)
   const hasLoadedTree = useRef(false)
+
+  useEffect(() => {
+    // 从localStorage获取当前用户信息
+    const authUser = getStoredAuthUser()
+    if (authUser) {
+      setCurrentUser({
+        username: authUser.userName,
+        role: "teacher", // 默认角色，可根据实际情况调整
+      })
+    }
+  }, [])
 
   useEffect(() => {
     const loadTreeData = async () => {
@@ -239,6 +251,7 @@ export default function Page() {
               onDeleteNode={handleDeleteNode}
               departmentMajors={departmentMajors}
               majorCourses={majorCourses}
+              currentUser={currentUser}
               // 传入handleToggleExpand回调
               onToggleExpand={handleToggleExpand}
             />

@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import type { TreeNode } from "@/types"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
 import { Button } from "@/shared/components/ui/button"
-import { GraduationCap, Pencil, Trash2 } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectSeparator } from "@/shared/components/ui/select"
+import { GraduationCap, Pencil, Trash2, User } from "lucide-react"
 import { cn } from "@/shared/utils/utils"
 import AddCourseForm from "@/components/add-course-form"
 import { AddMajorForm } from "@/modules/majors/components/forms/add-major-form"
@@ -23,6 +24,45 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/shared/components/ui/alert-dialog"
+import React from "react"
+
+// 学期选择器子组件 - 使用 React.memo 防止不必要的重新渲染
+const SemesterSelector = React.memo(({
+  value,
+  onChange,
+  semesters,
+  onAddSemester
+}: {
+  value: string
+  onChange: (value: string) => void
+  semesters: Array<{ value: string; label: string }>
+  onAddSemester: () => void
+}) => (
+  <Select value={value} onValueChange={onChange}>
+    <SelectTrigger className="w-[160px] h-8 text-xs">
+      <SelectValue />
+    </SelectTrigger>
+    <SelectContent>
+      {semesters.map((semester) => (
+        <SelectItem
+          key={semester.value}
+          value={semester.value}
+          className={value === semester.value ? "[&_svg]:text-white" : ""}
+        >
+          {semester.label}
+        </SelectItem>
+      ))}
+      <SelectSeparator />
+      <SelectItem
+        value="__add_new__"
+        onSelect={onAddSemester}
+        className="justify-center [&_svg]:hidden hover:!bg-primary hover:!text-white [&:hover_span]:!text-white"
+      >
+        <span className="text-primary">+ 新学期</span>
+      </SelectItem>
+    </SelectContent>
+  </Select>
+))
 
 interface MajorDetailProps {
   node: TreeNode
@@ -53,6 +93,63 @@ export function MajorDetail({
   const [isEditingMajor, setIsEditingMajor] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isQuickCreateCourseOpen, setIsQuickCreateCourseOpen] = useState(false)
+  const [selectedSemester, setSelectedSemester] = useState("2024-spring")
+  const [semesters, setSemesters] = useState([
+    { value: "2024-spring", label: "2024年春季学期" },
+    { value: "2024-fall", label: "2024年秋季学期" },
+    { value: "2025-spring", label: "2025年春季学期" },
+    { value: "2025-fall", label: "2025年秋季学期" },
+  ])
+
+  // 生成新学期的逻辑
+  const generateNewSemester = useCallback(() => {
+    if (semesters.length === 0) return null
+
+    // 获取最后一个学期
+    const lastSemester = semesters[semesters.length - 1]
+    const lastLabel = lastSemester.label
+
+    // 解析最后一个学期的年份和季节
+    const yearMatch = lastLabel.match(/(\d{4})年/)
+    const isFall = lastLabel.includes("秋季")
+
+    if (!yearMatch) return null
+
+    const lastYear = parseInt(yearMatch[1])
+    let newYear = lastYear
+    let newSeason = "春季"
+
+    // 如果最后一个是秋季，则下一个是明年春季；否则是同年秋季
+    if (isFall) {
+      newYear = lastYear + 1
+      newSeason = "春季"
+    } else {
+      newSeason = "秋季"
+    }
+
+    const newValue = `${newYear}-${newSeason === "春季" ? "spring" : "fall"}`
+    const newLabel = `${newYear}年${newSeason}学期`
+
+    return { value: newValue, label: newLabel }
+  }, [semesters])
+
+  // 学期选择处理器 - 使用 useCallback 避免重复创建
+  const handleSemesterChange = useCallback((value: string) => {
+    if (value === "__add_new__") {
+      // 不处理特殊值，由 onAddSemester 处理
+      return
+    }
+    setSelectedSemester(value)
+  }, [])
+
+  // 添加新学期处理器
+  const handleAddSemester = useCallback(() => {
+    const newSemester = generateNewSemester()
+    if (newSemester) {
+      setSemesters((prev) => [...prev, newSemester])
+      setSelectedSemester(newSemester.value)
+    }
+  }, [generateNewSemester])
 
   // 当节点改变时，退出编辑模式
   useEffect(() => {
@@ -133,32 +230,50 @@ export function MajorDetail({
               <div className="w-12 h-12 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center flex-shrink-0">
                 <GraduationCap className="w-6 h-6 text-primary" />
               </div>
-              <div>
+              <div className="flex-1">
                 <h2 className="text-2xl font-bold text-foreground mb-2">{node.name}</h2>
-                {node.description && <p className="text-muted-foreground">{node.description}</p>}
+                {node.description && <p className="text-muted-foreground mb-3">{node.description}</p>}
+                {(node.metadata as any)?.managers && (node.metadata as any).managers.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {(node.metadata as any).managers.map((manager: any, index: number) => (
+                      <div key={index} className="flex items-center gap-[6px] px-[8px] py-[2px] rounded bg-primary border border-primary">
+                        <User className="w-[13px] h-[13px] text-white" />
+                        <span className="text-[13px] text-white font-medium">{manager.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-            <div className="flex gap-2">
-              {onUpdateNode && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setIsEditingMajor(true)}
-                  className="gap-2 hover:bg-primary/10"
-                >
-                  <Pencil className="w-4 h-4 text-primary" />
-                </Button>
-              )}
-              {onDeleteNode && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setIsDeleteDialogOpen(true)}
-                  className="gap-2 hover:bg-red-500/10 text-red-500"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              )}
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                {onUpdateNode && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setIsEditingMajor(true)}
+                    className="gap-2 hover:bg-primary/10"
+                  >
+                    <Pencil className="w-4 h-4 text-primary" />
+                  </Button>
+                )}
+                {onDeleteNode && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setIsDeleteDialogOpen(true)}
+                    className="gap-2 hover:bg-red-500/10 text-red-500"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+              <SemesterSelector
+                value={selectedSemester}
+                onChange={handleSemesterChange}
+                semesters={semesters}
+                onAddSemester={handleAddSemester}
+              />
             </div>
           </div>
         </div>

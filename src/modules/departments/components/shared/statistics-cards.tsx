@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shar
 import type { TreeNode } from "@/components/tree-view"
 import { Building2, GraduationCap, BookOpen, FileText, Search, User } from "lucide-react"
 import cn from "classnames"
+import { useDepartmentMajorsPreferences } from "@/modules/departments/hooks/use-department-majors-preferences"
 
 interface StatisticsCardsProps {
   node: TreeNode
@@ -18,12 +19,16 @@ interface StatisticsCardsProps {
   departmentMajors?: Map<string, TreeNode[]>
   majorCourses?: Map<string, TreeNode[]>
   onToggleExpand?: (nodeId: string) => void
+  currentUser?: { username: string; role: string } | null
 }
 
-export function StatisticsCards({ node, onNodeSelect, headerAction, departmentMajors, majorCourses, onToggleExpand }: StatisticsCardsProps) {
+export function StatisticsCards({ node, onNodeSelect, headerAction, departmentMajors, majorCourses, onToggleExpand, currentUser }: StatisticsCardsProps) {
   const [departmentSearch, setDepartmentSearch] = useState("")
   const [majorSearch, setMajorSearch] = useState("")
-  const [showMyMajorsOnly, setShowMyMajorsOnly] = useState(false)
+
+  // 使用 hook 管理"我的专业"偏好设置，仅在部门节点时使用
+  const { showMyMajors, setShowMyMajors } = useDepartmentMajorsPreferences()
+  const showMyMajorsOnly = node.type === "department" ? showMyMajors : false
 
   const departments = node.children?.filter((child) => child.type === "department") || []
 
@@ -67,10 +72,10 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, departmentMa
     // 先按名称搜索
     const matchesSearch = major.name.toLowerCase().includes(majorSearch.toLowerCase())
 
-    // 如果勾选了"我的专业"，则还需要检查专业负责人中是否包含"我"
+    // 如果勾选了"我的专业"，则还需要检查专业管理员中是否包含当前用户
     if (showMyMajorsOnly) {
-      const directors = major.metadata?.directors || []
-      const hasMe = directors.some((director: string) => director.includes("我") || director === "我")
+      const managers = major.metadata?.managers || []
+      const hasMe = managers.some((manager: any) => manager.label === currentUser?.username)
       return matchesSearch && hasMe
     }
 
@@ -259,7 +264,7 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, departmentMa
                   <Checkbox
                     id="my-majors"
                     checked={showMyMajorsOnly}
-                    onCheckedChange={(checked) => setShowMyMajorsOnly(checked as boolean)}
+                    onCheckedChange={(checked) => setShowMyMajors(checked as boolean)}
                   />
                   <Label htmlFor="my-majors" className="text-sm font-medium cursor-pointer">
                     我的专业
@@ -324,12 +329,14 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, departmentMa
                       </div>
                     </div>
 
-                    {major.metadata?.directors && major.metadata.directors.length > 0 && (
-                      <div className="absolute bottom-3 left-3">
-                        <div className="flex items-center gap-[6px] px-[8px] py-[2px] rounded bg-primary border border-primary">
-                          <User className="w-[13px] h-[13px] text-white" />
-                          <span className="text-[13px] text-white font-medium">{major.metadata.directors[0]}</span>
-                        </div>
+                    {major.metadata?.managers && major.metadata.managers.length > 0 && (
+                      <div className="absolute bottom-3 left-3 right-3 flex flex-wrap gap-2">
+                        {major.metadata.managers.map((manager: any, index: number) => (
+                          <div key={index} className="flex items-center gap-[6px] px-[8px] py-[2px] rounded bg-primary border border-primary">
+                            <User className="w-[13px] h-[13px] text-white" />
+                            <span className="text-[13px] text-white font-medium">{manager.label}</span>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </button>

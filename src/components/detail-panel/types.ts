@@ -1,7 +1,7 @@
 import type { TreeNode } from "@/types"
 
 export interface DetailPanelProps {
-  node: TreeNode
+  node: TreeNode | null
   treeData: TreeNode
   onNodeSelect: (node: TreeNode | null) => void
   onAddDepartment?: (universityId: string, newDepartment: Omit<TreeNode, "id">) => void
@@ -14,6 +14,7 @@ export interface DetailPanelProps {
   onDelete?: (nodeId: string) => void
   departmentMajors?: Map<string, TreeNode[]>
   majorCourses?: Map<string, TreeNode[]>
+  currentUser?: { username: string; role: string } | null
   // 添加onToggleExpand回调用于动态加载数据
   onToggleExpand?: (nodeId: string) => void
 }
