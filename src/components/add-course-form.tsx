@@ -15,6 +15,7 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/shared/components/ui/table"
 import { useToast } from "@/shared/hooks/use-toast"
 import { api } from "@/lib/api"
+import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 
 interface TeachingObjective {
   id: string
@@ -154,9 +155,6 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
   const [credits, setCredits] = useState(initialData?.metadata?.credits || 0)
   const [mainTextbook, setMainTextbook] = useState(initialData?.metadata?.mainTextbook || "")
   const [referenceResources, setReferenceResources] = useState(initialData?.metadata?.referenceResources || "")
-  // 多行文本展开/收起状态
-  const [mainTextbookExpanded, setMainTextbookExpanded] = useState(false)
-  const [referenceResourcesExpanded, setReferenceResourcesExpanded] = useState(false)
 
   // Tab 2: Course Requirements (课程要求)
   const [attendancePolicy, setAttendancePolicy] = useState(initialData?.metadata?.attendancePolicy || "")
@@ -167,25 +165,14 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
   const [bonusRequirements, setBonusRequirements] = useState(initialData?.metadata?.bonusRequirements || "")
   const [otherSuggestions, setOtherSuggestions] = useState(initialData?.metadata?.otherSuggestions || "")
 
-  // 课程要求字段展开/收起状态
-  const [attendancePolicyExpanded, setAttendancePolicyExpanded] = useState(false)
-  const [assignmentPolicyExpanded, setAssignmentPolicyExpanded] = useState(false)
-  const [conductRequirementsExpanded, setConductRequirementsExpanded] = useState(false)
-  const [practiceRequirementsExpanded, setPracticeRequirementsExpanded] = useState(false)
-  const [teamworkRequirementsExpanded, setTeamworkRequirementsExpanded] = useState(false)
-  const [bonusRequirementsExpanded, setBonusRequirementsExpanded] = useState(false)
-  const [otherSuggestionsExpanded, setOtherSuggestionsExpanded] = useState(false)
-
   // Tab 3: Assessment and Evaluation (考核评价)
   const [assessmentMethod, setAssessmentMethod] = useState(initialData?.metadata?.assessmentMethod || "考试")
   const [assessmentForm, setAssessmentForm] = useState(initialData?.metadata?.assessmentForm || "")
-  const [assessmentFormExpanded, setAssessmentFormExpanded] = useState(false)
   const [scoreType, setScoreType] = useState(initialData?.metadata?.scoreType || "百分制")
   const [scoreTable, setScoreTable] = useState<{ headers: string[]; rows: { [key: string]: string }[] }>(
     initialData?.metadata?.scoreTable || { headers: ["等级", "分值"], rows: [{ "等级": "", "分值": "" }] }
   )
   const [assessmentDescription, setAssessmentDescription] = useState(initialData?.metadata?.assessmentDescription || "")
-  const [assessmentDescriptionExpanded, setAssessmentDescriptionExpanded] = useState(false)
 
   // 获取课程性质名称
   const courseNatureName = useMemo(() => {
@@ -1043,93 +1030,36 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
                 {/* 主要教材和参考文献放在一行 */}
                 <div className="space-y-2">
                   <Label htmlFor="main-textbook">课程使用的主要教材</Label>
-                  {mainTextbookExpanded ? (
-                    <div className="relative">
-                      <textarea
-                        id="main-textbook"
-                        placeholder=""
-                        value={mainTextbook}
-                        onChange={(e) => setMainTextbook(e.target.value.slice(0, 500))}
-                        onBlur={() => setMainTextbookExpanded(false)}
-                        maxLength={500}
-                        className="w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
-                        rows={4}
-                        autoFocus
-                      />
-                      <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
-                        {mainTextbook.length}/500
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <Input
-                        id="main-textbook"
-                        placeholder=""
-                        value={mainTextbook}
-                        onFocus={() => setMainTextbookExpanded(true)}
-                        readOnly
-                        className="cursor-text pr-12"
-                      />
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-                        {mainTextbook.length}/500
-                      </div>
-                    </div>
-                  )}
+                  <ExpandableTextarea
+                    value={mainTextbook}
+                    onChange={setMainTextbook}
+                    placeholder=""
+                    maxLength={500}
+                    rows={4}
+                  />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="reference-resources">建议阅读材料和参考文献</Label>
-                  {referenceResourcesExpanded ? (
-                    <div className="relative">
-                      <textarea
-                        id="reference-resources"
-                        placeholder=""
-                        value={referenceResources}
-                        onChange={(e) => setReferenceResources(e.target.value.slice(0, 1000))}
-                        onBlur={() => setReferenceResourcesExpanded(false)}
-                        maxLength={1000}
-                        className="w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
-                        rows={4}
-                        autoFocus
-                      />
-                      <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
-                        {referenceResources.length}/1000
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <Input
-                        id="reference-resources"
-                        placeholder=""
-                        value={referenceResources}
-                        onFocus={() => setReferenceResourcesExpanded(true)}
-                        readOnly
-                        className="cursor-text pr-16"
-                      />
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-                        {referenceResources.length}/1000
-                      </div>
-                    </div>
-                  )}
+                  <ExpandableTextarea
+                    value={referenceResources}
+                    onChange={setReferenceResources}
+                    placeholder=""
+                    maxLength={1000}
+                    rows={4}
+                  />
                 </div>
 
                 {/* 课程介绍和课程表放在最后一行 */}
                 <div className="space-y-2 col-span-2">
                   <Label htmlFor="introduction">课程介绍</Label>
-                  <div className="relative">
-                    <textarea
-                      id="introduction"
-                      placeholder="输入课程介绍"
-                      value={introduction}
-                      onChange={(e) => setIntroduction(e.target.value.slice(0, 1024))}
-                      maxLength={1024}
-                      className="w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
-                      rows={10}
-                    />
-                    <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
-                      {introduction.length}/1024
-                    </div>
-                  </div>
+                  <ExpandableTextarea
+                    value={introduction}
+                    onChange={setIntroduction}
+                    placeholder="输入课程介绍"
+                    maxLength={1024}
+                    rows={10}
+                  />
                 </div>
 
                 {/* 授课时间课程表 */}
@@ -1278,260 +1208,85 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
                 {/* 1. 关于课堂出席政策及要求 */}
                 <div className="space-y-2">
                   <Label htmlFor="attendance-policy">关于课堂出席政策及要求</Label>
-                  {attendancePolicyExpanded ? (
-                    <div className="relative">
-                      <textarea
-                        id="attendance-policy"
-                        placeholder=""
-                        value={attendancePolicy}
-                        onChange={(e) => setAttendancePolicy(e.target.value.slice(0, 500))}
-                        onBlur={() => setAttendancePolicyExpanded(false)}
-                        maxLength={500}
-                        className="w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
-                        rows={4}
-                        autoFocus
-                      />
-                      <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
-                        {attendancePolicy.length}/500
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <Input
-                        id="attendance-policy"
-                        placeholder=""
-                        value={attendancePolicy}
-                        onFocus={() => setAttendancePolicyExpanded(true)}
-                        readOnly
-                        className="cursor-text pr-12"
-                      />
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-                        {attendancePolicy.length}/500
-                      </div>
-                    </div>
-                  )}
+                  <ExpandableTextarea
+                    value={attendancePolicy}
+                    onChange={setAttendancePolicy}
+                    placeholder=""
+                    maxLength={500}
+                    rows={4}
+                  />
                 </div>
 
                 {/* 2. 关于作业提交的政策及要求 */}
                 <div className="space-y-2">
                   <Label htmlFor="assignment-policy">关于作业提交的政策及要求</Label>
-                  {assignmentPolicyExpanded ? (
-                    <div className="relative">
-                      <textarea
-                        id="assignment-policy"
-                        placeholder=""
-                        value={assignmentPolicy}
-                        onChange={(e) => setAssignmentPolicy(e.target.value.slice(0, 500))}
-                        onBlur={() => setAssignmentPolicyExpanded(false)}
-                        maxLength={500}
-                        className="w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
-                        rows={4}
-                        autoFocus
-                      />
-                      <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
-                        {assignmentPolicy.length}/500
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <Input
-                        id="assignment-policy"
-                        placeholder=""
-                        value={assignmentPolicy}
-                        onFocus={() => setAssignmentPolicyExpanded(true)}
-                        readOnly
-                        className="cursor-text pr-12"
-                      />
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-                        {assignmentPolicy.length}/500
-                      </div>
-                    </div>
-                  )}
+                  <ExpandableTextarea
+                    value={assignmentPolicy}
+                    onChange={setAssignmentPolicy}
+                    placeholder=""
+                    maxLength={500}
+                    rows={4}
+                  />
                 </div>
 
                 {/* 3. 关于上课行为规范、诚信学习要求 */}
                 <div className="space-y-2">
                   <Label htmlFor="conduct-requirements">关于上课行为规范、诚信学习要求</Label>
-                  {conductRequirementsExpanded ? (
-                    <div className="relative">
-                      <textarea
-                        id="conduct-requirements"
-                        placeholder=""
-                        value={conductRequirements}
-                        onChange={(e) => setConductRequirements(e.target.value.slice(0, 500))}
-                        onBlur={() => setConductRequirementsExpanded(false)}
-                        maxLength={500}
-                        className="w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
-                        rows={4}
-                        autoFocus
-                      />
-                      <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
-                        {conductRequirements.length}/500
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <Input
-                        id="conduct-requirements"
-                        placeholder=""
-                        value={conductRequirements}
-                        onFocus={() => setConductRequirementsExpanded(true)}
-                        readOnly
-                        className="cursor-text pr-12"
-                      />
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-                        {conductRequirements.length}/500
-                      </div>
-                    </div>
-                  )}
+                  <ExpandableTextarea
+                    value={conductRequirements}
+                    onChange={setConductRequirements}
+                    placeholder=""
+                    maxLength={500}
+                    rows={4}
+                  />
                 </div>
 
                 {/* 4. 关于参与实践环节的要求 */}
                 <div className="space-y-2">
                   <Label htmlFor="practice-requirements">关于参与实践环节的要求</Label>
-                  {practiceRequirementsExpanded ? (
-                    <div className="relative">
-                      <textarea
-                        id="practice-requirements"
-                        placeholder=""
-                        value={practiceRequirements}
-                        onChange={(e) => setPracticeRequirements(e.target.value.slice(0, 500))}
-                        onBlur={() => setPracticeRequirementsExpanded(false)}
-                        maxLength={500}
-                        className="w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
-                        rows={4}
-                        autoFocus
-                      />
-                      <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
-                        {practiceRequirements.length}/500
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <Input
-                        id="practice-requirements"
-                        placeholder=""
-                        value={practiceRequirements}
-                        onFocus={() => setPracticeRequirementsExpanded(true)}
-                        readOnly
-                        className="cursor-text pr-12"
-                      />
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-                        {practiceRequirements.length}/500
-                      </div>
-                    </div>
-                  )}
+                  <ExpandableTextarea
+                    value={practiceRequirements}
+                    onChange={setPracticeRequirements}
+                    placeholder=""
+                    maxLength={500}
+                    rows={4}
+                  />
                 </div>
 
                 {/* 5. 关于团队学习、分组讨论的要求 */}
                 <div className="space-y-2">
                   <Label htmlFor="teamwork-requirements">关于团队学习、分组讨论的要求</Label>
-                  {teamworkRequirementsExpanded ? (
-                    <div className="relative">
-                      <textarea
-                        id="teamwork-requirements"
-                        placeholder=""
-                        value={teamworkRequirements}
-                        onChange={(e) => setTeamworkRequirements(e.target.value.slice(0, 500))}
-                        onBlur={() => setTeamworkRequirementsExpanded(false)}
-                        maxLength={500}
-                        className="w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
-                        rows={4}
-                        autoFocus
-                      />
-                      <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
-                        {teamworkRequirements.length}/500
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <Input
-                        id="teamwork-requirements"
-                        placeholder=""
-                        value={teamworkRequirements}
-                        onFocus={() => setTeamworkRequirementsExpanded(true)}
-                        readOnly
-                        className="cursor-text pr-12"
-                      />
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-                        {teamworkRequirements.length}/500
-                      </div>
-                    </div>
-                  )}
+                  <ExpandableTextarea
+                    value={teamworkRequirements}
+                    onChange={setTeamworkRequirements}
+                    placeholder=""
+                    maxLength={500}
+                    rows={4}
+                  />
                 </div>
 
                 {/* 6. 关于专利、论文等加分项的要求 */}
                 <div className="space-y-2">
                   <Label htmlFor="bonus-requirements">关于专利、论文等加分项的要求</Label>
-                  {bonusRequirementsExpanded ? (
-                    <div className="relative">
-                      <textarea
-                        id="bonus-requirements"
-                        placeholder=""
-                        value={bonusRequirements}
-                        onChange={(e) => setBonusRequirements(e.target.value.slice(0, 500))}
-                        onBlur={() => setBonusRequirementsExpanded(false)}
-                        maxLength={500}
-                        className="w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
-                        rows={4}
-                        autoFocus
-                      />
-                      <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
-                        {bonusRequirements.length}/500
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <Input
-                        id="bonus-requirements"
-                        placeholder=""
-                        value={bonusRequirements}
-                        onFocus={() => setBonusRequirementsExpanded(true)}
-                        readOnly
-                        className="cursor-text pr-12"
-                      />
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-                        {bonusRequirements.length}/500
-                      </div>
-                    </div>
-                  )}
+                  <ExpandableTextarea
+                    value={bonusRequirements}
+                    onChange={setBonusRequirements}
+                    placeholder=""
+                    maxLength={500}
+                    rows={4}
+                  />
                 </div>
 
                 {/* 7. 其他学习建议 */}
                 <div className="space-y-2">
                   <Label htmlFor="other-suggestions">其他学习建议</Label>
-                  {otherSuggestionsExpanded ? (
-                    <div className="relative">
-                      <textarea
-                        id="other-suggestions"
-                        placeholder=""
-                        value={otherSuggestions}
-                        onChange={(e) => setOtherSuggestions(e.target.value.slice(0, 500))}
-                        onBlur={() => setOtherSuggestionsExpanded(false)}
-                        maxLength={500}
-                        className="w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
-                        rows={4}
-                        autoFocus
-                      />
-                      <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
-                        {otherSuggestions.length}/500
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <Input
-                        id="other-suggestions"
-                        placeholder=""
-                        value={otherSuggestions}
-                        onFocus={() => setOtherSuggestionsExpanded(true)}
-                        readOnly
-                        className="cursor-text pr-12"
-                      />
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-                        {otherSuggestions.length}/500
-                      </div>
-                    </div>
-                  )}
+                  <ExpandableTextarea
+                    value={otherSuggestions}
+                    onChange={setOtherSuggestions}
+                    placeholder=""
+                    maxLength={500}
+                    rows={4}
+                  />
                 </div>
               </div>
             </div>
@@ -1599,75 +1354,25 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
                 {/* 2. 具体形式 */}
                 <div className="space-y-2">
                   <Label htmlFor="assessment-form">具体形式</Label>
-                  {assessmentFormExpanded ? (
-                    <div className="relative">
-                      <textarea
-                        id="assessment-form"
-                        placeholder=""
-                        value={assessmentForm}
-                        onChange={(e) => setAssessmentForm(e.target.value.slice(0, 500))}
-                        onBlur={() => setAssessmentFormExpanded(false)}
-                        maxLength={500}
-                        className="w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
-                        rows={4}
-                        autoFocus
-                      />
-                      <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
-                        {assessmentForm.length}/500
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <Input
-                        id="assessment-form"
-                        placeholder=""
-                        value={assessmentForm}
-                        onFocus={() => setAssessmentFormExpanded(true)}
-                        readOnly
-                        className="cursor-text pr-12"
-                      />
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-                        {assessmentForm.length}/500
-                      </div>
-                    </div>
-                  )}
+                  <ExpandableTextarea
+                    value={assessmentForm}
+                    onChange={setAssessmentForm}
+                    placeholder=""
+                    maxLength={500}
+                    rows={4}
+                  />
                 </div>
 
                 {/* 6. 考核评价说明 */}
                 <div className="space-y-2">
                   <Label htmlFor="assessment-description">考核评价说明</Label>
-                  {assessmentDescriptionExpanded ? (
-                    <div className="relative">
-                      <textarea
-                        id="assessment-description"
-                        placeholder=""
-                        value={assessmentDescription}
-                        onChange={(e) => setAssessmentDescription(e.target.value.slice(0, 1000))}
-                        onBlur={() => setAssessmentDescriptionExpanded(false)}
-                        maxLength={1000}
-                        className="w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none"
-                        rows={4}
-                        autoFocus
-                      />
-                      <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
-                        {assessmentDescription.length}/1000
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <Input
-                        id="assessment-description"
-                        placeholder=""
-                        value={assessmentDescription}
-                        onFocus={() => setAssessmentDescriptionExpanded(true)}
-                        readOnly
-                        className="cursor-text pr-12"
-                      />
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-                        {assessmentDescription.length}/1000
-                      </div>
-                    </div>
-                  )}
+                  <ExpandableTextarea
+                    value={assessmentDescription}
+                    onChange={setAssessmentDescription}
+                    placeholder=""
+                    maxLength={1000}
+                    rows={4}
+                  />
                 </div>
               </div>
 

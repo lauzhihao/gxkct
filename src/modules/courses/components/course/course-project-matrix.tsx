@@ -10,6 +10,7 @@ import { cn } from "@/shared/utils/utils"
 import type { TreeNode } from "@/types"
 import { SupportLabel } from "@/shared/components/support-label"
 import { projectMatrixApi } from "@/modules/courses/api/projectMatrixApi"
+import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 
 interface CourseProjectMatrixProps {
   node: TreeNode
@@ -746,18 +747,19 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
                       </div>
                       <div className="flex-1 space-y-1">
                         {editingTaskId === String(goal.id) ? (
-                          <div className="space-y-2">
-                            <input
-                              type="text"
-                              value={newTaskObjective}
-                              onChange={(e) => setNewTaskObjective(e.target.value)}
-                              placeholder="输入任务目标"
-                              className="w-full px-2 py-1 text-sm border border-border rounded bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
-                              autoFocus
-                            />
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
+                          <div className="flex items-start gap-2">
+                            <div className="flex-1">
+                              <ExpandableTextarea
+                                value={newTaskObjective}
+                                onChange={setNewTaskObjective}
+                                placeholder="输入任务目标"
+                                maxLength={500}
+                                rows={4}
+                                autoFocus
+                              />
+                            </div>
+                            <div className="flex gap-1 flex-shrink-0 pt-1">
+                              <button
                                 onClick={() => {
                                   if (!newTaskObjective.trim()) return
                                   const updatedProjectMatrixData = {
@@ -788,23 +790,21 @@ export function CourseProjectMatrix({ node, onUpdate }: CourseProjectMatrixProps
                                   setEditingTaskId(null)
                                   setNewTaskObjective("")
                                 }}
-                                className="gap-1"
+                                className="p-1.5 rounded hover:bg-green-100 transition-colors"
+                                title="保存"
                               >
-                                <Check className="w-3 h-3" />
-                                保存
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
+                                <Check className="w-4 h-4 text-green-600" />
+                              </button>
+                              <button
                                 onClick={() => {
                                   setEditingTaskId(null)
                                   setNewTaskObjective("")
                                 }}
-                                className="gap-1"
+                                className="p-1.5 rounded hover:bg-red-100 transition-colors"
+                                title="取消"
                               >
-                                <X className="w-3 h-3" />
-                                取消
-                              </Button>
+                                <X className="w-4 h-4 text-red-600" />
+                              </button>
                             </div>
                           </div>
                         ) : (

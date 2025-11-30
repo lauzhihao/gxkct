@@ -24,6 +24,7 @@ import {
 import { Card } from "@/shared/components/ui/card"
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover"
 import { FileUpload } from "@/shared/components/ui/file-upload"
+import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 import { useToast } from "@/shared/hooks/use-toast"
 import { CourseSelector } from "@/modules/majors/components/shared/course-selector"
 import { api } from "@/lib/api"
@@ -1311,58 +1312,17 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
                   <div className="flex-1 space-y-3">
                     <div className="flex items-start gap-2">
                       <div className="relative flex-1">
-                        {focusedRequirementId === requirement.id && requirement.content.length > 50 ? (
-                          <div className="relative">
-                            <Textarea
-                              ref={reqIndex === graduationRequirements.length - 1 ? lastRequirementRef : null}
-                              placeholder="输入毕业要求内容（最多200字）"
-                              value={requirement.content}
-                              onChange={(e) => updateGraduationRequirement(requirement.id, e.target.value.slice(0, 200))}
-                              onFocus={() => setFocusedRequirementId(requirement.id)}
-                              onBlur={() => setFocusedRequirementId(null)}
-                              maxLength={200}
-                              className="pr-20 pb-8 resize-none min-h-[80px]"
-                              autoFocus
-                            />
-                            <div className="absolute right-2 bottom-2 flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">{requirement.content.length}/200</span>
-                              {requirement.content && (
-                                <button
-                                  type="button"
-                                  onClick={() => updateGraduationRequirement(requirement.id, "")}
-                                  className="text-muted-foreground hover:text-foreground"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="relative">
-                            <Input
-                              ref={reqIndex === graduationRequirements.length - 1 ? lastRequirementRef : null}
-                              placeholder="输入毕业要求内容（最多200字）"
-                              value={requirement.content}
-                              onChange={(e) => updateGraduationRequirement(requirement.id, e.target.value.slice(0, 200))}
-                              onFocus={() => setFocusedRequirementId(requirement.id)}
-                              onBlur={() => setFocusedRequirementId(null)}
-                              maxLength={200}
-                              className="pr-20"
-                            />
-                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">{requirement.content.length}/200</span>
-                              {requirement.content && (
-                                <button
-                                  type="button"
-                                  onClick={() => updateGraduationRequirement(requirement.id, "")}
-                                  className="text-muted-foreground hover:text-foreground"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        )}
+                        <ExpandableTextarea
+                          ref={reqIndex === graduationRequirements.length - 1 ? lastRequirementRef : null}
+                          value={requirement.content}
+                          onChange={(value) => updateGraduationRequirement(requirement.id, value)}
+                          onFocus={() => setFocusedRequirementId(requirement.id)}
+                          onBlur={() => setFocusedRequirementId(null)}
+                          placeholder="输入毕业要求内容（最多200字）"
+                          maxLength={200}
+                          rows={4}
+                          expandThreshold={50}
+                        />
                       </div>
                       {graduationRequirements.length > 1 && (
                         <Button
@@ -1400,70 +1360,23 @@ export function AddMajorForm({ departmentId, onCancel, onSubmit, initialData, is
                                 {reqIndex + 1}.{indIndex + 1}
                               </span>
                               <div className="relative flex-1">
-                                {focusedIndicatorKey === `${requirement.id}-${indIndex}` && indicator.length > 50 ? (
-                                  <div className="relative">
-                                    <Textarea
-                                      ref={
-                                        indIndex === requirement.indicators.length - 1
-                                          ? (el) => {
-                                              lastIndicatorRefs.current[requirement.id] = el
-                                            }
-                                          : null
-                                      }
-                                      placeholder="输入指标点内容"
-                                      value={indicator}
-                                      onChange={(e) => updateIndicator(requirement.id, indIndex, e.target.value.slice(0, 200))}
-                                      onFocus={() => setFocusedIndicatorKey(`${requirement.id}-${indIndex}`)}
-                                      onBlur={() => setFocusedIndicatorKey(null)}
-                                      maxLength={200}
-                                      className="pr-20 pb-8 resize-none min-h-[80px]"
-                                      autoFocus
-                                    />
-                                    <div className="absolute right-2 bottom-2 flex items-center gap-2">
-                                      <span className="text-xs text-muted-foreground">{indicator.length}/200</span>
-                                      {indicator && (
-                                        <button
-                                          type="button"
-                                          onClick={() => updateIndicator(requirement.id, indIndex, "")}
-                                          className="text-muted-foreground hover:text-foreground"
-                                        >
-                                          <X className="w-3 h-3" />
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="relative">
-                                    <Input
-                                      ref={
-                                        indIndex === requirement.indicators.length - 1
-                                          ? (el) => {
-                                              lastIndicatorRefs.current[requirement.id] = el
-                                            }
-                                          : null
-                                      }
-                                      placeholder="输入指标点内容"
-                                      value={indicator}
-                                      onChange={(e) => updateIndicator(requirement.id, indIndex, e.target.value.slice(0, 200))}
-                                      onFocus={() => setFocusedIndicatorKey(`${requirement.id}-${indIndex}`)}
-                                      onBlur={() => setFocusedIndicatorKey(null)}
-                                      maxLength={200}
-                                      className="h-9 text-sm pr-20"
-                                    />
-                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                                      <span className="text-xs text-muted-foreground">{indicator.length}/200</span>
-                                      {indicator && (
-                                        <button
-                                          type="button"
-                                          onClick={() => updateIndicator(requirement.id, indIndex, "")}
-                                          className="text-muted-foreground hover:text-foreground"
-                                        >
-                                          <X className="w-3 h-3" />
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
+                                <ExpandableTextarea
+                                  ref={
+                                    indIndex === requirement.indicators.length - 1
+                                      ? (el) => {
+                                          lastIndicatorRefs.current[requirement.id] = el
+                                        }
+                                      : null
+                                  }
+                                  value={indicator}
+                                  onChange={(value) => updateIndicator(requirement.id, indIndex, value)}
+                                  onFocus={() => setFocusedIndicatorKey(`${requirement.id}-${indIndex}`)}
+                                  onBlur={() => setFocusedIndicatorKey(null)}
+                                  placeholder="输入指标点内容"
+                                  maxLength={200}
+                                  rows={4}
+                                  expandThreshold={50}
+                                />
                               </div>
                               <Button
                                 size="sm"

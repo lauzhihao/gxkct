@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/shared/components/ui/accordion"
 import { Pencil, X, Check, Loader2, Plus, BookMarked, GripVertical, Search, Settings, Trash2, Star, Flag, ArrowLeft, XCircle } from "lucide-react"
 import { FileUpload } from "@/shared/components/ui/file-upload"
+import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 import { cn } from "@/shared/utils/utils"
 import type { TreeNode } from "@/types"
 import type { CourseGoal } from "@/lib/api/course-goals-api"
@@ -34,8 +35,7 @@ export function TeachingObjectivesEditor({
 }: TeachingObjectivesEditorProps) {
   // 教学目标编辑状态
   const [editingGoalObjectives, setEditingGoalObjectives] = useState<Record<string, any[]>>({})
-  const [goalObjectiveInputs, setGoalObjectiveInputs] = useState<Record<string, { inputValue: string; isMultiline: boolean; isEditing: boolean }>>({})
-  const [goalObjectiveEditStates, setGoalObjectiveEditStates] = useState<Record<string, { isMultiline: boolean }>>({})
+  const [goalObjectiveInputs, setGoalObjectiveInputs] = useState<Record<string, { inputValue: string; isEditing: boolean }>>({})
   const [isSavingTeachingObjectives, setIsSavingTeachingObjectives] = useState(false)
   const [isAutoSavingTeachingObjectives, setIsAutoSavingTeachingObjectives] = useState(false)
   const [teachingObjectivesFilterKeyword, setTeachingObjectivesFilterKeyword] = useState("")
@@ -114,7 +114,7 @@ export function TeachingObjectivesEditor({
   const startAddingObjectiveForGoal = (goalId: string) => {
     setGoalObjectiveInputs((prev) => ({
       ...prev,
-      [goalId]: { inputValue: "", isMultiline: false, isEditing: true },
+      [goalId]: { inputValue: "", isEditing: true },
     }))
   }
 
@@ -125,19 +125,12 @@ export function TeachingObjectivesEditor({
     }))
   }
 
-  const toggleGoalObjectiveMultiline = (goalId: string, isMultiline: boolean) => {
-    setGoalObjectiveInputs((prev) => ({
-      ...prev,
-      [goalId]: { ...prev[goalId], isMultiline },
-    }))
-  }
-
   const finishAddingObjectiveForGoal = (goalId: string) => {
     const input = goalObjectiveInputs[goalId]
     if (!input || !input.inputValue.trim()) {
       setGoalObjectiveInputs((prev) => ({
         ...prev,
-        [goalId]: { inputValue: "", isMultiline: false, isEditing: false },
+        [goalId]: { inputValue: "", isEditing: false },
       }))
       return
     }
@@ -155,7 +148,7 @@ export function TeachingObjectivesEditor({
 
     setGoalObjectiveInputs((prev) => ({
       ...prev,
-      [goalId]: { inputValue: "", isMultiline: false, isEditing: false },
+      [goalId]: { inputValue: "", isEditing: false },
     }))
   }
 
@@ -178,13 +171,7 @@ export function TeachingObjectivesEditor({
     })
   }
 
-  const toggleGoalObjectiveEditMode = (goalId: string, objectiveId: string, isMultiline: boolean) => {
-    const key = `${goalId}-${objectiveId}`
-    setGoalObjectiveEditStates((prev) => ({
-      ...prev,
-      [key]: { isMultiline },
-    }))
-  }
+
 
   const handleAutoSaveTeachingObjectives = async () => {
     if (isAutoSavingTeachingObjectives || !courseGoals || courseGoals.length === 0) {
@@ -434,37 +421,16 @@ export function TeachingObjectivesEditor({
                             <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[0.7rem] font-medium text-primary self-center">
                               {String.fromCharCode(97)}
                             </div>
-                            {goalInput.isMultiline ? (
-                              <textarea
-                                autoFocus
-                                placeholder="输入教学目标内容"
-                                value={goalInput.inputValue}
-                                onChange={(e) => updateGoalObjectiveInput(goal.id, e.target.value)}
-                                onBlur={() => finishAddingObjectiveForGoal(goal.id)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter" && e.ctrlKey) {
-                                    finishAddingObjectiveForGoal(goal.id)
-                                  }
-                                }}
-                                className="flex-1 px-3 py-2 text-lg resize-none focus:outline-none bg-transparent focus:ring-0 min-h-[80px]"
-                              />
-                            ) : (
-                              <input
-                                autoFocus
-                                type="text"
-                                placeholder="输入教学目标内容"
-                                value={goalInput.inputValue}
-                                onChange={(e) => updateGoalObjectiveInput(goal.id, e.target.value)}
-                                onFocus={() => toggleGoalObjectiveMultiline(goal.id, true)}
-                                onBlur={() => finishAddingObjectiveForGoal(goal.id)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    finishAddingObjectiveForGoal(goal.id)
-                                  }
-                                }}
-                                className="flex-1 px-3 py-2 text-lg focus:outline-none focus:ring-0 bg-transparent border-b border-transparent hover:border-border focus:border-primary"
-                              />
-                            )}
+                            <ExpandableTextarea
+                              value={goalInput.inputValue}
+                              onChange={(value) => updateGoalObjectiveInput(goal.id, value)}
+                              onBlur={() => finishAddingObjectiveForGoal(goal.id)}
+                              placeholder="输入教学目标内容"
+                              maxLength={500}
+                              rows={4}
+                              className="flex-1 px-3 py-2 text-lg"
+                              autoFocus
+                            />
                           </div>
                         )}
 
@@ -472,33 +438,19 @@ export function TeachingObjectivesEditor({
                         {goalObjectivesList.length > 0 ? (
                           <div className="space-y-2">
                             {goalObjectivesList.map((objective, objIdx) => {
-                              const editKey = `${goal.id}-${objective.id}`
-                              const editState = goalObjectiveEditStates[editKey]
-                              const isMultiline = editState?.isMultiline
-
                               return (
                                 <div key={objective.id} className="flex gap-2 p-2 bg-card/20 rounded-md border border-border mr-2">
                                   <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[0.7rem] font-medium text-primary self-center">
                                     {String.fromCharCode(97 + objIdx)}
                                   </div>
-                                  {isMultiline ? (
-                                    <textarea
-                                      placeholder="输入教学目标内容"
-                                      value={objective.description || ""}
-                                      onChange={(e) => updateTeachingObjective(objective.id, e.target.value.slice(0, 500))}
-                                      onBlur={() => toggleGoalObjectiveEditMode(goal.id, objective.id, false)}
-                                      className="flex-1 px-3 py-2 text-lg resize-none focus:outline-none bg-transparent focus:ring-0 min-h-[80px]"
-                                    />
-                                  ) : (
-                                    <input
-                                      type="text"
-                                      placeholder="输入教学目标内容"
-                                      value={objective.description || ""}
-                                      onChange={(e) => updateTeachingObjective(objective.id, e.target.value.slice(0, 500))}
-                                      onFocus={() => toggleGoalObjectiveEditMode(goal.id, objective.id, true)}
-                                      className="flex-1 text-lg text-foreground bg-transparent border-b border-transparent hover:border-border focus:border-primary focus:outline-none px-1 py-0.5"
-                                    />
-                                  )}
+                                  <ExpandableTextarea
+                                    value={objective.description || ""}
+                                    onChange={(value) => updateTeachingObjective(objective.id, value)}
+                                    placeholder="输入教学目标内容"
+                                    maxLength={500}
+                                    rows={4}
+                                    className="flex-1 px-3 py-2 text-lg"
+                                  />
                                   <Button
                                     size="sm"
                                     variant="ghost"
