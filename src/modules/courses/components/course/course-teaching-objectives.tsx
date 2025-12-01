@@ -5,6 +5,7 @@ import { Search, ChevronDown } from "lucide-react"
 import { AccordionItem, AccordionTrigger, AccordionContent } from "@/shared/components/ui/accordion"
 import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
+import { Divider } from "@/shared/components/design-system"
 
 interface CourseTeachingObjectivesProps {
   objectives: any[]
@@ -70,7 +71,7 @@ export function CourseTeachingObjectives({ objectives }: CourseTeachingObjective
         </div>
       </AccordionTrigger>
       <AccordionContent className="px-5 pb-5">
-        <div className="border-t border-dashed border-border mb-4" />
+        <Divider spacing="none" className="mb-4" />
         <div className="mb-4">
           <div className="relative w-[30%]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

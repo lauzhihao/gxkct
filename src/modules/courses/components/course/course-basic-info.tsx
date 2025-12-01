@@ -3,6 +3,7 @@ import { useState, useEffect } from "react"
 import { Calendar, BookOpen, FileText, Clock, Tag } from "lucide-react"
 import { formatDate } from "@/shared/utils/date-utils"
 import { getCourseType, createCourseNameMapper } from "@/shared/utils/data-transform"
+import { SectionCard, SectionHeader, Divider } from "@/shared/components/design-system"
 
 interface CourseBasicInfoProps {
   name: string
@@ -32,12 +33,9 @@ export function CourseBasicInfo({ name, courseDetail, courseNameData, createTime
   }, [])
 
   return (
-    <div className="rounded-lg border border-border bg-secondary/30 backdrop-blur-sm p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-2 h-2 rounded-sm bg-primary" />
-        <h3 className="text-base font-semibold text-foreground">基本信息</h3>
-      </div>
-      <div className="border-t border-dashed border-border mb-4" />
+    <SectionCard>
+      <SectionHeader title="基本信息" />
+      <Divider spacing="none" className="mb-4" />
       <div className="grid grid-cols-3 gap-6">
         {/* 课程名称 */}
         <div className="flex flex-row items-center gap-3">
@@ -123,7 +121,8 @@ export function CourseBasicInfo({ name, courseDetail, courseNameData, createTime
       </div>
 
       {/* 新增字段显示 */}
-      <div className="mt-6 pt-6 border-t border-dashed border-border">
+      <Divider spacing="lg" className="mt-6" />
+      <div className="pt-2">
         <div className="grid grid-cols-3 gap-6">
           {/* 授课班级 */}
           {courseDetail?.teachingClass && (
@@ -239,11 +238,9 @@ export function CourseBasicInfo({ name, courseDetail, courseNameData, createTime
 
       {/* 课程简介 */}
       {courseDetail?.introduction && (
-        <div className="mt-6 pt-6 border-t border-dashed border-border">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-2 h-2 rounded-sm bg-primary" />
-            <h4 className="text-base font-semibold text-foreground">课程简介</h4>
-          </div>
+        <div className="mt-6">
+          <Divider spacing="lg" />
+          <SectionHeader title="课程简介" className="mb-3" />
           <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
             {courseDetail.introduction}
           </div>
@@ -252,11 +249,9 @@ export function CourseBasicInfo({ name, courseDetail, courseNameData, createTime
 
       {/* 主要教材 */}
       {courseDetail?.mainTextbook && (
-        <div className="mt-6 pt-6 border-t border-dashed border-border">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-2 h-2 rounded-sm bg-primary" />
-            <h4 className="text-base font-semibold text-foreground">课程使用的主要教材</h4>
-          </div>
+        <div className="mt-6">
+          <Divider spacing="lg" />
+          <SectionHeader title="课程使用的主要教材" className="mb-3" />
           <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
             {courseDetail.mainTextbook}
           </div>
@@ -265,11 +260,9 @@ export function CourseBasicInfo({ name, courseDetail, courseNameData, createTime
 
       {/* 参考文献 */}
       {courseDetail?.referenceResources && (
-        <div className="mt-6 pt-6 border-t border-dashed border-border">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-2 h-2 rounded-sm bg-primary" />
-            <h4 className="text-base font-semibold text-foreground">建议阅读材料和参考文献</h4>
-          </div>
+        <div className="mt-6">
+          <Divider spacing="lg" />
+          <SectionHeader title="建议阅读材料和参考文献" className="mb-3" />
           <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
             {courseDetail.referenceResources}
           </div>
@@ -280,11 +273,9 @@ export function CourseBasicInfo({ name, courseDetail, courseNameData, createTime
       {(courseDetail?.attendancePolicy || courseDetail?.assignmentPolicy || courseDetail?.conductRequirements ||
         courseDetail?.practiceRequirements || courseDetail?.teamworkRequirements || courseDetail?.bonusRequirements ||
         courseDetail?.otherSuggestions) && (
-        <div className="mt-6 pt-6 border-t border-dashed border-border">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-2 h-2 rounded-sm bg-primary" />
-            <h4 className="text-base font-semibold text-foreground">课程要求</h4>
-          </div>
+        <div className="mt-6">
+          <Divider spacing="lg" />
+          <SectionHeader title="课程要求" className="mb-3" />
           <div className="grid grid-cols-2 gap-6">
             {/* 关于课堂出席政策及要求 */}
             {courseDetail?.attendancePolicy && (
@@ -362,11 +353,9 @@ export function CourseBasicInfo({ name, courseDetail, courseNameData, createTime
       {/* 考核评价 */}
       {(courseDetail?.assessmentMethod || courseDetail?.assessmentForm || courseDetail?.scoreType ||
         courseDetail?.scoreTable || courseDetail?.assessmentDescription) && (
-        <div className="mt-6 pt-6 border-t border-dashed border-border">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-2 h-2 rounded-sm bg-primary" />
-            <h4 className="text-base font-semibold text-foreground">考核评价</h4>
-          </div>
+        <div className="mt-6">
+          <Divider spacing="lg" />
+          <SectionHeader title="考核评价" className="mb-3" />
           <div className="space-y-4">
             {/* 考核方式 */}
             {courseDetail?.assessmentMethod && (
@@ -446,6 +435,6 @@ export function CourseBasicInfo({ name, courseDetail, courseNameData, createTime
           </div>
         </div>
       )}
-    </div>
+    </SectionCard>
   )
 }

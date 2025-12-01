@@ -7,6 +7,7 @@ import { Badge } from "@/shared/components/ui/badge"
 import { CourseSupervisionDetail } from "./course-supervision-detail"
 import { courseTeachingTasksApi } from "@/modules/courses/api/courseTeachingTasksApi"
 import { formatDate } from "@/shared/utils/date-utils"
+import { SectionCard, Divider } from "@/shared/components/design-system"
 
 interface CourseSupervisionProps {
   courseId?: string
@@ -48,12 +49,12 @@ export function CourseSupervision({ courseId, collegeId }: CourseSupervisionProp
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-border bg-secondary/30 backdrop-blur-sm p-4">
+      <SectionCard padding="sm">
         <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
           <ClipboardCheck className="w-4 h-4" />
           教学督导任务
         </h3>
-        <div className="border-t border-dashed border-border mb-4" />
+        <Divider spacing="none" className="mb-4" />
 
         {isLoading ? (
           <div className="text-center py-8 text-muted-foreground">加载中...</div>
@@ -91,7 +92,7 @@ export function CourseSupervision({ courseId, collegeId }: CourseSupervisionProp
             ))}
           </div>
         )}
-      </div>
+      </SectionCard>
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Search } from "lucide-react"
 import { AccordionItem, AccordionTrigger, AccordionContent } from "@/shared/components/ui/accordion"
 import { Badge } from "@/shared/components/ui/badge"
+import { Divider } from "@/shared/components/design-system"
 
 interface CourseChaptersProps {
   chapters: any[]
@@ -52,7 +53,7 @@ export function CourseChapters({ chapters }: CourseChaptersProps) {
         </div>
       </AccordionTrigger>
       <AccordionContent className="px-5 pb-6">
-        <div className="border-t border-dashed border-border mb-4" />
+        <Divider spacing="none" className="mb-4" />
         <div className="mb-4">
           <div className="relative w-[30%]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
