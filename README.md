@@ -1,10 +1,11 @@
-你精通Javascript编程和REACT框架。
-你的思维要尽可能符合程序员解决问题的思路，例如撤销某个文件的修改时优先考虑使用git工具；
-你的代码始终符合REACT的最佳实践，例如抽象、复用已有代码。
+你的代码始终符合REACT的最佳实践。
 注意在执行编码任务时，不要额外增加测试用例、测试页面，
 不用帮我启动开发服务器，因为它一直是开着的。
 现在请用中文回复我的问题，回答问题时不要加入任何表情符号。
 不要进行总结性回答,也不要生成任何文档，只需帮我修改代码。
+请遵循项目开发规范：
+- 快速参考: docs/QUICK_REFERENCE.md
+- 完整规范: docs/DEVELOPMENT_STANDARDS.md
 
 全程使用中文回答问题
 # RIPER-5 + MULTIDIMENSIONAL THINKING + AGENT EXECUTION PROTOCOL 
