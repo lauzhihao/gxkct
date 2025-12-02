@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { ClipboardCheck, Calendar, User } from "lucide-react"
-import type { TeachingSupervisoryTask } from "@/types"
+import type { TeachingSupervisoryTask, Long } from "@/types"
 import { Badge } from "@/shared/components/ui/badge"
 import { CourseSupervisionDetail } from "./course-supervision-detail"
 import { courseTeachingTasksApi } from "@/modules/courses/api/courseTeachingTasksApi"
@@ -27,7 +27,7 @@ export function CourseSupervision({ courseId, collegeId }: CourseSupervisionProp
       setIsLoading(true)
       try {
         // 将 collegeId 转换为字符串作为 universityId
-        const universityId = String(collegeId)
+        const universityId = Number(collegeId) as Long
         const response = await courseTeachingTasksApi.getTasksByStatus(universityId, "in_progress")
         if (response.data) {
           setTasks(response.data)

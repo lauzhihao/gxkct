@@ -31,8 +31,7 @@ import { CourseSupervision } from "@/modules/courses/components/course/supervisi
 import { CourseThreeLevelMatrix } from "@/modules/courses/components/course/matrix/course-three-level-matrix"
 import { TeachingObjectivesEditor } from "@/modules/courses/components/shared/teaching-objectives-editor"
 
-export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelect, treeData, majorCourses, currentUser }: DetailPanelProps) {
-  const metadata = node.metadata || {}
+export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeData, currentUser }: DetailPanelProps) {
   const [isEditingCourse, setIsEditingCourse] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isEditingTeachingObjectives, setIsEditingTeachingObjectives] = useState(false)
@@ -53,15 +52,15 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
   useEffect(() => {
     setIsEditingCourse(false)
     setIsDeleteDialogOpen(false)
-  }, [node?.id])
+  }, [node?.nodeId])
 
   // 加载课程详情数据
   useEffect(() => {
     const loadCourseDetail = async () => {
       setIsLoading(true)
       try {
-        // 从metadata中获取真实的courseId
-        const courseId = (metadata as any)?.courseId
+        // 直接使用 node.id 作为课程ID（兼容属性，从 nodeId 解析出的数字ID）
+        const courseId = node?.id
         if (!courseId) {
           console.error("[CourseDetail] 无法获取课程ID")
           setIsLoading(false)
@@ -80,25 +79,27 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
       }
     }
 
-    if (node?.id && (metadata as any)?.courseId) {
+    if (node?.id) {
       loadCourseDetail()
     }
-  }, [node?.id, (metadata as any)?.courseId])
+  }, [node?.id])
 
   // 加载教学目标数据
   useEffect(() => {
     const loadCourseGoals = async () => {
       try {
-        const courseId = (metadata as any)?.courseId
-        const parentMajorId = (metadata as any)?.parentMajorId
+        // 直接使用 node.id 作为课程ID
+        const courseId = node?.id
+        // majorId 从已加载的课程详情中获取
+        const majorId = courseDetailData?.courseDetailData?.course?.majorId
 
-        if (!courseId || !parentMajorId) {
+        if (!courseId || !majorId) {
           console.warn("[CourseDetail] 无法获取课程ID或专业ID")
           return
         }
 
-        console.log(`[CourseDetail] 开始加载教学目标，courseId: ${courseId}, majorId: ${parentMajorId}`)
-        const response = await courseGoalsApi.getCourseGoals(String(courseId), String(parentMajorId))
+        console.log(`[CourseDetail] 开始加载教学目标，courseId: ${courseId}, majorId: ${majorId}`)
+        const response = await courseGoalsApi.getCourseGoals(String(courseId), String(majorId))
         if (response.data) {
           console.log(`[CourseDetail] 教学目标加载成功:`, response.data)
           setCourseGoals(response.data)
@@ -108,22 +109,16 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
       }
     }
 
-    if (isEditingTeachingObjectives) {
+    if (isEditingTeachingObjectives && courseDetailData) {
       loadCourseGoals()
     }
-  }, [isEditingTeachingObjectives, (metadata as any)?.courseId, (metadata as any)?.parentMajorId])
+  }, [isEditingTeachingObjectives, node?.id, courseDetailData])
 
-  if (!node || node.type !== "course") return null
-
-  const handleUpdateMetadata = (updates: Partial<typeof metadata>) => {
-    if (onUpdateNode) {
-      onUpdateNode(node.id, { metadata: { ...metadata, ...updates } })
-    }
-  }
+  if (!node || node.nodeType !== "course") return null
 
   const handleEditCourseFormSubmit = (courseData: any) => {
     if (onUpdateNode) {
-      onUpdateNode(node.id, courseData)
+      onUpdateNode(node.nodeId, courseData)
       setIsEditingCourse(false)
     }
   }
@@ -132,25 +127,18 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
     if (onDelete) {
       onDelete(nodeId)
     }
-    if (node?.id === nodeId && onNodeSelect) {
+    if (node?.nodeId === nodeId && onNodeSelect) {
       onNodeSelect(null)
     }
     setIsDeleteDialogOpen(false)
   }
 
-  // 获取课程所属的专业ID
+  // 获取课程所属的专业ID - 从已加载的课程详情中获取
   const getMajorId = (): string => {
-    if (majorCourses) {
-      for (const [majorId, courses] of majorCourses.entries()) {
-        if (courses.some(course => course.id === node.id)) {
-          return majorId
-        }
-      }
-    }
-    return node.id
+    return courseDetailData?.courseDetailData?.course?.majorId?.toString() || node.id || ""
   }
 
-  if (isEditingCourse && node?.type === "course") {
+  if (isEditingCourse && node?.nodeType === "course") {
     // 如果courseDetailData已加载，使用其中的majorId；否则等待加载
     if (isLoading) {
       return (
@@ -202,19 +190,17 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
   const createTime = courseDetailInfo.course.createTime
   const majorId = courseDetailInfo.course.majorId
 
-  // 从 metadata 中获取专业名称
-  const majorName = (metadata as any)?.parentMajorName || courseNameData.major || "未设置"
+  // 从课程详情中获取专业名称
+  const majorName = courseNameData.major || "未设置"
 
-  // 获取讲师数组
+  // 获取讲师数组 - 暂时返回未设置（后端暂无此字段）
   const getInstructors = () => {
-    const instructors = (metadata as any)?.instructors || []
-    return instructors.length > 0 ? instructors : ["未设置"]
+    return ["未设置"]
   }
 
-  // 判断讲师是否已设置（有有效的讲师名称）
+  // 判断讲师是否已设置
   const isInstructorSet = () => {
-    const instructors = (metadata as any)?.instructors || []
-    return instructors.length > 0
+    return false
   }
 
   // 如果正在编辑教学目标，显示TeachingObjectivesEditor
@@ -279,13 +265,13 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
             </div>
           </div>
           <div className="flex flex-wrap gap-2 mt-2">
-            {(metadata as any)?.parentDeptName && (
-              <Badge variant="outline">{(metadata as any).parentDeptName}</Badge>
+            {courseNameData.department?.name && (
+              <Badge variant="outline">{courseNameData.department.name}</Badge>
             )}
-            {(metadata as any)?.collegeName && (
+            {courseNameData.college?.name && (
               <Badge variant="outline">
                 <Calendar className="w-3 h-3 mr-1" />
-                {(metadata as any).collegeName}
+                {courseNameData.college.name}
               </Badge>
             )}
           </div>
@@ -365,15 +351,15 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
             </TabsContent>
 
             <TabsContent value="resources" className="space-y-4 mt-4 px-6">
-              <CourseResources nodeId={node.id} />
+              <CourseResources nodeId={node.id || node.nodeId} />
             </TabsContent>
 
             <TabsContent value="matrix" className="space-y-4 mt-2 px-6">
-              <CourseThreeLevelMatrix node={node} onUpdateNode={onUpdateNode} treeData={treeData} majorCourses={majorCourses} majorId={majorId} onEditTeachingObjectives={() => setIsEditingTeachingObjectives(true)} activeMatrixTab={activeMatrixTab} onActiveMatrixTabChange={setActiveMatrixTab} />
+              <CourseThreeLevelMatrix node={node} onUpdateNode={onUpdateNode} treeData={treeData} majorId={majorId} onEditTeachingObjectives={() => setIsEditingTeachingObjectives(true)} activeMatrixTab={activeMatrixTab} onActiveMatrixTabChange={setActiveMatrixTab} />
             </TabsContent>
 
             <TabsContent value="supervision" className="space-y-4 mt-4 px-6">
-              <CourseSupervision courseId={node.id} collegeId={collegeId} />
+              <CourseSupervision courseId={node.id || node.nodeId} collegeId={collegeId} />
             </TabsContent>
           </Tabs>
         </div>
@@ -384,11 +370,11 @@ export function CourseDetail({ node, onEdit, onDelete, onUpdateNode, onNodeSelec
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>确认删除</AlertDialogTitle>
-            <AlertDialogDescription>确定要删除课程"{node.name}"吗？此操作不可撤销。</AlertDialogDescription>
+            <AlertDialogDescription>确定要删除课程"{courseNameData.name}"吗？此操作不可撤销。</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={() => handleDeleteNode(node.id)} className="bg-red-500 hover:bg-red-600">
+            <AlertDialogAction onClick={() => handleDeleteNode(node.nodeId)} className="bg-red-500 hover:bg-red-600">
               确认删除
             </AlertDialogAction>
           </AlertDialogFooter>

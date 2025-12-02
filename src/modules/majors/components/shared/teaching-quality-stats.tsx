@@ -5,7 +5,7 @@ import { Card } from "@/shared/components/ui/card"
 import { Badge } from "@/shared/components/ui/badge"
 import { Users, TrendingUp } from "lucide-react"
 import { api } from "@/lib/api"
-import type { TeachingSupervisoryTask, TreeNode } from "@/types"
+import type { TeachingSupervisoryTask, TreeNode, Long } from "@/types"
 
 interface TeachingQualityStatsProps {
   node: TreeNode
@@ -59,7 +59,7 @@ export function TeachingQualityStats({ node, nodeType, treeData, departmentMajor
           setIsLoading(false)
           return
         }
-        const response = await api.teachingTasks.getTasks(String(collegeId))
+        const response = await api.teachingTasks.getTasks(Number(collegeId) as Long)
         if (response.data) {
           setTasks(response.data)
         }
@@ -201,4 +201,3 @@ export function TeachingQualityStats({ node, nodeType, treeData, departmentMajor
     </div>
   )
 }
-

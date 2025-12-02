@@ -12,14 +12,13 @@ interface CourseThreeLevelMatrixProps {
   node: TreeNode
   onUpdateNode?: (nodeId: string, updates: Partial<TreeNode>) => void
   treeData?: TreeNode
-  majorCourses?: Map<string, TreeNode[]>
   majorId?: string | number
   onEditTeachingObjectives?: () => void
   activeMatrixTab?: string
   onActiveMatrixTabChange?: (tab: string) => void
 }
 
-export function CourseThreeLevelMatrix({ node, onUpdateNode, treeData, majorCourses, majorId, onEditTeachingObjectives, activeMatrixTab = "majorMatrix", onActiveMatrixTabChange }: CourseThreeLevelMatrixProps) {
+export function CourseThreeLevelMatrix({ node, onUpdateNode, treeData, majorId, onEditTeachingObjectives, activeMatrixTab = "majorMatrix", onActiveMatrixTabChange }: CourseThreeLevelMatrixProps) {
   const metadata = node.metadata || {}
   const [majorNode, setMajorNode] = useState<TreeNode | undefined>(undefined)
 
@@ -32,7 +31,7 @@ export function CourseThreeLevelMatrix({ node, onUpdateNode, treeData, majorCour
 
     // 从 treeData 中查找第一个包含当前课程的专业
     const findMajorWithCourse = (root: TreeNode): TreeNode | undefined => {
-      if (root.type === "major" && root.children?.some(child => child.id === node.id)) {
+      if (root.nodeType === "major" && root.children?.some(child => child.nodeId === node.nodeId)) {
         return root
       }
       if (root.children) {
@@ -46,17 +45,17 @@ export function CourseThreeLevelMatrix({ node, onUpdateNode, treeData, majorCour
 
     const found = findMajorWithCourse(treeData)
     setMajorNode(found)
-  }, [node.id, treeData])
+  }, [node.nodeId, treeData])
 
   const handleUpdateMetadata = (updates: Partial<typeof metadata>) => {
     if (onUpdateNode) {
-      onUpdateNode(node.id, { metadata: { ...metadata, ...updates } })
+      onUpdateNode(node.nodeId, { metadata: { ...metadata, ...updates } })
     }
   }
 
   // 辅助函数：从树中查找节点
   const findNodeById = (root: TreeNode, targetId: string): TreeNode | undefined => {
-    if (root.id === targetId) return root
+    if (root.nodeId === targetId) return root
     if (root.children) {
       for (const child of root.children) {
         const found = findNodeById(child, targetId)

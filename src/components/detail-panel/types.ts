@@ -13,7 +13,6 @@ export interface DetailPanelProps {
   onEdit?: (node: TreeNode) => void
   onDelete?: (nodeId: string) => void
   departmentMajors?: Map<string, TreeNode[]>
-  majorCourses?: Map<string, TreeNode[]>
   currentUser?: { username: string; role: string } | null
   // 添加onToggleExpand回调用于动态加载数据
   onToggleExpand?: (nodeId: string) => void

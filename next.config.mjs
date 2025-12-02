@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // 关闭 React StrictMode，避免开发环境重复请求
+  reactStrictMode: false,
   output: process.env.NEXT_PUBLIC_ENVIRONMENT === 'preview' ? 'export' : undefined,
   typescript: {
     ignoreBuildErrors: true,

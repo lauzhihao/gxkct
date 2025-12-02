@@ -1,10 +1,19 @@
 "use client"
 
-import { ArrowLeft, Plus, Edit, Copy, Info, Archive } from "lucide-react"
+import { ArrowLeft, Plus, Edit, Copy, Info, Archive, Play, Square } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
-import { Card } from "@/shared/components/ui/card"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/shared/components/ui/alert-dialog"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/components/ui/tooltip"
-import type { TeachingSupervisoryTask, TeachingQualityStandard } from "@/types"
+import type { TeachingSupervisoryTask, TaskEvaluationCriteria } from "@/types"
 import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
 
@@ -12,40 +21,67 @@ interface TeachingTaskEvaluationProps {
   task: TeachingSupervisoryTask
   onBack: () => void
   onEdit?: () => void
-  onCopy?: (task: TeachingSupervisoryTask, standards: TeachingQualityStandard | null) => void
-  onArchive?: (taskId: string) => Promise<void>
+  onCopy?: (task: TeachingSupervisoryTask, criteria: TaskEvaluationCriteria | null) => void
+  onArchive?: (taskId: NonNullable<TeachingSupervisoryTask["id"]>) => Promise<void>
+  onStatusChange?: (
+    taskId: NonNullable<TeachingSupervisoryTask["id"]>,
+    status: "not_started" | "in_progress" | "completed",
+  ) => Promise<void>
 }
 
-export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy, onArchive }: TeachingTaskEvaluationProps) {
-  const [standards, setStandards] = useState<TeachingQualityStandard | null>(null)
+export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy, onArchive, onStatusChange }: TeachingTaskEvaluationProps) {
+  const [criteria, setCriteria] = useState<TaskEvaluationCriteria | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isArchiving, setIsArchiving] = useState(false)
+  const [statusUpdating, setStatusUpdating] = useState<"not_started" | "in_progress" | "completed" | null>(null)
+  const [isStopDialogOpen, setIsStopDialogOpen] = useState(false)
 
   useEffect(() => {
-    const loadStandards = async () => {
-      setIsLoading(true)
+    if (typeof task.id !== "number") {
+      setCriteria(null)
+      setIsLoading(false)
+      return
+    }
+
+    const existingCriteria = task.evaluationCriteria
+    if (existingCriteria && existingCriteria.items?.length) {
+      setCriteria(existingCriteria)
+      setIsLoading(false)
+      return
+    }
+
+    setIsLoading(true)
+    let cancelled = false
+    const loadCriteria = async () => {
       try {
-        const response = await api.teachingTasks.getTaskStandards(task.id)
-        if (response.data) {
-          setStandards(response.data)
-          console.log("加载评价标准成功:", response.data)
-        } else {
-          console.log("暂无评价标准数据")
-          setStandards(null)
+        const response = await api.teachingTasks.getTask(task.universityId, task.id, {
+          includeCriteria: true,
+        })
+        if (!cancelled) {
+          const fetched = response.data?.evaluationCriteria || null
+          setCriteria(fetched)
         }
       } catch (error) {
-        console.error("加载评价标准失败:", error)
-        setStandards(null)
+        if (!cancelled) {
+          console.error("加载评价标准失败:", error)
+          setCriteria(null)
+        }
       } finally {
-        setIsLoading(false)
+        if (!cancelled) {
+          setIsLoading(false)
+        }
       }
     }
 
-    loadStandards()
-  }, [task.id])
+    loadCriteria()
+
+    return () => {
+      cancelled = true
+    }
+  }, [task.id, task.universityId, task.evaluationCriteria])
 
   const handleArchive = async () => {
-    if (!onArchive) return
+    if (!onArchive || typeof task.id !== "number") return
     try {
       setIsArchiving(true)
       await onArchive(task.id)
@@ -54,6 +90,27 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy, onArchive
       setIsArchiving(false)
     }
   }
+
+  const handleStatusAction = async (status: "not_started" | "in_progress" | "completed") => {
+    if (!onStatusChange || typeof task.id !== "number") return
+    try {
+      setStatusUpdating(status)
+      await onStatusChange(task.id, status)
+    } finally {
+      setStatusUpdating(null)
+    }
+  }
+
+  const handleConfirmStop = async () => {
+    await handleStatusAction("not_started")
+    setIsStopDialogOpen(false)
+  }
+
+  const isNotStarted = task.status === "not_started"
+  const isInProgress = task.status === "in_progress"
+  const isCompleted = task.status === "completed"
+  const disableStart = isInProgress || statusUpdating !== null
+  const disableStop = !isInProgress || statusUpdating !== null
 
   const getStatusLabel = (status: string) => {
     const statusMap: Record<string, string> = {
@@ -127,6 +184,31 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy, onArchive
             <h2 className="text-xl font-bold text-foreground">{task.title}</h2>
           </div>
           <div className="flex items-center gap-2">
+            {onStatusChange && !task.archived && (
+              <>
+                {/* 状态控制按钮 */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={disableStart}
+                  onClick={() => handleStatusAction("in_progress")}
+                  className="gap-2 bg-transparent"
+                >
+                  <Play className="w-4 h-4" />
+                  启动
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={disableStop}
+                  onClick={() => setIsStopDialogOpen(true)}
+                  className="gap-2 bg-transparent"
+                >
+                  <Square className="w-4 h-4" />
+                  停止
+                </Button>
+              </>
+            )}
             {onArchive && !task.archived && (
               <Button
                 size="sm"
@@ -154,7 +236,7 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy, onArchive
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => onCopy(task, standards)}
+                onClick={() => onCopy(task, criteria)}
                 className="gap-2 bg-transparent"
               >
                 <Copy className="w-4 h-4" />
@@ -164,82 +246,73 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy, onArchive
           </div>
         </div>
 
-        {/* Task Info Card */}
-        <Card className="bg-card/50 backdrop-blur-sm border-border p-6">
+        {/* Task Info Section */}
+        <div className="space-y-4 bg-card/50 backdrop-blur-sm border border-border p-6 rounded-lg">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-sm bg-primary" />
+            <h3 className="text-base font-semibold text-foreground">任务信息</h3>
+          </div>
+          <div className="border-t border-dashed border-border" />
+
           <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-sm bg-primary" />
-              <h3 className="text-base font-semibold text-foreground">任务信息</h3>
-            </div>
-            <div className="border-t border-dashed border-border" />
-
-            <div className="space-y-4">
-              {/* Row 1: Date Range */}
-              <div className="grid grid-cols-4 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">开始日期</p>
-                  {/* 字段值设置为思源雅黑粗体 */}
-                  <p className="font-medium" style={{ fontFamily: "'Source Han Sans CN', 'Source Han Sans', sans-serif", fontWeight: 700 }}>
-                    {new Date(task.startDate).toLocaleDateString("zh-CN")}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">结束日期</p>
-                  {/* 字段值设置为思源雅黑粗体 */}
-                  <p className="font-medium" style={{ fontFamily: "'Source Han Sans CN', 'Source Han Sans', sans-serif", fontWeight: 700 }}>
-                    {new Date(task.endDate).toLocaleDateString("zh-CN")}
-                  </p>
-                </div>
+            {/* Row 1: Date Range */}
+            <div className="grid grid-cols-4 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">开始日期</p>
+                <p className="font-medium" style={{ fontFamily: "'Source Han Sans CN', 'Source Han Sans', sans-serif", fontWeight: 700 }}>
+                  {new Date(task.startDate).toLocaleDateString("zh-CN")}
+                </p>
               </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">结束日期</p>
+                <p className="font-medium" style={{ fontFamily: "'Source Han Sans CN', 'Source Han Sans', sans-serif", fontWeight: 700 }}>
+                  {new Date(task.endDate).toLocaleDateString("zh-CN")}
+                </p>
+              </div>
+            </div>
 
-              {/* Row 2: Task Title */}
+            {/* Row 2: Task Title */}
+            <div className="grid grid-cols-4 gap-4">
+              <div className="col-span-2">
+                <p className="text-sm text-muted-foreground mb-2">任务标题</p>
+                <p className="font-medium" style={{ fontFamily: "'Source Han Sans CN', 'Source Han Sans', sans-serif", fontWeight: 700 }}>{task.title}</p>
+              </div>
+            </div>
+
+            {/* Row 3: Task Description */}
+            {task.description && (
               <div className="grid grid-cols-4 gap-4">
                 <div className="col-span-2">
-                  <p className="text-sm text-muted-foreground mb-2">任务标题</p>
-                  {/* 字段值设置为思源雅黑粗体 */}
-                  <p className="font-medium" style={{ fontFamily: "'Source Han Sans CN', 'Source Han Sans', sans-serif", fontWeight: 700 }}>{task.title}</p>
+                  <p className="text-sm text-muted-foreground mb-2">任务说明</p>
+                  <p className="text-sm whitespace-pre-wrap text-foreground" style={{ fontFamily: "'Source Han Sans CN', 'Source Han Sans', sans-serif", fontWeight: 700 }}>
+                    {task.description}
+                  </p>
                 </div>
               </div>
-
-              {/* Row 3: Task Description */}
-              {task.description && (
-                <div className="grid grid-cols-4 gap-4">
-                  <div className="col-span-2">
-                    <p className="text-sm text-muted-foreground mb-2">任务说明</p>
-                    {/* 字段值设置为思源雅黑粗体 */}
-                    <p className="text-sm whitespace-pre-wrap text-foreground" style={{ fontFamily: "'Source Han Sans CN', 'Source Han Sans', sans-serif", fontWeight: 700 }}>
-                      {task.description}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
+            )}
           </div>
-        </Card>
+        </div>
 
         {/* Evaluation Standards Section */}
-        <Card className="bg-card/50 backdrop-blur-sm border-border p-6">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-sm bg-primary" />
-              <h3 className="text-base font-semibold text-foreground">评价标准</h3>
+        <div className="space-y-4 bg-card/50 backdrop-blur-sm border border-border p-6 rounded-lg">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-sm bg-primary" />
+            <h3 className="text-base font-semibold text-foreground">评价标准</h3>
+          </div>
+          <div className="border-t border-dashed border-border" />
+
+          {isLoading ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>加载中...</p>
             </div>
-            <div className="border-t border-dashed border-border" />
-
-            {/* Note: 新增标准按钮只在编辑表单中显示 */}
-
-            {isLoading ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <p>加载中...</p>
-              </div>
-            ) : !standards || standards.items.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <p>暂无评价标准</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {standards.items.map((item) => (
-                  <div key={item.id} className="border border-border rounded-lg p-4 bg-background/50 space-y-4">
+          ) : !criteria || criteria.items.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>暂无评价标准</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {criteria.items.map((item) => (
+                <div key={item.id} className="border border-border rounded-lg p-4 bg-background/50 space-y-4">
                     {/* 标题行：序号、指标名称、类型提示和右上角满分卡片 */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -275,8 +348,7 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy, onArchive
 
                       {/* 调整网格布局为12列，每个等级占3列 */}
                       <div className="grid grid-cols-12 gap-3">
-                        {item.levels?.map((level) => {
-                          return (
+                        {item.levels?.map((level) => (
                           <div key={level.level} className="col-span-3 border border-border rounded-lg bg-background/50 overflow-hidden">
                             {/* 等级卡片头部 - 根据指标类型显示不同字段 */}
                             <div className="p-3 border-b border-border flex items-start justify-between gap-2">
@@ -334,18 +406,37 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy, onArchive
                               </p>
                             </div>
                           </div>
-                        )
-                        })}
+                        ))}
                       </div>
                     </div>
                   </div>
                 ))}
-              </div>
-            )}
-          </div>
-        </Card>
+            </div>
+          )}
       </div>
+      {onStatusChange && (
+        <AlertDialog open={isStopDialogOpen} onOpenChange={setIsStopDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>确认停止任务</AlertDialogTitle>
+              <AlertDialogDescription>
+                停止该任务会导致所有课程无法进行评分操作。是否继续？
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={statusUpdating !== null}>取消</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmStop}
+                disabled={statusUpdating !== null}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                确认停止
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </div>
     </div>
   )
 }
-

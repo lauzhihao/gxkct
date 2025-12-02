@@ -2,7 +2,7 @@
 
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { useState } from "react"
-import type { TreeNode, TeachingSupervisoryTask } from "@/types"
+import type { TreeNode, TeachingSupervisoryTask, TaskEvaluationCriteria, Long } from "@/types"
 import { Button } from "@/shared/components/ui/button"
 import { Plus } from "lucide-react"
 import { TeachingTaskList } from "./shared/teaching-task-list"
@@ -15,8 +15,12 @@ interface TeachingQualityProps {
 }
 
 type PageState = "list" | "view" | "create" | "edit"
+type TeachingTaskDraft = Omit<TeachingSupervisoryTask, "id" | "createdAt" | "updatedAt">
 
 export function TeachingQuality({ node }: TeachingQualityProps) {
+  // 从 node.id 中提取数字部分（处理 "univ_86" 格式）
+  const idMatch = node.id.match(/\d+/)
+  const universityLongId = (idMatch ? Number(idMatch[0]) : Number(node.id)) as Long
   const {
     tasks,
     isLoading,
@@ -25,7 +29,7 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
     autoSaveTask,
     updateTaskStatus,
     archiveTask,
-  } = useTeachingTasks(node.id)
+  } = useTeachingTasks(universityLongId)
   const [selectedStatus, setSelectedStatus] = useState<"not_started" | "in_progress" | "completed" | null>(null)
   const [selectedTask, setSelectedTask] = useState<TeachingSupervisoryTask | null>(null)
   const [pageState, setPageState] = useState<PageState>("list")
@@ -35,7 +39,7 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
   const inProgressCount = tasks.filter((t) => t.status === "in_progress").length
   const completedCount = tasks.filter((t) => t.status === "completed").length
 
-  const handleCreateTask = async (taskData: Omit<TeachingSupervisoryTask, "id" | "createdAt">) => {
+  const handleCreateTask = async (taskData: TeachingTaskDraft) => {
     const taskWithStatus = {
       ...taskData,
       status: "not_started" as const,
@@ -44,6 +48,7 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
     if (created) {
       setPageState("list")
     }
+    return created
   }
 
   const handleUpdateTask = async (taskData: TeachingSupervisoryTask) => {
@@ -52,19 +57,29 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
       setSelectedTask(updated)
       setPageState("view")
     }
+    return updated
   }
 
   const handleAutoSaveTask = async (taskData: TeachingSupervisoryTask) => {
     await autoSaveTask(taskData)
   }
 
-  const handleStatusChange = async (taskId: string, newStatus: "not_started" | "in_progress" | "completed") => {
-    await updateTaskStatus(taskId, newStatus)
+  const handleStatusChange = async (
+    taskId: NonNullable<TeachingSupervisoryTask["id"]>,
+    newStatus: "not_started" | "in_progress" | "completed",
+  ) => {
+    const updated = await updateTaskStatus(taskId, newStatus)
+    if (updated && selectedTask?.id === updated.id) {
+      setSelectedTask(updated)
+    }
   }
 
-  const handleCopyTask = async (task: TeachingSupervisoryTask, standards: any) => {
+  const handleCopyTask = async (
+    task: TeachingSupervisoryTask,
+    criteria: TaskEvaluationCriteria | null,
+  ) => {
     // 创建新任务，不包含 id 和 createdAt
-    const newTask: Omit<TeachingSupervisoryTask, "id" | "createdAt"> & { id?: string; createdAt?: string } = {
+    const newTask: TeachingTaskDraft = {
       universityId: task.universityId,
       title: `${task.title}（副本）`,
       description: task.description,
@@ -72,35 +87,39 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
       endDate: task.endDate,
       status: "not_started",
       creator: task.creator,
+      publishNodes: (task.publishNodes || []).map((node) => ({ ...node })),
+      scoringType: task.scoringType || "percentage",
     }
 
     // 保存复制的评价标准到临时状态
-    const copiedStandards = standards?.items || []
+    const copiedCriteria = criteria?.items || []
 
     // 通过 window 对象传递复制的数据给表单组件
     ;(window as any).__copiedTaskData = {
       task: newTask,
-      standards: copiedStandards,
+      criteria: copiedCriteria,
     }
 
     // 切换到新增模式
     setPageState("create")
   }
 
-  const handleArchiveTask = async (taskId: string) => {
+  const handleArchiveTask = async (taskId: NonNullable<TeachingSupervisoryTask["id"]>) => {
     await archiveTask(taskId)
   }
 
   // 页面状态路由
   if (pageState === "create") {
-    const newTask: Omit<TeachingSupervisoryTask, "id" | "createdAt"> & { id?: string; createdAt?: string } = {
-      universityId: node.id,
+    const newTask: TeachingTaskDraft = {
+      universityId: universityLongId,
       title: "",
       description: "",
       startDate: new Date().toISOString().split("T")[0],
       endDate: new Date().toISOString().split("T")[0],
       status: "not_started",
       creator: "",
+      publishNodes: [],
+      scoringType: "percentage",
     }
     return (
       <TeachingTaskFormPage
@@ -134,6 +153,7 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
         onEdit={() => setPageState("edit")}
         onCopy={handleCopyTask}
         onArchive={handleArchiveTask}
+        onStatusChange={handleStatusChange}
       />
     )
   }
@@ -223,7 +243,6 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
               setSelectedTask(task)
               setPageState("view")
             }}
-            onStatusChange={handleStatusChange}
           />
         </div>
       </div>

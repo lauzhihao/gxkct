@@ -1,81 +1,130 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { Badge } from "@/shared/components/ui/badge"
 import { Checkbox } from "@/shared/components/ui/checkbox"
 import { Label } from "@/shared/components/ui/label"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/components/ui/tooltip"
-import type { TreeNode } from "@/components/tree-view"
-import { Building2, GraduationCap, BookOpen, FileText, Search, User } from "lucide-react"
+import type { TreeNode } from "@/types"
+import { Building2, GraduationCap, BookOpen, FileText, Search, User, Loader2 } from "lucide-react"
 import cn from "classnames"
 import { useDepartmentMajorsPreferences } from "@/modules/departments/hooks/use-department-majors-preferences"
+import { buildApiUrl } from "@/lib/api/config"
+import { getStoredAuthToken } from "@/lib/api/auth-config"
+
+// 接口返回的专业数据结构
+interface MajorItem {
+  lang: number
+  parent: { value: string; label: string } | null
+  self: { value: string; label: string } | null
+  manager: Array<{ value: string; label: string }> | null
+  info: any
+  cover: any
+  btnMenus: any[]
+  coverMenus: any[]
+  props: any
+}
 
 interface StatisticsCardsProps {
   node: TreeNode
-  onNodeSelect?: (node: TreeNode) => void
+  onNodeSelect?: (node: any) => void
   headerAction?: React.ReactNode
-  departmentMajors?: Map<string, TreeNode[]>
-  majorCourses?: Map<string, TreeNode[]>
-  onToggleExpand?: (nodeId: string) => void
   currentUser?: { username: string; role: string } | null
 }
 
-export function StatisticsCards({ node, onNodeSelect, headerAction, departmentMajors, majorCourses, onToggleExpand, currentUser }: StatisticsCardsProps) {
+export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser }: StatisticsCardsProps) {
   const [departmentSearch, setDepartmentSearch] = useState("")
   const [majorSearch, setMajorSearch] = useState("")
 
+  // 院系详情独立获取的专业列表数据
+  const [majors, setMajors] = useState<MajorItem[]>([])
+  const [isLoadingMajors, setIsLoadingMajors] = useState(false)
+
   // 使用 hook 管理"我的专业"偏好设置，仅在部门节点时使用
   const { showMyMajors, setShowMyMajors } = useDepartmentMajorsPreferences()
-  const showMyMajorsOnly = node.type === "department" ? showMyMajors : false
+  const showMyMajorsOnly = node.nodeType === "department" ? showMyMajors : false
 
-  const departments = node.children?.filter((child) => child.type === "department") || []
-
-  // 对于院系节点，优先使用动态加载的专业数据
-  const majors = node.type === "department" && departmentMajors?.has(node.id)
-    ? departmentMajors.get(node.id) || []
-    : node.children?.filter((child) => child.type === "major") || []
+  const departments = node.children?.filter((child) => child.nodeType === "department") || []
 
   const allMajors =
-    node.children?.flatMap((dept) => dept.children?.filter((child) => child.type === "major") || []) || []
+    node.children?.flatMap((dept) => dept.children?.filter((child) => child.nodeType === "major") || []) || []
   const courses =
     node.children?.flatMap(
       (dept) =>
-        dept.children?.flatMap((major) => major.children?.filter((child) => child.type === "course") || []) || [],
+        dept.children?.flatMap((major) => major.children?.filter((child) => child.nodeType === "course") || []) || [],
     ) || []
 
-  const isUniversity = node.type === "university"
-  const isDepartment = node.type === "department"
+  const isUniversity = node.nodeType === "university"
+  const isDepartment = node.nodeType === "department"
 
-  const displayMajors = isDepartment ? majors : allMajors
+  // 当节点为院系时，根据院系ID调用接口获取专业列表
+  useEffect(() => {
+    const fetchMajors = async () => {
+      if (!isDepartment || !node.id) return
 
-  // 对于院系节点，计算课程数时使用动态加载的课程数据
-  const displayCourses = isDepartment
-    ? majors.flatMap((major) => {
-        // 如果该专业有动态加载的课程数据，使用动态数据
-        if (majorCourses?.has(major.id)) {
-          return majorCourses.get(major.id) || []
+      setIsLoadingMajors(true)
+      try {
+        const url = buildApiUrl(`/api/v4/webpage/home/switchDpt?dptId=${node.id}&lang=80101`)
+        const headers: Record<string, string> = {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
         }
-        // 否则使用静态数据
-        return major.children?.filter((child) => child.type === "course") || []
-      })
-    : courses
+        const authToken = getStoredAuthToken()
+        if (authToken) {
+          headers['authToken'] = authToken
+        }
+
+        const response = await fetch(url, {
+          method: 'GET',
+          headers,
+        })
+
+        if (response.ok) {
+          const result = await response.json()
+          if (result.code === '0' && Array.isArray(result.data?.data)) {
+            setMajors(result.data.data)
+          } else {
+            setMajors([])
+          }
+        } else {
+          setMajors([])
+        }
+      } catch (error) {
+        console.error('[StatisticsCards] 获取专业列表失败:', error)
+        setMajors([])
+      } finally {
+        setIsLoadingMajors(false)
+      }
+    }
+
+    fetchMajors()
+  }, [isDepartment, node.id])
+
+  // 获取专业ID
+  const getMajorId = (major: MajorItem) => major.self?.value || ''
+
+  // 获取专业名称
+  const getMajorName = (major: MajorItem) => major.self?.label || ''
+
+  // 获取管理员数组
+  const getManagers = (major: MajorItem) => major.manager || []
 
   // Filter departments by search
   const filteredDepartments = departments.filter((dept) =>
-    dept.name.toLowerCase().includes(departmentSearch.toLowerCase()),
+    dept.nodeName.toLowerCase().includes(departmentSearch.toLowerCase()),
   )
 
   // Filter majors by search and "my majors" filter
   const filteredMajors = majors.filter((major) => {
+    const majorName = getMajorName(major)
     // 先按名称搜索
-    const matchesSearch = major.name.toLowerCase().includes(majorSearch.toLowerCase())
+    const matchesSearch = majorName.toLowerCase().includes(majorSearch.toLowerCase())
 
     // 如果勾选了"我的专业"，则还需要检查专业管理员中是否包含当前用户
     if (showMyMajorsOnly) {
-      const managers = major.metadata?.managers || []
-      const hasMe = managers.some((manager: any) => manager.label === currentUser?.username)
+      const managers = getManagers(major)
+      const hasMe = managers.some((manager) => manager.label === currentUser?.username)
       return matchesSearch && hasMe
     }
 
@@ -116,7 +165,7 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, departmentMa
           </div>
         )}
 
-        <div className={cn("grid gap-4", isDepartment && userCount > 0 ? "grid-cols-4" : "grid-cols-3")}>
+        <div className={cn("grid gap-4", isDepartment && userCount > 0 ? "grid-cols-3" : isUniversity ? "grid-cols-3" : "grid-cols-2")}>
           {isUniversity && (
             <Card
               className="bg-card/50 backdrop-blur-sm border-border hover:border-primary/50 cursor-pointer hover:shadow-lg transition-all"
@@ -140,21 +189,12 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, departmentMa
           <Card className="bg-card/50 backdrop-blur-sm border-border hover:border-primary/50 hover:shadow-lg transition-all">
             <CardContent className="p-4">
               <div className="flex flex-col items-center justify-center gap-3">
-                <div className="text-3xl font-bold text-foreground">{displayMajors.length}</div>
+                <div className="text-3xl font-bold text-foreground">
+                  {isDepartment ? majors.length : allMajors.length}
+                </div>
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <BookOpen className="w-4 h-4 text-primary" />
                   <span>专业</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-card/50 backdrop-blur-sm border-border hover:border-primary/50 hover:shadow-lg transition-all">
-            <CardContent className="p-4">
-              <div className="flex flex-col items-center justify-center gap-3">
-                <div className="text-3xl font-bold text-foreground">{displayCourses.length}</div>
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <FileText className="w-4 h-4 text-primary" />
-                  <span>课程</span>
                 </div>
               </div>
             </CardContent>
@@ -167,6 +207,19 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, departmentMa
                   <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                     <Building2 className="w-4 h-4 text-primary" />
                     <span>用户</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {isUniversity && (
+            <Card className="bg-card/50 backdrop-blur-sm border-border hover:border-primary/50 hover:shadow-lg transition-all">
+              <CardContent className="p-4">
+                <div className="flex flex-col items-center justify-center gap-3">
+                  <div className="text-3xl font-bold text-foreground">{courses.length}</div>
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <FileText className="w-4 h-4 text-primary" />
+                    <span>课程</span>
                   </div>
                 </div>
               </CardContent>
@@ -191,33 +244,31 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, departmentMa
             </div>
             <div className="grid grid-cols-4 gap-4">
               {filteredDepartments.map((dept) => {
-                const deptMajors = dept.children?.filter((child) => child.type === "major") || []
+                const deptMajors = dept.children?.filter((child) => child.nodeType === "major") || []
                 const deptCourses =
-                  dept.children?.flatMap((major) => major.children?.filter((child) => child.type === "course") || []) ||
+                  dept.children?.flatMap((major) => major.children?.filter((child) => child.nodeType === "course") || []) ||
                   []
 
                 return (
                   <Card
-                    key={dept.id}
+                    key={dept.nodeId}
                     className="cursor-pointer hover:shadow-md transition-shadow border-border bg-card/50 backdrop-blur-sm relative"
                     onClick={() => {
                       onNodeSelect?.(dept)
-                      // 点击卡片时触发展开，动态加载该院系的专业数据
-                      onToggleExpand?.(dept.id)
                     }}
                   >
                     <Badge
                       variant="secondary"
                       className="absolute top-2 right-2 text-xs flex items-center gap-1 bg-primary/10 text-primary border-primary/20"
                     >
-                      {getNodeTypeIcon(dept.type)}
-                      {getNodeTypeLabel(dept.type)}
+                      {getNodeTypeIcon(dept.nodeType)}
+                      {getNodeTypeLabel(dept.nodeType)}
                     </Badge>
 
                     <CardContent className="p-4 pt-8 pb-3">
                       <div className="space-y-3">
                         <div className="text-center">
-                          <h4 className="font-semibold text-foreground text-lg mb-2">{dept.name}</h4>
+                          <h4 className="font-semibold text-foreground text-lg mb-2">{dept.nodeName}</h4>
                         </div>
                         <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
@@ -245,7 +296,7 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, departmentMa
           </div>
         )}
 
-        {isDepartment && majors.length > 0 && (
+        {isDepartment && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-medium text-foreground">开设专业</h3>
@@ -272,77 +323,93 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, departmentMa
                 </div>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
-              {filteredMajors.map((major) => {
-                // 优先使用动态加载的课程数据
-                const courses = majorCourses?.has(major.id)
-                  ? majorCourses.get(major.id) || []
-                  : major.children?.filter((child) => child.type === "course") || []
 
-                return (
-                  <button
-                    key={major.id}
-                    onClick={() => {
-                      onNodeSelect?.(major)
-                      // 点击卡片时触发展开，动态加载该专业的课程数据
-                      onToggleExpand?.(major.id)
-                    }}
-                    className={cn(
-                      "relative flex flex-col p-5 rounded-xl border transition-all duration-200 min-h-[165px]",
-                      "bg-white/40 backdrop-blur-md border-primary/20",
-                      "hover:bg-white/60 hover:shadow-lg hover:scale-105 hover:border-primary/40",
-                      "group cursor-pointer",
-                    )}
-                  >
-                    <div className="absolute top-3 left-3">
-                      <div
-                        className={cn(
-                          "w-10 h-10 rounded-lg flex items-center justify-center",
-                          "bg-white/50 backdrop-blur-sm",
-                          "border border-primary/30",
-                          "group-hover:bg-white/70 group-hover:border-primary/50",
-                          "transition-all duration-200",
-                        )}
-                      >
-                        <BookOpen className="w-5 h-5 text-primary" />
-                      </div>
-                    </div>
+            {isLoadingMajors ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
+                <p className="text-sm text-muted-foreground">加载专业列表中...</p>
+              </div>
+            ) : filteredMajors.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="text-muted-foreground">
+                  <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm">暂无专业数据</p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-4">
+                {filteredMajors.map((major) => {
+                  const majorId = getMajorId(major)
+                  const majorName = getMajorName(major)
+                  const managers = getManagers(major)
 
-                    <div className="absolute top-3 right-3">
-                      <div className="px-2 py-0.5 rounded-full bg-white/60 backdrop-blur-sm border border-primary/30 text-xs font-medium text-primary">
-                        专业
-                      </div>
-                    </div>
-
-                    <div className="flex-1 flex flex-col justify-center">
-                      <div className="flex items-center justify-center px-12">
-                        <div className="font-semibold text-foreground text-lg text-center line-clamp-2 leading-tight">
-                          {major.name}
+                  return (
+                    <button
+                      key={majorId}
+                      onClick={() => {
+                        // 构造节点对象，硬编码 nodeType 为 major
+                        onNodeSelect?.({
+                          id: majorId,
+                          nodeId: `major_${majorId}`,
+                          name: majorName,
+                          nodeName: majorName,
+                          type: 'major',
+                          nodeType: 'major',
+                          metadata: {
+                            managers: managers,
+                          },
+                        })
+                      }}
+                      className={cn(
+                        "relative flex flex-col p-5 rounded-xl border transition-all duration-200 min-h-[165px]",
+                        "bg-white/40 backdrop-blur-md border-primary/20",
+                        "hover:bg-white/60 hover:shadow-lg hover:scale-105 hover:border-primary/40",
+                        "group cursor-pointer",
+                      )}
+                    >
+                      <div className="absolute top-3 left-3">
+                        <div
+                          className={cn(
+                            "w-10 h-10 rounded-lg flex items-center justify-center",
+                            "bg-white/50 backdrop-blur-sm",
+                            "border border-primary/30",
+                            "group-hover:bg-white/70 group-hover:border-primary/50",
+                            "transition-all duration-200",
+                          )}
+                        >
+                          <BookOpen className="w-5 h-5 text-primary" />
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3 text-sm text-muted-foreground justify-center mt-1">
-                        <div className="flex items-center gap-1">
-                          <FileText className="w-3 h-3" />
-                          <span>{courses.length}门课程</span>
+                      <div className="absolute top-3 right-3">
+                        <div className="px-2 py-0.5 rounded-full bg-white/60 backdrop-blur-sm border border-primary/30 text-xs font-medium text-primary">
+                          专业
                         </div>
                       </div>
-                    </div>
 
-                    {major.metadata?.managers && major.metadata.managers.length > 0 && (
-                      <div className="absolute bottom-3 left-3 right-3 flex flex-wrap gap-2">
-                        {major.metadata.managers.map((manager: any, index: number) => (
-                          <div key={index} className="flex items-center gap-[6px] px-[8px] py-[2px] rounded bg-primary border border-primary">
-                            <User className="w-[13px] h-[13px] text-white" />
-                            <span className="text-[13px] text-white font-medium">{manager.label}</span>
+                      <div className="flex-1 flex flex-col justify-center">
+                        <div className="flex items-center justify-center px-12">
+                          <div className="font-semibold text-foreground text-lg text-center line-clamp-2 leading-tight">
+                            {majorName}
                           </div>
-                        ))}
+                        </div>
                       </div>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
+
+                      {managers.length > 0 && (
+                        <div className="absolute bottom-3 left-3 right-3 flex flex-wrap gap-2">
+                          {managers.map((manager, index) => (
+                            <div key={index} className="flex items-center gap-[6px] px-[8px] py-[2px] rounded bg-primary border border-primary">
+                              <User className="w-[13px] h-[13px] text-white" />
+                              <span className="text-[13px] text-white font-medium">{manager.label}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>

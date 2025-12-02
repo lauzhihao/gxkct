@@ -86,6 +86,41 @@ export class HttpAdapter {
     }
   }
 
+  async patch<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+    try {
+      const url = buildApiUrl(endpoint)
+      const config = getApiConfig()
+
+      console.log(`[HttpAdapter] PATCH ${url}`, data)
+
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: this.getHeaders(),
+        body: data ? JSON.stringify(data) : undefined,
+        signal: AbortSignal.timeout(config.timeout),
+      })
+
+      if (!response.ok) {
+        console.error(`[HttpAdapter] HTTP错误: ${response.status}`)
+        return {
+          data: null,
+          error: `HTTP ${response.status}: ${response.statusText}`,
+          status: response.status,
+        }
+      }
+
+      const backendResponse: BackendResponse<T> = await response.json()
+      return handleBackendResponse(backendResponse)
+    } catch (error) {
+      console.error(`[HttpAdapter] 请求失败:`, error)
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : '请求失败',
+        status: 500,
+      }
+    }
+  }
+
   async put<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
     try {
       const url = buildApiUrl(endpoint)
@@ -155,4 +190,3 @@ export class HttpAdapter {
     }
   }
 }
-

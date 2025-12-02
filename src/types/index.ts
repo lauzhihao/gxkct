@@ -24,19 +24,42 @@ export type SupportStrength = "strong" | "weak"
 // 督导与质量评价相关类型 (Universities模块使用)
 // ============================================================================
 
+// 发布范围成员信息
+export type Long = number
+
+export interface TaskMember {
+  id: Long
+  account: string
+  name: string
+  auth: string
+  belong?: string
+  permission?: number
+  old?: boolean
+  disabled?: boolean
+}
+
 // 教学督导任务接口
+
 export interface TeachingSupervisoryTask {
-  id: string
-  universityId: string
+  id?: Long
+  universityId: Long
   title: string // 任务标题
   description?: string // 任务说明
   startDate: string // 开始日期
   endDate: string // 结束日期
   status: "not_started" | "in_progress" | "completed"
-  creator?: string
-  createdAt: string
+  creator: string
+  scoringType?: "percentage" | "five_level"
+  createdAt?: string
   updatedAt?: string
   archived?: boolean
+  publishNodes?: PublishNode[] // 发布范围：选定的组织节点
+  evaluationCriteria?: TaskEvaluationCriteria // 评价标准，任务接口可直接承载
+}
+
+export interface PublishNode {
+  nodeId: string  // 保留原始格式，如 'course_2334'
+  nodeName?: string  // 用于UI回显
 }
 
 // 条件表达式（用于系统指标）
@@ -62,23 +85,22 @@ export type SystemIndicator =
   | "material_count"
 
 // 评价标准项接口
-export interface EvaluationStandardItem {
-  id: string
+export interface EvaluationCriterion {
+  id: Long
   sequence: number
   type: "business" | "system"
-  indicator: string
+  indicator?: string
   systemIndicator?: SystemIndicator
   fullScore: number
+  weight?: number
+  evidenceRequirement?: string
   levels: EvaluationLevel[]
 }
 
-// 教学质量评价标准接口
-export interface TeachingQualityStandard {
-  id: string
-  taskId: string
-  universityId: string
-  items: EvaluationStandardItem[]
-  createdAt: string
+export interface TaskEvaluationCriteria {
+  taskId?: Long
+  universityId: Long
+  items: EvaluationCriterion[]
   updatedAt?: string
 }
 
@@ -119,12 +141,22 @@ export type NodeMetadata = UniversityMetadata | DepartmentMetadata | MajorMetada
 // ============================================================================
 
 export interface TreeNode {
-  id: string
-  name: string
-  type: NodeType
+  nodeId: string  // 使用 API 返回的原始 nodeId 格式（如 'dept_266', 'course_2334'）
+  nodeName: string
+  nodeType: NodeType
+  parentId?: string
+  nodeLevel?: number
   children?: TreeNode[]
   metadata?: NodeMetadata
   isStarred?: boolean
+  // 兼容属性：从 nodeId 解析出的数字 ID（右侧组件使用）
+  id?: string
+  // 兼容属性：等同于 nodeName（右侧组件使用）
+  name?: string
+  // 兼容属性：等同于 nodeType（右侧组件使用）
+  type?: NodeType
+  // 兼容属性：节点描述信息
+  description?: string
 }
 
 // ============================================================================

@@ -1,7 +1,7 @@
 "use client"
 
 import { GraduationCap, Pencil, Trash2, Plus } from "lucide-react"
-import { cn } from "@/shared/utils/utils"
+import { cn, extractNumericId } from "@/shared/utils/utils"
 import { Button } from "@/shared/components/ui/button"
 import {
   Dialog,
@@ -22,7 +22,7 @@ import { Members } from "@/shared/components/members"
 import { TeachingQualityStats } from "@/modules/majors/components/shared/teaching-quality-stats"
 import { QuickCreateMajorDialog } from "@/modules/departments/components/shared/quick-create-major-dialog"
 
-export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode, onDeleteNode, departmentMajors, majorCourses, onToggleExpand, currentUser }: DetailPanelProps) {
+export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode, onDeleteNode, currentUser }: DetailPanelProps) {
   const [newDeptName, setNewDeptName] = useState("")
   const [newDeptDesc, setNewDeptDesc] = useState("")
   const [newDeptDirector, setNewDeptDirector] = useState("")
@@ -31,7 +31,7 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
   const [isQuickCreateMajorOpen, setIsQuickCreateMajorOpen] = useState(false)
 
   const handleEditDepartment = () => {
-    setNewDeptName(node.name)
+    setNewDeptName(node.nodeName)
     setNewDeptDesc(node.description || "")
     setNewDeptDirector("")
     setIsEditingDepartment(true)
@@ -41,8 +41,8 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
   const handleSaveDepartment = () => {
     if (!newDeptName.trim() || !onUpdateNode) return
 
-    onUpdateNode(node.id, {
-      name: newDeptName,
+    onUpdateNode(node.nodeId, {
+      nodeName: newDeptName,
       description: newDeptDesc || undefined,
     })
 
@@ -57,16 +57,17 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
     if (onDeleteNode) {
       onDeleteNode(nodeId)
     }
-    if (node?.id === nodeId) {
+    if (node?.nodeId === nodeId) {
       onNodeSelect?.(null)
     }
   }
 
   const handleQuickCreateMajor = (data: { name: string; directors: any[] }) => {
     if (onAddMajor) {
-      onAddMajor(node.id, {
-        name: data.name,
-        type: "major",
+      const departmentId = extractNumericId(node.nodeId).toString()
+      onAddMajor(departmentId, {
+        nodeName: data.name,
+        nodeType: "major" as const,
         children: [],
         metadata: {
           directors: data.directors.map((d) => d.name),
@@ -87,7 +88,7 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
               <GraduationCap className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">{node.name}</h2>
+              <h2 className="text-2xl font-bold text-foreground mb-2">{node.nodeName}</h2>
               {node.description && <p className="text-muted-foreground">{node.description}</p>}
             </div>
           </div>
@@ -99,7 +100,7 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => handleDeleteNode(node.id)}
+                onClick={() => handleDeleteNode(node.nodeId)}
                 className="gap-2 hover:bg-red-500/10 text-red-500"
               >
                 <Trash2 className="w-4 h-4" />
@@ -128,9 +129,6 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
             <StatisticsCards
               node={node}
               onNodeSelect={onNodeSelect}
-              departmentMajors={departmentMajors}
-              majorCourses={majorCourses}
-              onToggleExpand={onToggleExpand}
               currentUser={currentUser}
               headerAction={
                 <Button
@@ -151,7 +149,7 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
           </TabsContent>
 
           <TabsContent value="teaching-quality" className="space-y-6 p-6">
-            <TeachingQualityStats node={node} nodeType="department" departmentMajors={departmentMajors} majorCourses={majorCourses} />
+            <TeachingQualityStats node={node} nodeType="department" />
           </TabsContent>
         </Tabs>
       </div>
@@ -207,7 +205,7 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
         open={isQuickCreateMajorOpen}
         onOpenChange={setIsQuickCreateMajorOpen}
         onSubmit={handleQuickCreateMajor}
-        departmentId={node.id}
+        departmentId={extractNumericId(node.nodeId).toString()}
       />
     </div>
   )

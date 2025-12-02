@@ -1,20 +1,21 @@
 import { useCallback, useEffect, useState } from "react"
 import { api } from "@/lib/api"
-import type { TeachingSupervisoryTask } from "@/types"
+import type { TeachingSupervisoryTask, Long } from "@/types"
 
 type TeachingStatus = "not_started" | "in_progress" | "completed"
+type TeachingTaskInput = Omit<TeachingSupervisoryTask, "id" | "createdAt" | "updatedAt">
 
 interface UseTeachingTasksResult {
   tasks: TeachingSupervisoryTask[]
   isLoading: boolean
-  createTask: (taskData: Omit<TeachingSupervisoryTask, "id" | "createdAt">) => Promise<TeachingSupervisoryTask | null>
+  createTask: (taskData: TeachingTaskInput) => Promise<TeachingSupervisoryTask | null>
   updateTask: (task: TeachingSupervisoryTask) => Promise<TeachingSupervisoryTask | null>
   autoSaveTask: (task: TeachingSupervisoryTask) => Promise<void>
-  updateTaskStatus: (taskId: string, status: TeachingStatus) => Promise<TeachingSupervisoryTask | null>
-  archiveTask: (taskId: string) => Promise<TeachingSupervisoryTask | null>
+  updateTaskStatus: (taskId: Long, status: TeachingStatus) => Promise<TeachingSupervisoryTask | null>
+  archiveTask: (taskId: Long) => Promise<TeachingSupervisoryTask | null>
 }
 
-export function useTeachingTasks(universityId: string): UseTeachingTasksResult {
+export function useTeachingTasks(universityId: Long): UseTeachingTasksResult {
   const [tasks, setTasks] = useState<TeachingSupervisoryTask[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -22,7 +23,9 @@ export function useTeachingTasks(universityId: string): UseTeachingTasksResult {
     const fetchTasks = async () => {
       try {
         setIsLoading(true)
-        const response = await api.teachingTasks.getTasks(universityId)
+        const response = await api.teachingTasks.getTasks(universityId, {
+          includeCriteria: true,
+        })
         if (response.data) {
           setTasks(response.data)
         }
@@ -39,19 +42,22 @@ export function useTeachingTasks(universityId: string): UseTeachingTasksResult {
   }, [])
 
   const createTask = useCallback(
-    async (taskData: Omit<TeachingSupervisoryTask, "id" | "createdAt">) => {
-      const response = await api.teachingTasks.createTask(taskData)
+    async (taskData: TeachingTaskInput) => {
+      const response = await api.teachingTasks.createTask(universityId, taskData)
       if (response.data) {
         setTasks((prev) => [...prev, response.data!])
         return response.data
       }
       return null
     },
-    [],
+    [universityId],
   )
 
   const updateTask = useCallback(
     async (task: TeachingSupervisoryTask) => {
+      if (typeof task.id !== "number") {
+        return null
+      }
       const response = await api.teachingTasks.updateTask(universityId, task.id, task)
       if (response.data) {
         updateTaskState(response.data)
@@ -64,6 +70,9 @@ export function useTeachingTasks(universityId: string): UseTeachingTasksResult {
 
   const autoSaveTask = useCallback(
     async (task: TeachingSupervisoryTask) => {
+      if (typeof task.id !== "number") {
+        return
+      }
       const response = await api.teachingTasks.updateTask(universityId, task.id, task)
       if (response.data) {
         updateTaskState(response.data)
@@ -73,22 +82,19 @@ export function useTeachingTasks(universityId: string): UseTeachingTasksResult {
   )
 
   const updateTaskStatus = useCallback(
-    async (taskId: string, status: TeachingStatus) => {
-      const target = tasks.find((t) => t.id === taskId)
-      if (!target) return null
-      const updatedTask = { ...target, status }
-      const response = await api.teachingTasks.updateTask(universityId, taskId, updatedTask)
+    async (taskId: Long, status: TeachingStatus) => {
+      const response = await api.teachingTasks.updateTaskStatus(universityId, taskId, status)
       if (response.data) {
         updateTaskState(response.data)
         return response.data
       }
       return null
     },
-    [tasks, universityId, updateTaskState],
+    [universityId, updateTaskState],
   )
 
   const archiveTask = useCallback(
-    async (taskId: string) => {
+    async (taskId: Long) => {
       const response = await api.teachingTasks.archiveTask(universityId, taskId)
       if (response.data) {
         updateTaskState(response.data)

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react"
-import { api } from "@/lib/api"
 import type { TreeNode } from "@/types"
 
 export interface UseDepartmentMajorsResult {
@@ -8,31 +7,25 @@ export interface UseDepartmentMajorsResult {
   loadDepartmentMajors: (departmentId: string) => Promise<void>
 }
 
+/**
+ * 该hook已弃用，因为tree接口现在返回完整的树结构（包括所有departments和majors）
+ * 不再需要动态加载。保留此hook以保持兼容性，但实际上不做任何操作。
+ */
 export function useDepartmentMajors(
   onChange?: (majors: Map<string, TreeNode[]>) => void,
 ): UseDepartmentMajorsResult {
-  const [departmentMajors, setDepartmentMajors] = useState<Map<string, TreeNode[]>>(new Map())
-  const [loadedDepartments, setLoadedDepartments] = useState<Set<string>>(new Set())
+  const [departmentMajors] = useState<Map<string, TreeNode[]>>(new Map())
+  const [loadedDepartments] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     onChange?.(departmentMajors)
   }, [departmentMajors, onChange])
 
   const loadDepartmentMajors = useCallback(
-    async (departmentId: string) => {
-      if (loadedDepartments.has(departmentId)) return
-
-      const response = await api.tree.getDepartmentMajors(departmentId)
-      if (response.data && response.data.length > 0) {
-        setDepartmentMajors((prev) => {
-          const next = new Map(prev)
-          next.set(departmentId, response.data!)
-          return next
-        })
-        setLoadedDepartments((prev) => new Set(prev).add(departmentId))
-      }
+    async () => {
+      // No-op: tree接口已返回完整树结构，不需要再动态加载
     },
-    [loadedDepartments],
+    [],
   )
 
   return {

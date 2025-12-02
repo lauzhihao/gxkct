@@ -93,34 +93,34 @@
             }
         ],
         "current": {
-            "id": 265,
+            "id": 267,
             "collegeId": 86,
-            "name": "建筑工程系",
+            "name": "信息学院",
             "type": 0
         },
         "data": [
             {
                 "lang": 80101,
                 "parent": {
-                    "value": "265",
-                    "label": "建筑工程系",
+                    "value": "267",
+                    "label": "信息学院",
                     "children": null
                 },
                 "self": {
-                    "value": "3895",
-                    "label": "土木工程（适用于22级、23级普本）",
+                    "value": "3902",
+                    "label": "集成电路设计与集成系统",
                     "children": null
                 },
                 "auth": null,
                 "manager": [
                     {
-                        "value": "2016001",
-                        "label": "钟美慧",
+                        "value": "2013056",
+                        "label": "李野",
                         "children": null
                     },
                     {
-                        "value": "2017065",
-                        "label": "张晶晶",
+                        "value": "2022108",
+                        "label": "张莹",
                         "children": null
                     }
                 ],
@@ -159,20 +159,25 @@
             {
                 "lang": 80101,
                 "parent": {
-                    "value": "265",
-                    "label": "建筑工程系",
+                    "value": "267",
+                    "label": "信息学院",
                     "children": null
                 },
                 "self": {
-                    "value": "3896",
-                    "label": "风景园林专业（22）（齐齐哈尔工程学院）",
+                    "value": "3913",
+                    "label": "计算机科学与技术",
                     "children": null
                 },
                 "auth": null,
                 "manager": [
                     {
-                        "value": "2021056",
-                        "label": "袁继杰",
+                        "value": "admin@gxkct.com",
+                        "label": "老刘",
+                        "children": null
+                    },
+                    {
+                        "value": "2022036",
+                        "label": "韩楠楠",
                         "children": null
                     }
                 ],
@@ -211,25 +216,20 @@
             {
                 "lang": 80101,
                 "parent": {
-                    "value": "265",
-                    "label": "建筑工程系",
+                    "value": "267",
+                    "label": "信息学院",
                     "children": null
                 },
                 "self": {
-                    "value": "3899",
-                    "label": "工程管理（适用于22版人才培养方案）",
+                    "value": "3916",
+                    "label": "计算机科学与技术（专升本二年制）",
                     "children": null
                 },
                 "auth": null,
                 "manager": [
                     {
-                        "value": "2013043",
-                        "label": "曲梦露",
-                        "children": null
-                    },
-                    {
-                        "value": "2021060",
-                        "label": "王梓玮",
+                        "value": "2022036",
+                        "label": "韩楠楠",
                         "children": null
                     }
                 ],
@@ -268,25 +268,20 @@
             {
                 "lang": 80101,
                 "parent": {
-                    "value": "265",
-                    "label": "建筑工程系",
+                    "value": "267",
+                    "label": "信息学院",
                     "children": null
                 },
                 "self": {
-                    "value": "3900",
-                    "label": "工程管理（适用于20版人才培养方案）",
+                    "value": "3917",
+                    "label": "数据科学与大数据技术专业",
                     "children": null
                 },
                 "auth": null,
                 "manager": [
                     {
-                        "value": "2013043",
-                        "label": "曲梦露",
-                        "children": null
-                    },
-                    {
-                        "value": "2021060",
-                        "label": "王梓玮",
+                        "value": "2013027",
+                        "label": "高敏",
                         "children": null
                     }
                 ],
@@ -325,20 +320,20 @@
             {
                 "lang": 80101,
                 "parent": {
-                    "value": "265",
-                    "label": "建筑工程系",
+                    "value": "267",
+                    "label": "信息学院",
                     "children": null
                 },
                 "self": {
-                    "value": "3965",
-                    "label": "风景园林（适用于20版人才培养方案）",
+                    "value": "3932",
+                    "label": "电子科学与技术",
                     "children": null
                 },
                 "auth": null,
                 "manager": [
                     {
-                        "value": "2021056",
-                        "label": "袁继杰",
+                        "value": "2018172",
+                        "label": "关娜",
                         "children": null
                     }
                 ],
@@ -377,25 +372,20 @@
             {
                 "lang": 80101,
                 "parent": {
-                    "value": "265",
-                    "label": "建筑工程系",
+                    "value": "267",
+                    "label": "信息学院",
                     "children": null
                 },
                 "self": {
-                    "value": "3969",
-                    "label": "土木工程（专升本二年制）(适用于23级)",
+                    "value": "3934",
+                    "label": "动画",
                     "children": null
                 },
                 "auth": null,
                 "manager": [
                     {
-                        "value": "2016001",
-                        "label": "钟美慧",
-                        "children": null
-                    },
-                    {
-                        "value": "2017065",
-                        "label": "张晶晶",
+                        "value": "2014019",
+                        "label": "佟鑫",
                         "children": null
                     }
                 ],
@@ -434,25 +424,20 @@
             {
                 "lang": 80101,
                 "parent": {
-                    "value": "265",
-                    "label": "建筑工程系",
+                    "value": "267",
+                    "label": "信息学院",
                     "children": null
                 },
                 "self": {
-                    "value": "3971",
-                    "label": "土木工程（适用于20级、21级普本）",
+                    "value": "3960",
+                    "label": "视觉传达设计本科2024.3.29（姜岩）",
                     "children": null
                 },
                 "auth": null,
                 "manager": [
                     {
-                        "value": "2016001",
-                        "label": "钟美慧",
-                        "children": null
-                    },
-                    {
-                        "value": "2017065",
-                        "label": "张晶晶",
+                        "value": "2008018",
+                        "label": "姜岩",
                         "children": null
                     }
                 ],
@@ -491,25 +476,20 @@
             {
                 "lang": 80101,
                 "parent": {
-                    "value": "265",
-                    "label": "建筑工程系",
+                    "value": "267",
+                    "label": "信息学院",
                     "children": null
                 },
                 "self": {
-                    "value": "4240",
-                    "label": "工程管理（适用于24级人才培养方案）",
+                    "value": "3961",
+                    "label": "视觉传达设计专升本2024.3.29（姜岩）",
                     "children": null
                 },
                 "auth": null,
                 "manager": [
                     {
-                        "value": "2013043",
-                        "label": "曲梦露",
-                        "children": null
-                    },
-                    {
-                        "value": "2021060",
-                        "label": "王梓玮",
+                        "value": "2008018",
+                        "label": "姜岩",
                         "children": null
                     }
                 ],
@@ -548,25 +528,30 @@
             {
                 "lang": 80101,
                 "parent": {
-                    "value": "265",
-                    "label": "建筑工程系",
+                    "value": "267",
+                    "label": "信息学院",
                     "children": null
                 },
                 "self": {
-                    "value": "4243",
-                    "label": "土木工程（适用于24、25级普本）",
+                    "value": "3962",
+                    "label": "电子商务",
                     "children": null
                 },
                 "auth": null,
                 "manager": [
                     {
-                        "value": "2016001",
-                        "label": "钟美慧",
+                        "value": "2021017",
+                        "label": "于骁晗",
                         "children": null
                     },
                     {
-                        "value": "2017065",
-                        "label": "张晶晶",
+                        "value": "2006008",
+                        "label": "徐一楠",
+                        "children": null
+                    },
+                    {
+                        "value": "1997002",
+                        "label": "刘玉洁",
                         "children": null
                     }
                 ],
@@ -605,25 +590,20 @@
             {
                 "lang": 80101,
                 "parent": {
-                    "value": "265",
-                    "label": "建筑工程系",
+                    "value": "267",
+                    "label": "信息学院",
                     "children": null
                 },
                 "self": {
-                    "value": "4244",
-                    "label": "土木工程（专升本二年制）(适用于24级)",
+                    "value": "3964",
+                    "label": "视觉传达设计本科2024.3.29（姜岩）",
                     "children": null
                 },
                 "auth": null,
                 "manager": [
                     {
-                        "value": "2016001",
-                        "label": "钟美慧",
-                        "children": null
-                    },
-                    {
-                        "value": "2017065",
-                        "label": "张晶晶",
+                        "value": "2008018",
+                        "label": "姜岩",
                         "children": null
                     }
                 ],
@@ -662,493 +642,20 @@
             {
                 "lang": 80101,
                 "parent": {
-                    "value": "265",
-                    "label": "建筑工程系",
+                    "value": "267",
+                    "label": "信息学院",
                     "children": null
                 },
                 "self": {
-                    "value": "4252",
-                    "label": "智能建造（适用于24级人才培养方案）",
+                    "value": "5271",
+                    "label": "冰雪雕塑",
                     "children": null
                 },
                 "auth": null,
                 "manager": [
                     {
-                        "value": "2017065",
-                        "label": "张晶晶",
-                        "children": null
-                    },
-                    {
-                        "value": "2021020",
-                        "label": "梁忠强",
-                        "children": null
-                    }
-                ],
-                "info": null,
-                "cover": null,
-                "btnMenus": [
-                    {
-                        "label": "查看专业课程",
-                        "value": "majorindex",
-                        "path": "/major/index",
-                        "type": "path"
-                    },
-                    {
-                        "label": "查看专业详情",
-                        "value": "majordetail",
-                        "path": "/major/detail",
-                        "type": "path"
-                    }
-                ],
-                "coverMenus": [
-                    {
-                        "label": "查看专业课程",
-                        "value": "majorindex",
-                        "path": "/major/index",
-                        "type": "path"
-                    },
-                    {
-                        "label": "查看专业详情",
-                        "value": "majordetail",
-                        "path": "/major/detail",
-                        "type": "path"
-                    }
-                ],
-                "props": null
-            },
-            {
-                "lang": 80101,
-                "parent": {
-                    "value": "265",
-                    "label": "建筑工程系",
-                    "children": null
-                },
-                "self": {
-                    "value": "4253",
-                    "label": "52期工作坊专业",
-                    "children": null
-                },
-                "auth": null,
-                "manager": [
-                    {
-                        "value": "2013043",
-                        "label": "曲梦露",
-                        "children": null
-                    }
-                ],
-                "info": null,
-                "cover": null,
-                "btnMenus": [
-                    {
-                        "label": "查看专业课程",
-                        "value": "majorindex",
-                        "path": "/major/index",
-                        "type": "path"
-                    },
-                    {
-                        "label": "查看专业详情",
-                        "value": "majordetail",
-                        "path": "/major/detail",
-                        "type": "path"
-                    }
-                ],
-                "coverMenus": [
-                    {
-                        "label": "查看专业课程",
-                        "value": "majorindex",
-                        "path": "/major/index",
-                        "type": "path"
-                    },
-                    {
-                        "label": "查看专业详情",
-                        "value": "majordetail",
-                        "path": "/major/detail",
-                        "type": "path"
-                    }
-                ],
-                "props": null
-            },
-            {
-                "lang": 80101,
-                "parent": {
-                    "value": "265",
-                    "label": "建筑工程系",
-                    "children": null
-                },
-                "self": {
-                    "value": "4367",
-                    "label": "工程管理",
-                    "children": null
-                },
-                "auth": null,
-                "manager": [
-                    {
-                        "value": "2013043",
-                        "label": "曲梦露",
-                        "children": null
-                    }
-                ],
-                "info": null,
-                "cover": null,
-                "btnMenus": [
-                    {
-                        "label": "查看专业课程",
-                        "value": "majorindex",
-                        "path": "/major/index",
-                        "type": "path"
-                    },
-                    {
-                        "label": "查看专业详情",
-                        "value": "majordetail",
-                        "path": "/major/detail",
-                        "type": "path"
-                    }
-                ],
-                "coverMenus": [
-                    {
-                        "label": "查看专业课程",
-                        "value": "majorindex",
-                        "path": "/major/index",
-                        "type": "path"
-                    },
-                    {
-                        "label": "查看专业详情",
-                        "value": "majordetail",
-                        "path": "/major/detail",
-                        "type": "path"
-                    }
-                ],
-                "props": null
-            },
-            {
-                "lang": 80101,
-                "parent": {
-                    "value": "265",
-                    "label": "建筑工程系",
-                    "children": null
-                },
-                "self": {
-                    "value": "5060",
-                    "label": "工程造价（适用于25级）",
-                    "children": null
-                },
-                "auth": null,
-                "manager": [
-                    {
-                        "value": "2013043",
-                        "label": "曲梦露",
-                        "children": null
-                    }
-                ],
-                "info": null,
-                "cover": null,
-                "btnMenus": [
-                    {
-                        "label": "查看专业课程",
-                        "value": "majorindex",
-                        "path": "/major/index",
-                        "type": "path"
-                    },
-                    {
-                        "label": "查看专业详情",
-                        "value": "majordetail",
-                        "path": "/major/detail",
-                        "type": "path"
-                    }
-                ],
-                "coverMenus": [
-                    {
-                        "label": "查看专业课程",
-                        "value": "majorindex",
-                        "path": "/major/index",
-                        "type": "path"
-                    },
-                    {
-                        "label": "查看专业详情",
-                        "value": "majordetail",
-                        "path": "/major/detail",
-                        "type": "path"
-                    }
-                ],
-                "props": null
-            },
-            {
-                "lang": 80101,
-                "parent": {
-                    "value": "265",
-                    "label": "建筑工程系",
-                    "children": null
-                },
-                "self": {
-                    "value": "5073",
-                    "label": "土木工程（专升本二年制）2025级",
-                    "children": null
-                },
-                "auth": null,
-                "manager": [
-                    {
-                        "value": "2016001",
-                        "label": "钟美慧",
-                        "children": null
-                    }
-                ],
-                "info": null,
-                "cover": null,
-                "btnMenus": [
-                    {
-                        "label": "查看专业课程",
-                        "value": "majorindex",
-                        "path": "/major/index",
-                        "type": "path"
-                    },
-                    {
-                        "label": "查看专业详情",
-                        "value": "majordetail",
-                        "path": "/major/detail",
-                        "type": "path"
-                    }
-                ],
-                "coverMenus": [
-                    {
-                        "label": "查看专业课程",
-                        "value": "majorindex",
-                        "path": "/major/index",
-                        "type": "path"
-                    },
-                    {
-                        "label": "查看专业详情",
-                        "value": "majordetail",
-                        "path": "/major/detail",
-                        "type": "path"
-                    }
-                ],
-                "props": null
-            },
-            {
-                "lang": 80101,
-                "parent": {
-                    "value": "265",
-                    "label": "建筑工程系",
-                    "children": null
-                },
-                "self": {
-                    "value": "5074",
-                    "label": "土木工程（专升本二年制F）2025级",
-                    "children": null
-                },
-                "auth": null,
-                "manager": [
-                    {
-                        "value": "2016001",
-                        "label": "钟美慧",
-                        "children": null
-                    }
-                ],
-                "info": null,
-                "cover": null,
-                "btnMenus": [
-                    {
-                        "label": "查看专业课程",
-                        "value": "majorindex",
-                        "path": "/major/index",
-                        "type": "path"
-                    },
-                    {
-                        "label": "查看专业详情",
-                        "value": "majordetail",
-                        "path": "/major/detail",
-                        "type": "path"
-                    }
-                ],
-                "coverMenus": [
-                    {
-                        "label": "查看专业课程",
-                        "value": "majorindex",
-                        "path": "/major/index",
-                        "type": "path"
-                    },
-                    {
-                        "label": "查看专业详情",
-                        "value": "majordetail",
-                        "path": "/major/detail",
-                        "type": "path"
-                    }
-                ],
-                "props": null
-            },
-            {
-                "lang": 80101,
-                "parent": {
-                    "value": "265",
-                    "label": "建筑工程系",
-                    "children": null
-                },
-                "self": {
-                    "value": "5094",
-                    "label": "问题2-专业1（2024级）",
-                    "children": null
-                },
-                "auth": null,
-                "manager": [
-                    {
-                        "value": "TASK002",
-                        "label": "问题2",
-                        "children": null
-                    }
-                ],
-                "info": null,
-                "cover": null,
-                "btnMenus": [
-                    {
-                        "label": "查看专业课程",
-                        "value": "majorindex",
-                        "path": "/major/index",
-                        "type": "path"
-                    },
-                    {
-                        "label": "查看专业详情",
-                        "value": "majordetail",
-                        "path": "/major/detail",
-                        "type": "path"
-                    }
-                ],
-                "coverMenus": [
-                    {
-                        "label": "查看专业课程",
-                        "value": "majorindex",
-                        "path": "/major/index",
-                        "type": "path"
-                    },
-                    {
-                        "label": "查看专业详情",
-                        "value": "majordetail",
-                        "path": "/major/detail",
-                        "type": "path"
-                    }
-                ],
-                "props": null
-            },
-            {
-                "lang": 80101,
-                "parent": {
-                    "value": "265",
-                    "label": "建筑工程系",
-                    "children": null
-                },
-                "self": {
-                    "value": "5095",
-                    "label": "问题2-专业2（2025级）",
-                    "children": null
-                },
-                "auth": null,
-                "manager": [
-                    {
-                        "value": "TASK002",
-                        "label": "问题2",
-                        "children": null
-                    }
-                ],
-                "info": null,
-                "cover": null,
-                "btnMenus": [
-                    {
-                        "label": "查看专业课程",
-                        "value": "majorindex",
-                        "path": "/major/index",
-                        "type": "path"
-                    },
-                    {
-                        "label": "查看专业详情",
-                        "value": "majordetail",
-                        "path": "/major/detail",
-                        "type": "path"
-                    }
-                ],
-                "coverMenus": [
-                    {
-                        "label": "查看专业课程",
-                        "value": "majorindex",
-                        "path": "/major/index",
-                        "type": "path"
-                    },
-                    {
-                        "label": "查看专业详情",
-                        "value": "majordetail",
-                        "path": "/major/detail",
-                        "type": "path"
-                    }
-                ],
-                "props": null
-            },
-            {
-                "lang": 80101,
-                "parent": {
-                    "value": "265",
-                    "label": "建筑工程系",
-                    "children": null
-                },
-                "self": {
-                    "value": "5096",
-                    "label": "专业1（2026级）",
-                    "children": null
-                },
-                "auth": null,
-                "manager": [
-                    {
-                        "value": "TASK002",
-                        "label": "问题2",
-                        "children": null
-                    }
-                ],
-                "info": null,
-                "cover": null,
-                "btnMenus": [
-                    {
-                        "label": "查看专业课程",
-                        "value": "majorindex",
-                        "path": "/major/index",
-                        "type": "path"
-                    },
-                    {
-                        "label": "查看专业详情",
-                        "value": "majordetail",
-                        "path": "/major/detail",
-                        "type": "path"
-                    }
-                ],
-                "coverMenus": [
-                    {
-                        "label": "查看专业课程",
-                        "value": "majorindex",
-                        "path": "/major/index",
-                        "type": "path"
-                    },
-                    {
-                        "label": "查看专业详情",
-                        "value": "majordetail",
-                        "path": "/major/detail",
-                        "type": "path"
-                    }
-                ],
-                "props": null
-            },
-            {
-                "lang": 80101,
-                "parent": {
-                    "value": "265",
-                    "label": "建筑工程系",
-                    "children": null
-                },
-                "self": {
-                    "value": "5226",
-                    "label": "73期工作坊B",
-                    "children": null
-                },
-                "auth": null,
-                "manager": [
-                    {
-                        "value": "2013043",
-                        "label": "曲梦露",
+                        "value": "2008018",
+                        "label": "姜岩",
                         "children": null
                     }
                 ],

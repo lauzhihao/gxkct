@@ -1,7 +1,7 @@
 "use client"
 
 import { Building2, Plus, BookOpen } from "lucide-react"
-import { cn } from "@/shared/utils/utils"
+import { cn, extractNumericId } from "@/shared/utils/utils"
 import { Button } from "@/shared/components/ui/button"
 import {
   Dialog,
@@ -31,9 +31,10 @@ export function UniversityDetail({ node, onNodeSelect, onAddDepartment, onSetCur
   const handleCreateDepartment = () => {
     if (!newDeptName.trim() || !onAddDepartment) return
 
-    onAddDepartment(node.id, {
-      name: newDeptName,
-      type: "department" as const,
+    const universityId = extractNumericId(node.nodeId)
+    onAddDepartment(universityId.toString(), {
+      nodeName: newDeptName,
+      nodeType: "department" as const,
       description: newDeptDesc || undefined,
       children: [],
     })
@@ -54,7 +55,7 @@ export function UniversityDetail({ node, onNodeSelect, onAddDepartment, onSetCur
               <Building2 className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">{node.name}</h2>
+              <h2 className="text-2xl font-bold text-foreground mb-2">{node.nodeName}</h2>
               {node.description && <p className="text-muted-foreground">{node.description}</p>}
             </div>
           </div>
@@ -62,7 +63,7 @@ export function UniversityDetail({ node, onNodeSelect, onAddDepartment, onSetCur
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => onSetCurrentSchool(node.id)}
+              onClick={() => onSetCurrentSchool(extractNumericId(node.nodeId).toString())}
               className="gap-2 hover:bg-primary/10"
             >
               <BookOpen className="w-4 h-4 text-primary" />

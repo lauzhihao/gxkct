@@ -1,0 +1,699 @@
+{
+    "code": "0",
+    "message": "success",
+    "data": [
+        {
+            "nodeId": "univ_86",
+            "parentId": "root",
+            "nodeType": "university",
+            "nodeName": "齐齐哈尔工程学院",
+            "nodeLevel": 1,
+            "children": [
+                {
+                    "nodeId": "dept_266",
+                    "parentId": "univ_86",
+                    "nodeType": "department",
+                    "nodeName": "康护工程系",
+                    "nodeLevel": 2,
+                    "children": [
+                        {
+                            "nodeId": "major_5118",
+                            "parentId": "dept_266",
+                            "nodeType": "major",
+                            "nodeName": "护理学K",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_13543",
+                                    "parentId": "major_5118",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        },
+                        {
+                            "nodeId": "major_4231",
+                            "parentId": "dept_266",
+                            "nodeType": "major",
+                            "nodeName": "康复治疗学",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_13408",
+                                    "parentId": "major_4231",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        },
+                        {
+                            "nodeId": "major_3963",
+                            "parentId": "dept_266",
+                            "nodeType": "major",
+                            "nodeName": "护理学",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_13519",
+                                    "parentId": "major_3963",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "nodeId": "dept_267",
+                    "parentId": "univ_86",
+                    "nodeType": "department",
+                    "nodeName": "信息工程系",
+                    "nodeLevel": 2,
+                    "children": [
+                        {
+                            "nodeId": "major_3934",
+                            "parentId": "dept_267",
+                            "nodeType": "major",
+                            "nodeName": "动画",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_10782",
+                                    "parentId": "major_3934",
+                                    "nodeType": "course",
+                                    "nodeName": "《习近平新时代中国特色社会主义思想概论》",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                },
+                                {
+                                    "nodeId": "course_13509",
+                                    "parentId": "major_3934",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        },
+                        {
+                            "nodeId": "major_3932",
+                            "parentId": "dept_267",
+                            "nodeType": "major",
+                            "nodeName": "电子科学与技术",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_10780",
+                                    "parentId": "major_3932",
+                                    "nodeType": "course",
+                                    "nodeName": "《习近平新时代中国特色社会主义思想概论》",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                },
+                                {
+                                    "nodeId": "course_13594",
+                                    "parentId": "major_3932",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        },
+                        {
+                            "nodeId": "major_3902",
+                            "parentId": "dept_267",
+                            "nodeType": "major",
+                            "nodeName": "集成电路设计与集成系统",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_10798",
+                                    "parentId": "major_3902",
+                                    "nodeType": "course",
+                                    "nodeName": "《习近平新时代中国特色社会主义思想概论》",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                },
+                                {
+                                    "nodeId": "course_13642",
+                                    "parentId": "major_3902",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        },
+                        {
+                            "nodeId": "major_5120",
+                            "parentId": "dept_267",
+                            "nodeType": "major",
+                            "nodeName": "电子商务【2024、2025】",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_13701",
+                                    "parentId": "major_5120",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        },
+                        {
+                            "nodeId": "major_3917",
+                            "parentId": "dept_267",
+                            "nodeType": "major",
+                            "nodeName": "数据科学与大数据技术专业",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_10784",
+                                    "parentId": "major_3917",
+                                    "nodeType": "course",
+                                    "nodeName": "《习近平新时代中国特色社会主义思想概论》",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                },
+                                {
+                                    "nodeId": "course_13507",
+                                    "parentId": "major_3917",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        },
+                        {
+                            "nodeId": "major_3913",
+                            "parentId": "dept_267",
+                            "nodeType": "major",
+                            "nodeName": "计算机科学与技术",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_13513",
+                                    "parentId": "major_3913",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                },
+                                {
+                                    "nodeId": "course_10778",
+                                    "parentId": "major_3913",
+                                    "nodeType": "course",
+                                    "nodeName": "《习近平新时代中国特色社会主义思想概论》",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        },
+                        {
+                            "nodeId": "major_3964",
+                            "parentId": "dept_267",
+                            "nodeType": "major",
+                            "nodeName": "视觉传达设计本科2024.3.29（姜岩）",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_10773",
+                                    "parentId": "major_3964",
+                                    "nodeType": "course",
+                                    "nodeName": "《习近平新时代中国特色社会主义思想概论》",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        },
+                        {
+                            "nodeId": "major_3962",
+                            "parentId": "dept_267",
+                            "nodeType": "major",
+                            "nodeName": "电子商务",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_10789",
+                                    "parentId": "major_3962",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        },
+                        {
+                            "nodeId": "major_3960",
+                            "parentId": "dept_267",
+                            "nodeType": "major",
+                            "nodeName": "视觉传达设计本科2024.3.29（姜岩）",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_13532",
+                                    "parentId": "major_3960",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "nodeId": "dept_268",
+                    "parentId": "univ_86",
+                    "nodeType": "department",
+                    "nodeName": "机电工程系",
+                    "nodeLevel": 2,
+                    "children": [
+                        {
+                            "nodeId": "major_4236",
+                            "parentId": "dept_268",
+                            "nodeType": "major",
+                            "nodeName": "车辆工程（适用于2024级）",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_10786",
+                                    "parentId": "major_4236",
+                                    "nodeType": "course",
+                                    "nodeName": "《习近平新时代中国特色社会主义思想概论》",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        },
+                        {
+                            "nodeId": "major_4233",
+                            "parentId": "dept_268",
+                            "nodeType": "major",
+                            "nodeName": "汽车服务工程专业（24版人培，适用24级等）",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_13588",
+                                    "parentId": "major_4233",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                },
+                                {
+                                    "nodeId": "course_10911",
+                                    "parentId": "major_4233",
+                                    "nodeType": "course",
+                                    "nodeName": "《习近平新时代中国特色社会主义思想概论》",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        },
+                        {
+                            "nodeId": "major_4246",
+                            "parentId": "dept_268",
+                            "nodeType": "major",
+                            "nodeName": "电气工程及其自动化（24、25级）",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_11922",
+                                    "parentId": "major_4246",
+                                    "nodeType": "course",
+                                    "nodeName": "《习近平新时代中国特色社会主义思想概论》",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                },
+                                {
+                                    "nodeId": "course_13560",
+                                    "parentId": "major_4246",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        },
+                        {
+                            "nodeId": "major_4241",
+                            "parentId": "dept_268",
+                            "nodeType": "major",
+                            "nodeName": "新能源汽车工程（24、25级）",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_12208",
+                                    "parentId": "major_4241",
+                                    "nodeType": "course",
+                                    "nodeName": "《习近平新时代中国特色社会主义思想概论》",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                },
+                                {
+                                    "nodeId": "course_13523",
+                                    "parentId": "major_4241",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        },
+                        {
+                            "nodeId": "major_5109",
+                            "parentId": "dept_268",
+                            "nodeType": "major",
+                            "nodeName": "车辆工程（适用于2025级）",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_13603",
+                                    "parentId": "major_5109",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        },
+                        {
+                            "nodeId": "major_4255",
+                            "parentId": "dept_268",
+                            "nodeType": "major",
+                            "nodeName": "机械设计制造及其自动化（2024）",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_13537",
+                                    "parentId": "major_4255",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                },
+                                {
+                                    "nodeId": "course_10883",
+                                    "parentId": "major_4255",
+                                    "nodeType": "course",
+                                    "nodeName": "《习近平新时代中国特色社会主义思想概论》",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        },
+                        {
+                            "nodeId": "major_4254",
+                            "parentId": "dept_268",
+                            "nodeType": "major",
+                            "nodeName": "机器人工程（适用于24-25级）",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_13538",
+                                    "parentId": "major_4254",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                },
+                                {
+                                    "nodeId": "course_12176",
+                                    "parentId": "major_4254",
+                                    "nodeType": "course",
+                                    "nodeName": "《习近平新时代中国特色社会主义思想概论》",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "nodeId": "dept_264",
+                    "parentId": "univ_86",
+                    "nodeType": "department",
+                    "nodeName": "信息学院",
+                    "nodeLevel": 2,
+                    "children": [
+                        {
+                            "nodeId": "major_4968",
+                            "parentId": "dept_264",
+                            "nodeType": "major",
+                            "nodeName": "互联网金融专业（24级）",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_13370",
+                                    "parentId": "major_4968",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        },
+                        {
+                            "nodeId": "major_3956",
+                            "parentId": "dept_264",
+                            "nodeType": "major",
+                            "nodeName": "互联网金融（22、23级）",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_10825",
+                                    "parentId": "major_3956",
+                                    "nodeType": "course",
+                                    "nodeName": "《习近平新时代中国特色社会主义思想概论》",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        },
+                        {
+                            "nodeId": "major_3966",
+                            "parentId": "dept_264",
+                            "nodeType": "major",
+                            "nodeName": "财务管理",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_12121",
+                                    "parentId": "major_3966",
+                                    "nodeType": "course",
+                                    "nodeName": "《习近平新时代中国特色社会主义思想概论》",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                },
+                                {
+                                    "nodeId": "course_10768",
+                                    "parentId": "major_3966",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        },
+                        {
+                            "nodeId": "major_4970",
+                            "parentId": "dept_264",
+                            "nodeType": "major",
+                            "nodeName": "财务管理（2024级）",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_13368",
+                                    "parentId": "major_4970",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "nodeId": "dept_265",
+                    "parentId": "univ_86",
+                    "nodeType": "department",
+                    "nodeName": "建筑工程系",
+                    "nodeLevel": 2,
+                    "children": [
+                        {
+                            "nodeId": "major_5060",
+                            "parentId": "dept_265",
+                            "nodeType": "major",
+                            "nodeName": "工程造价（适用于25级）",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_13364",
+                                    "parentId": "major_5060",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        },
+                        {
+                            "nodeId": "major_4367",
+                            "parentId": "dept_265",
+                            "nodeType": "major",
+                            "nodeName": "工程管理",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_13693",
+                                    "parentId": "major_4367",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                },
+                                {
+                                    "nodeId": "course_13692",
+                                    "parentId": "major_4367",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        },
+                        {
+                            "nodeId": "major_4243",
+                            "parentId": "dept_265",
+                            "nodeType": "major",
+                            "nodeName": "土木工程（适用于24、25级级普本）",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_10830",
+                                    "parentId": "major_4243",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                },
+                                {
+                                    "nodeId": "course_13365",
+                                    "parentId": "major_4243",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                },
+                                {
+                                    "nodeId": "course_10777",
+                                    "parentId": "major_4243",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        },
+                        {
+                            "nodeId": "major_4240",
+                            "parentId": "dept_265",
+                            "nodeType": "major",
+                            "nodeName": "工程管理（适用于24级人才培养方案）",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_10862",
+                                    "parentId": "major_4240",
+                                    "nodeType": "course",
+                                    "nodeName": "《习近平新时代中国特色社会主义思想概论》",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                },
+                                {
+                                    "nodeId": "course_13534",
+                                    "parentId": "major_4240",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        },
+                        {
+                            "nodeId": "major_4252",
+                            "parentId": "dept_265",
+                            "nodeType": "major",
+                            "nodeName": "智能建造（适用于24级人才培养方案）",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_13366",
+                                    "parentId": "major_4252",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                },
+                                {
+                                    "nodeId": "course_10775",
+                                    "parentId": "major_4252",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平新时代中国特色社会主义思想概论",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "nodeId": "dept_278",
+                    "parentId": "univ_86",
+                    "nodeType": "department",
+                    "nodeName": "教务处",
+                    "nodeLevel": 2,
+                    "children": [
+                        {
+                            "nodeId": "major_4238",
+                            "parentId": "dept_278",
+                            "nodeType": "major",
+                            "nodeName": "通识教育专业",
+                            "nodeLevel": 3,
+                            "children": [
+                                {
+                                    "nodeId": "course_10480",
+                                    "parentId": "major_4238",
+                                    "nodeType": "course",
+                                    "nodeName": "习近平思想之法治思想、生态文明思想",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                },
+                                {
+                                    "nodeId": "course_9847",
+                                    "parentId": "major_4238",
+                                    "nodeType": "course",
+                                    "nodeName": "《习近平思想之法治思想、生态文明思想》",
+                                    "nodeLevel": 4,
+                                    "children": null
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "success": true
+}

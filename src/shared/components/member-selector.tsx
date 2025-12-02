@@ -10,7 +10,7 @@ import { Label } from "@/shared/components/ui/label"
 import { ScrollArea } from "@/shared/components/ui/scroll-area"
 import { Search, ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/shared/utils/utils"
-import type { NodeType } from "@/types"
+import type { NodeType, TaskMember } from "@/types"
 import { api } from "@/lib/api"
 
 // 获取角色标签样式
@@ -29,16 +29,7 @@ const getRoleTagStyle = (auth: string): { bg: string; border: string; text: stri
   return roleStyles[auth] || { bg: "bg-muted/20", border: "border-muted/30", text: "text-muted-foreground" }
 }
 
-interface MemberSelectorUser {
-  id: number
-  account: string
-  name: string
-  auth: string
-  belong?: string
-  permission?: number
-  old?: boolean
-  disabled?: boolean
-}
+type MemberSelectorUser = TaskMember
 
 interface MemberSelectorProps {
   mode?: "single" | "multiple"
@@ -70,8 +61,10 @@ const generateFilteredUsers = (nodeType: NodeType, departmentId?: string, majorI
   ]
 
   // 根据departmentId、majorId进行过滤
+  const shouldMatchDepartmentName = departmentId ? Number.isNaN(Number(departmentId)) : false
+
   return allUsers.filter((user) => {
-    if (departmentId && user.belong !== departmentId) return false
+    if (shouldMatchDepartmentName && departmentId && user.belong !== departmentId) return false
     if (majorId) {
       // majorId过滤逻辑可根据实际需求调整
       return false
@@ -94,7 +87,7 @@ export function MemberSelector({
 }: MemberSelectorProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
-  const [selectedIds, setSelectedIds] = useState<number[]>([])
+  const [selectedIds, setSelectedIds] = useState<Array<MemberSelectorUser["id"]>>([])
   const [allUsers, setAllUsers] = useState<MemberSelectorUser[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
@@ -348,4 +341,3 @@ export function MemberSelector({
     </Dialog>
   )
 }
-

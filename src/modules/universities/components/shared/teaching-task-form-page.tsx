@@ -2,79 +2,134 @@
 
 import { ArrowLeft, Plus, Trash2, Check, X, Loader2, ChevronDown } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
-import { Card } from "@/shared/components/ui/card"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
 import { useState, useEffect } from "react"
-import type { TeachingSupervisoryTask, EvaluationStandardItem, TeachingQualityStandard } from "@/types"
+import type {
+  TeachingSupervisoryTask,
+  EvaluationCriterion,
+  PublishNode,
+  TaskEvaluationCriteria,
+} from "@/types"
 import { api } from "@/lib/api"
+import { UniversalTreeSelector } from "@/shared/components/universal-tree-selector"
+
+type TeachingTaskSubmitHandler = (
+  task: TeachingSupervisoryTask,
+) => Promise<TeachingSupervisoryTask | null | void> | TeachingSupervisoryTask | null | void
 
 interface TeachingTaskFormPageProps {
   task: TeachingSupervisoryTask
   onBack: () => void
-  onSubmit?: (task: TeachingSupervisoryTask) => void
-  onAutoSave?: (task: TeachingSupervisoryTask) => void
+  onSubmit?: TeachingTaskSubmitHandler
+  onAutoSave?: TeachingTaskSubmitHandler
   isLoading?: boolean
 }
 
 export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoading = false }: TeachingTaskFormPageProps) {
-  const [formData, setFormData] = useState<TeachingSupervisoryTask>(task)
-  const [standards, setStandards] = useState<EvaluationStandardItem[]>([])
+  const [formData, setFormData] = useState<TeachingSupervisoryTask>({
+    ...task,
+    scoringType: task.scoringType || "percentage",
+  })
+  const [criteria, setCriteria] = useState<EvaluationCriterion[]>([
+    {
+      id: Date.now(),
+      sequence: 1,
+      type: "business",
+      indicator: "",
+      fullScore: 100,
+      levels: [{ level: "A", description: "", coefficient: 1.0 }],
+    },
+  ])
   const [isSaving, setIsSaving] = useState(false)
   const [autoSaveStatus, setAutoSaveStatus] = useState<"" | "saving" | "saved" | "failed">("")
+  const [isPublishSelectorOpen, setIsPublishSelectorOpen] = useState(false)
 
   // 初始化时检查是否有复制的数据
+  const sortCriteriaByIdDesc = (items: EvaluationCriterion[]): EvaluationCriterion[] => {
+    return [...items].sort((a, b) => Number(b.id) - Number(a.id))
+  }
+
+  const normalizeCriteriaOrder = (items: EvaluationCriterion[]): EvaluationCriterion[] => {
+    const sorted = sortCriteriaByIdDesc(items)
+    return sorted.map((item, index) => ({
+      ...item,
+      sequence: sorted.length - index,
+    }))
+  }
+
   useEffect(() => {
     const copiedData = (window as any).__copiedTaskData
     if (copiedData) {
       console.log("检测到复制的数据:", copiedData)
-      setFormData(copiedData.task)
-      setStandards(copiedData.standards)
+      setFormData({
+        ...copiedData.task,
+        scoringType: copiedData.task?.scoringType || "percentage",
+      })
+      setCriteria(normalizeCriteriaOrder(copiedData.criteria || copiedData.standards || []))
       // 清除临时数据
       delete (window as any).__copiedTaskData
     }
   }, [])
 
-  // 加载现有的评价标准数据（编辑模式）
-  useEffect(() => {
-    const loadStandards = async () => {
-      // 编辑模式：task.id 存在
-      // 新增模式：task.id 不存在
-      if (task.id) {
-        try {
-          console.log("编辑模式 - 加载评价标准，taskId:", task.id)
-          const response = await api.teachingTasks.getTaskStandards(task.id)
-          console.log("加载评价标准响应:", response)
+  const normalizeCriteriaItems = (items: EvaluationCriterion[]): EvaluationCriterion[] => {
+    return items.map((item) => ({
+      ...item,
+      id: Number(item.id) as EvaluationCriterion["id"],
+      levels: item.levels?.length ? item.levels : [{ level: "A", description: "", coefficient: 1.0 }],
+    }))
+  }
 
-          if (response.data && response.data.items) {
-            console.log("设置评价标准:", response.data.items)
-            // 确保每个标准项都有 levels 字段
-            const normalizedItems = response.data.items.map((item: EvaluationStandardItem) => ({
-              ...item,
-              levels: item.levels || [{ level: "A", description: "", coefficient: 1.0 }],
-            }))
-            setStandards(normalizedItems)
-          } else {
-            console.log("没有评价标准数据")
-            setStandards([])
-          }
-        } catch (error) {
-          console.error("加载评价标准失败:", error)
-          setStandards([])
-        }
-      }
-      // 新增模式下不重置 standards，保留复制的数据
+  // 根据任务数据加载评价标准（优先使用 props 携带的数据，必要时退回 API 请求）
+  useEffect(() => {
+    if (typeof task.id !== "number") {
+      return
     }
 
-    loadStandards()
-  }, [task.id])
+    const itemsFromProps = task.evaluationCriteria?.items
+    if (itemsFromProps && itemsFromProps.length > 0) {
+      setCriteria(normalizeCriteriaOrder(normalizeCriteriaItems(itemsFromProps)))
+      return
+    }
 
-  // 自动保存（编辑模式，每10秒保存一次）
+    let cancelled = false
+    const fetchTaskWithCriteria = async () => {
+      try {
+        const response = await api.teachingTasks.getTask(task.universityId, task.id, {
+          includeCriteria: true,
+        })
+        if (!cancelled) {
+          const fetchedItems = response.data?.evaluationCriteria?.items || []
+          setCriteria(
+            fetchedItems.length ? normalizeCriteriaOrder(normalizeCriteriaItems(fetchedItems)) : [],
+          )
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("加载评价标准失败:", error)
+          setCriteria([])
+        }
+      }
+    }
+
+    fetchTaskWithCriteria()
+
+    return () => {
+      cancelled = true
+    }
+  }, [task.id, task.universityId, task.evaluationCriteria])
+
+  // 自动保存（编辑模式，每30秒保存一次）
   useEffect(() => {
     // 只在编辑模式下启用自动保存
-    if (!task.id) {
+    if (typeof task.id !== "number") {
+      return
+    }
+
+    // 当发布范围弹窗打开时，停止自动保存
+    if (isPublishSelectorOpen) {
       return
     }
 
@@ -82,33 +137,18 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
       try {
         setAutoSaveStatus("saving")
 
-        // 为新增任务生成 ID
-        const taskToSubmit = {
+        const evaluationPayload = buildEvaluationCriteriaPayload(task.id)
+        const taskToSubmit: TeachingSupervisoryTask = {
           ...formData,
-          id: formData.id || `task-${Date.now()}`,
-          createdAt: formData.createdAt || new Date().toISOString(),
+          id: task.id,
+          universityId: formData.universityId || task.universityId,
+          scoringType: formData.scoringType || "percentage",
+          ...(evaluationPayload ? { evaluationCriteria: evaluationPayload } : {}),
         }
 
         // 先保存任务基本信息（使用 onAutoSave 而不是 onSubmit，避免页面跳转）
         if (onAutoSave) {
           await onAutoSave(taskToSubmit)
-        }
-
-        // 然后保存评价标准（过滤掉空白项）
-        const validStandards = getValidStandards()
-        if (validStandards.length > 0) {
-          const qualityStandard: TeachingQualityStandard = {
-            id: `standard-${taskToSubmit.id}`,
-            taskId: taskToSubmit.id,
-            universityId: taskToSubmit.universityId,
-            items: validStandards,
-            createdAt: new Date().toISOString(),
-          }
-          await api.teachingTasks.saveTaskStandards(
-            taskToSubmit.universityId,
-            taskToSubmit.id,
-            qualityStandard,
-          )
         }
 
         setAutoSaveStatus("saved")
@@ -119,43 +159,41 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
         setAutoSaveStatus("failed")
         setTimeout(() => setAutoSaveStatus(""), 3000)
       }
-    }, 10000) // 每10秒执行一次
+    }, 30000) // 每30秒执行一次
 
     return () => clearInterval(autoSaveInterval)
-  }, [task.id, formData, standards, onAutoSave])
+  }, [task.id, task.universityId, formData, criteria, onAutoSave, isPublishSelectorOpen])
 
-  const handleAddStandard = () => {
-    const newStandard: EvaluationStandardItem = {
-      id: `standard-${Date.now()}`,
-      sequence: standards.length + 1,
+  const handleAddCriterion = () => {
+    const newCriterion: EvaluationCriterion = {
+      id: Date.now(),
+      sequence: criteria.length + 1,
       type: "business", // 默认为业务指标
       indicator: "",
       fullScore: 100,
       levels: [{ level: "A", description: "", coefficient: 1.0 }], // 默认包含A级
     }
-    setStandards([...standards, newStandard])
+    setCriteria((prev) => normalizeCriteriaOrder([...prev, newCriterion]))
   }
 
-  const handleDeleteStandard = (id: string) => {
-    const filtered = standards.filter((s) => s.id !== id)
-    // 重新计算序号
-    const updated = filtered.map((s, index) => ({
-      ...s,
-      sequence: index + 1,
-    }))
-    setStandards(updated)
+  const handleDeleteCriterion = (id: EvaluationCriterion["id"]) => {
+    if (criteria.length === 1) {
+      return
+    }
+    const filtered = criteria.filter((s) => s.id !== id)
+    setCriteria(normalizeCriteriaOrder(filtered))
   }
 
-  const handleStandardChange = (id: string, field: keyof EvaluationStandardItem, value: any) => {
-    setStandards(
-      standards.map((s) =>
+  const handleCriterionChange = (id: EvaluationCriterion["id"], field: keyof EvaluationCriterion, value: any) => {
+    setCriteria(
+      criteria.map((s) =>
         s.id === id ? { ...s, [field]: value } : s
       )
     )
   }
 
   // 添加等级
-  const handleAddLevel = (standardId: string, level: "A" | "B" | "C" | "D") => {
+  const handleAddLevel = (standardId: EvaluationCriterion["id"], level: "A" | "B" | "C" | "D") => {
     // 等级系数映射
     const levelCoefficients: Record<string, number> = {
       A: 1.0,
@@ -164,8 +202,8 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
       D: 0.4,
     }
 
-    setStandards(
-      standards.map((s) => {
+    setCriteria(
+      criteria.map((s) => {
         if (s.id === standardId) {
           // 检查是否已存在该等级
           if (s.levels.some((l) => l.level === level)) {
@@ -186,9 +224,9 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
   }
 
   // 删除等级
-  const handleDeleteLevel = (standardId: string, level: "A" | "B" | "C" | "D") => {
-    setStandards(
-      standards.map((s) => {
+  const handleDeleteLevel = (standardId: EvaluationCriterion["id"], level: "A" | "B" | "C" | "D") => {
+    setCriteria(
+      criteria.map((s) => {
         if (s.id === standardId) {
           // 至少保留一个等级
           if (s.levels.length === 1) {
@@ -205,9 +243,14 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
   }
 
   // 更新等级字段
-  const handleUpdateLevel = (standardId: string, level: "A" | "B" | "C" | "D", field: "description" | "coefficient" | "condition", value: any) => {
-    setStandards(
-      standards.map((s) => {
+  const handleUpdateLevel = (
+    standardId: EvaluationCriterion["id"],
+    level: "A" | "B" | "C" | "D",
+    field: "description" | "coefficient" | "condition",
+    value: any,
+  ) => {
+    setCriteria(
+      criteria.map((s) => {
         if (s.id === standardId) {
           return {
             ...s,
@@ -243,50 +286,44 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
   }
 
   // 检查评价标准项是否为空（所有必填字段都为空）
-  const isStandardEmpty = (standard: EvaluationStandardItem): boolean => {
-    return !standard.indicator || !standard.indicator.trim()
+  const isCriterionEmpty = (criterion: EvaluationCriterion): boolean => {
+    return !criterion.indicator || !criterion.indicator.trim()
   }
 
   // 过滤掉空白的评价标准项
-  const getValidStandards = (): EvaluationStandardItem[] => {
-    return standards.filter((s) => !isStandardEmpty(s))
+  const getValidCriteria = (): EvaluationCriterion[] => {
+    return criteria.filter((s) => !isCriterionEmpty(s))
+  }
+
+  const buildEvaluationCriteriaPayload = (targetTaskId?: number): TaskEvaluationCriteria | undefined => {
+    const validCriteria = getValidCriteria()
+    if (validCriteria.length === 0) {
+      return undefined
+    }
+    const resolvedUniversityId = formData.universityId || task.universityId
+    if (!resolvedUniversityId) {
+      return undefined
+    }
+    return {
+      taskId: typeof targetTaskId === "number" ? targetTaskId : undefined,
+      universityId: resolvedUniversityId,
+      items: validCriteria,
+    }
   }
 
   const handleSubmit = async () => {
     setIsSaving(true)
     try {
-      // 为新增任务生成 ID
-      const taskToSubmit = {
+      const evaluationPayload = buildEvaluationCriteriaPayload(formData.id)
+      const taskToSubmit: TeachingSupervisoryTask = {
         ...formData,
-        id: formData.id || `task-${Date.now()}`,
-        createdAt: formData.createdAt || new Date().toISOString(),
+        universityId: formData.universityId || task.universityId,
+        scoringType: formData.scoringType || "percentage",
+        ...(evaluationPayload ? { evaluationCriteria: evaluationPayload } : {}),
       }
 
-      // 先保存任务基本信息
       if (onSubmit) {
         await onSubmit(taskToSubmit)
-        console.log("任务基本信息保存成功，taskId:", taskToSubmit.id)
-      }
-
-      // 然后保存评价标准（过滤掉空白项）
-      const validStandards = getValidStandards()
-      if (validStandards.length > 0) {
-        const qualityStandard: TeachingQualityStandard = {
-          id: `standard-${taskToSubmit.id}`,
-          taskId: taskToSubmit.id,
-          universityId: taskToSubmit.universityId,
-          items: validStandards,
-          createdAt: new Date().toISOString(),
-        }
-        console.log("准备保存评价标准:", qualityStandard)
-        const response = await api.teachingTasks.saveTaskStandards(
-          taskToSubmit.universityId,
-          taskToSubmit.id,
-          qualityStandard,
-        )
-        console.log("评价标准保存成功:", response)
-      } else {
-        console.log("没有有效的评价标准需要保存")
       }
     } catch (error) {
       console.error("保存数据失败:", error)
@@ -365,86 +402,206 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
           </div>
         </div>
 
-        {/* Task Info Card */}
-        <Card className="bg-card/50 backdrop-blur-sm border-border p-6">
+        <div className="border-t border-dashed border-border" />
+
+        {/* Task Info Section */}
+        <div className="space-y-4">
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-sm bg-primary" />
               <h3 className="text-base font-semibold text-foreground">任务信息</h3>
             </div>
-            <div className="border-t border-dashed border-border" />
 
             <div className="space-y-4">
-              {/* Row 1: Date Range (Start Date and End Date) */}
-              <div className="grid grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="startDate">
-                    开始日期 <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="startDate"
-                    type="date"
-                    value={formData.startDate.split("T")[0]}
-                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                  />
+              {/* Row 1: 日期区间 + 标题 */}
+              <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="startDate">
+                      开始日期 <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="startDate"
+                      type="date"
+                      value={formData.startDate.split("T")[0]}
+                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="endDate">
+                      结束日期 <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="endDate"
+                      type="date"
+                      value={formData.endDate.split("T")[0]}
+                      onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="endDate">
-                    结束日期 <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="endDate"
-                    type="date"
-                    value={formData.endDate.split("T")[0]}
-                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              {/* Row 2: Task Title (2 columns) */}
-              <div className="grid grid-cols-4 gap-4">
-                <div className="col-span-2 space-y-2">
                   <Label htmlFor="title">
                     任务标题 <span className="text-red-500">*</span>
                   </Label>
-                  <Input
-                    id="title"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    placeholder="例如：2025秋季学期教学档案检查"
-                  />
-                </div>
-              </div>
-
-              {/* Row 3: Task Description (2 columns) */}
-              <div className="grid grid-cols-4 gap-4">
-                <div className="col-span-2 space-y-2">
-                  <Label htmlFor="description">
-                    任务说明 <span className="text-red-500">*</span>
-                  </Label>
-                  <Textarea
-                    id="description"
-                    value={formData.description || ""}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="请输入任务说明（最多500字）"
-                    maxLength={500}
-                    rows={8}
-                    className="resize-none"
-                  />
-                  <div className="flex justify-end">
-                    <p className="text-xs text-muted-foreground">
-                      {(formData.description || "").length}/500
-                    </p>
+                  <div className="relative">
+                    <Input
+                      id="title"
+                      value={formData.title}
+                      maxLength={50}
+                      onChange={(e) =>
+                        setFormData({ ...formData, title: e.target.value.slice(0, 50) })
+                      }
+                      placeholder="例如：2025秋季学期教学档案检查"
+                      className="pr-16"
+                    />
+                    <span className="absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
+                      {(formData.title || "").length}/50
+                    </span>
                   </div>
                 </div>
               </div>
+
+              {/* Row 2: 评分类型 + 发布范围 */}
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label>评分类型</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={formData.scoringType === "percentage" ? "default" : "outline"}
+                      onClick={() => setFormData({ ...formData, scoringType: "percentage" })}
+                      className="flex-1 h-10"
+                    >
+                      百分制
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={formData.scoringType === "five_level" ? "default" : "outline"}
+                      onClick={() => setFormData({ ...formData, scoringType: "five_level" })}
+                      className="flex-1 h-10"
+                    >
+                      五级制
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="publishNodes">
+                    发布范围
+                  </Label>
+                  <div
+                    id="publishNodes"
+                    className="h-10 rounded-md bg-background px-3 flex items-center justify-between gap-2 border border-gray-300 cursor-pointer"
+                    onClick={() => setIsPublishSelectorOpen(true)}
+                  >
+                    <div className="flex items-center flex-wrap gap-2 flex-1 overflow-hidden">
+                      {(formData.publishNodes || []).length > 0 ? (
+                        <>
+                          <div
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 border border-primary/30 rounded-md text-sm"
+                          >
+                            <span className="truncate max-w-[140px]">
+                              {formData.publishNodes?.[0]?.nodeName || "已选节点"}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const currentNodes = formData.publishNodes || []
+                                const updatedNodes = currentNodes.slice(1)
+                                setFormData({
+                                  ...formData,
+                                  publishNodes: updatedNodes,
+                                })
+                              }}
+                              className="ml-1 text-muted-foreground hover:text-foreground"
+                            >
+                              ×
+                            </button>
+                          </div>
+                          {(formData.publishNodes || []).length > 1 && (
+                            <span className="text-sm text-muted-foreground whitespace-nowrap">
+                              等{(formData.publishNodes || []).length}个
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">点击右侧加号选择发布范围</span>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 p-0 flex-shrink-0 text-primary hover:text-white hover:bg-primary"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setIsPublishSelectorOpen(true)
+                      }}
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 3: 任务说明 (50%宽度) */}
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="description">
+                    任务说明 <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="relative">
+                    <Textarea
+                      id="description"
+                      value={formData.description || ""}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      placeholder="请输入任务说明（最多500字）"
+                      maxLength={500}
+                      rows={8}
+                      className="resize-none pr-12 pb-8"
+                    />
+                    <span className="absolute bottom-2 right-3 text-xs text-muted-foreground">
+                      {(formData.description || "").length}/500
+                    </span>
+                  </div>
+                </div>
+                <div />
+              </div>
             </div>
           </div>
-        </Card>
+        </div>
+
+        <UniversalTreeSelector
+          open={isPublishSelectorOpen}
+          onOpenChange={setIsPublishSelectorOpen}
+
+          onConfirm={(nodes) => {
+            const selectedNodes = Array.isArray(nodes) ? nodes : nodes ? [nodes] : []
+            // 只返回nodeType为course的节点
+            const publishNodes: PublishNode[] = selectedNodes
+              .filter((node) => node.nodeType === "course")
+              .map((node) => ({
+                nodeId: node.nodeId,  // 保留原始格式，如 'course_2334'
+                nodeName: node.nodeName,
+              }))
+            setFormData({
+              ...formData,
+              publishNodes,
+            })
+          }}
+          mode="multiple"
+          title="选择发布范围"
+          description="请选择需要接收任务的组织节点"
+          initialSelectedIds={(formData.publishNodes || []).map((node) => String(node.nodeId))}
+          rootType="university"
+          rootId={String(formData.universityId || task.universityId)}
+        />
 
         {/* Evaluation Standards Section */}
-        <Card className="bg-card/50 backdrop-blur-sm border-border p-6">
+        <div className="space-y-4">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -454,40 +611,38 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
               <Button
                 size="sm"
                 variant="outline"
-                onClick={handleAddStandard}
+                onClick={handleAddCriterion}
                 className="gap-2 bg-transparent"
               >
                 <Plus className="w-4 h-4" />
                 新增标准
               </Button>
             </div>
-            <div className="border-t border-dashed border-border" />
 
-            {standards.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <p>暂无评价标准，点击"新增标准"按钮创建</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {standards.map((standard) => (
+            <div className="space-y-4">
+              {/* 当存在标准项时渲染列表，否则给出空状态提示 */}
+              {criteria.length ? (
+                criteria.map((standard) => (
                   <div key={standard.id} className="border border-border rounded-lg p-4 bg-background/50 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
-                          {standard.sequence}
-                        </div>
-                        <span className="text-sm font-medium text-foreground">标准项</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
+                        {standard.sequence}
                       </div>
+                      <span className="text-sm font-medium text-foreground">标准项</span>
+                    </div>
+                    {criteria.length > 1 && (
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => handleDeleteStandard(standard.id)}
+                        onClick={() => handleDeleteCriterion(standard.id)}
                         className="gap-1 hover:bg-destructive/10 text-destructive"
                       >
                         <Trash2 className="w-4 h-4" />
                         删除
                       </Button>
-                    </div>
+                    )}
+                  </div>
 
                     <div className="space-y-4">
                       {/* Row: Type Selection (3 columns), Indicator (5 columns), Full Score (4 columns) */}
@@ -501,7 +656,7 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
                             <Button
                               size="sm"
                               variant={standard.type === "business" ? "default" : "outline"}
-                              onClick={() => handleStandardChange(standard.id, "type", "business")}
+                              onClick={() => handleCriterionChange(standard.id, "type", "business")}
                               className="text-xs flex-1"
                             >
                               业务指标
@@ -509,7 +664,7 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
                             <Button
                               size="sm"
                               variant={standard.type === "system" ? "default" : "outline"}
-                              onClick={() => handleStandardChange(standard.id, "type", "system")}
+                              onClick={() => handleCriterionChange(standard.id, "type", "system")}
                               className="text-xs flex-1"
                             >
                               系统指标
@@ -527,20 +682,20 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
                               <Input
                                 value={standard.indicator}
                                 onChange={(e) =>
-                                  handleStandardChange(standard.id, "indicator", e.target.value.slice(0, 200))
+                                  handleCriterionChange(standard.id, "indicator", e.target.value.slice(0, 200))
                                 }
                                 placeholder="请输入指标项（最多200字）"
                                 maxLength={200}
                               />
                               <div className="flex justify-end">
                                 <p className="text-xs text-muted-foreground">
-                                  {standard.indicator.length}/200
+                                  {(standard.indicator || "").length}/200
                                 </p>
                               </div>
                             </div>
                           ) : (
                             <div className="w-full">
-                              <Select value={standard.systemIndicator || ""} onValueChange={(value) => handleStandardChange(standard.id, "systemIndicator", value)}>
+                              <Select value={standard.systemIndicator || ""} onValueChange={(value) => handleCriterionChange(standard.id, "systemIndicator", value)}>
                                 <SelectTrigger className="w-full">
                                   <SelectValue placeholder="请选择系统指标" />
                                 </SelectTrigger>
@@ -567,7 +722,7 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
                             max="100"
                             value={standard.fullScore}
                             onChange={(e) =>
-                              handleStandardChange(standard.id, "fullScore", parseInt(e.target.value) || 0)
+                              handleCriterionChange(standard.id, "fullScore", parseInt(e.target.value) || 0)
                             }
                             placeholder="0-100"
                           />
@@ -750,13 +905,16 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                ))
+              ) : (
+                <div className="border border-dashed border-border rounded-lg p-8 text-center text-sm text-muted-foreground bg-background/30">
+                  暂无标准项，请点击上方“新增标准”按钮添加
+                </div>
+              )}
+            </div>
           </div>
-        </Card>
+        </div>
       </div>
     </div>
   )
 }
-

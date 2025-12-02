@@ -1,208 +1,108 @@
-import { StorageAdapter } from "./storage-adapter"
+import { HttpAdapter } from "./http-adapter"
 import type { ApiResponse } from "./types"
-import type { TeachingSupervisoryTask, TeachingQualityStandard } from "@/types"
+import type { TeachingSupervisoryTask, Long } from "@/types"
 
-export class TeachingTaskApi {
-  private storage = new StorageAdapter()
-  private storageKeyPrefix = "teaching-tasks-"
-  private standardsKeyPrefix = "teaching-standards-"
+type TeachingStatus = "not_started" | "in_progress" | "completed"
 
-  /**
-   * 获取指定学校的所有教学督导任务
-   */
-  async getTasks(universityId: string): Promise<ApiResponse<TeachingSupervisoryTask[]>> {
-    const key = `${this.storageKeyPrefix}${universityId}`
-    const response = await this.storage.get<TeachingSupervisoryTask[]>(key)
-    return response
-  }
+type CreateTeachingTaskPayload = Omit<TeachingSupervisoryTask, "id" | "createdAt" | "updatedAt">
+type UpdateTeachingTaskPayload = Omit<TeachingSupervisoryTask, "createdAt">
 
-  /**
-   * 获取单个教学督导任务
-   */
-  async getTask(taskId: string): Promise<ApiResponse<TeachingSupervisoryTask>> {
-    const key = `teaching-task-${taskId}`
-    const response = await this.storage.get<TeachingSupervisoryTask>(key)
-    return response
-  }
-
-  /**
-   * 创建新的教学督导任务
-   */
-  async createTask(task: Omit<TeachingSupervisoryTask, "id" | "createdAt">): Promise<ApiResponse<TeachingSupervisoryTask>> {
-    const newTask: TeachingSupervisoryTask = {
-      id: `task-${Date.now()}`,
-      ...task,
-      createdAt: new Date().toISOString(),
-    }
-
-    // 获取现有任务列表
-    const tasksResponse = await this.getTasks(task.universityId)
-    const tasks = tasksResponse.data || []
-
-    // 添加新任务
-    tasks.push(newTask)
-
-    // 保存更新后的任务列表
-    const key = `${this.storageKeyPrefix}${task.universityId}`
-    await this.storage.set(key, tasks)
-
-    return { data: newTask, error: null, status: 200 }
-  }
-
-  /**
-   * 更新教学督导任务
-   */
-  async updateTask(
-    universityId: string,
-    taskId: string,
-    updates: Partial<TeachingSupervisoryTask>,
-  ): Promise<ApiResponse<TeachingSupervisoryTask>> {
-    // 获取现有任务列表
-    const tasksResponse = await this.getTasks(universityId)
-    if (tasksResponse.error || !tasksResponse.data) {
-      return { data: null, error: tasksResponse.error, status: tasksResponse.status }
-    }
-
-    // 查找并更新任务
-    const tasks = tasksResponse.data
-    const taskIndex = tasks.findIndex((t) => t.id === taskId)
-
-    if (taskIndex === -1) {
-      return { data: null, error: "Task not found", status: 404 }
-    }
-
-    const updatedTask: TeachingSupervisoryTask = {
-      ...tasks[taskIndex],
-      ...updates,
-      id: taskId, // 保持ID不变
-      createdAt: tasks[taskIndex].createdAt, // 保持创建时间不变
-      updatedAt: new Date().toISOString(),
-    }
-
-    tasks[taskIndex] = updatedTask
-
-    // 保存更新后的任务列表
-    const key = `${this.storageKeyPrefix}${universityId}`
-    await this.storage.set(key, tasks)
-
-    return { data: updatedTask, error: null, status: 200 }
-  }
-
-  /**
-   * 删除教学督导任务
-   */
-  async deleteTask(universityId: string, taskId: string): Promise<ApiResponse<boolean>> {
-    // 获取现有任务列表
-    const tasksResponse = await this.getTasks(universityId)
-    if (tasksResponse.error || !tasksResponse.data) {
-      return { data: null, error: tasksResponse.error, status: tasksResponse.status }
-    }
-
-    // 过滤掉要删除的任务
-    const tasks = tasksResponse.data.filter((t) => t.id !== taskId)
-
-    // 保存更新后的任务列表
-    const key = `${this.storageKeyPrefix}${universityId}`
-    await this.storage.set(key, tasks)
-
-    return { data: true, error: null, status: 200 }
-  }
-
-  /**
-   * 归档教学督导任务
-   */
-  async archiveTask(universityId: string, taskId: string): Promise<ApiResponse<TeachingSupervisoryTask>> {
-    // 获取现有任务列表
-    const tasksResponse = await this.getTasks(universityId)
-    if (tasksResponse.error || !tasksResponse.data) {
-      return { data: null, error: tasksResponse.error, status: tasksResponse.status }
-    }
-
-    // 查找并更新任务
-    const tasks = tasksResponse.data
-    const taskIndex = tasks.findIndex((t) => t.id === taskId)
-
-    if (taskIndex === -1) {
-      return { data: null, error: "Task not found", status: 404 }
-    }
-
-    const archivedTask: TeachingSupervisoryTask = {
-      ...tasks[taskIndex],
-      archived: true,
-      updatedAt: new Date().toISOString(),
-    }
-
-    tasks[taskIndex] = archivedTask
-
-    // 保存更新后的任务列表
-    const key = `${this.storageKeyPrefix}${universityId}`
-    await this.storage.set(key, tasks)
-
-    return { data: archivedTask, error: null, status: 200 }
-  }
-
-  /**
-   * 按状态过滤任务
-   */
-  async getTasksByStatus(
-    universityId: string,
-    status: "not_started" | "in_progress" | "completed",
-  ): Promise<ApiResponse<TeachingSupervisoryTask[]>> {
-    const tasksResponse = await this.getTasks(universityId)
-    if (tasksResponse.error || !tasksResponse.data) {
-      return tasksResponse
-    }
-
-    const filteredTasks = tasksResponse.data.filter((t) => t.status === status)
-    return { data: filteredTasks, error: null, status: 200 }
-  }
-
-  /**
-   * 获取任务的评价标准
-   */
-  async getTaskStandards(taskId: string): Promise<ApiResponse<TeachingQualityStandard>> {
-    try {
-      // 首先尝试从 localStorage 获取
-      const key = `${this.standardsKeyPrefix}${taskId}`
-      const response = await this.storage.get<TeachingQualityStandard>(key)
-
-      // 如果找到了，直接返回
-      if (response.data) {
-        return response
-      }
-
-      // 如果没有找到，从 mock 数据文件读取
-      const mockData = await import("@/mock-data/teaching-standards.json")
-      const standards = mockData.data.find((s: TeachingQualityStandard) => s.taskId === taskId)
-
-      if (standards) {
-        return { data: standards, error: null, status: 200 }
-      }
-
-      return { data: null, error: "标准未找到", status: 404 }
-    } catch (error) {
-      console.error("获取评价标准失败:", error)
-      return { data: null, error: String(error), status: 500 }
-    }
-  }
-
-  /**
-   * 保存任务的评价标准
-   */
-  async saveTaskStandards(
-    universityId: string,
-    taskId: string,
-    standards: TeachingQualityStandard,
-  ): Promise<ApiResponse<TeachingQualityStandard>> {
-    const key = `${this.standardsKeyPrefix}${taskId}`
-    const standardsData: TeachingQualityStandard = {
-      ...standards,
-      universityId,
-      taskId,
-      updatedAt: new Date().toISOString(),
-    }
-    await this.storage.set(key, standardsData)
-    return { data: standardsData, error: null, status: 200 }
-  }
+type ListTaskParams = {
+  status?: TeachingStatus
+  includeArchived?: boolean
+  includeCriteria?: boolean
 }
 
+export class TeachingTaskApi {
+  private http = new HttpAdapter()
+
+  private getBasePath(universityId: Long): string {
+    return `/api/universities/${universityId}/teaching-supervisory-tasks`
+  }
+
+  private appendQuery(path: string, params?: ListTaskParams): string {
+    if (!params) return path
+    const query = new URLSearchParams()
+    if (params.status) {
+      query.set("status", params.status)
+    }
+    if (typeof params.includeArchived === "boolean") {
+      query.set("includeArchived", String(params.includeArchived))
+    }
+    if (typeof params.includeCriteria === "boolean") {
+      query.set("includeCriteria", String(params.includeCriteria))
+    }
+    const queryString = query.toString()
+    return queryString ? `${path}?${queryString}` : path
+  }
+
+  async getTasks(
+    universityId: Long,
+    params?: ListTaskParams,
+  ): Promise<ApiResponse<TeachingSupervisoryTask[]>> {
+    const endpoint = this.appendQuery(this.getBasePath(universityId), params)
+    return this.http.get<TeachingSupervisoryTask[]>(endpoint)
+  }
+
+  async getTask(
+    universityId: Long,
+    taskId: Long,
+    params?: Pick<ListTaskParams, "includeCriteria">,
+  ): Promise<ApiResponse<TeachingSupervisoryTask>> {
+    let endpoint = `${this.getBasePath(universityId)}/${taskId}`
+    if (params?.includeCriteria) {
+      endpoint = `${endpoint}?includeCriteria=true`
+    }
+    return this.http.get<TeachingSupervisoryTask>(endpoint)
+  }
+
+  async createTask(
+    universityId: Long,
+    payload: CreateTeachingTaskPayload,
+  ): Promise<ApiResponse<TeachingSupervisoryTask>> {
+    return this.http.post<TeachingSupervisoryTask>(this.getBasePath(universityId), payload)
+  }
+
+  async updateTask(
+    universityId: Long,
+    taskId: Long,
+    payload: UpdateTeachingTaskPayload,
+  ): Promise<ApiResponse<TeachingSupervisoryTask>> {
+    const endpoint = `${this.getBasePath(universityId)}/${taskId}`
+    return this.http.put<TeachingSupervisoryTask>(endpoint, payload)
+  }
+
+  async updateTaskStatus(
+    universityId: Long,
+    taskId: Long,
+    status: TeachingStatus,
+  ): Promise<ApiResponse<TeachingSupervisoryTask>> {
+    const endpoint = `${this.getBasePath(universityId)}/${taskId}/status`
+    return this.http.patch<TeachingSupervisoryTask>(endpoint, { status })
+  }
+
+  async archiveTask(
+    universityId: Long,
+    taskId: Long,
+    archived = true,
+  ): Promise<ApiResponse<TeachingSupervisoryTask>> {
+    const endpoint = `${this.getBasePath(universityId)}/${taskId}/archive`
+    return this.http.post<TeachingSupervisoryTask>(endpoint, { archived })
+  }
+
+  async copyTask(
+    universityId: Long,
+    taskId: Long,
+    titleSuffix?: string,
+  ): Promise<ApiResponse<TeachingSupervisoryTask>> {
+    const endpoint = `${this.getBasePath(universityId)}/${taskId}/copy`
+    return this.http.post<TeachingSupervisoryTask>(endpoint, titleSuffix ? { titleSuffix } : undefined)
+  }
+
+  async getTasksByStatus(
+    universityId: Long,
+    status: TeachingStatus,
+  ): Promise<ApiResponse<TeachingSupervisoryTask[]>> {
+    return this.getTasks(universityId, { status })
+  }
+}

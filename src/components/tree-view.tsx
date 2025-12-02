@@ -39,10 +39,8 @@ import {
   TooltipProvider,
 } from "@/shared/components/ui/tooltip"
 import type { TreeNode } from "@/types"
-import { api } from "@/lib/api"
 import { useTreeSearch } from "@/shared/hooks/use-tree-search"
 import { useDepartmentMajors } from "@/modules/departments/hooks/use-department-majors"
-import { useMajorCourses } from "@/modules/majors/hooks/use-major-courses"
 
 function highlightText(text: string, searchTerm: string) {
   if (!searchTerm.trim()) {
@@ -86,7 +84,7 @@ const getIcon = (type: string) => {
 }
 
 function hasMatchingDescendant(node: TreeNode, matchingIds: Set<string>): boolean {
-  if (matchingIds.has(node.id)) return true
+  if (matchingIds.has(node.nodeId)) return true
   if (node.children) {
     return node.children.some((child) => hasMatchingDescendant(child, matchingIds))
   }
@@ -111,8 +109,6 @@ interface TreeNodeProps {
   pathNodeIds?: Set<string>
   isFirstMatch?: boolean
   departmentMajors?: Map<string, TreeNode[]>
-  majorCourses?: Map<string, TreeNode[]>
-  loadedMajorsWithNoCourses?: Set<string>
 }
 
 function TreeNodeComponent({
@@ -133,37 +129,26 @@ function TreeNodeComponent({
   pathNodeIds,
   isFirstMatch = false,
   departmentMajors,
-  majorCourses,
-  loadedMajorsWithNoCourses,
 }: TreeNodeProps): ReactElement {
-  const Icon = getIcon(node.type)
+  const Icon = getIcon(node.nodeType)
 
   // 如果是department节点，合并动态加载的专业数据
   let actualChildren = node.children || []
-  if (node.type === "department" && departmentMajors?.has(node.id)) {
-    const loadedMajors = departmentMajors.get(node.id) || []
+  if (node.nodeType === "department" && departmentMajors?.has(node.nodeId)) {
+    const loadedMajors = departmentMajors.get(node.nodeId) || []
     actualChildren = loadedMajors
   }
 
-  // 如果是major节点，合并动态加载的课程数据
-  if (node.type === "major") {
-    if (majorCourses?.has(node.id)) {
-      const loadedCourses = majorCourses.get(node.id) || []
-      actualChildren = loadedCourses
-    }
-  }
+  // major节点直接使用 tree 接口返回的 children，不需要额外加载替换
 
   // department节点应该始终显示展开箭头（可能需要动态加载）
-  // major节点也应该始终显示展开箭头，除非已加载且确实没有课程
-  // 其他节点根据实际children判断
-  const hasChildren = node.type === "department"
+  // major节点和其他节点根据实际children判断
+  const hasChildren = node.nodeType === "department"
     ? true  // department节点始终可展开（会动态加载专业）
-    : node.type === "major"
-      ? !loadedMajorsWithNoCourses?.has(node.id)  // major节点：如果已加载且无课程则不显示箭头
-      : (actualChildren && actualChildren.length > 0)
+    : (actualChildren && actualChildren.length > 0)
 
-  const isExpanded = expandedNodes.has(node.id)
-  const isSelected = selectedNodeId === node.id
+  const isExpanded = expandedNodes.has(node.nodeId)
+  const isSelected = selectedNodeId === node.nodeId
   const isStarred = node.isStarred || false
 
   const nodeRef = React.createRef<HTMLButtonElement>()
@@ -182,18 +167,18 @@ function TreeNodeComponent({
 
   if (searchTerm.trim() && hasChildren && matchingNodeIds && pathNodeIds) {
     // 如果当前节点本身是匹配项，显示所有子节点
-    if (matchingNodeIds.has(node.id)) {
+    if (matchingNodeIds.has(node.nodeId)) {
       // 不过滤，显示所有子节点
     } else {
       // 如果当前节点不是匹配项，只显示包含匹配项的子节点
       displayChildren = displayChildren.filter(
         (child) =>
-          matchingNodeIds.has(child.id) || pathNodeIds.has(child.id) || hasMatchingDescendant(child, matchingNodeIds),
+          matchingNodeIds.has(child.nodeId) || pathNodeIds.has(child.nodeId) || hasMatchingDescendant(child, matchingNodeIds),
       )
     }
-  } else if (node.type === "major" && hasChildren) {
+  } else if (node.nodeType === "major" && hasChildren) {
     if (!searchTerm.trim()) {
-      const visibleCount = visibleCourseCounts.get(node.id) || 5
+      const visibleCount = visibleCourseCounts.get(node.nodeId) || 5
       const totalCourses = actualChildren.length
 
       if (totalCourses > visibleCount) {
@@ -208,20 +193,20 @@ function TreeNodeComponent({
     onSelect(node)
     // department和major节点始终触发展开（会动态加载数据）
     // 其他节点只有在有children时才展开
-    if (node.type === "department" || node.type === "major" || hasChildren) {
-      onToggleExpand(node.id)
+    if (node.nodeType === "department" || node.nodeType === "major" || hasChildren) {
+      onToggleExpand(node.nodeId)
     }
   }
 
   const handleLoadMore = (e: React.MouseEvent) => {
     e.stopPropagation()
-    onLoadMoreCourses(node.id)
+    onLoadMoreCourses(node.nodeId)
   }
 
   const handleStarClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     if (onToggleStar) {
-      onToggleStar(node.id)
+      onToggleStar(node.nodeId)
     }
   }
 
@@ -267,7 +252,7 @@ function TreeNodeComponent({
         </div>
 
         <div className="flex-1 text-left min-w-0 overflow-hidden">
-          {(node.type === "course" || node.type === "major") ? (
+          {(node.nodeType === "course" || node.nodeType === "major") ? (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -277,11 +262,11 @@ function TreeNodeComponent({
                       isSelected && "text-primary",
                     )}
                   >
-                    {highlightText(node.name, searchTerm)}
+                    {highlightText(node.nodeName, searchTerm)}
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="right" align="center" className="max-w-xs">
-                  {node.name}
+                  {node.nodeName}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -292,7 +277,7 @@ function TreeNodeComponent({
                 isSelected && "text-primary",
               )}
             >
-              {highlightText(node.name, searchTerm)}
+              {highlightText(node.nodeName, searchTerm)}
             </div>
           )}
           {node.description && (
@@ -330,7 +315,7 @@ function TreeNodeComponent({
           {displayChildren.length > 0 ? (
             displayChildren.map((child, index) => (
               <TreeNodeComponent
-                key={child.id}
+                key={child.nodeId}
                 node={child}
                 level={level + 1}
                 onSelect={onSelect}
@@ -346,13 +331,11 @@ function TreeNodeComponent({
                 onToggleStar={onToggleStar}
                 matchingNodeIds={matchingNodeIds}
                 pathNodeIds={pathNodeIds}
-                isFirstMatch={isFirstMatch && index === 0 && matchingNodeIds?.has(child.id)}
+                isFirstMatch={isFirstMatch && index === 0 && matchingNodeIds?.has(child.nodeId)}
                 departmentMajors={departmentMajors}
-                majorCourses={majorCourses}
-                loadedMajorsWithNoCourses={loadedMajorsWithNoCourses}
               />
             ))
-          ) : isSearching && (node.type === "department" || node.type === "major") ? (
+          ) : isSearching && (node.nodeType === "department" || node.nodeType === "major") ? (
             <div
               className="text-sm text-muted-foreground py-2"
               style={{ paddingLeft: `${16 + (level + 1) * 24}px` }}
@@ -401,7 +384,6 @@ interface TreeViewProps {
   isCollapsed?: boolean
   onToggleCollapse?: () => void
   onDepartmentMajorsChange?: (majors: Map<string, TreeNode[]>) => void
-  onMajorCoursesChange?: (courses: Map<string, TreeNode[]>) => void
   // 添加onToggleExpand回调用于从详情面板触发展开和动态加载
   onToggleExpand?: (nodeId: string) => void
 }
@@ -421,7 +403,6 @@ export const TreeView = React.forwardRef<
   isCollapsed = false,
   onToggleCollapse,
   onDepartmentMajorsChange,
-  onMajorCoursesChange,
   onToggleExpand: onToggleExpandProp,
 }: TreeViewProps, ref): ReactElement {
   // 如果treeData为null,返回空状态
@@ -439,12 +420,6 @@ export const TreeView = React.forwardRef<
   const [newSchoolName, setNewSchoolName] = useState("")
   const [newSchoolDesc, setNewSchoolDesc] = useState("")
   const { departmentMajors, loadedDepartments, loadDepartmentMajors } = useDepartmentMajors(onDepartmentMajorsChange)
-  const {
-    majorCourses,
-    loadedMajors,
-    loadedMajorsWithNoCourses,
-    loadMajorCourses,
-  } = useMajorCourses(onMajorCoursesChange)
   // 跟踪是否正在加载数据（搜索或动态加载）
   const [isDataLoading, setIsDataLoading] = useState(false)
 
@@ -472,7 +447,7 @@ export const TreeView = React.forwardRef<
 
     // 查找节点（包括动态加载的节点）
     const findNodeById = (node: TreeNode, targetId: string): TreeNode | null => {
-      if (node.id === targetId) return node
+      if (node.nodeId === targetId) return node
       if (node.children) {
         for (const child of node.children) {
           const found = findNodeById(child, targetId)
@@ -483,27 +458,27 @@ export const TreeView = React.forwardRef<
     }
 
     console.log(`[TreeView] handleToggleExpand: 开始查找nodeId=${nodeId}`)
-    console.log(`[TreeView] handleToggleExpand: treeData=`, treeData ? { id: treeData.id, type: treeData.type, childrenCount: treeData.children?.length } : null)
+    console.log(`[TreeView] handleToggleExpand: treeData=`, treeData ? { nodeId: treeData.nodeId, nodeType: treeData.nodeType, childrenCount: treeData.children?.length } : null)
     let node = findNodeById(treeData, nodeId)
-    console.log(`[TreeView] handleToggleExpand: 在treeData中找到的node:`, node ? { id: node.id, type: node.type, name: node.name } : null)
+    console.log(`[TreeView] handleToggleExpand: 在treeData中找到的node:`, node ? { nodeId: node.nodeId, nodeType: node.nodeType, nodeName: node.nodeName } : null)
 
     // 如果在treeData中没找到，尝试在动态加载的专业数据中查找
     if (!node) {
       for (const [deptId, majors] of departmentMajors.entries()) {
-        const found = majors.find(m => m.id === nodeId)
+        const found = majors.find(m => m.nodeId === nodeId)
         if (found) {
           node = found
-          console.log(`[TreeView] handleToggleExpand: 在departmentMajors中找到node:`, { id: node.id, type: node.type, name: node.name })
+          console.log(`[TreeView] handleToggleExpand: 在departmentMajors中找到node:`, { nodeId: node.nodeId, nodeType: node.nodeType, nodeName: node.nodeName })
           break
         }
       }
     }
 
-    console.log(`[TreeView] handleToggleExpand: 最终node:`, node ? { id: node.id, type: node.type, name: node.name } : null)
+    console.log(`[TreeView] handleToggleExpand: 最终node:`, node ? { nodeId: node.nodeId, nodeType: node.nodeType, nodeName: node.nodeName } : null)
     console.log(`[TreeView] handleToggleExpand: loadedDepartments.has(${nodeId}) =`, loadedDepartments.has(nodeId))
 
     // 如果是department节点且未加载过专业数据，则加载
-    if (node && node.type === "department" && !loadedDepartments.has(nodeId)) {
+    if (node && node.nodeType === "department" && !loadedDepartments.has(nodeId)) {
       setIsDataLoading(true)
       try {
         await loadDepartmentMajors(nodeId)
@@ -512,17 +487,8 @@ export const TreeView = React.forwardRef<
       }
     }
 
-    // 如果是major节点且未加载过课程数据，则加载
-    if (node && node.type === "major" && !loadedMajors.has(nodeId)) {
-      const majorId = (node.metadata as any)?.majorId || nodeId.replace("major-", "")
-      setIsDataLoading(true)
-      try {
-        await loadMajorCourses(nodeId, majorId)
-      } finally {
-        setIsDataLoading(false)
-      }
-    }
-  }, [treeData, expandedNodes, loadedDepartments, departmentMajors, loadedMajors, loadDepartmentMajors, loadMajorCourses])
+    // major节点的课程数据由 tree 接口返回，不需要额外加载
+  }, [treeData, expandedNodes, loadedDepartments, departmentMajors, loadDepartmentMajors])
 
   // 使用useImperativeHandle暴露handleToggleExpand方法给外部调用
   React.useImperativeHandle(ref, () => ({
@@ -544,8 +510,8 @@ export const TreeView = React.forwardRef<
     if (!newSchoolName.trim() || !onAddSchool) return
 
     onAddSchool({
-      name: newSchoolName,
-      type: "university" as const,
+      nodeName: newSchoolName,
+      nodeType: "university" as const,
       description: newSchoolDesc || undefined,
       children: [],
     })
@@ -560,7 +526,7 @@ export const TreeView = React.forwardRef<
     if (!onUpdateNode || !treeData.children) return
 
     // 找到要切换星标的节点
-    const targetNode = treeData.children.find(child => child.id === nodeId)
+    const targetNode = treeData.children.find(child => child.nodeId === nodeId)
     if (!targetNode) return
 
     const isCurrentlyStarred = targetNode.isStarred || false
@@ -570,7 +536,7 @@ export const TreeView = React.forwardRef<
       // 取消所有一级节点的星标
       treeData.children.forEach(child => {
         if (child.isStarred) {
-          onUpdateNode(child.id, { isStarred: false })
+          onUpdateNode(child.nodeId, { isStarred: false })
         }
       })
       // 设置当前节点为星标
@@ -585,24 +551,24 @@ export const TreeView = React.forwardRef<
     if (selectedNode) {
       // 当选中节点时，自动展开其所有父节点
       const findPathToNode = (root: TreeNode, targetId: string, path: string[] = []): string[] | null => {
-        if (root.id === targetId) {
+        if (root.nodeId === targetId) {
           return path
         }
         if (root.children) {
           for (const child of root.children) {
-            const result = findPathToNode(child, targetId, [...path, root.id])
+            const result = findPathToNode(child, targetId, [...path, root.nodeId])
             if (result) return result
           }
         }
         return null
       }
 
-      const path = findPathToNode(treeData, selectedNode.id)
+      const path = findPathToNode(treeData, selectedNode.nodeId)
       if (path) {
         setExpandedNodes((prev) => {
           const newSet = new Set(prev)
           path.forEach((nodeId) => newSet.add(nodeId))
-          newSet.add(selectedNode.id)
+          newSet.add(selectedNode.nodeId)
           return newSet
         })
       }
@@ -611,15 +577,15 @@ export const TreeView = React.forwardRef<
 
   useEffect(() => {
     if (searchTerm.trim() && searchResults.length > 0) {
-      const newExpandedNodes = new Set<string>([treeData.id])
+      const newExpandedNodes = new Set<string>([treeData.nodeId])
 
       searchResults.forEach(({ path }) => {
-        path.forEach((node) => newExpandedNodes.add(node.id))
+        path.forEach((node) => newExpandedNodes.add(node.nodeId))
       })
 
       setExpandedNodes(newExpandedNodes)
     }
-  }, [searchTerm, searchResults, treeData.id])
+  }, [searchTerm, searchResults, treeData.nodeId])
 
   // 单独处理搜索结果中需要加载的数据
   useEffect(() => {
@@ -628,8 +594,8 @@ export const TreeView = React.forwardRef<
 
       searchResults.forEach(({ path }) => {
         path.forEach((node) => {
-          if ((node.type === "department" || node.type === "major") && !expandedNodes.has(node.id)) {
-            nodesToLoad.push({ id: node.id, type: node.type })
+          if ((node.nodeType === "department" || node.nodeType === "major") && !expandedNodes.has(node.nodeId)) {
+            nodesToLoad.push({ id: node.nodeId, type: node.nodeType })
           }
         })
       })
@@ -642,17 +608,17 @@ export const TreeView = React.forwardRef<
       let loadingCount = 0
       const totalToLoad = nodesToLoad.length
 
+      // 只加载 department 节点的专业数据，major 节点的课程由 tree 接口返回
+      const departmentsToLoad = nodesToLoad.filter(({ type }) => type === "department" && !loadedDepartments.has(type))
+
+      if (departmentsToLoad.length === 0) {
+        setIsDataLoading(false)
+        return
+      }
+
       nodesToLoad.forEach(({ id, type }) => {
         if (type === "department" && !loadedDepartments.has(id)) {
           loadDepartmentMajors(id).finally(() => {
-            loadingCount++
-            if (loadingCount === totalToLoad) {
-              setIsDataLoading(false)
-            }
-          })
-        } else if (type === "major" && !loadedMajors.has(id)) {
-          const majorId = id.replace("major-", "")
-          loadMajorCourses(id, majorId).finally(() => {
             loadingCount++
             if (loadingCount === totalToLoad) {
               setIsDataLoading(false)
@@ -671,23 +637,21 @@ export const TreeView = React.forwardRef<
     searchResults,
     expandedNodes,
     loadedDepartments,
-    loadedMajors,
     loadDepartmentMajors,
-    loadMajorCourses,
   ])
 
 
 
   const matchingNodeIds = React.useMemo(() => {
     if (!searchTerm.trim() || searchResults.length === 0) return undefined
-    return new Set(searchResults.map(({ node }) => node.id))
+    return new Set(searchResults.map(({ node }) => node.nodeId))
   }, [searchTerm, searchResults])
 
   const pathNodeIds = React.useMemo(() => {
     if (!searchTerm.trim() || searchResults.length === 0) return undefined
     const paths = new Set<string>()
     searchResults.forEach(({ path }) => {
-      path.forEach((node) => paths.add(node.id))
+      path.forEach((node) => paths.add(node.nodeId))
     })
     return paths
   }, [searchTerm, searchResults])
@@ -705,7 +669,7 @@ export const TreeView = React.forwardRef<
     }
 
     // 如果节点本身是匹配项或路径节点，显示
-    if (matchingNodeIds.has(node.id) || pathNodeIds.has(node.id)) {
+    if (matchingNodeIds.has(node.nodeId) || pathNodeIds.has(node.nodeId)) {
       return true
     }
 
@@ -758,12 +722,12 @@ export const TreeView = React.forwardRef<
           {/* 一级节点图标列表 - 可滚动区域 */}
           <div className="flex-1 overflow-y-auto overflow-x-hidden w-full flex flex-col items-center gap-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent py-2 px-1">
             {treeData.children?.map((child) => {
-              const Icon = getIcon(child.type)
-              const isSelected = selectedNode?.id === child.id
+              const Icon = getIcon(child.nodeType)
+              const isSelected = selectedNode?.nodeId === child.nodeId
               const isStarred = child.isStarred || false
 
               return (
-                <div key={child.id} className="relative flex-shrink-0">
+                <div key={child.nodeId} className="relative flex-shrink-0">
                   <button
                     onClick={() => onNodeSelect(child)}
                     className={cn(
@@ -772,8 +736,8 @@ export const TreeView = React.forwardRef<
                         ? "bg-primary text-white shadow-md"
                         : "hover:bg-primary text-muted-foreground hover:text-white hover:shadow-md"
                     )}
-                    aria-label={child.name}
-                    title={child.name}
+                    aria-label={child.nodeName}
+                    title={child.nodeName}
                   >
                     <Icon className="w-5 h-5 transition-colors" />
                   </button>
@@ -787,7 +751,8 @@ export const TreeView = React.forwardRef<
         </div>
       )}
 
-      <div className={cn("rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl p-6", isCollapsed && "hidden")}>
+      {!isCollapsed && (
+      <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl p-6">
         <div className="mb-4">
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
@@ -876,11 +841,11 @@ export const TreeView = React.forwardRef<
         <div className="space-y-2">
           {treeData.children?.filter(shouldShowNode).map((child) => (
             <TreeNodeComponent
-              key={child.id}
+              key={child.nodeId}
               node={child}
               level={0}
               onSelect={onNodeSelect}
-              selectedNodeId={selectedNode?.id || null}
+              selectedNodeId={selectedNode?.nodeId || null}
               expandedNodes={expandedNodes}
               onToggleExpand={handleToggleExpand}
               visibleCourseCounts={visibleCourseCounts}
@@ -892,14 +857,13 @@ export const TreeView = React.forwardRef<
               onToggleStar={handleToggleStar}
               matchingNodeIds={matchingNodeIds}
               pathNodeIds={pathNodeIds}
-              isFirstMatch={child.id === firstMatchId}
+              isFirstMatch={child.nodeId === firstMatchId}
               departmentMajors={departmentMajors}
-              majorCourses={majorCourses}
-              loadedMajorsWithNoCourses={loadedMajorsWithNoCourses}
             />
           ))}
         </div>
       </div>
+      )}
     </>
   )
 })

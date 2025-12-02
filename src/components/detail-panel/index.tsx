@@ -23,7 +23,7 @@ export function DetailPanel(props: DetailPanelProps) {
   }
 
   // Route to appropriate detail component based on node type
-  switch (node.type) {
+  switch (node.nodeType) {
     case "university":
       return <UniversityDetail {...props} currentUser={props.currentUser} />
     case "department":

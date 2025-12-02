@@ -8,7 +8,7 @@ import { useTreeData } from "@/shared/hooks/use-tree-data"
 import { useLocalStorage } from "@/shared/hooks/use-local-storage"
 import { api, getStoredAuthUser } from "@/lib/api"
 import { findStarredNode, getFirstNode } from "@/shared/utils/tree-operations"
-import { cn } from "@/shared/utils/utils"
+import { cn, extractNumericId } from "@/shared/utils/utils"
 import type { TreeNode } from "@/types"
 
 const CURRENT_SCHOOL_STORAGE_KEY = "education-current-school"
@@ -21,7 +21,6 @@ export default function Page() {
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null)
   const [isTreeCollapsed, setIsTreeCollapsed] = useLocalStorage<boolean>(TREE_COLLAPSED_STORAGE_KEY, false)
   const [departmentMajors, setDepartmentMajors] = useState<Map<string, TreeNode[]>>(new Map())
-  const [majorCourses, setMajorCourses] = useState<Map<string, TreeNode[]>>(new Map())
   const [currentUser, setCurrentUser] = useState<{ username: string; role: string } | null>(null)
   // 添加ref来存储TreeView的handleToggleExpand方法
   const treeViewRef = useRef<{ toggleExpand: (nodeId: string) => void }>(null)
@@ -58,9 +57,9 @@ export default function Page() {
       } else {
         console.error("[v0] 加载树形数据失败:", response.error)
         setInitialData({
-          id: "root",
-          name: "根节点",
-          type: "university" as const,
+          nodeId: "root",
+          nodeName: "根节点",
+          nodeType: "root" as const,
           children: [],
         })
       }
@@ -89,11 +88,11 @@ export default function Page() {
       console.log("[v0] 找到的星标节点:", starredNode)
 
       if (starredNode) {
-        console.log("[v0] 选中星标节点:", starredNode.name)
+        console.log("[v0] 选中星标节点:", starredNode.nodeName)
         setSelectedNode(starredNode)
 
-        if (starredNode.type === "university") {
-          setCurrentSchoolId(starredNode.id)
+        if (starredNode.nodeType === "university") {
+          setCurrentSchoolId(extractNumericId(starredNode.nodeId).toString())
         }
       } else {
         console.log("[v0] 没有找到星标节点，使用第一个节点")
@@ -101,11 +100,11 @@ export default function Page() {
         console.log("[v0] 第一个节点:", firstNode)
 
         if (firstNode) {
-          treeDataHook.updateNode(firstNode.id, { isStarred: true })
+          treeDataHook.updateNode(firstNode.nodeId, { isStarred: true })
           setSelectedNode(firstNode)
 
-          if (firstNode.type === "university") {
-            setCurrentSchoolId(firstNode.id)
+          if (firstNode.nodeType === "university") {
+            setCurrentSchoolId(extractNumericId(firstNode.nodeId).toString())
           }
         }
       }
@@ -119,7 +118,7 @@ export default function Page() {
 
   useEffect(() => {
     if (selectedNode && treeDataHook?.findNodeById && treeDataHook.treeData) {
-      const updatedNode = treeDataHook.findNodeById(treeDataHook.treeData, selectedNode.id)
+      const updatedNode = treeDataHook.findNodeById(treeDataHook.treeData, selectedNode.nodeId)
       if (updatedNode) {
         setSelectedNode(updatedNode)
       }
@@ -131,13 +130,13 @@ export default function Page() {
   }, [selectedNode])
 
   const findParentId = (node: TreeNode, targetId: string, parentId?: string): string | null => {
-    if (node.id === targetId) {
+    if (node.nodeId === targetId) {
       return parentId || null
     }
 
     if (node.children) {
       for (const child of node.children) {
-        const found = findParentId(child, targetId, node.id)
+        const found = findParentId(child, targetId, node.nodeId)
         if (found) {
           return found
         }
@@ -147,19 +146,19 @@ export default function Page() {
     return null
   }
 
-  const handleAddSchool = (newSchool: Omit<TreeNode, "id">) => {
+  const handleAddSchool = (newSchool: Omit<TreeNode, "nodeId">) => {
     treeDataHook?.addSchool(newSchool)
   }
 
-  const handleAddDepartment = (universityId: string, newDepartment: Omit<TreeNode, "id">) => {
+  const handleAddDepartment = (universityId: string, newDepartment: Omit<TreeNode, "nodeId">) => {
     treeDataHook?.addDepartment(universityId, newDepartment)
   }
 
-  const handleAddMajor = (departmentId: string, newMajor: Omit<TreeNode, "id">) => {
+  const handleAddMajor = (departmentId: string, newMajor: Omit<TreeNode, "nodeId">) => {
     treeDataHook?.addMajor(departmentId, newMajor)
   }
 
-  const handleAddCourse = (majorId: string, newCourse: Omit<TreeNode, "id">) => {
+  const handleAddCourse = (majorId: string, newCourse: Omit<TreeNode, "nodeId">) => {
     treeDataHook?.addCourse(majorId, newCourse)
   }
 
@@ -231,7 +230,6 @@ export default function Page() {
               isCollapsed={isTreeCollapsed}
               onToggleCollapse={handleToggleTreeCollapse}
               onDepartmentMajorsChange={setDepartmentMajors}
-              onMajorCoursesChange={setMajorCourses}
             />
           </div>
           <div
@@ -250,7 +248,6 @@ export default function Page() {
               onUpdateNode={handleUpdateNode}
               onDeleteNode={handleDeleteNode}
               departmentMajors={departmentMajors}
-              majorCourses={majorCourses}
               currentUser={currentUser}
               // 传入handleToggleExpand回调
               onToggleExpand={handleToggleExpand}

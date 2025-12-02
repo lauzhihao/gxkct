@@ -3,18 +3,16 @@
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { Badge } from "@/shared/components/ui/badge"
 import { Calendar, User } from "lucide-react"
-import { Switch } from "@/shared/components/ui/switch"
-import type { TeachingSupervisoryTask } from "@/types"
+import type { TeachingSupervisoryTask, Long } from "@/types"
 import cn from "classnames"
 
 interface TeachingTaskListProps {
   tasks: TeachingSupervisoryTask[]
   selectedStatus?: "not_started" | "in_progress" | "completed" | null
   onTaskClick?: (task: TeachingSupervisoryTask) => void
-  onStatusChange?: (taskId: string, status: "not_started" | "in_progress" | "completed") => void
 }
 
-export function TeachingTaskList({ tasks, selectedStatus, onTaskClick, onStatusChange }: TeachingTaskListProps) {
+export function TeachingTaskList({ tasks, selectedStatus, onTaskClick }: TeachingTaskListProps) {
   // 过滤任务
   const filteredTasks = selectedStatus
     ? tasks.filter((task) => task.status === selectedStatus)
@@ -36,12 +34,6 @@ export function TeachingTaskList({ tasks, selectedStatus, onTaskClick, onStatusC
       completed: "bg-green-100 text-green-800 border-green-300",
     }
     return colorMap[status] || "bg-gray-100 text-gray-800 border-gray-300"
-  }
-
-  const handleStatusChange = (task: TeachingSupervisoryTask, checked: boolean) => {
-    // 开关状态：未开始 <-> 进行中
-    const newStatus = checked ? "in_progress" : "not_started"
-    onStatusChange?.(task.id, newStatus)
   }
 
   if (filteredTasks.length === 0) {
@@ -93,18 +85,6 @@ export function TeachingTaskList({ tasks, selectedStatus, onTaskClick, onStatusC
                   </div>
                 )}
               </div>
-
-              {/* Status Control Switch */}
-              <div className="flex items-center justify-center gap-2 pt-2 border-t border-border">
-                <span className="text-xs text-muted-foreground">未开始</span>
-                <Switch
-                  checked={task.status === "in_progress"}
-                  onCheckedChange={(checked) => handleStatusChange(task, checked)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="cursor-pointer"
-                />
-                <span className="text-xs text-muted-foreground">进行中</span>
-              </div>
             </div>
           </CardContent>
         </Card>
@@ -112,4 +92,3 @@ export function TeachingTaskList({ tasks, selectedStatus, onTaskClick, onStatusC
     </div>
   )
 }
-

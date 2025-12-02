@@ -7,7 +7,7 @@ import { Card } from "@/shared/components/ui/card"
 import { Label } from "@/shared/components/ui/label"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/components/ui/tooltip"
-import type { TeachingSupervisoryTask, TeachingQualityStandard } from "@/types"
+import type { TeachingSupervisoryTask, TaskEvaluationCriteria } from "@/types"
 import { courseTeachingTasksApi } from "@/modules/courses/api/courseTeachingTasksApi"
 import { formatDate } from "@/shared/utils/date-utils"
 
@@ -22,15 +22,15 @@ interface ScoreItem {
 }
 
 export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetailProps) {
-  const [standards, setStandards] = useState<TeachingQualityStandard | null>(null)
+  const [criteria, setCriteria] = useState<TaskEvaluationCriteria | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [scores, setScores] = useState<Record<string, ScoreItem>>({})
   const [totalScore, setTotalScore] = useState<number>(0)
 
   // 获取标准项的等级系数映射
   const getLevelCoefficients = (itemId: string): Record<string, number> => {
-    if (!standards) return {}
-    const item = standards.items?.find((i) => i.id === itemId)
+    if (!criteria) return {}
+    const item = criteria.items?.find((i) => i.id === itemId)
     if (!item) return {}
 
     const coefficients: Record<string, number> = {}
@@ -42,8 +42,8 @@ export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetai
 
   // 获取选中等级的说明文案
   const getLevelDescription = (itemId: string, level: string): string => {
-    if (!standards) return ""
-    const item = standards.items?.find((i) => i.id === itemId)
+    if (!criteria) return ""
+    const item = criteria.items?.find((i) => i.id === itemId)
     if (!item) return ""
 
     const levelObj = item.levels?.find((l) => l.level === level)
@@ -52,35 +52,62 @@ export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetai
 
   // 加载评价标准
   useEffect(() => {
+    const applyCriteria = (incoming: TaskEvaluationCriteria | null) => {
+      setCriteria(incoming)
+      if (incoming?.items) {
+        const initialScores: Record<string, ScoreItem> = {}
+        incoming.items.forEach((item) => {
+          initialScores[item.id] = { level: "A", comment: "" }
+        })
+        setScores(initialScores)
+      }
+    }
+
+    if (typeof task.id !== "number") {
+      applyCriteria(null)
+      setIsLoading(false)
+      return
+    }
+
+    if (task.evaluationCriteria) {
+      applyCriteria(task.evaluationCriteria)
+      setIsLoading(false)
+      return
+    }
+
+    setIsLoading(true)
+    let cancelled = false
     const loadStandards = async () => {
-      setIsLoading(true)
       try {
-        const response = await courseTeachingTasksApi.getTaskStandards(task.id)
-        if (response.data) {
-          setStandards(response.data)
-          // 初始化评分数据，默认选中A级
-          const initialScores: Record<string, ScoreItem> = {}
-          response.data.items?.forEach((item) => {
-            initialScores[item.id] = { level: "A", comment: "" }
-          })
-          setScores(initialScores)
+        const response = await courseTeachingTasksApi.getTask(task.universityId, task.id)
+        if (!cancelled) {
+          applyCriteria(response.data?.evaluationCriteria || null)
         }
       } catch (error) {
-        console.error("加载评价标准失败:", error)
+        if (!cancelled) {
+          console.error("加载评价标准失败:", error)
+          applyCriteria(null)
+        }
       } finally {
-        setIsLoading(false)
+        if (!cancelled) {
+          setIsLoading(false)
+        }
       }
     }
 
     loadStandards()
-  }, [task.id])
+
+    return () => {
+      cancelled = true
+    }
+  }, [task.id, task.universityId, task.evaluationCriteria])
 
   // 计算总分
   useEffect(() => {
-    if (!standards) return
+    if (!criteria) return
 
     let total = 0
-    standards.items?.forEach((item) => {
+    criteria.items?.forEach((item) => {
       const scoreItem = scores[item.id]
       if (scoreItem && scoreItem.level) {
         const coefficients = getLevelCoefficients(item.id)
@@ -91,7 +118,7 @@ export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetai
     })
 
     setTotalScore(Math.round(total * 100) / 100)
-  }, [scores, standards])
+  }, [scores, criteria])
 
   // 系统指标标签映射
   const getSystemIndicatorLabel = (systemIndicator: string | undefined): string => {
@@ -256,7 +283,7 @@ export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetai
         {/* 评价标准和评分 */}
         {isLoading ? (
           <div className="text-center py-8 text-muted-foreground">加载中...</div>
-        ) : standards && standards.items && standards.items.length > 0 ? (
+        ) : criteria && criteria.items && criteria.items.length > 0 ? (
           <Card className="bg-card/50 backdrop-blur-sm border-border p-6">
             <div className="space-y-4">
               <div className="flex items-center gap-2">
@@ -266,7 +293,7 @@ export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetai
               <div className="border-t border-dashed border-border" />
 
             <div className="space-y-4">
-              {standards.items.map((item, index) => (
+              {criteria.items.map((item, index) => (
                 <div key={item.id} className="border border-border rounded-lg p-4 bg-background/50 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">

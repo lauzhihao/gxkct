@@ -1,11 +1,26 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/shared/components/ui/button"
-import { BookMarked, Plus, Search, FileText, User, Award, Clock, X } from "lucide-react"
+import { BookMarked, Plus, Search, FileText, User, Award, Clock, X, Loader2 } from "lucide-react"
 import { cn } from "@/shared/utils/utils"
 import type { TreeNode } from "@/types"
 import { useMajorCoursePreferences } from "@/modules/majors/hooks/use-major-course-preferences"
+import { buildApiUrl } from "@/lib/api/config"
+import { getStoredAuthToken } from "@/lib/api/auth-config"
+
+// 右侧课程列表数据结构（接口返回格式）
+interface CourseItem {
+  lang: number
+  parent: { value: string; label: string } | null
+  self: { value: string; label: string } | null
+  manager: Array<{ value: string; label: string }> | null
+  info: any
+  cover: any
+  btnMenus: any[]
+  coverMenus: any[]
+  props: any
+}
 
 interface MajorCoursesProps {
   node: TreeNode
@@ -20,33 +35,79 @@ export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, maj
   const [courseSearchTerm, setCourseSearchTerm] = useState("")
   const { showMyCourses, setShowMyCourses } = useMajorCoursePreferences()
 
-  // 优先使用动态加载的课程数据，如果没有则使用node.children中的课程
-  const courses = majorCourses?.has(node.id)
-    ? majorCourses.get(node.id) || []
-    : node.children?.filter((child) => child.type === "course") || []
+  // 右侧组件内部独立获取课程数据，与左侧树完全隔离
+  const [courses, setCourses] = useState<CourseItem[]>([])
+  const [isLoading, setIsLoading] = useState(false)
 
-  const filteredCourses = courses.filter((course) => {
-    const matchesSearch = !courseSearchTerm || course.name.toLowerCase().includes(courseSearchTerm.toLowerCase())
-    const matchesMyCourses = !showMyCourses || (course.metadata?.instructors || []).includes(currentUser?.username || "")
-    return matchesSearch && matchesMyCourses
-  })
+  // 当节点变化时，直接调用接口获取课程列表（不通过 api.tree，避免影响左侧树）
+  useEffect(() => {
+    const fetchCourses = async () => {
+      if (!node?.id) return
 
-  // 获取讲师数组
+      setIsLoading(true)
+      try {
+        const url = buildApiUrl(`/api/v4/webpage/majorindex/courses?majorId=${node.id}&lang=80101`)
+        const headers: Record<string, string> = {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        }
+        const authToken = getStoredAuthToken()
+        if (authToken) {
+          headers['authToken'] = authToken
+        }
+
+        const response = await fetch(url, {
+          method: 'GET',
+          headers,
+        })
+
+        if (response.ok) {
+          const result = await response.json()
+          if (result.code === '0' && Array.isArray(result.data)) {
+            setCourses(result.data)
+          } else {
+            setCourses([])
+          }
+        } else {
+          setCourses([])
+        }
+      } catch (error) {
+        console.error('[MajorCourses] 获取课程列表失败:', error)
+        setCourses([])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchCourses()
+  }, [node?.id])
+
+  // 获取课程ID
+  const getCourseId = (course: any) => course.self?.value || course.id || ''
+
+  // 获取课程名称
+  const getCourseName = (course: any) => course.self?.label || course.name || ''
+
+  // 获取讲师数组（从 manager 字段提取 label）
   const getInstructors = (course: any) => {
-    const instructors = course.metadata?.instructors || []
+    const managers = course.manager || []
+    const instructors = managers.map((m: any) => m.label).filter(Boolean)
     return instructors.length > 0 ? instructors : ["未设置"]
   }
 
-  // 判断讲师是否已设置（有有效的讲师名称）
+  // 判断讲师是否已设置
   const isInstructorSet = (course: any) => {
-    const instructors = course.metadata?.instructors || []
-    return instructors.length > 0
+    const managers = course.manager || []
+    return managers.length > 0
   }
 
-  // 判断是否全部为"未记录"
-  const isUnrecordedOnly = (course: any) => {
-    return course.metadata?.hasUnrecordedOnly === true
-  }
+  const filteredCourses = courses.filter((course) => {
+    const courseName = getCourseName(course)
+    const matchesSearch = !courseSearchTerm || courseName.toLowerCase().includes(courseSearchTerm.toLowerCase())
+    const instructors = getInstructors(course)
+    const matchesMyCourses = !showMyCourses || instructors.includes(currentUser?.username || "")
+    return matchesSearch && matchesMyCourses
+  })
 
   return (
     <>
@@ -94,7 +155,12 @@ export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, maj
         </div>
       </div>
 
-      {!courses || courses.length === 0 ? (
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
+          <p className="text-sm text-muted-foreground">加载课程列表中...</p>
+        </div>
+      ) : !courses || courses.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="text-muted-foreground mb-4">
             <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
@@ -108,10 +174,18 @@ export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, maj
         </div>
       ) : (
         <div className="grid grid-cols-3 gap-4">
-          {filteredCourses.map((course: any, index: number) => (
+          {filteredCourses.map((course: any) => (
             <button
-              key={course.id}
-              onClick={() => onNodeSelect && onNodeSelect(course)}
+              key={getCourseId(course)}
+              onClick={() => onNodeSelect && onNodeSelect({
+                ...course,
+                id: getCourseId(course),
+                nodeId: `course_${getCourseId(course)}`,
+                name: getCourseName(course),
+                nodeName: getCourseName(course),
+                type: 'course',
+                nodeType: 'course',
+              })}
               className={cn(
                 "relative flex flex-col p-5 rounded-xl border transition-all duration-200 min-h-[165px]",
                 "bg-white/40 backdrop-blur-md border-primary/20",
@@ -142,15 +216,15 @@ export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, maj
               <div className="flex-1 flex flex-col justify-center">
                 <div className="flex items-center justify-center px-12">
                   <div className="font-semibold text-foreground text-xl text-center line-clamp-2 leading-tight">
-                    {course.name}
+                    {getCourseName(course)}
                   </div>
                 </div>
               </div>
 
               <div className="absolute bottom-3 left-3 flex flex-wrap gap-1 max-w-[calc(100%-24px)]">
-                {getInstructors(course).map((instructor, index) => (
+                {getInstructors(course).map((instructor, idx) => (
                   <div
-                    key={index}
+                    key={idx}
                     className={cn(
                       "flex items-center gap-[6px] px-[8px] py-[2px] rounded border",
                       isInstructorSet(course)
