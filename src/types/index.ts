@@ -55,6 +55,26 @@ export interface TeachingSupervisoryTask {
   archived?: boolean
   publishNodes?: PublishNode[] // 发布范围：选定的组织节点
   evaluationCriteria?: TaskEvaluationCriteria // 评价标准，任务接口可直接承载
+  // 课程维度扩展信息（课程详情-教学督导使用）
+  courseId?: Long
+  courseName?: string
+  majorId?: Long
+  majorName?: string
+  deptId?: Long
+  deptName?: string
+  collegeId?: Long
+  evaluationRecordId?: Long
+  selfEvaluationStatus?: string
+  deptEvaluationStatus?: string
+  schoolEvaluationStatus?: string
+  overallStatus?: "not_started" | "in_progress" | "completed"
+  selfTotalScore?: number | null
+  deptTotalScore?: number | null
+  schoolTotalScore?: number | null
+  finalScore?: number | null
+  selfSubmittedAt?: string | null
+  deptSubmittedAt?: string | null
+  schoolSubmittedAt?: string | null
 }
 
 export interface PublishNode {
@@ -105,38 +125,6 @@ export interface TaskEvaluationCriteria {
 }
 
 // ============================================================================
-// 节点元数据接口
-// ============================================================================
-
-export interface UniversityMetadata {
-  description?: string
-  address?: string
-  website?: string
-  establishedYear?: string
-}
-
-export interface DepartmentMetadata {
-  description?: string
-  head?: string
-  contact?: string
-}
-
-export interface MajorMetadata {
-  description?: string
-  objectives?: string[]
-  duration?: string
-  degree?: string
-  requiresVOS?: any[]
-  matrixSupportLevels?: Record<string, string>
-}
-
-// 注意: CourseMetadata已迁移至 src/modules/courses/types/models.ts
-// 如需使用,请从 @/modules/courses/types 导入
-
-// 联合类型的元数据 (保留以兼容TreeNode接口)
-export type NodeMetadata = UniversityMetadata | DepartmentMetadata | MajorMetadata | any
-
-// ============================================================================
 // 树节点接口
 // ============================================================================
 
@@ -147,7 +135,6 @@ export interface TreeNode {
   parentId?: string
   nodeLevel?: number
   children?: TreeNode[]
-  metadata?: NodeMetadata
   isStarred?: boolean
   // 兼容属性：从 nodeId 解析出的数字 ID（右侧组件使用）
   id?: string

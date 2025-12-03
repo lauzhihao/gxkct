@@ -8,6 +8,7 @@ import type { TreeNode } from "@/types"
 import { useMajorCoursePreferences } from "@/modules/majors/hooks/use-major-course-preferences"
 import { buildApiUrl } from "@/lib/api/config"
 import { getStoredAuthToken } from "@/lib/api/auth-config"
+import { setCourseCacheBatch, type CourseCacheItem } from "@/shared/utils/course-cache"
 
 // 右侧课程列表数据结构（接口返回格式）
 interface CourseItem {
@@ -65,6 +66,16 @@ export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, maj
           const result = await response.json()
           if (result.code === '0' && Array.isArray(result.data)) {
             setCourses(result.data)
+            // 将课程信息写入缓存
+            const cacheItems: CourseCacheItem[] = result.data.map((course: CourseItem) => ({
+              courseId: course.self?.value || '',
+              courseName: course.self?.label || '',
+              majorName: node.nodeName || node.name || '',
+              instructors: (course.manager || []).map((m: { label: string }) => m.label).filter(Boolean),
+            })).filter((item: CourseCacheItem) => item.courseId)
+            if (cacheItems.length > 0) {
+              setCourseCacheBatch(cacheItems)
+            }
           } else {
             setCourses([])
           }

@@ -41,8 +41,9 @@ export interface UseCareerInfoResult {
 export function useCareerInfo(initialData: any, worksData: WorkCategory[]): UseCareerInfoResult {
   // 从 professionsVOS 或 careerInfo 加载职业信息
   const loadCareerInfoList = () => {
-    if (initialData?.metadata?.professionsVOS && initialData.metadata.professionsVOS.length > 0) {
-      return initialData.metadata.professionsVOS.map((professionVO: any, index: number) => ({
+    // 直接访问 initialData 的属性（已扁平化）
+    if (initialData?.professionsVOS && initialData.professionsVOS.length > 0) {
+      return initialData.professionsVOS.map((professionVO: any, index: number) => ({
         id: String(professionVO.id || index + 1),
         level: "中级",
         direction: {
@@ -53,8 +54,8 @@ export function useCareerInfo(initialData: any, worksData: WorkCategory[]): UseC
         },
         tasks: professionVO.task || "",
       }))
-    } else if (initialData?.metadata?.careerInfo) {
-      return initialData.metadata.careerInfo
+    } else if (initialData?.careerInfo) {
+      return initialData.careerInfo
     } else {
       return [
         {

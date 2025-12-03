@@ -332,7 +332,7 @@ export function MajorDetail({
     return (
       <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl p-6">
         <AddMajorForm
-          departmentId={(node.metadata as any)?.parentDeptId || ""}
+          departmentId={node.parentId?.replace("dept_", "") || ""}
           onCancel={() => setIsEditingMajor(false)}
           onSubmit={handleEditMajorFormSubmit}
           initialData={node}
@@ -362,16 +362,6 @@ export function MajorDetail({
               <div className="flex-1">
                 <h2 className="text-2xl font-bold text-foreground mb-2">{node.name}</h2>
                 {node.description && <p className="text-muted-foreground mb-3">{node.description}</p>}
-                {(node.metadata as any)?.managers && (node.metadata as any).managers.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {(node.metadata as any).managers.map((manager: any, index: number) => (
-                      <div key={index} className="flex items-center gap-[6px] px-[8px] py-[2px] rounded bg-primary border border-primary">
-                        <User className="w-[13px] h-[13px] text-white" />
-                        <span className="text-[13px] text-white font-medium">{manager.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
             <div className="flex flex-col gap-2 absolute top-6 right-6">
@@ -440,7 +430,7 @@ export function MajorDetail({
                 onNodeSelect={onNodeSelect}
                 onAddCourse={() => setIsQuickCreateCourseOpen(true)}
                 majorCourses={majorCourses}
-                departmentId={(node.metadata as any)?.parentDeptId}
+                departmentId={node.parentId?.replace("dept_", "")}
               />
             </TabsContent>
 
@@ -456,7 +446,7 @@ export function MajorDetail({
         onOpenChange={setIsQuickCreateCourseOpen}
         onSubmit={handleQuickCreateCourse}
         majorName={node.name}
-        departmentId={(node.metadata as any)?.parentDeptId}
+        departmentId={node.parentId?.replace("dept_", "")}
       />
 
       <AlertDialog open={isConfirmingSemesterChange} onOpenChange={setIsConfirmingSemesterChange}>

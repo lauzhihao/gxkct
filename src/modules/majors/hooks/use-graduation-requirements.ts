@@ -49,14 +49,15 @@ export function useGraduationRequirements(
 ): UseGraduationRequirementsResult {
   // 从 requiresVOS 或 graduationRequirements 加载毕业要求
   const loadGraduationRequirements = () => {
-    if (initialData?.metadata?.requiresVOS && initialData.metadata.requiresVOS.length > 0) {
-      return initialData.metadata.requiresVOS.map((requireVO: any) => ({
+    // 直接访问 initialData 的属性（已扁平化）
+    if (initialData?.requiresVOS && initialData.requiresVOS.length > 0) {
+      return initialData.requiresVOS.map((requireVO: any) => ({
         id: String(requireVO.id),
         content: requireVO.description || "",
         indicators: requireVO.children?.map((child: any) => child.description || "") || [""],
       }))
-    } else if (initialData?.metadata?.graduationRequirements) {
-      return initialData.metadata.graduationRequirements
+    } else if (initialData?.graduationRequirements) {
+      return initialData.graduationRequirements
     } else {
       return [{ id: "1", content: "", indicators: [""] }]
     }
@@ -77,10 +78,12 @@ export function useGraduationRequirements(
 
   // 进入编辑模式时，加载指标点与课程的支撑关系
   useEffect(() => {
-    if (isEditMode && initialData?.metadata?.majorId) {
+    // 使用 initialData.id 作为 majorId
+    const majorId = initialData?.id
+    if (isEditMode && majorId) {
       const loadIndicatorCourseSupports = async () => {
         try {
-          const response = await api.matrices.getMajorIndicatorCourseSupports(initialData.metadata.majorId)
+          const response = await api.matrices.getMajorIndicatorCourseSupports(majorId)
           if (response.data?.supports) {
             setIndicatorCourseSupports(response.data.supports)
           }
@@ -90,7 +93,7 @@ export function useGraduationRequirements(
       }
       loadIndicatorCourseSupports()
     }
-  }, [isEditMode, initialData?.metadata?.majorId])
+  }, [isEditMode, initialData?.id])
 
   // 更新快照ref，不触发重新渲染
   useEffect(() => {

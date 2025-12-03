@@ -74,19 +74,8 @@ export function useProjectMatrix(node: TreeNode): UseProjectMatrixResult {
   const hasLoadedRef = useRef(false)
   const prevNodeIdRef = useRef<string | null>(null)
 
-  // 从metadata加载本地数据
+  // 加载数据
   useEffect(() => {
-    const metadata = node.metadata as any
-    if (metadata?.projectMatrixData) {
-      setProjectMatrixData(metadata.projectMatrixData)
-    }
-    if (metadata?.chapterTaskObjectives) {
-      setChapterTaskObjectives(metadata.chapterTaskObjectives)
-    }
-    if (metadata?.ksaData) {
-      setKsaData(metadata.ksaData)
-    }
-
     // 当node改变时，重置ref
     if (prevNodeIdRef.current !== node.id) {
       hasLoadedRef.current = false
@@ -107,14 +96,16 @@ export function useProjectMatrix(node: TreeNode): UseProjectMatrixResult {
     try {
       setIsLoadingProjectMatrix(true)
 
-      // 从node.metadata中获取courseId和majorId
-      const courseIdValue = (node.metadata as any)?.courseId
-      const majorIdValue = (node.metadata as any)?.parentMajorId
+      // 直接使用 node.id 作为 courseId
+      const courseIdValue = node.id
 
       if (!courseIdValue) {
         console.warn("[useProjectMatrix] 缺少courseId")
         return
       }
+
+      // majorId 暂不可用，KSA列表相关功能可能需要后续调整
+      const majorIdValue: string | undefined = undefined
 
       // 获取项目矩阵数据（包含项目章节列表）
       const projectMatrixResponse = await projectMatrixApi.getProjectMatrixData(String(courseIdValue))

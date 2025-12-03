@@ -7,7 +7,7 @@ import type { TreeNode } from "@/types"
 // CourseProjectMatrix主组件Props
 export interface CourseProjectMatrixProps {
   node: TreeNode
-  onUpdate: (updates: Partial<TreeNode["metadata"]>) => void
+  onUpdate: (updates: Record<string, any>) => void
 }
 
 // 其他组件Props可在此添加

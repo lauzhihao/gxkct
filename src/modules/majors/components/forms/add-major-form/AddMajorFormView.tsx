@@ -100,7 +100,7 @@ export function AddMajorFormView({
           }}
           isEditMode={isEditMode}
           majorName={formState.majorName}
-          majorId={initialData?.metadata?.majorId}
+          majorId={initialData?.id}
           departmentId={effectiveDepartmentId}
           toast={toast}
         />

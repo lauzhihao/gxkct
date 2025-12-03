@@ -30,6 +30,7 @@ import { CourseResources } from "@/modules/courses/components/course/resources/c
 import { CourseSupervision } from "@/modules/courses/components/course/supervision/course-supervision"
 import { CourseThreeLevelMatrix } from "@/modules/courses/components/course/matrix/course-three-level-matrix"
 import { TeachingObjectivesEditor } from "@/modules/courses/components/shared/teaching-objectives-editor"
+import { getCourseCache } from "@/shared/utils/course-cache"
 
 export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeData, currentUser }: DetailPanelProps) {
   const [isEditingCourse, setIsEditingCourse] = useState(false)
@@ -190,17 +191,21 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
   const createTime = courseDetailInfo.course.createTime
   const majorId = courseDetailInfo.course.majorId
 
-  // 从课程详情中获取专业名称
-  const majorName = courseNameData.major || "未设置"
+  // 从课程详情中获取专业名称，优先从缓存获取
+  const courseCache = getCourseCache(node.id || '')
+  const majorName = courseCache?.majorName || courseNameData.major || "未设置"
 
-  // 获取讲师数组 - 暂时返回未设置（后端暂无此字段）
+  // 获取讲师数组 - 从缓存中读取
   const getInstructors = () => {
+    if (courseCache?.instructors && courseCache.instructors.length > 0) {
+      return courseCache.instructors
+    }
     return ["未设置"]
   }
 
   // 判断讲师是否已设置
   const isInstructorSet = () => {
-    return false
+    return courseCache?.instructors && courseCache.instructors.length > 0
   }
 
   // 如果正在编辑教学目标，显示TeachingObjectivesEditor
@@ -214,6 +219,7 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
         }}
         courseGoals={courseGoals}
         node={node}
+        majorId={majorId}
         majorIndicators={[]}
         teachingObjectiveIndicatorMap={{}}
         isLoadingMajorIndicators={false}

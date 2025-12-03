@@ -1,12 +1,13 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { useRouter } from "next/navigation"
 import { TreeView } from "@/components/tree-view"
 import { DetailPanel } from "@/components/detail-panel"
 import { Header } from "@/components/header"
 import { useTreeData } from "@/shared/hooks/use-tree-data"
 import { useLocalStorage } from "@/shared/hooks/use-local-storage"
-import { api, getStoredAuthUser } from "@/lib/api"
+import { api, getStoredAuthUser, getStoredAuthToken } from "@/lib/api"
 import { findStarredNode, getFirstNode } from "@/shared/utils/tree-operations"
 import { cn, extractNumericId } from "@/shared/utils/utils"
 import type { TreeNode } from "@/types"
@@ -27,6 +28,7 @@ export default function Page() {
   const treeDataHook = useTreeData(initialData)
   const hasInitialized = useRef(false)
   const hasLoadedTree = useRef(false)
+  const router = useRouter()
 
   useEffect(() => {
     // 从localStorage获取当前用户信息
@@ -45,11 +47,23 @@ export default function Page() {
       if (hasLoadedTree.current) {
         return
       }
+
+      const token = getStoredAuthToken()
+      if (!token) {
+        router.replace("/login")
+        return
+      }
+
       hasLoadedTree.current = true
 
       console.log("[v0] 开始加载树形数据")
       const response = await api.tree.getTree()
       console.log("[v0] API响应:", response)
+
+      if (response.status === 401) {
+        router.replace("/login")
+        return
+      }
 
       if (response.data) {
         console.log("[v0] 树形数据加载成功，children数量:", response.data.children?.length || 0)
@@ -67,7 +81,7 @@ export default function Page() {
     }
 
     loadTreeData()
-  }, [])
+  }, [router])
 
   useEffect(() => {
     if (

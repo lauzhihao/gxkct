@@ -48,18 +48,18 @@ export interface UseMajorFormStateResult {
 }
 
 export function useMajorFormState(initialData?: any): UseMajorFormStateResult {
-  // 基础信息状态
-  const [majorCode, setMajorCode] = useState(initialData?.metadata?.majorClass || initialData?.metadata?.code || "")
-  const [majorName, setMajorName] = useState(initialData?.name || "")
-  const [majorLevel, setMajorLevel] = useState(initialData?.metadata?.majorLevel || "1")
-  const [educationalFeatures, setEducationalFeatures] = useState(initialData?.metadata?.feature || "")
+  // 基础信息状态 - 直接访问 initialData 的属性
+  const [majorCode, setMajorCode] = useState(initialData?.majorClass || initialData?.code || "")
+  const [majorName, setMajorName] = useState(initialData?.name || initialData?.nodeName || "")
+  const [majorLevel, setMajorLevel] = useState(initialData?.majorLevel || "1")
+  const [educationalFeatures, setEducationalFeatures] = useState(initialData?.feature || "")
 
   // 需求状况状态
-  const [demandStatus, setDemandStatus] = useState(initialData?.metadata?.demandStatus || "全部状况")
-  const [selectedProvince, setSelectedProvince] = useState(initialData?.metadata?.selectedProvince || "")
+  const [demandStatus, setDemandStatus] = useState(initialData?.demandStatus || "全部状况")
+  const [selectedProvince, setSelectedProvince] = useState(initialData?.selectedProvince || "")
   const [provinceSearch, setProvinceSearch] = useState("")
   const [provincePopoverOpen, setProvincePopoverOpen] = useState(false)
-  const [position, setPosition] = useState(initialData?.metadata?.position || "")
+  const [position, setPosition] = useState(initialData?.position || "")
 
   // UI状态
   const [isLoading, setIsLoading] = useState(false)

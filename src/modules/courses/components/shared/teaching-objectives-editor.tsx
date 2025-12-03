@@ -17,6 +17,7 @@ interface TeachingObjectivesEditorProps {
   onClose: () => void
   courseGoals: CourseGoal[]
   node: TreeNode
+  majorId?: string | number
   majorIndicators: Array<{ requirementId: string; indicatorIndex: number; content: string }>
   teachingObjectiveIndicatorMap: Record<string, string[]>
   isLoadingMajorIndicators: boolean
@@ -28,6 +29,7 @@ export function TeachingObjectivesEditor({
   onClose,
   courseGoals,
   node,
+  majorId,
   majorIndicators,
   teachingObjectiveIndicatorMap,
   isLoadingMajorIndicators,
@@ -185,12 +187,12 @@ export function TeachingObjectivesEditor({
         children: editingGoalObjectives[goal.id] || goal.children || [],
       }))
 
-      const courseId = (node?.metadata as any)?.courseId
-      const parentMajorId = (node?.metadata as any)?.parentMajorId
-      if (courseId && parentMajorId) {
+      // 使用 node.id 作为 courseId，使用传入的 majorId
+      const courseId = node?.id
+      if (courseId && majorId) {
         console.log("[TeachingObjectivesEditor] 教学目标自动保存:", updatedGoals)
         // 调用API保存教学目标
-        await courseGoalsApi.updateCourseGoals(String(courseId), String(parentMajorId), updatedGoals)
+        await courseGoalsApi.updateCourseGoals(String(courseId), String(majorId), updatedGoals)
       }
     } catch (error) {
       console.error("[TeachingObjectivesEditor] 自动保存教学目标失败:", error)
@@ -252,11 +254,11 @@ export function TeachingObjectivesEditor({
           children: editingGoalObjectives[goal.id] || goal.children || [],
         }))
 
-        const courseId = (node?.metadata as any)?.courseId
-        const parentMajorId = (node?.metadata as any)?.parentMajorId
-        if (courseId && parentMajorId) {
+        // 使用 node.id 作为 courseId，使用传入的 majorId
+        const courseId = node?.id
+        if (courseId && majorId) {
           console.log("[TeachingObjectivesEditor] 教学目标已更新:", updatedGoals)
-          await courseGoalsApi.updateCourseGoals(String(courseId), String(parentMajorId), updatedGoals)
+          await courseGoalsApi.updateCourseGoals(String(courseId), String(majorId), updatedGoals)
         }
       }
 

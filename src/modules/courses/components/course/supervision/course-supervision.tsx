@@ -1,17 +1,73 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ClipboardCheck, Calendar, User } from "lucide-react"
+import { ClipboardCheck, Calendar } from "lucide-react"
 import type { TeachingSupervisoryTask, Long } from "@/types"
 import { Badge } from "@/shared/components/ui/badge"
 import { CourseSupervisionDetail } from "./course-supervision-detail"
-import { courseTeachingTasksApi } from "@/modules/courses/api/courseTeachingTasksApi"
+import { courseTeachingTasksApi, type CourseTeachingTaskResponse } from "@/modules/courses/api/courseTeachingTasksApi"
 import { formatDate } from "@/shared/utils/date-utils"
-import { SectionCard, Divider } from "@/shared/components/design-system"
 
 interface CourseSupervisionProps {
-  courseId?: string
+  courseId?: string | number
   collegeId?: number
+}
+
+const normalizeCourseId = (rawId?: string | number): number | null => {
+  if (rawId === undefined || rawId === null) return null
+  if (typeof rawId === "number" && !Number.isNaN(rawId)) {
+    return rawId
+  }
+  const cleaned = String(rawId).trim()
+  if (!cleaned) return null
+  const match = cleaned.match(/(\d+)/)
+  if (!match) return null
+  const parsed = Number(match[1])
+  return Number.isNaN(parsed) ? null : parsed
+}
+
+const mapStatus = (status?: string): TeachingSupervisoryTask["status"] => {
+  if (status === "in_progress" || status === "completed") {
+    return status
+  }
+  return "not_started"
+}
+
+const mapTaskToTeachingTask = (
+  task: CourseTeachingTaskResponse,
+  fallbackCollegeId?: number,
+): TeachingSupervisoryTask => {
+  const normalizedStatus = mapStatus(task.overallStatus)
+  const resolvedCollegeId = task.collegeId ?? fallbackCollegeId ?? 0
+  return {
+    id: task.taskId ?? task.id,
+    evaluationRecordId: task.id,
+    universityId: resolvedCollegeId as Long,
+    title: task.title || task.courseName || "教学督导任务",
+    description: task.description || task.courseName,
+    startDate: task.startDate,
+    endDate: task.endDate,
+    status: normalizedStatus,
+    creator: task.collegeName || task.deptName || "系统生成",
+    courseId: task.courseId,
+    courseName: task.courseName,
+    majorId: task.majorId,
+    majorName: task.majorName,
+    deptId: task.deptId,
+    deptName: task.deptName,
+    collegeId: task.collegeId ?? fallbackCollegeId,
+    overallStatus: normalizedStatus,
+    selfEvaluationStatus: task.selfEvaluationStatus,
+    deptEvaluationStatus: task.deptEvaluationStatus,
+    schoolEvaluationStatus: task.schoolEvaluationStatus,
+    selfTotalScore: task.selfTotalScore,
+    deptTotalScore: task.deptTotalScore,
+    schoolTotalScore: task.schoolTotalScore,
+    finalScore: task.finalScore,
+    selfSubmittedAt: task.selfSubmittedAt,
+    deptSubmittedAt: task.deptSubmittedAt,
+    schoolSubmittedAt: task.schoolSubmittedAt,
+  }
 }
 
 export function CourseSupervision({ courseId, collegeId }: CourseSupervisionProps) {
@@ -22,25 +78,32 @@ export function CourseSupervision({ courseId, collegeId }: CourseSupervisionProp
   // 加载进行中的督导任务
   useEffect(() => {
     const loadSupervisionTasks = async () => {
-      if (!collegeId) return
+      const parsedCourseId = normalizeCourseId(courseId)
+      if (!parsedCourseId) {
+        console.warn("[CourseSupervision] 无法解析课程ID，跳过督导任务加载")
+        setTasks([])
+        return
+      }
 
       setIsLoading(true)
       try {
-        // 将 collegeId 转换为字符串作为 universityId
-        const universityId = Number(collegeId) as Long
-        const response = await courseTeachingTasksApi.getTasksByStatus(universityId, "in_progress")
+        const response = await courseTeachingTasksApi.getTasksByCourse(parsedCourseId as Long)
         if (response.data) {
-          setTasks(response.data)
+          const normalizedTasks = response.data.map((task) => mapTaskToTeachingTask(task, collegeId))
+          setTasks(normalizedTasks)
+        } else {
+          setTasks([])
         }
       } catch (error) {
         console.error("加载督导任务失败:", error)
+        setTasks([])
       } finally {
         setIsLoading(false)
       }
     }
 
     loadSupervisionTasks()
-  }, [collegeId])
+  }, [courseId, collegeId])
 
   // 如果选中了任务，显示详情页面
   if (selectedTask) {
@@ -48,51 +111,44 @@ export function CourseSupervision({ courseId, collegeId }: CourseSupervisionProp
   }
 
   return (
-    <div className="space-y-4">
-      <SectionCard padding="sm">
-        <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-          <ClipboardCheck className="w-4 h-4" />
-          教学督导任务
-        </h3>
-        <Divider spacing="none" className="mb-4" />
+    <div className="space-y-3 pb-[15px]">
+      <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+        <ClipboardCheck className="w-4 h-4" />
+        教学督导任务
+      </h3>
+      <div className="border-t border-dashed border-border" />
 
-        {isLoading ? (
-          <div className="text-center py-8 text-muted-foreground">加载中...</div>
-        ) : tasks.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">暂无进行中的督导任务</div>
-        ) : (
-          <div className="grid grid-cols-3 gap-4">
-            {tasks.map((task) => (
-              <button
-                key={task.id}
-                onClick={() => setSelectedTask(task)}
-                className="rounded-lg border border-border bg-card/50 backdrop-blur-sm p-4 hover:bg-card/70 hover:border-primary/50 transition-all group relative"
-              >
-                {/* 状态标签 - 右上角 */}
-                <div className="absolute top-3 right-3">
-                  <Badge variant="outline" className="text-xs">
-                    未评分
-                  </Badge>
+      {isLoading ? (
+        <div className="text-center py-8 text-muted-foreground">加载中...</div>
+      ) : tasks.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">暂无进行中的督导任务</div>
+      ) : (
+        <div className="grid grid-cols-3 gap-3">
+          {tasks.map((task) => (
+            <button
+              key={task.id}
+              onClick={() => setSelectedTask(task)}
+              className="relative rounded-lg border border-border px-4 py-3 text-left hover:border-primary/50 hover:bg-accent/5 transition-colors group"
+            >
+              <div className="absolute top-3 right-3">
+                <Badge variant="outline" className="text-xs">
+                  未评分
+                </Badge>
+              </div>
+
+              <div className="space-y-2 pr-10">
+                <h4 className="text-sm font-semibold text-foreground line-clamp-2 group-hover:text-primary transition-colors">
+                  {task.title}
+                </h4>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Calendar className="w-3 h-3 flex-shrink-0" />
+                  <span>{formatDate(task.startDate)} 至 {formatDate(task.endDate)}</span>
                 </div>
-
-                {/* 卡片内容 - 水平居中 */}
-                <div className="flex flex-col items-center justify-center text-center space-y-3">
-                  <h4 className="text-sm font-semibold text-foreground line-clamp-2 group-hover:text-primary transition-colors">
-                    {task.title}
-                  </h4>
-                  <p className="text-xs text-muted-foreground line-clamp-2">{task.description}</p>
-
-                  {/* 日期信息 - 简化显示 */}
-                  <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
-                    <Calendar className="w-3 h-3 flex-shrink-0" />
-                    <span>{formatDate(task.startDate)} 至 {formatDate(task.endDate)}</span>
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </SectionCard>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

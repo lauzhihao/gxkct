@@ -19,19 +19,19 @@ export function TeachingQualityStats({ node, nodeType, treeData, departmentMajor
   const [tasks, setTasks] = useState<TeachingSupervisoryTask[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
-  // 获取 collegeId
+  // 获取 collegeId - 从 parentId 中提取
   const getCollegeId = (): string | null => {
     if (nodeType === "department") {
-      // 院系节点直接从 metadata 获取 collegeId
-      return (node.metadata as any)?.collegeId
+      // 院系节点从 parentId 中提取 collegeId（格式如 "university_123"）
+      return node.parentId?.replace("university_", "") || null
     } else if (nodeType === "major") {
       // 专业节点需要从父院系获取 collegeId
-      const parentDeptId = (node.metadata as any)?.parentDeptId
+      const parentDeptId = node.parentId
       if (!parentDeptId || !treeData) return null
 
       // 从树中查找父院系
       const findDepartment = (searchNode: TreeNode): TreeNode | null => {
-        if (searchNode.id === parentDeptId && searchNode.type === "department") {
+        if (searchNode.nodeId === parentDeptId && searchNode.nodeType === "department") {
           return searchNode
         }
         if (searchNode.children) {
@@ -44,7 +44,7 @@ export function TeachingQualityStats({ node, nodeType, treeData, departmentMajor
       }
 
       const parentDept = findDepartment(treeData)
-      return (parentDept?.metadata as any)?.collegeId || null
+      return parentDept?.parentId?.replace("university_", "") || null
     }
     return null
   }
@@ -71,7 +71,7 @@ export function TeachingQualityStats({ node, nodeType, treeData, departmentMajor
     }
 
     fetchTasks()
-  }, [node.id, node.metadata, treeData, nodeType])
+  }, [node.id, node.parentId, treeData, nodeType])
 
   // Mock数据：生成参与数和平均分
   const getTaskStats = (taskId: string) => {

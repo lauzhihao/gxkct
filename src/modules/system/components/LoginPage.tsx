@@ -7,8 +7,8 @@ const LOGIN_LOGO_SRC = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAdoAAACOCA
 
 export function LoginPage() {
   // 黄金比例：宽度 = 高度 * 1.618
-  // 设置高度为400px，则宽度约为 400 * 1.618 = 647.2px
-  const cardHeight = 400
+  // 设置高度为480px（放大 1.2 倍），则宽度约为 480 * 1.618 ≈ 777px
+  const cardHeight = 480
   const cardWidth = Math.round(cardHeight * 1.618)
 
   return (

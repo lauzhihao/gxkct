@@ -91,8 +91,10 @@ export const useCourseMatrixData = ({ node, onUpdateNode, majorId }: UseCourseMa
 
       const loadAllData = async () => {
         try {
-          const courseId = (node.metadata as any)?.courseId
-          const parentMajorId = (node.metadata as any)?.parentMajorId
+          // 直接使用 node.id 作为 courseId
+          const courseId = node.id
+          // 使用传入的 majorId
+          const parentMajorId = majorId
 
           if (!courseId) {
             console.warn("[CourseMatrix] 缺少courseId")
@@ -143,8 +145,10 @@ export const useCourseMatrixData = ({ node, onUpdateNode, majorId }: UseCourseMa
               const parsed = JSON.parse(majorData)
               const allIndicators: Array<{ requirementId: string; indicatorIndex: number; content: string }> = []
 
-              if (parsed.metadata?.graduationRequirements) {
-                parsed.metadata.graduationRequirements.forEach((req: any) => {
+              // 从缓存的专业数据中获取毕业要求（兼容新旧格式）
+              const graduationRequirements = parsed.graduationRequirements || parsed.requiresVOS || []
+              if (graduationRequirements.length > 0) {
+                graduationRequirements.forEach((req: any) => {
                   req.indicators?.forEach((indicator: string, index: number) => {
                     allIndicators.push({
                       requirementId: req.id,
@@ -191,11 +195,12 @@ export const useCourseMatrixData = ({ node, onUpdateNode, majorId }: UseCourseMa
 
       loadAllData()
     }
-  }, [majorId, node?.id, node?.type, node.metadata])
+  }, [majorId, node?.id, node?.type])
 
   useEffect(() => {
     if (node?.type === "course" && node?.id) {
-      const courseId = (node.metadata as any)?.courseId
+      // 直接使用 node.id 作为 courseId
+      const courseId = node.id
 
       if (prevCourseIdRef.current !== courseId) {
         hasLoadedCourseMatrixRef.current = false
@@ -242,7 +247,7 @@ export const useCourseMatrixData = ({ node, onUpdateNode, majorId }: UseCourseMa
 
       loadMatrix()
     }
-  }, [node?.id, node?.type, node.metadata])
+  }, [node?.id, node?.type])
 
   const handleSaveCourseMatrix = useCallback(
     async (isAutoSave = false) => {
@@ -257,17 +262,9 @@ export const useCourseMatrixData = ({ node, onUpdateNode, majorId }: UseCourseMa
           })
         }
 
-        const courseId = (node.metadata as any)?.courseId
-        if (courseId) {
-          await courseMatrixApi.updateCourseMatrix(courseId, [])
-        }
-
-        if (onUpdateNode) {
-          onUpdateNode(node.id, {
-            metadata: {
-              ...node.metadata,
-            },
-          })
+        // 直接使用 node.id 作为 courseId
+        if (node.id) {
+          await courseMatrixApi.updateCourseMatrix(node.id, [])
         }
 
         setEditingProjectNames({})
@@ -284,7 +281,7 @@ export const useCourseMatrixData = ({ node, onUpdateNode, majorId }: UseCourseMa
         setIsEditingCourseMatrix(false)
       }
     },
-    [editingProjectNames, node.id, node.metadata, onUpdateNode, projectTeachGoalData]
+    [editingProjectNames, node.id, onUpdateNode, projectTeachGoalData]
   )
 
   useEffect(() => {

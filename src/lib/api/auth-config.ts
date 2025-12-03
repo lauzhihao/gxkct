@@ -93,10 +93,14 @@ export function getCurrentUserId(): number | null {
 }
 
 /**
- * 清除所有认证信息
+ * 清除所有认证信息及缓存数据
+ * 退出登录时调用，会清空 localStorage 和 sessionStorage
  */
 export function clearAllAuthData(): void {
-  clearStoredAuthToken()
-  clearStoredAuthUser()
+  if (typeof window === "undefined") return
+  // 清空 localStorage（包含认证信息、主题设置等）
+  localStorage.clear()
+  // 清空 sessionStorage（包含课程缓存等）
+  sessionStorage.clear()
 }
 

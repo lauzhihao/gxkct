@@ -4,7 +4,6 @@ import { Geist, Geist_Mono } from "next/font/google"
 // import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { Toaster } from "@/shared/components/ui/toaster"
-import { DataInitializer } from "@/shared/components/data-initializer"
 
 const geist = Geist({
   subsets: ["latin"],
@@ -30,7 +29,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased`}>
-        <DataInitializer>{children}</DataInitializer>
+        {children}
         {/* <Analytics /> */}
         <Toaster />
       </body>

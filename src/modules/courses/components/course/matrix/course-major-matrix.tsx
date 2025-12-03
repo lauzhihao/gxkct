@@ -54,17 +54,6 @@ export function CourseMajorMatrix({ node, majorNode, majorId, onUpdateNode }: Co
         indicators: req.children?.map((child: any) => child.description || "") || [],
       }))
     }
-    // 其次使用majorNode中的数据（向后兼容）
-    if (majorNode?.metadata && 'requiresVOS' in majorNode.metadata) {
-      const metadata = majorNode.metadata as any
-      if (metadata.requiresVOS && metadata.requiresVOS.length > 0) {
-        return metadata.requiresVOS.map((req: any) => ({
-          id: req.id,
-          content: req.description || "",
-          indicators: req.children?.map((child: any) => child.description || "") || [],
-        }))
-      }
-    }
     return []
   }
 
@@ -88,15 +77,11 @@ export function CourseMajorMatrix({ node, majorNode, majorId, onUpdateNode }: Co
   }
 
   useEffect(() => {
-    // 首先从node的metadata中加载已保存的数据
-    if (node?.metadata && 'courseMajorMatrixSupportLevels' in node.metadata) {
-      setMatrixSupportLevels((node.metadata as any).courseMajorMatrixSupportLevels)
-    }
     // 加载专业详情数据
     loadMajorDetail()
-    // 然后从API加载最新的数据
+    // 从API加载最新的数据
     loadCourseMajorMatrixData()
-  }, [node, majorNode, majorId])
+  }, [node?.id, majorNode, majorId])
 
   useEffect(() => {
     if (!isEditingMatrix) return
@@ -161,16 +146,6 @@ export function CourseMajorMatrix({ node, majorNode, majorId, onUpdateNode }: Co
         await courseMatrixApi.updateCourseMajorMatrix(node.id, String(majorId), matrixSupportLevels)
       }
 
-      // 同时更新node的metadata
-      if (onUpdateNode) {
-        onUpdateNode(node.id, {
-          metadata: {
-            ...node.metadata,
-            courseMajorMatrixSupportLevels: matrixSupportLevels,
-          },
-        })
-      }
-
       await new Promise((resolve) => setTimeout(resolve, 500))
     } catch (error) {
       console.error("保存专业矩阵数据失败:", error)
@@ -184,11 +159,8 @@ export function CourseMajorMatrix({ node, majorNode, majorId, onUpdateNode }: Co
   }
 
   const handleCancelMatrix = () => {
-    if (node?.metadata && 'courseMajorMatrixSupportLevels' in node.metadata) {
-      setMatrixSupportLevels((node.metadata as any).courseMajorMatrixSupportLevels)
-    } else {
-      setMatrixSupportLevels({})
-    }
+    // 取消编辑时重新从API加载数据
+    loadCourseMajorMatrixData()
     setIsEditingMatrix(false)
   }
 

@@ -152,7 +152,7 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser 
     return iconMap[type] || null
   }
 
-  const userCount = node.metadata?.users?.length || 0
+  const userCount = 0
 
   return (
     <div className="flex-1 overflow-auto p-6">
@@ -281,13 +281,6 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser 
                           </div>
                         </div>
                       </div>
-                      {dept.metadata?.director && (
-                        <div className="mt-3">
-                          <Badge variant="outline" className="text-xs">
-                            {dept.metadata.director}
-                          </Badge>
-                        </div>
-                      )}
                     </CardContent>
                   </Card>
                 )

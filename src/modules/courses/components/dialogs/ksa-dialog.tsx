@@ -35,7 +35,8 @@ interface KsaDialogProps {
   toggleKsaSupport: (ksaId: number, currentLevel?: "strong" | "weak") => void
   saveKsaSelection: () => void
   closeKsaDialog: () => void
-  nodeMetadata: any
+  courseId?: string
+  majorId?: string | number
 }
 
 export function KsaDialog({
@@ -62,7 +63,8 @@ export function KsaDialog({
   toggleKsaSupport,
   saveKsaSelection,
   closeKsaDialog,
-  nodeMetadata,
+  courseId,
+  majorId,
 }: KsaDialogProps) {
   if (!selectedKsaCell) return null
 
@@ -112,8 +114,8 @@ export function KsaDialog({
 
     // 调用API新增KSA
     const result = await projectMatrixApi.addKsa({
-      majorId: parseInt(nodeMetadata?.parentMajorId || "0"),
-      courseUnitId: parseInt(nodeMetadata?.courseId || "0"),
+      majorId: parseInt(String(majorId) || "0"),
+      courseUnitId: parseInt(courseId || "0"),
       title: "KSA",
       description: newRowDescription,
       level: maxLevel + 1,

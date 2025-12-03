@@ -503,7 +503,7 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
                           <div
                             className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 border border-primary/30 rounded-md text-sm"
                           >
-                            <span className="truncate max-w-[140px]">
+                            <span>
                               {formData.publishNodes?.[0]?.nodeName || "已选节点"}
                             </span>
                             <button
@@ -523,9 +523,24 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
                             </button>
                           </div>
                           {(formData.publishNodes || []).length > 1 && (
-                            <span className="text-sm text-muted-foreground whitespace-nowrap">
-                              等{(formData.publishNodes || []).length}个
-                            </span>
+                            <div
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-primary/5 border border-primary/30 rounded-md text-sm"
+                            >
+                              <span className="whitespace-nowrap">等{(formData.publishNodes || []).length}个</span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setFormData({
+                                    ...formData,
+                                    publishNodes: [],
+                                  })
+                                }}
+                                className="ml-1 text-muted-foreground hover:text-foreground"
+                              >
+                                ×
+                              </button>
+                            </div>
                           )}
                         </>
                       ) : (

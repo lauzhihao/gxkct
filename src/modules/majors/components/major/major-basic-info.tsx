@@ -33,10 +33,10 @@ export function MajorBasicInfo({ node }: MajorBasicInfoProps) {
 
   // 加载专业详情
   useEffect(() => {
-    const majorId = node.metadata?.majorId
+    // 使用 node.id 作为 majorId
+    const majorId = node.id
 
-    // 如果已有详情数据或已加载过，不需要加载
-    if (node.metadata?.majorLevel || node.metadata?.feature || !majorId) {
+    if (!majorId) {
       return
     }
 
@@ -64,20 +64,19 @@ export function MajorBasicInfo({ node }: MajorBasicInfoProps) {
     }
 
     loadMajorDetail()
-  }, [node.metadata?.majorId])
+  }, [node.id])
 
-  // 合并本地数据和加载的详情数据
+  // 使用 API 返回的详情数据
   const metadata = {
-    ...node.metadata,
-    majorLevel: node.metadata?.majorLevel || detailData?.majorLevel || "",
-    majorClass: node.metadata?.majorClass || detailData?.majorClass || "",
-    feature: node.metadata?.feature || detailData?.feature || "",
-    careerLevel: node.metadata?.careerLevel || detailData?.careerLevel || "",
-    demandType: node.metadata?.demandType || detailData?.demandType || "",
-    demandArea: node.metadata?.demandArea || detailData?.demandArea || "",
-    professionsVOS: node.metadata?.professionsVOS?.length ? node.metadata.professionsVOS : detailData?.professionsVOS || [],
-    position: node.metadata?.position || detailData?.position || "",
-    requiresVOS: node.metadata?.requiresVOS?.length ? node.metadata.requiresVOS : detailData?.requiresVOS || [],
+    majorLevel: detailData?.majorLevel || "",
+    majorClass: detailData?.majorClass || "",
+    feature: detailData?.feature || "",
+    careerLevel: detailData?.careerLevel || "",
+    demandType: detailData?.demandType || "",
+    demandArea: detailData?.demandArea || "",
+    professionsVOS: detailData?.professionsVOS || [],
+    position: detailData?.position || "",
+    requiresVOS: detailData?.requiresVOS || [],
   }
   return (
     <div className="rounded-lg border border-border bg-white/40 backdrop-blur-md p-6 space-y-6">

@@ -108,9 +108,11 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy, onArchive
 
   const isNotStarted = task.status === "not_started"
   const isInProgress = task.status === "in_progress"
-  const isCompleted = task.status === "completed"
-  const disableStart = isInProgress || statusUpdating !== null
+  const canOperateWhenStopped = isNotStarted && statusUpdating === null
+  const disableStart = !canOperateWhenStopped
   const disableStop = !isInProgress || statusUpdating !== null
+  const disableArchive = !canOperateWhenStopped || isArchiving
+  const disableEdit = !canOperateWhenStopped
 
   const getStatusLabel = (status: string) => {
     const statusMap: Record<string, string> = {
@@ -214,7 +216,7 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy, onArchive
                 size="sm"
                 variant="outline"
                 onClick={handleArchive}
-                disabled={isArchiving}
+                disabled={disableArchive}
                 className="gap-2 bg-transparent"
               >
                 <Archive className="w-4 h-4" />
@@ -226,6 +228,7 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy, onArchive
                 size="sm"
                 variant="outline"
                 onClick={onEdit}
+                disabled={disableEdit}
                 className="gap-2 bg-transparent"
               >
                 <Edit className="w-4 h-4" />

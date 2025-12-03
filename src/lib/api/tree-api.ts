@@ -35,9 +35,10 @@ export class TreeApi {
   private storage = new StorageAdapter()
   private treeKey = "tree-data"
 
-  async getTree(): Promise<ApiResponse<TreeNode>> {
+  async getTree(keywords?: string): Promise<ApiResponse<TreeNode>> {
     try {
-      const response = await this.storage.getFromApi<TreeNode[]>(`/api/v5/tree`)
+      const query = keywords ? `?keywords=${encodeURIComponent(keywords)}` : ""
+      const response = await this.storage.getFromApi<TreeNode[]>(`/api/v5/tree${query}`)
 
       if (response.error || !response.data) {
         return { data: null, error: response.error, status: response.status }

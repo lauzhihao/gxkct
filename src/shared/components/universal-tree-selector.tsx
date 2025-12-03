@@ -110,9 +110,8 @@ export function UniversalTreeSelector({
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
-  const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set())
   const [searchResults, setSearchResults] = useState<TreeNode | null>(null)
-  const [isSearching, setIsSearching] = useState(false)
+  const [searchMatchedIds, setSearchMatchedIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (treeData) {
@@ -147,34 +146,9 @@ export function UniversalTreeSelector({
       setSearchQuery("")
       setSelectedIds(initialSelectedIds)
       setSearchResults(null)
+      setSearchMatchedIds(new Set())
     }
   }, [open, initialSelectedIds])
-
-  // 手动搜索函数（移除自动搜索，改为按需触发）
-  const handleSearch = useCallback(async () => {
-    const keyword = searchQuery.trim()
-
-    if (!keyword) {
-      setSearchResults(null)
-      return
-    }
-
-    setIsSearching(true)
-    try {
-      const response = await api.tree.getSubtree(keyword)
-      if (response.data && response.data.length > 0) {
-        // 取第一个节点作为搜索结果的根
-        setSearchResults(response.data[0])
-      } else {
-        setSearchResults(null)
-      }
-    } catch (err) {
-      console.error("搜索失败:", err)
-      setSearchResults(null)
-    } finally {
-      setIsSearching(false)
-    }
-  }, [searchQuery])
 
   const normalizedRootId = String(rootId ?? DEFAULT_ROOT_ID)
 
@@ -202,6 +176,30 @@ export function UniversalTreeSelector({
     },
     [],
   )
+
+  // 基于本地树数据进行搜索过滤
+  const handleSearch = useCallback(() => {
+    const keyword = searchQuery.trim()
+
+    if (!keyword) {
+      setSearchResults(null)
+      setSearchMatchedIds(new Set())
+      return
+    }
+
+    if (!displayRoot) return
+
+    const matchedPathIds = new Set<string>()
+    const filtered = filterTree(displayRoot, keyword, getChildren, matchedPathIds)
+
+    if (filtered) {
+      setSearchResults(filtered)
+      setSearchMatchedIds(matchedPathIds)
+    } else {
+      setSearchResults(null)
+      setSearchMatchedIds(new Set())
+    }
+  }, [searchQuery, displayRoot, getChildren])
 
   const { filteredTree, matchedIds } = useMemo(() => {
     // 如果有搜索结果，使用搜索结果；否则使用原始树
@@ -231,9 +229,9 @@ export function UniversalTreeSelector({
       return node
     }
 
-    const matchedPathIds = new Set<string>()
+    const matchedPathIds = searchResults ? searchMatchedIds : new Set<string>()
     return { filteredTree: applyFilter(rootToUse, true), matchedIds: matchedPathIds }
-  }, [displayRoot, filterTypes, searchResults, getChildren])
+  }, [displayRoot, filterTypes, searchResults, getChildren, searchMatchedIds])
 
   useEffect(() => {
     if (searchResults) {
@@ -249,14 +247,6 @@ export function UniversalTreeSelector({
       setExpandedIds(new Set([displayRoot.nodeId]))
     }
   }, [open, displayRoot, searchQuery])
-
-  const ensureChildrenLoaded = useCallback(
-    async (node: TreeNode) => {
-      // 树已在初始化时完全加载，无需进一步加载子节点
-      return
-    },
-    [],
-  )
 
   const collectDescendantIds = useCallback((node: TreeNode): string[] => {
     const ids = [node.nodeId]
@@ -298,11 +288,8 @@ export function UniversalTreeSelector({
     })
   }
 
-  const handleToggleExpand = async (node: TreeNode) => {
-    const currentlyExpanded = expandedIds.has(node.nodeId)
-    if (!currentlyExpanded) {
-      await ensureChildrenLoaded(node)
-    }
+  const handleToggleExpand = (node: TreeNode) => {
+    // 树数据在弹窗打开时已经一次性加载，此处仅更新本地展开状态
     setExpandedIds((prev) => {
       const next = new Set(prev)
       if (next.has(node.nodeId)) {
@@ -336,6 +323,7 @@ export function UniversalTreeSelector({
   const handleCancel = () => {
     setSearchQuery("")
     setSelectedIds(initialSelectedIds)
+    setSearchMatchedIds(new Set())
     onOpenChange(false)
   }
 
@@ -344,11 +332,7 @@ export function UniversalTreeSelector({
     if (node.nodeType === "course") {
       return childrenCount > 0
     }
-    // 院系节点：总是显示折叠按钮（子节点通过 getSubtree 动态加载）
-    if (node.nodeType === "department") {
-      return true
-    }
-    // 专业和其他节点：根据子节点数量判断
+    // 院系及其他类型节点统一根据子节点数量判断
     return childrenCount > 0
   }
 
@@ -369,7 +353,6 @@ export function UniversalTreeSelector({
     const userExpanded = expandedIds.has(node.nodeId)
     const isExpanded = autoExpanded || userExpanded
     const filteredChildren = node.children || []
-    const hasChildren = actualChildren.length > 0
     const childrenToRender = searchActive && !userExpanded ? filteredChildren : actualChildren
     const shouldRenderChildren = childrenToRender.length > 0 && (isExpanded || searchActive)
     const indent = level * 16
@@ -386,7 +369,7 @@ export function UniversalTreeSelector({
             <button
               type="button"
               className="text-muted-foreground"
-              onClick={async () => handleToggleExpand(node)}
+              onClick={() => handleToggleExpand(node)}
             >
               {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
             </button>
@@ -417,11 +400,7 @@ export function UniversalTreeSelector({
           >
             {highlightText(node.nodeName, searchQuery)}
           </label>
-          {loadingNodes.has(node.nodeId) ? (
-            <span className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-          ) : (
-            <span className="text-xs text-muted-foreground">{typeLabels[node.nodeType] || node.nodeType}</span>
-          )}
+          <span className="text-xs text-muted-foreground">{typeLabels[node.nodeType] || node.nodeType}</span>
         </div>
         {shouldRenderChildren && (
           <div className="space-y-1">
@@ -460,7 +439,6 @@ export function UniversalTreeSelector({
               type="button"
               className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={() => handleSearch()}
-              disabled={isSearching}
             >
               <Search className="w-4 h-4" />
             </button>
@@ -471,6 +449,7 @@ export function UniversalTreeSelector({
                 onClick={() => {
                   setSearchQuery("")
                   setSearchResults(null)
+                  setSearchMatchedIds(new Set())
                 }}
               >
                 ×

@@ -19,8 +19,13 @@ interface CourseThreeLevelMatrixProps {
 }
 
 export function CourseThreeLevelMatrix({ node, onUpdateNode, treeData, majorId, onEditTeachingObjectives, activeMatrixTab = "majorMatrix", onActiveMatrixTabChange }: CourseThreeLevelMatrixProps) {
-  const metadata = node.metadata || {}
   const [majorNode, setMajorNode] = useState<TreeNode | undefined>(undefined)
+
+  // 处理项目矩阵更新回调（空实现，因为 metadata 已移除）
+  const handleUpdateMetadata = (updates: Record<string, any>) => {
+    // 空回调 - 项目矩阵数据不再被保存到 metadata
+    console.log("[CourseThreeLevelMatrix] 项目矩阵更新:", updates)
+  }
 
   // 查找当前课程所属的专业节点
   useEffect(() => {
@@ -46,12 +51,6 @@ export function CourseThreeLevelMatrix({ node, onUpdateNode, treeData, majorId, 
     const found = findMajorWithCourse(treeData)
     setMajorNode(found)
   }, [node.nodeId, treeData])
-
-  const handleUpdateMetadata = (updates: Partial<typeof metadata>) => {
-    if (onUpdateNode) {
-      onUpdateNode(node.nodeId, { metadata: { ...metadata, ...updates } })
-    }
-  }
 
   // 辅助函数：从树中查找节点
   const findNodeById = (root: TreeNode, targetId: string): TreeNode | undefined => {

@@ -103,16 +103,8 @@ export function ProjectMatrixContainer({ node, onUpdate }: CourseProjectMatrixPr
 
   // 取消编辑项目矩阵
   const handleCancelProjectMatrix = () => {
-    const metadata = node.metadata as any
-    if (metadata?.projectMatrixData) {
-      setProjectMatrixData(metadata.projectMatrixData)
-    }
-    if (metadata?.chapterTaskObjectives) {
-      setChapterTaskObjectives(metadata.chapterTaskObjectives)
-    }
-    if (metadata?.ksaData) {
-      setKsaData(metadata.ksaData)
-    }
+    // 取消编辑时重新加载数据
+    loadProjectMatrixData()
     setIsEditingProjectMatrix(false)
   }
 
@@ -256,7 +248,8 @@ export function ProjectMatrixContainer({ node, onUpdate }: CourseProjectMatrixPr
         toggleKsaSupport={toggleKsaSupport}
         saveKsaSelection={saveKsaSelection}
         closeKsaDialog={closeKsaDialog}
-        nodeMetadata={node.metadata}
+        courseId={node.id}
+        majorId={undefined}
       />
     </>
   )

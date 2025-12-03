@@ -245,7 +245,7 @@ export function OrganizationSelector({
     }
 
     if (node && node.type === "major" && !loadedMajors.has(nodeId)) {
-      const majorId = (node.metadata as any)?.majorId || nodeId.replace("major-", "")
+      const majorId = node.id || nodeId.replace("major-", "")
       await loadMajorCourses(nodeId, majorId)
     }
   }

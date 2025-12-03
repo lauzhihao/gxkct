@@ -70,14 +70,14 @@ export function LoginForm() {
   const labelLeftOffset = 'calc(1rem + 1.5rem + 2px)'
 
   return (
-    <form className="w-full max-w-md" onSubmit={handleSubmit}>
-      <div className="flex flex-col gap-8 space-y-6">
+    <form className="w-full max-w-md mx-auto flex flex-col items-center" onSubmit={handleSubmit}>
+      <div className="flex flex-col gap-4 space-y-3 w-full max-w-md mx-auto">
         <div className="flex flex-col gap-8 space-y-6">
           {/* 邮箱输入框 */}
           <div className="relative group">
           <label
             htmlFor="username-input"
-            className="absolute z-20 bg-white px-3 py-0.5 text-[1.3125rem] font-semibold text-gray-700 leading-tight -top-2 -translate-y-1/2 group-focus-within:shadow-[0_0_0_4px_rgba(37,99,235,0.45)]"
+            className="absolute z-20 bg-white px-3 py-0.5 text-[1.3125rem] font-semibold text-gray-700 leading-tight -top-1 -translate-y-[35%]"
             style={{ left: labelLeftOffset }}
           >
             用户名
@@ -88,7 +88,7 @@ export function LoginForm() {
             </span>
           )}
           <div
-            className={`flex items-center h-16 rounded-lg border bg-white px-4 transition-all focus-within:ring-2 focus-within:ring-blue-200 focus-within:shadow-[0_0_0_4px_rgba(37,99,235,0.45)] ${
+            className={`flex items-center h-16 rounded-lg border bg-white px-4 transition-all ${
               usernameError
                 ? 'border-red-500 focus-within:border-red-500'
                 : 'border-gray-300 focus-within:border-blue-500'
@@ -120,12 +120,12 @@ export function LoginForm() {
         <div className="relative group">
           <label
             htmlFor="password-input"
-            className="absolute bg-white px-3 py-0.5 text-[1.3125rem] font-semibold text-gray-700 leading-tight -top-2 -translate-y-1/2 group-focus-within:shadow-[0_0_0_4px_rgba(37,99,235,0.45)]"
+            className="absolute bg-white px-3 py-0.5 text-[1.3125rem] font-semibold text-gray-700 leading-tight -top-1 -translate-y-[35%]"
             style={{ left: labelLeftOffset }}
           >
             密码
           </label>
-          <div className="flex items-center h-16 rounded-lg border border-gray-300 bg-white px-4 transition-all focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 focus-within:shadow-[0_0_0_4px_rgba(37,99,235,0.45)]">
+          <div className="flex items-center h-16 rounded-lg border border-gray-300 bg-white px-4 transition-all focus-within:border-blue-500">
             <div className="flex-shrink-0 text-gray-400 mr-0.5">
               <Lock className="h-6 w-6" />
             </div>
@@ -150,7 +150,7 @@ export function LoginForm() {
         </div>
 
         {/* 登录按钮 */}
-        <div className="flex justify-center">
+        <div className="flex justify-center w-full">
           <button
             type="submit"
             disabled={isLoginDisabled}

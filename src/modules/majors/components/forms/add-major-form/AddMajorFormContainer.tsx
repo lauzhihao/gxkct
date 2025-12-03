@@ -29,9 +29,9 @@ export function AddMajorFormContainer({
   const { toast } = useToast()
   const worksData = (worksJsonData as WorksData).data || []
 
-  // 如果是编辑模式且initialData中有departmentId，则使用它；否则使用传入的departmentId
+  // 如果是编辑模式且initialData中有parentId，则使用它；否则使用传入的departmentId
   const effectiveDepartmentId =
-    isEditMode && initialData?.metadata?.departmentId ? initialData.metadata.departmentId : departmentId
+    isEditMode && initialData?.parentId ? initialData.parentId.replace("dept_", "") : departmentId
 
   // 使用表单状态管理hook
   const formState = useMajorFormState(initialData)
@@ -49,9 +49,9 @@ export function AddMajorFormContainer({
 
   // 自动保存指标点与课程的支撑关系
   useEffect(() => {
-    if (!isEditMode || !initialData?.metadata?.majorId || graduationReqs.isCourseSelectorOpenRef) return
-
-    const majorId = initialData.metadata.majorId
+    // 使用 initialData.id 作为 majorId
+    const majorId = initialData?.id
+    if (!isEditMode || !majorId || graduationReqs.isCourseSelectorOpenRef) return
 
     const autoSaveInterval = setInterval(() => {
       const snapshot = graduationReqs.indicatorCoursesSnapshotRef.current
@@ -71,7 +71,7 @@ export function AddMajorFormContainer({
     }, 10000)
 
     return () => clearInterval(autoSaveInterval)
-  }, [isEditMode, initialData?.metadata?.majorId, graduationReqs.isCourseSelectorOpenRef])
+  }, [isEditMode, initialData?.id, graduationReqs.isCourseSelectorOpenRef])
 
   // 表单提交逻辑
   const handleSubmit = () => {

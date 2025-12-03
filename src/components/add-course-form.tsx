@@ -89,17 +89,17 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
     return initialData?.id
   }, [initialData?.id])
 
-  // Tab 1: Basic Information
-  const [openingDate, setOpeningDate] = useState(initialData?.metadata?.openingDate || "")
-  const [courseType, setCourseType] = useState(initialData?.metadata?.courseType || "必修")
-  const [courseName, setCourseName] = useState(initialData?.name || "")
-  const [courseNatureId, setCourseNatureId] = useState<number>(initialData?.metadata?.courseNatureId || 0)
-  const [introduction, setIntroduction] = useState(initialData?.metadata?.introduction || "")
-  const [theoryPeriod, setTheoryPeriod] = useState(initialData?.metadata?.theoryPeriod || 0)
-  const [practicePeriod, setPracticePeriod] = useState(initialData?.metadata?.practicePeriod || 0)
+  // Tab 1: Basic Information - 直接访问 initialData 的属性
+  const [openingDate, setOpeningDate] = useState(initialData?.openingDate || "")
+  const [courseType, setCourseType] = useState(initialData?.courseType || "必修")
+  const [courseName, setCourseName] = useState(initialData?.name || initialData?.nodeName || "")
+  const [courseNatureId, setCourseNatureId] = useState<number>(initialData?.courseNatureId || 0)
+  const [introduction, setIntroduction] = useState(initialData?.introduction || "")
+  const [theoryPeriod, setTheoryPeriod] = useState(initialData?.theoryPeriod || 0)
+  const [practicePeriod, setPracticePeriod] = useState(initialData?.practicePeriod || 0)
   // 新增字段
-  const [teachingClass, setTeachingClass] = useState(initialData?.metadata?.teachingClass || "")
-  const [teachingLocation, setTeachingLocation] = useState(initialData?.metadata?.teachingLocation || "")
+  const [teachingClass, setTeachingClass] = useState(initialData?.teachingClass || "")
+  const [teachingLocation, setTeachingLocation] = useState(initialData?.teachingLocation || "")
 
   // 课程表数据结构 - 支持多行
   const defaultScheduleRow = {
@@ -128,7 +128,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
   }
 
   const [teachingScheduleRows, setTeachingScheduleRows] = useState<typeof defaultScheduleRow[]>(() =>
-    parseTeachingSchedule(initialData?.metadata?.teachingTime)
+    parseTeachingSchedule(initialData?.teachingTime)
   )
 
   // 课程表字段展开/收起状态 - 使用 rowIndex-fieldName 作为key
@@ -151,28 +151,28 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
     setTeachingScheduleRows(newRows)
   }
 
-  const [studentCount, setStudentCount] = useState(initialData?.metadata?.studentCount || 0)
-  const [credits, setCredits] = useState(initialData?.metadata?.credits || 0)
-  const [mainTextbook, setMainTextbook] = useState(initialData?.metadata?.mainTextbook || "")
-  const [referenceResources, setReferenceResources] = useState(initialData?.metadata?.referenceResources || "")
+  const [studentCount, setStudentCount] = useState(initialData?.studentCount || 0)
+  const [credits, setCredits] = useState(initialData?.credits || 0)
+  const [mainTextbook, setMainTextbook] = useState(initialData?.mainTextbook || "")
+  const [referenceResources, setReferenceResources] = useState(initialData?.referenceResources || "")
 
   // Tab 2: Course Requirements (课程要求)
-  const [attendancePolicy, setAttendancePolicy] = useState(initialData?.metadata?.attendancePolicy || "")
-  const [assignmentPolicy, setAssignmentPolicy] = useState(initialData?.metadata?.assignmentPolicy || "")
-  const [conductRequirements, setConductRequirements] = useState(initialData?.metadata?.conductRequirements || "")
-  const [practiceRequirements, setPracticeRequirements] = useState(initialData?.metadata?.practiceRequirements || "")
-  const [teamworkRequirements, setTeamworkRequirements] = useState(initialData?.metadata?.teamworkRequirements || "")
-  const [bonusRequirements, setBonusRequirements] = useState(initialData?.metadata?.bonusRequirements || "")
-  const [otherSuggestions, setOtherSuggestions] = useState(initialData?.metadata?.otherSuggestions || "")
+  const [attendancePolicy, setAttendancePolicy] = useState(initialData?.attendancePolicy || "")
+  const [assignmentPolicy, setAssignmentPolicy] = useState(initialData?.assignmentPolicy || "")
+  const [conductRequirements, setConductRequirements] = useState(initialData?.conductRequirements || "")
+  const [practiceRequirements, setPracticeRequirements] = useState(initialData?.practiceRequirements || "")
+  const [teamworkRequirements, setTeamworkRequirements] = useState(initialData?.teamworkRequirements || "")
+  const [bonusRequirements, setBonusRequirements] = useState(initialData?.bonusRequirements || "")
+  const [otherSuggestions, setOtherSuggestions] = useState(initialData?.otherSuggestions || "")
 
   // Tab 3: Assessment and Evaluation (考核评价)
-  const [assessmentMethod, setAssessmentMethod] = useState(initialData?.metadata?.assessmentMethod || "考试")
-  const [assessmentForm, setAssessmentForm] = useState(initialData?.metadata?.assessmentForm || "")
-  const [scoreType, setScoreType] = useState(initialData?.metadata?.scoreType || "百分制")
+  const [assessmentMethod, setAssessmentMethod] = useState(initialData?.assessmentMethod || "考试")
+  const [assessmentForm, setAssessmentForm] = useState(initialData?.assessmentForm || "")
+  const [scoreType, setScoreType] = useState(initialData?.scoreType || "百分制")
   const [scoreTable, setScoreTable] = useState<{ headers: string[]; rows: { [key: string]: string }[] }>(
-    initialData?.metadata?.scoreTable || { headers: ["等级", "分值"], rows: [{ "等级": "", "分值": "" }] }
+    initialData?.scoreTable || { headers: ["等级", "分值"], rows: [{ "等级": "", "分值": "" }] }
   )
-  const [assessmentDescription, setAssessmentDescription] = useState(initialData?.metadata?.assessmentDescription || "")
+  const [assessmentDescription, setAssessmentDescription] = useState(initialData?.assessmentDescription || "")
 
   // 获取课程性质名称
   const courseNatureName = useMemo(() => {
@@ -227,7 +227,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
 
   // Tab 2: Teaching Objectives
   const [teachingObjectives, setTeachingObjectives] = useState<TeachingObjective[]>(
-    initialData?.metadata?.teachingObjectives || [{ id: "1", content: "", points: [""] }],
+    initialData?.teachingObjectives || [{ id: "1", content: "", points: [""] }],
   )
   const [objectivesFile, setObjectivesFile] = useState<File | null>(null)
   const [courseGoals, setCourseGoals] = useState<any[]>([])
@@ -243,7 +243,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
 
   // Tab 3: Course Point Information Library
   const [coursePoints, setCoursePoints] = useState<CoursePoint[]>(
-    initialData?.metadata?.coursePoints?.map((cp: any) => ({
+    initialData?.coursePoints?.map((cp: any) => ({
       id: cp.id,
       content: cp.content || cp.title || "",
       infoPoints:
@@ -258,7 +258,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
 
   // Tab 4: Chapter and Project Management
   const [chapters, setChapters] = useState<ChapterProject[]>(
-    initialData?.metadata?.chapters || [{ id: "1", name: "", theoryHours: 0, practiceHours: 0 }],
+    initialData?.chapters || [{ id: "1", name: "", theoryHours: 0, practiceHours: 0 }],
   )
 
   const lastObjectiveRef = useRef<HTMLInputElement>(null)
@@ -278,8 +278,10 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
           const parsed = JSON.parse(majorData)
           const allIndicators: Array<{ requirementId: string; indicatorIndex: number; content: string }> = []
 
-          if (parsed.metadata?.graduationRequirements) {
-            parsed.metadata.graduationRequirements.forEach((req: any) => {
+          // 从缓存的专业数据中获取毕业要求（兼容新旧格式）
+          const graduationRequirements = parsed.graduationRequirements || parsed.requiresVOS || []
+          if (graduationRequirements.length > 0) {
+            graduationRequirements.forEach((req: any) => {
               req.indicators?.forEach((indicator: string, index: number) => {
                 allIndicators.push({
                   requirementId: req.id,

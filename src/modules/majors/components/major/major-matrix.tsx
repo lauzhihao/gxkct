@@ -5,6 +5,9 @@ import { Button } from "@/shared/components/ui/button"
 import { BookMarked, Pencil, X, Loader2, Check } from "lucide-react"
 import { cn } from "@/shared/utils/utils"
 import type { TreeNode } from "@/types"
+import { TreeApi } from "@/lib/api/tree-api"
+
+const treeApiInstance = new TreeApi()
 
 interface MajorMatrixProps {
   node: TreeNode
@@ -21,11 +24,39 @@ export function MajorMatrix({ node, onUpdateNode }: MajorMatrixProps) {
   const [expandedIndicators, setExpandedIndicators] = useState<Set<string>>(new Set())
   const [clampedIndicators, setClampedIndicators] = useState<Set<string>>(new Set())
   const indicatorRefsMap = useRef<Map<string, HTMLDivElement>>(new Map())
+  const [requiresVOS, setRequiresVOS] = useState<any[]>([])
+  const [isLoadingMatrix, setIsLoadingMatrix] = useState(false)
+  const hasLoadedRef = useRef(false)
+
+  // 加载毕业要求数据
+  useEffect(() => {
+    const majorId = node.id
+    if (!majorId) return
+
+    if (hasLoadedRef.current) return
+    hasLoadedRef.current = true
+
+    const loadMajorData = async () => {
+      setIsLoadingMatrix(true)
+      try {
+        const response = await treeApiInstance.getMajorDetail(majorId)
+        if (response.data?.requiresVOS) {
+          setRequiresVOS(response.data.requiresVOS)
+        }
+      } catch (error) {
+        console.error("加载专业矩阵数据失败:", error)
+      } finally {
+        setIsLoadingMatrix(false)
+      }
+    }
+
+    loadMajorData()
+  }, [node.id])
 
   // 获取毕业要求数据
   const getGraduationRequirements = () => {
-    if (node?.metadata?.requiresVOS && node.metadata.requiresVOS.length > 0) {
-      return node.metadata.requiresVOS.map((req: any) => ({
+    if (requiresVOS && requiresVOS.length > 0) {
+      return requiresVOS.map((req: any) => ({
         id: req.id,
         content: req.description || "",
         indicators: req.children?.map((child: any) => child.description || "") || [],
@@ -33,12 +64,6 @@ export function MajorMatrix({ node, onUpdateNode }: MajorMatrixProps) {
     }
     return []
   }
-
-  useEffect(() => {
-    if (node?.metadata?.matrixSupportLevels) {
-      setMatrixSupportLevels(node.metadata.matrixSupportLevels)
-    }
-  }, [node])
 
   useEffect(() => {
     if (!isEditingMatrix) return
@@ -97,15 +122,7 @@ export function MajorMatrix({ node, onUpdateNode }: MajorMatrixProps) {
   const handleSaveMatrix = async (isAutoSave = false) => {
     setIsSavingMatrix(true)
 
-    if (onUpdateNode) {
-      onUpdateNode(node.id, {
-        metadata: {
-          ...node.metadata,
-          matrixSupportLevels,
-        },
-      })
-    }
-
+    // TODO: 调用API保存矩阵数据
     await new Promise((resolve) => setTimeout(resolve, 500))
     setIsSavingMatrix(false)
 
@@ -115,11 +132,7 @@ export function MajorMatrix({ node, onUpdateNode }: MajorMatrixProps) {
   }
 
   const handleCancelMatrix = () => {
-    if (node?.metadata?.matrixSupportLevels) {
-      setMatrixSupportLevels(node.metadata.matrixSupportLevels)
-    } else {
-      setMatrixSupportLevels({})
-    }
+    setMatrixSupportLevels({})
     setIsEditingMatrix(false)
   }
 
