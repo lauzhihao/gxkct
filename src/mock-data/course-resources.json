@@ -23,12 +23,12 @@
       },
       {
         "id": "courseware",
-        "name": "课件（分章节）",
+        "name": "课件",
         "count": 12
       },
       {
         "id": "lesson-plan",
-        "name": "教案（分章节）",
+        "name": "教案",
         "count": 12
       },
       {
@@ -43,12 +43,12 @@
       },
       {
         "id": "homework",
-        "name": "作业（分章节）",
+        "name": "作业",
         "count": 10
       },
       {
         "id": "preview",
-        "name": "预习手册（分章节）",
+        "name": "预习手册",
         "count": 0
       },
       {
@@ -63,7 +63,7 @@
       },
       {
         "id": "others",
-        "name": "其他课程资源",
+        "name": "其他",
         "count": 5
       }
     ],

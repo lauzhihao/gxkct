@@ -29,6 +29,7 @@ export { TaskObjectivesDialog } from "./dialogs/task-objectives-dialog"
 export { KsaDialog } from "./dialogs/ksa-dialog"
 export { CoursePointManagerDialog } from "./dialogs/course-point-manager-dialog"
 export { CoursePointSelectionDialog } from "./dialogs/course-point-selection-dialog"
+export { CourseResourcePickerDialog } from "./dialogs/course-resource-picker-dialog"
 
 // 共享组件
 export { TeachingObjectivesEditor } from "./shared/teaching-objectives-editor"

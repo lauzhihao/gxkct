@@ -1,116 +1,208 @@
-import { StorageAdapter } from "./storage-adapter"
+import { HttpAdapter } from "./http-adapter"
 import type { ApiResponse } from "./types"
 
-export interface FileData {
-  name: string
-  size: string
-  date: string
-  type: string
-  uploader: string
-  version: string
-}
-
-export interface FolderData {
+export interface ResourceFolder {
   id: string
   name: string
-  count: number
+  parentId?: string | null
+  hasChildren?: boolean
+  filesCount?: number
+  latestUploadedAt?: string | null
 }
 
-export interface ScoringIndicator {
-  name: string
-  score: number
-  weight: string
-}
-
-export interface ScoringData {
-  total: number
-  indicators: ScoringIndicator[]
-  comment?: string
-}
-
-export interface CourseResourceData {
-  folders: FolderData[]
-  files: Record<string, FileData[]>
-  scoring: {
-    selfEvaluation: ScoringData
-    professionalEvaluation: ScoringData
-    supervisionEvaluation: ScoringData
+export interface ResourceObjectSummary {
+  id: string
+  folderId: string
+  objectKey: string
+  displayName: string
+  size: number
+  mimeType: string
+  uploader?: {
+    id: string
+    name: string
   }
+  version?: string | null
+  uploadedAt: string
+  downloadUrl: string
+}
+
+export interface ResourceObjectDetail extends ResourceObjectSummary {
+  etag?: string
+  checksum?: string | null
+  storageClass?: string | null
+  metadata?: Record<string, string>
+}
+
+export interface ResourcePagination {
+  offset: number
+  limit: number
+  total: number
+  nextOffset?: number | null
+  continuationToken?: string | null
+  nextContinuationToken?: string | null
+}
+
+export interface ResourceObjectsResponse {
+  items: ResourceObjectSummary[]
+  pagination: ResourcePagination
+}
+
+export interface ResourceBatchActionRequest {
+  action: "copy" | "move" | "delete"
+  sourceFolderId: string
+  targetFolderId?: string
+  objectIds: string[]
+}
+
+export interface ResourceBatchActionResult {
+  succeeded: string[]
+  failed: Array<{ objectId: string; errorCode: string; message: string }>
+}
+
+export interface InitializeFoldersResponse {
+  initialized: boolean
+}
+
+export interface CreateFolderPayload {
+  name: string
+}
+
+export interface UploadSignatureRequest {
+  fileName: string
+  mimeType?: string
+  size?: number
+}
+
+export interface UploadSignatureResponse {
+  uploadPath: string
+  uploadUrl: string
+  uploadHeaders?: Record<string, string>
+  uploadMethod?: "PUT" | "POST"
+  expiresIn?: number
+}
+
+export interface ConfirmUploadRequest {
+  fileName: string
+  uploadPath: string
+  size: number
+  mimeType?: string
+  checksum?: string
+}
+
+export interface ListResourceObjectsParams {
+  folderId: string
+  keyword?: string
+  offset?: number
+  limit?: number
+  continuationToken?: string
+  sortField?: string
+  sortOrder?: "asc" | "desc"
+  viewMode?: "grid" | "list"
 }
 
 export class ResourceApi {
-  private storage = new StorageAdapter()
-  private storageKeyPrefix = "courseResources-"
+  private http = new HttpAdapter()
 
-  // 将数字 ID 映射到 mock 数据的 key
-  private getMockDataKey(courseId: string): string {
-    console.log(`[ResourceApi.getMockDataKey] 输入 courseId: ${courseId}, 类型: ${typeof courseId}`)
-
-    // 如果已经是 "course-X" 格式（简单格式），直接返回
-    if (courseId.startsWith("course-") && !courseId.includes("-", 7)) {
-      console.log(`[ResourceApi.getMockDataKey] 已是 course-X 简单格式，直接返回: ${courseId}`)
-      return courseId
-    }
-
-    // 处理复杂的课程 ID 格式：course-${majorId}-${item.self.value}-${index}
-    // 从中提取数字部分用于映射
-    let numId: number | null = null
-
-    // 尝试从复杂 ID 中提取数字
-    if (courseId.startsWith("course-")) {
-      // 格式: course-major-123-456-0
-      // 提取最后一个数字部分或倒数第二个数字部分
-      const parts = courseId.split("-")
-      if (parts.length >= 3) {
-        // 尝试使用倒数第二个数字部分（item.self.value）
-        const secondLastPart = parts[parts.length - 2]
-        const lastPart = parts[parts.length - 1]
-
-        // 优先使用倒数第二个部分，如果不是数字则使用最后一个部分
-        const candidate = parseInt(secondLastPart, 10)
-        if (!isNaN(candidate)) {
-          numId = candidate
-          console.log(`[ResourceApi.getMockDataKey] 从复杂 ID 提取数字: ${candidate}`)
-        } else {
-          const lastCandidate = parseInt(lastPart, 10)
-          if (!isNaN(lastCandidate)) {
-            numId = lastCandidate
-            console.log(`[ResourceApi.getMockDataKey] 从复杂 ID 提取最后数字: ${lastCandidate}`)
-          }
-        }
-      }
-    }
-
-    // 如果还没有提取到数字，尝试直接解析
-    if (numId === null) {
-      numId = parseInt(courseId, 10)
-      if (isNaN(numId)) {
-        console.warn(`[ResourceApi.getMockDataKey] 无法从 ${courseId} 提取数字，使用默认值 1`)
-        numId = 1
-      }
-    }
-
-    // 映射到 course-1 到 course-100（循环）
-    const mockIndex = ((numId - 1) % 100) + 1
-    const result = `course-${mockIndex}`
-    console.log(`[ResourceApi.getMockDataKey] 最终映射结果: ${result}`)
-    return result
+  private getBasePath(courseId: string): string {
+    return `/api/v5/courses/${courseId}`
   }
 
-  async getCourseResources(courseId: string): Promise<ApiResponse<CourseResourceData>> {
-    const mockKey = this.getMockDataKey(courseId)
-    const key = `${this.storageKeyPrefix}${mockKey}`
-    console.log(`[ResourceApi] 获取课程资源: courseId=${courseId}, mockKey=${mockKey}, storageKey=${key}`)
-    const response = await this.storage.get<CourseResourceData>(key)
-    return response
+  private buildQuery(params?: Record<string, string | number | undefined | null>): string {
+    if (!params) return ""
+    const query = new URLSearchParams()
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === undefined || value === null) return
+      query.set(key, String(value))
+    })
+    const queryString = query.toString()
+    return queryString ? `?${queryString}` : ""
   }
 
-  async updateCourseResources(
+  getFolders(
     courseId: string,
-    resources: CourseResourceData,
-  ): Promise<ApiResponse<CourseResourceData>> {
-    const mockKey = this.getMockDataKey(courseId)
-    const key = `${this.storageKeyPrefix}${mockKey}`
-    return await this.storage.set(key, resources)
+    params?: { parentId?: string | null; includeEmpty?: boolean },
+  ): Promise<ApiResponse<ResourceFolder[]>> {
+    const endpoint = `${this.getBasePath(courseId)}/resource-folders${this.buildQuery({
+      parentId: params?.parentId ?? undefined,
+      includeEmpty:
+        typeof params?.includeEmpty === "boolean" ? Number(params.includeEmpty) : undefined,
+    })}`
+    return this.http.get<ResourceFolder[]>(endpoint)
+  }
+
+  initializeCourseFolders(courseId: string): Promise<ApiResponse<InitializeFoldersResponse>> {
+    const endpoint = `${this.getBasePath(courseId)}/resource-folders/init`
+    return this.http.post<InitializeFoldersResponse>(endpoint)
+  }
+
+  createFolder(courseId: string, parentId: string, payload: CreateFolderPayload): Promise<ApiResponse<ResourceFolder>> {
+    const endpoint = `${this.getBasePath(courseId)}/resource-folders/${parentId}`
+    return this.http.post<ResourceFolder>(endpoint, payload)
+  }
+
+  createUploadSignature(
+    courseId: string,
+    parentId: string,
+    payload: UploadSignatureRequest,
+  ): Promise<ApiResponse<UploadSignatureResponse>> {
+    const endpoint = `${this.getBasePath(courseId)}/resource-folders/${parentId}/objects/presign`
+    return this.http.post<UploadSignatureResponse>(endpoint, payload)
+  }
+
+  confirmUpload(
+    courseId: string,
+    parentId: string,
+    payload: ConfirmUploadRequest,
+  ): Promise<ApiResponse<ResourceObjectSummary>> {
+    const endpoint = `${this.getBasePath(courseId)}/resource-folders/${parentId}/objects/confirm`
+    return this.http.post<ResourceObjectSummary>(endpoint, payload)
+  }
+
+  getObjects(
+    courseId: string,
+    params: ListResourceObjectsParams,
+  ): Promise<ApiResponse<ResourceObjectsResponse>> {
+    const endpoint = `${this.getBasePath(courseId)}/resource-objects${this.buildQuery({
+      folderId: params.folderId,
+      keyword: params.keyword,
+      offset: typeof params.offset === "number" ? params.offset : undefined,
+      limit: typeof params.limit === "number" ? params.limit : undefined,
+      continuationToken: params.continuationToken,
+      sortField: params.sortField,
+      sortOrder: params.sortOrder,
+      viewMode: params.viewMode,
+    })}`
+    return this.http.get<ResourceObjectsResponse>(endpoint)
+  }
+
+  getObjectDetail(courseId: string, objectId: string): Promise<ApiResponse<ResourceObjectDetail>> {
+    const endpoint = `${this.getBasePath(courseId)}/resource-objects/${objectId}`
+    return this.http.get<ResourceObjectDetail>(endpoint)
+  }
+
+  deleteObject(courseId: string, objectId: string): Promise<ApiResponse<null>> {
+    const endpoint = `${this.getBasePath(courseId)}/resource-objects/${objectId}`
+    return this.http.delete<null>(endpoint)
+  }
+
+  batchDelete(courseId: string, objectIds: string[]): Promise<ApiResponse<{ deleted: number }>> {
+    const endpoint = `${this.getBasePath(courseId)}/resource-objects/batch-delete`
+    return this.http.post<{ deleted: number }>(endpoint, { objectIds })
+  }
+
+  batchAction(
+    courseId: string,
+    payload: ResourceBatchActionRequest,
+  ): Promise<ApiResponse<ResourceBatchActionResult>> {
+    const endpoint = `${this.getBasePath(courseId)}/resource-objects/batch-action`
+    return this.http.post<ResourceBatchActionResult>(endpoint, payload)
+  }
+
+  createBatchDownload(
+    courseId: string,
+    objectIds: string[],
+  ): Promise<ApiResponse<{ taskId: string; status: string; downloadUrl: string | null }>> {
+    const endpoint = `${this.getBasePath(courseId)}/resource-objects/batch-download`
+    return this.http.post(endpoint, { objectIds })
   }
 }

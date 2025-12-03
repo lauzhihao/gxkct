@@ -1,7 +1,22 @@
 import { TreeApi } from "./tree-api"
 import { UserApi, type User } from "./user-api"
 import { MatrixApi, type CourseMatrix, type ProjectMatrix, type MajorMatrixData, type CourseMatrixItem, type CourseMatrixResponse } from "./matrix-api"
-import { ResourceApi, type FileData, type CourseResourceData, type ScoringData } from "./resource-api"
+import {
+  ResourceApi,
+  type ResourceFolder,
+  type ResourceObjectSummary,
+  type ResourceObjectDetail,
+  type ResourceObjectsResponse,
+  type ResourcePagination,
+  type ResourceBatchActionRequest,
+  type ResourceBatchActionResult,
+  type InitializeFoldersResponse,
+  type ListResourceObjectsParams,
+  type CreateFolderPayload,
+  type UploadSignatureRequest,
+  type UploadSignatureResponse,
+  type ConfirmUploadRequest,
+} from "./resource-api"
 import { ConfigApi, type ThemeConfig } from "./config-api"
 import { PreferenceApi, type UserPreference } from "./preference-api"
 import { TeachingTaskApi } from "./teaching-task-api"
@@ -48,7 +63,36 @@ export const api = {
 export { TreeApi, UserApi, MatrixApi, ResourceApi, ConfigApi, PreferenceApi, TeachingTaskApi, CourseDetailApi, OccupationApi }
 
 // 导出类型
-export type { User, CourseMatrix, ProjectMatrix, MajorMatrixData, CourseMatrixItem, CourseMatrixResponse, FileData, CourseResourceData, ScoringData, ThemeConfig, UserPreference, CombinedCourseDetail, MajorDetailData, OccupationBookData, CoursePoint, ProjectTeachGoalData, Project, ProjectTeachGoal }
+export type {
+  User,
+  CourseMatrix,
+  ProjectMatrix,
+  MajorMatrixData,
+  CourseMatrixItem,
+  CourseMatrixResponse,
+  ResourceFolder,
+  ResourceObjectSummary,
+  ResourceObjectDetail,
+  ResourceObjectsResponse,
+  ResourcePagination,
+  ResourceBatchActionRequest,
+  ResourceBatchActionResult,
+  InitializeFoldersResponse,
+  ListResourceObjectsParams,
+  CreateFolderPayload,
+  UploadSignatureRequest,
+  UploadSignatureResponse,
+  ConfirmUploadRequest,
+  ThemeConfig,
+  UserPreference,
+  CombinedCourseDetail,
+  MajorDetailData,
+  OccupationBookData,
+  CoursePoint,
+  ProjectTeachGoalData,
+  Project,
+  ProjectTeachGoal,
+}
 export type { ApiResponse, BackendResponse } from "./types"
 
 // 导出初始化函数

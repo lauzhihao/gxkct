@@ -39,6 +39,8 @@ export interface FileUploadProps {
   buttonClassName?: string
   // 是否禁用上传按钮
   disabled?: boolean
+  // 容器额外类，用于控制布局宽度
+  containerClassName?: string
 }
 
 export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
@@ -53,6 +55,7 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
       accept,
       buttonClassName,
       disabled = false,
+      containerClassName,
     },
     ref,
   ) => {
@@ -216,7 +219,7 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
     }
 
     return (
-      <div ref={ref} className="w-full">
+      <div ref={ref} className={cn("w-full", containerClassName)}>
         <Button
           size="sm"
           variant="outline"
@@ -376,4 +379,3 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
 )
 
 FileUpload.displayName = 'FileUpload'
-

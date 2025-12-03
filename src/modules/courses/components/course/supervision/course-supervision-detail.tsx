@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, Check, X, Info } from "lucide-react"
+import { ArrowLeft, Check, X as CloseIcon, Info, Plus } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Card } from "@/shared/components/ui/card"
 import { Label } from "@/shared/components/ui/label"
@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shar
 import type { TeachingSupervisoryTask, TaskEvaluationCriteria } from "@/types"
 import { courseTeachingTasksApi } from "@/modules/courses/api/courseTeachingTasksApi"
 import { formatDate } from "@/shared/utils/date-utils"
+import { CourseResourcePickerDialog, type PickedResource } from "@/modules/courses/components/dialogs/course-resource-picker-dialog"
 
 interface CourseSupervisionDetailProps {
   task: TeachingSupervisoryTask
@@ -26,6 +27,11 @@ export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetai
   const [isLoading, setIsLoading] = useState(true)
   const [scores, setScores] = useState<Record<string, ScoreItem>>({})
   const [totalScore, setTotalScore] = useState<number>(0)
+  const [materialSelections, setMaterialSelections] = useState<Record<string, PickedResource[]>>({})
+  const [pickerTargetId, setPickerTargetId] = useState<string | null>(null)
+  const [isPickerOpen, setIsPickerOpen] = useState(false)
+
+  const courseResourceNodeId = task.courseId ? String(task.courseId) : null
 
   // 获取标准项的等级系数映射
   const getLevelCoefficients = (itemId: string): Record<string, number> => {
@@ -186,6 +192,50 @@ export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetai
     }))
   }
 
+  const handleOpenResourcePicker = (itemId: string) => {
+    if (!courseResourceNodeId) return
+    setPickerTargetId(itemId)
+    setIsPickerOpen(true)
+  }
+
+  const handlePickerConfirm = (items: PickedResource[]) => {
+    if (!pickerTargetId) return
+    setMaterialSelections((prev) => ({
+      ...prev,
+      [pickerTargetId]: items,
+    }))
+  }
+
+  const handlePickerOpenChange = (open: boolean) => {
+    setIsPickerOpen(open)
+    if (!open) {
+      setPickerTargetId(null)
+    }
+  }
+
+  const handleClearMaterials = (itemId: string) => {
+    setMaterialSelections((prev) => {
+      if (!prev[itemId]) return prev
+      const next = { ...prev }
+      delete next[itemId]
+      return next
+    })
+  }
+
+  const handleRemoveSingleMaterial = (itemId: string, resourceId: string) => {
+    setMaterialSelections((prev) => {
+      const current = prev[itemId]
+      if (!current) return prev
+      const nextList = current.filter((res) => res.id !== resourceId)
+      if (nextList.length === 0) {
+        const next = { ...prev }
+        delete next[itemId]
+        return next
+      }
+      return { ...prev, [itemId]: nextList }
+    })
+  }
+
   // 计算单项得分
   const calculateItemScore = (itemId: string, fullScore: number) => {
     const scoreItem = scores[itemId]
@@ -220,7 +270,7 @@ export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetai
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={onBack} className="gap-2 bg-transparent">
-              <X className="w-4 h-4" />
+              <CloseIcon className="w-4 h-4" />
               取消
             </Button>
             <Button onClick={handleSave} className="gap-2">
@@ -387,20 +437,69 @@ export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetai
                       </div>
 
                       {/* 评语 - 6列 */}
-                      <div className="col-span-6 flex flex-col gap-2">
-                        <Label htmlFor={`comment-${item.id}`} className="text-sm font-semibold text-foreground">
-                          评语 <span className="text-red-500">*</span>
-                        </Label>
-                        <Textarea
-                          id={`comment-${item.id}`}
-                          value={scores[item.id]?.comment || ""}
-                          onChange={(e) => handleCommentChange(item.id, e.target.value)}
-                          placeholder="请输入评语（最多200字）"
-                          className="text-sm resize-none flex-1"
-                          rows={5}
-                        />
-                        <div className="text-xs text-muted-foreground text-right">
-                          {scores[item.id]?.comment.length || 0}/200
+                      <div className="col-span-6 flex flex-col gap-3">
+                        <div className="space-y-2">
+                          <Label htmlFor={`comment-${item.id}`} className="text-sm font-semibold text-foreground">
+                            评语 <span className="text-red-500">*</span>
+                          </Label>
+                          <div className="relative">
+                            <Textarea
+                              id={`comment-${item.id}`}
+                              value={scores[item.id]?.comment || ""}
+                              onChange={(e) => handleCommentChange(item.id, e.target.value)}
+                              placeholder="请输入评语（最多200字）"
+                              className="text-sm resize-none flex-1 pr-14"
+                              rows={5}
+                            />
+                            <span className="pointer-events-none absolute bottom-2 right-3 text-xs text-muted-foreground">
+                              {scores[item.id]?.comment.length || 0}/200
+                            </span>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-sm font-semibold text-foreground">支撑材料</Label>
+                          <div className="rounded-lg border border-dashed border-border bg-background/60 px-3 py-2 min-h-[48px] flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap flex-1">
+                              {materialSelections[item.id]?.length ? (
+                                <>
+                                  <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                                    <span className="max-w-[180px] truncate">{materialSelections[item.id][0].name}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveSingleMaterial(item.id, materialSelections[item.id][0].id)}
+                                      className="text-primary/70 hover:text-primary"
+                                    >
+                                      <CloseIcon className="h-3 w-3" />
+                                    </button>
+                                  </span>
+                                  {materialSelections[item.id].length > 1 && (
+                                    <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                                      等{materialSelections[item.id].length - 1}个
+                                      <button
+                                        type="button"
+                                        onClick={() => handleClearMaterials(item.id)}
+                                        className="text-primary/70 hover:text-primary"
+                                      >
+                                        <CloseIcon className="h-3 w-3" />
+                                      </button>
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <p className="text-sm text-muted-foreground">可附加课程资源作为评分依据</p>
+                              )}
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              disabled={!courseResourceNodeId}
+                              onClick={() => handleOpenResourcePicker(item.id)}
+                              className="h-8 w-8 flex-shrink-0 text-muted-foreground transition-colors hover:bg-primary hover:text-white"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -414,6 +513,13 @@ export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetai
           <div className="text-center py-8 text-muted-foreground">暂无评价标准</div>
         )}
       </div>
+      <CourseResourcePickerDialog
+        nodeId={courseResourceNodeId}
+        open={isPickerOpen}
+        onOpenChange={handlePickerOpenChange}
+        selectionMode="multiple"
+        onConfirm={handlePickerConfirm}
+      />
     </div>
   )
 }
