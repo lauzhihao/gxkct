@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Search, ChevronDown, User, X, Palette, Bell } from "lucide-react"
+import { ChevronDown, User, Palette, Bell, Sparkles, Send } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import {
   DropdownMenu,
@@ -12,9 +12,19 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/shared/components/ui/avatar"
-import { Input } from "@/shared/components/ui/input"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/shared/components/ui/sheet"
+import { ScrollArea } from "@/shared/components/ui/scroll-area"
+import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 import { cn } from "@/shared/utils/utils"
 import { api, getStoredAuthUser, clearAllAuthData } from "@/lib/api"
+import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/shared/components/ui/breadcrumb"
 
 const COLOR_THEMES = {
   green: {
@@ -154,6 +164,8 @@ const COLOR_THEMES = {
 interface HeaderProps {
   onResetData?: () => void
   isTreeCollapsed?: boolean
+  currentPath?: string
+  selectedNodeName?: string | null
 }
 
 interface Notification {
@@ -196,14 +208,57 @@ const mockNotifications: Notification[] = [
   },
 ]
 
-export function Header({ onResetData, isTreeCollapsed }: HeaderProps) {
+export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNodeName }: HeaderProps) {
   const router = useRouter()
-  const [searchOpen, setSearchOpen] = useState(false)
+  const [aiDrawerOpen, setAiDrawerOpen] = useState(false)
+  const [inputMessage, setInputMessage] = useState("")
+  const [isInputExpanded, setIsInputExpanded] = useState(false)
+  const [chatMessages, setChatMessages] = useState([
+    {
+      id: "1",
+      role: "assistant" as const,
+      content: "你好，我是高校课程通的 AI 助手，可以帮助你快速分析课程结构、生成教学方案，或总结当前页面的信息。",
+      time: "刚刚",
+    },
+    {
+      id: "2",
+      role: "user" as const,
+      content: "帮我分析一下课程大纲里的关键知识点。",
+      time: "1 分钟前",
+    },
+    {
+      id: "3",
+      role: "assistant" as const,
+      content: "已根据课程大纲提取出 5 个重点知识点，并标记相关的教学目标与考核方式。你需要导出 Word 版本还是生成课堂提纲？",
+      time: "1 分钟前",
+    },
+  ])
   const [currentTheme, setCurrentTheme] = useState<keyof typeof COLOR_THEMES>("vercelBlue")
   const [notifications, setNotifications] = useState<Notification[]>(mockNotifications)
   const [userName, setUserName] = useState<string>("用户")
+  const [thinkingIndex, setThinkingIndex] = useState(0)
+  const [streamingText, setStreamingText] = useState("")
+  const { activeTabLabel } = useActivePageTracker()
+  const thinkingPrompts = useMemo(
+    () => [
+      "解析当前课程结构，识别关键节点",
+      "匹配历史案例，抽取可复用策略",
+      "评估教学目标是否与能力点一致",
+      "规划输出格式，准备建议与下一步行动",
+    ],
+    [],
+  )
 
   const unreadCount = notifications.filter((n) => !n.read).length
+
+  const getTimeGreeting = () => {
+    const hour = new Date().getHours()
+    if (hour < 12) return "上午好"
+    if (hour < 18) return "下午好"
+    return "晚上好"
+  }
+  const greetingText = `${getTimeGreeting()}，${userName}老师`
+  const greetingForMessage = `${userName}老师：${getTimeGreeting()}。`
 
   // 处理退出登录
   const handleLogout = () => {
@@ -234,15 +289,46 @@ export function Header({ onResetData, isTreeCollapsed }: HeaderProps) {
   }, [])
 
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && searchOpen) {
-        setSearchOpen(false)
+    const timer = setInterval(() => {
+      setThinkingIndex((prev) => (prev + 1) % thinkingPrompts.length)
+    }, 2000 + Math.random() * 1500)
+    return () => clearInterval(timer)
+  }, [thinkingPrompts.length])
+
+  useEffect(() => {
+    const assistantMessages = chatMessages.filter((m) => m.role === "assistant")
+    const streamingTarget = assistantMessages[1]
+    if (!streamingTarget) {
+      setStreamingText("")
+      return
+    }
+
+    let currentIndex = 0
+    let timeoutId: NodeJS.Timeout | null = null
+    let cancelled = false
+
+    const step = () => {
+      if (cancelled) return
+      setStreamingText(streamingTarget.content.slice(0, currentIndex))
+      if (currentIndex >= streamingTarget.content.length) {
+        timeoutId = setTimeout(() => {
+          currentIndex = 0
+          if (!cancelled) step()
+        }, 1000)
+      } else {
+        const chunkSize = Math.max(1, Math.round(streamingTarget.content.length / 80))
+        currentIndex += chunkSize
+        timeoutId = setTimeout(step, 50)
       }
     }
 
-    document.addEventListener("keydown", handleEscape)
-    return () => document.removeEventListener("keydown", handleEscape)
-  }, [searchOpen])
+    step()
+
+    return () => {
+      cancelled = true
+      if (timeoutId) clearTimeout(timeoutId)
+    }
+  }, [chatMessages])
 
   const applyTheme = async (themeKey: keyof typeof COLOR_THEMES) => {
     const theme = COLOR_THEMES[themeKey]
@@ -271,11 +357,42 @@ export function Header({ onResetData, isTreeCollapsed }: HeaderProps) {
     setCurrentTheme(themeKey)
   }
 
+  const handleSendMessage = () => {
+    if (!inputMessage.trim()) {
+      return
+    }
+
+    const trimmedContent = inputMessage.trim()
+    const userMessage = {
+      id: String(Date.now()),
+      role: "user" as const,
+      content: trimmedContent,
+      time: "刚刚",
+    }
+
+    setChatMessages((prev) => [...prev, userMessage])
+    setInputMessage("")
+
+    setTimeout(() => {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: `${Date.now()}-ai`,
+          role: "assistant" as const,
+          content: "已记录你的需求，正在为你准备详细的分析建议。",
+          time: "几秒前",
+        },
+      ])
+    }, 600)
+  }
+
+  const assistantMessages = chatMessages.filter((m) => m.role === "assistant")
+
   return (
-    <header className="relative mb-6">
+    <header className="relative mb-6" data-current-path={currentPath ?? undefined}>
       <div className="flex items-center justify-between h-16 w-full px-6 rounded-2xl bg-white/40 backdrop-blur-md border border-primary/20 shadow-lg">
         {/* Left side - Welcome text */}
-        <div className="flex items-center">
+        <div className="flex flex-col">
           <h1 className="text-xl font-semibold text-foreground">欢迎使用高校课程通</h1>
         </div>
 
@@ -417,43 +534,130 @@ export function Header({ onResetData, isTreeCollapsed }: HeaderProps) {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Search Icon */}
+          {/* AI 助手入口 */}
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setSearchOpen(!searchOpen)}
-            className="hover:bg-primary/10 transition-colors"
+            onClick={() => setAiDrawerOpen(true)}
+            className="hover:bg-primary/10 transition-colors group"
           >
-            <Search className="h-5 w-5" />
+            <Sparkles className="h-12 w-12 text-primary transition-transform duration-200 group-hover:scale-[1.5]" />
           </Button>
         </div>
       </div>
+      <Sheet open={aiDrawerOpen} onOpenChange={setAiDrawerOpen}>
+        <SheetContent
+          side="right"
+          className="!w-[403px] sm:!w-[461px] lg:!w-[499px] xl:!w-[538px] 2xl:!w-[576px] sm:!max-w-none lg:!max-w-none 2xl:!max-w-none max-w-[80vw] p-0 bg-background/90 backdrop-blur-xl border-border/40"
+        >
+          <div className="flex h-full flex-col">
+            <SheetHeader className="px-6 pt-6 pb-4 border-b border-border/60">
+              <SheetTitle className="text-left text-xl font-semibold flex items-center gap-3">
+                <Sparkles className="h-6 w-6 text-primary" />
+                AI 助手
+              </SheetTitle>
+              <p className="text-sm text-muted-foreground text-left">
+                灵感来自 ChatGPT，实时协助你分析课程、生成摘要与行动建议。
+              </p>
+              {(selectedNodeName || activeTabLabel) && (
+                <Breadcrumb className="mt-3">
+                  <BreadcrumbList className="text-xs text-muted-foreground text-left">
+                    {selectedNodeName && (
+                      <BreadcrumbItem>
+                        <BreadcrumbPage>{selectedNodeName}</BreadcrumbPage>
+                      </BreadcrumbItem>
+                    )}
+                    {selectedNodeName && activeTabLabel && <BreadcrumbSeparator />}
+                    {activeTabLabel && (
+                      <BreadcrumbItem>
+                        <BreadcrumbPage>{activeTabLabel}</BreadcrumbPage>
+                      </BreadcrumbItem>
+                    )}
+                  </BreadcrumbList>
+                </Breadcrumb>
+              )}
+            </SheetHeader>
 
-      {/* Slide-out Search Box */}
-      <div
-        className={cn(
-          "absolute top-0 right-0 h-16 transition-all duration-300 ease-in-out overflow-hidden",
-          searchOpen ? "w-[480px]" : "w-0",
-        )}
-      >
-        <div className="h-full px-6 rounded-2xl bg-white/40 backdrop-blur-md border border-primary/20 shadow-lg flex items-center gap-3">
-          <Search className="h-5 w-5 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="搜索课程、专业、院系..."
-            className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
-            autoFocus={searchOpen}
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setSearchOpen(false)}
-            className="hover:bg-primary/10 transition-colors h-8 w-8"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+            <ScrollArea className="flex-1 px-6 py-4">
+              <div className="space-y-5 pr-2">
+                {chatMessages.map((message, index) => {
+                  const isAssistant = message.role === "assistant"
+                  const shouldShowThinking = isAssistant && index === chatMessages.length - 1
+                  const streamingTarget = assistantMessages[1]
+                  const shouldStream = streamingTarget && streamingTarget.id === message.id
+                  const displayContent =
+                    message.id === "1" && isAssistant
+                      ? message.content.replace("你好，", `${greetingForMessage} `)
+                      : message.content
+
+                  return isAssistant ? (
+                    <div key={message.id} className="space-y-2 text-left">
+                      <div className="text-xs text-muted-foreground">简报 · {message.time}</div>
+                      {shouldShowThinking && (
+                        <div className="space-y-1 text-xs">
+                          <div className="flex items-center gap-2 text-primary/80">
+                            <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+                            <span>AI 正在思考：{thinkingPrompts[thinkingIndex]}</span>
+                          </div>
+                          <div className="text-[11px] text-muted-foreground/80">
+                            主要思考：{thinkingPrompts[(thinkingIndex + 1) % thinkingPrompts.length]}
+                          </div>
+                        </div>
+                      )}
+                      <div className="border-t border-dashed border-border/60 pt-3 text-sm leading-relaxed whitespace-pre-line">
+                        {shouldStream ? streamingText : displayContent}
+                      </div>
+                    </div>
+                  ) : (
+                    <div key={message.id} className="flex items-start justify-end text-right">
+                      <div className="space-y-1 max-w-[80%]">
+                        <div className="text-xs text-muted-foreground">简报 · {message.time}</div>
+                        <div className="rounded-2xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm leading-relaxed shadow-sm">
+                          {message.content}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </ScrollArea>
+
+            <div className="border-t border-border/60 bg-background/80 p-6">
+              <div className="rounded-2xl border border-border/60 bg-muted/40 p-4 shadow-inner">
+                <div className="flex flex-col gap-3">
+                  <div className="relative">
+                    <ExpandableTextarea
+                      value={inputMessage}
+                      onChange={(value) => setInputMessage(value)}
+                      onExpandedChange={setIsInputExpanded}
+                      placeholder="描述你的需求，例如：生成本专业的课程知识图谱..."
+                      className="border border-border/40 bg-background/80 px-3 py-2 text-sm pr-16 focus-visible:ring-1 focus-visible:ring-primary/40 focus-visible:ring-offset-0"
+                      rows={4}
+                      hideCounter
+                    />
+                    <Button
+                      size="icon"
+                      className="absolute right-3 h-7 w-7 rounded-full transition-[transform,top,bottom] duration-200"
+                      style={
+                        isInputExpanded
+                          ? { bottom: "12px", top: "auto", transform: "translateY(0)" }
+                          : { top: "50%", bottom: "auto", transform: "translateY(-50%)" }
+                      }
+                      disabled={!inputMessage.trim()}
+                      onClick={handleSendMessage}
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">
+                    AI 可能会生成不准确的内容，请在使用前进行核对。
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </header>
   )
 }

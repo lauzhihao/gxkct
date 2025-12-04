@@ -1,29 +1,38 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 关闭 React StrictMode，避免开发环境重复请求
   reactStrictMode: false,
-  output: process.env.NEXT_PUBLIC_ENVIRONMENT === 'preview' ? 'export' : undefined,
+turbopack: {
+  root: ".",
+},
+  // 不建议使用 export，否则 chunk 会巨大
+  // output: process.env.NEXT_PUBLIC_ENVIRONMENT === 'preview' ? 'export' : undefined,
+
+  images: {
+    unoptimized: false,
+  },
+
+  modularizeImports: {
+    lodash: {
+      transform: 'lodash/{{member}}',
+    },
+    'date-fns': {
+      transform: 'date-fns/{{member}}',
+    },
+  },
+
   typescript: {
     ignoreBuildErrors: true,
   },
-  images: {
-    unoptimized: true,
-  },
-  turbopack: {
-    root: '/Users/liuzhihao/Downloads/education-tree-system',
-  },
-  // 本地开发环境使用rewrites进行API代理
+
   ...(process.env.NEXT_PUBLIC_ENVIRONMENT !== 'preview' && {
-    rewrites: async () => {
-      return {
-        beforeFiles: [
-          {
-            source: '/api/:path*',
-            destination: 'http://localhost:38080/api/:path*',
-          },
-        ],
-      }
-    },
+    rewrites: async () => ({
+      beforeFiles: [
+        {
+          source: '/api/:path*',
+          destination: 'http://localhost:38080/api/:path*',
+        },
+      ],
+    }),
   }),
 }
 

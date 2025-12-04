@@ -16,17 +16,39 @@ import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import type { DetailPanelProps } from "@/components/detail-panel/types"
 import { StatisticsCards } from "@/modules/departments/components/shared/statistics-cards"
 import { Members } from "@/shared/components/members"
 import { TeachingQuality } from "@/modules/universities/components/shared/teaching-quality"
+import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
+
+const UNIVERSITY_TABS = {
+  overview: "学校概览",
+  members: "成员管理",
+  "teaching-quality": "教学质量",
+} as const
+
+type UniversityTabKey = keyof typeof UNIVERSITY_TABS
+const DEFAULT_UNIVERSITY_TAB: UniversityTabKey = "overview"
 
 export function UniversityDetail({ node, onNodeSelect, onAddDepartment, onSetCurrentSchool, onToggleExpand, currentUser }: DetailPanelProps) {
   const [newDeptName, setNewDeptName] = useState("")
   const [newDeptDesc, setNewDeptDesc] = useState("")
   const [newDeptDirector, setNewDeptDirector] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const { setActivePage } = useActivePageTracker()
+
+  useEffect(() => {
+    if (!node) return
+    setActivePage(DEFAULT_UNIVERSITY_TAB, UNIVERSITY_TABS[DEFAULT_UNIVERSITY_TAB])
+  }, [node?.nodeId, setActivePage])
+
+  const handleTabChange = (value: string) => {
+    const tabKey = value as UniversityTabKey
+    const label = UNIVERSITY_TABS[tabKey] ?? value
+    setActivePage(value, label)
+  }
 
   const handleCreateDepartment = () => {
     if (!newDeptName.trim() || !onAddDepartment) return
@@ -75,7 +97,7 @@ export function UniversityDetail({ node, onNodeSelect, onAddDepartment, onSetCur
 
       {/* Tabs for Overview and Members */}
       <div className="flex-1 overflow-auto">
-        <Tabs defaultValue="overview" className="w-full">
+        <Tabs defaultValue="overview" className="w-full" onValueChange={handleTabChange}>
           <TabsList className="w-full h-10 bg-secondary/50 backdrop-blur-sm border-b border-border rounded-none p-0">
             <TabsTrigger value="overview" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
               学校概览

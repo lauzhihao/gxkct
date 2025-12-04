@@ -13,6 +13,8 @@ interface ExpandableTextareaProps {
   className?: string
   autoFocus?: boolean
   expandThreshold?: number // 当内容长度超过此值时自动展开（可选）
+  hideCounter?: boolean
+  onExpandedChange?: (expanded: boolean) => void
 }
 
 export const ExpandableTextarea = React.forwardRef<
@@ -31,6 +33,8 @@ export const ExpandableTextarea = React.forwardRef<
       className,
       autoFocus,
       expandThreshold,
+      hideCounter,
+      onExpandedChange,
     },
     ref,
   ) => {
@@ -38,6 +42,10 @@ export const ExpandableTextarea = React.forwardRef<
 
     // 根据焦点状态或内容长度决定是否展开
     const isExpanded = isFocused || (expandThreshold !== undefined && value.length > expandThreshold)
+
+    React.useEffect(() => {
+      onExpandedChange?.(isExpanded)
+    }, [isExpanded, onExpandedChange])
 
     const handleFocus = () => {
       setIsFocused(true)
@@ -66,15 +74,17 @@ export const ExpandableTextarea = React.forwardRef<
             onFocus={handleFocus}
             maxLength={maxLength}
             className={cn(
-              'w-full px-3 py-2 pb-8 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none',
+              'w-full px-3 py-2 pb-8 border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none',
               className,
             )}
             rows={rows}
             autoFocus
           />
-          <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
-            {value.length}/{maxLength}
-          </div>
+          {!hideCounter && (
+            <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
+              {value.length}/{maxLength}
+            </div>
+          )}
         </div>
       )
     }
@@ -89,13 +99,14 @@ export const ExpandableTextarea = React.forwardRef<
           onFocus={handleFocus}
           className={cn('cursor-text pr-12', className)}
         />
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-          {value.length}/{maxLength}
-        </div>
+        {!hideCounter && (
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+            {value.length}/{maxLength}
+          </div>
+        )}
       </div>
     )
   },
 )
 
 ExpandableTextarea.displayName = 'ExpandableTextarea'
-

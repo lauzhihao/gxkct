@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { TreeView } from "@/components/tree-view"
 import { DetailPanel } from "@/components/detail-panel"
 import { Header } from "@/components/header"
@@ -29,6 +29,7 @@ export default function Page() {
   const hasInitialized = useRef(false)
   const hasLoadedTree = useRef(false)
   const router = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => {
     // 从localStorage获取当前用户信息
@@ -223,7 +224,12 @@ export default function Page() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[oklch(0.97_0.005_240)] via-[oklch(0.96_0.005_240)] to-[oklch(0.95_0.008_240)] px-6 py-6 md:py-8 overflow-x-hidden">
       <div className="w-full">
-        <Header onResetData={handleResetData} isTreeCollapsed={isTreeCollapsed} />
+        <Header
+          onResetData={handleResetData}
+          isTreeCollapsed={isTreeCollapsed}
+          currentPath={pathname ?? undefined}
+          selectedNodeName={selectedNode?.nodeName}
+        />
 
         <div className="flex gap-3 relative w-full">
           <div

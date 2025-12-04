@@ -165,7 +165,7 @@ src/
 The API layer is abstraction-based with three environment-aware modes:
 
 1. **Development** (`NEXT_PUBLIC_ENVIRONMENT=dev`): Uses relative `/api` paths proxied to `localhost:38080` via Next.js rewrites
-2. **Preview** (`NEXT_PUBLIC_ENVIRONMENT=preview`): Uses full URL from `NEXT_PUBLIC_API_BASE_URL` (defaults to `https://qa.gxkct.com/college`)
+2. **Preview** (`NEXT_PUBLIC_ENVIRONMENT=preview`): Uses full URL from `NEXT_PUBLIC_API_BASE_URL` (defaults to `https://preview.gxkct.com/college`)
 
 Key API classes (all in `src/lib/api/`):
 - `TreeApi`: Manages hierarchical tree structure (get/create/update nodes)

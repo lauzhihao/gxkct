@@ -31,6 +31,17 @@ import { CourseSupervision } from "@/modules/courses/components/course/supervisi
 import { CourseThreeLevelMatrix } from "@/modules/courses/components/course/matrix/course-three-level-matrix"
 import { TeachingObjectivesEditor } from "@/modules/courses/components/shared/teaching-objectives-editor"
 import { getCourseCache } from "@/shared/utils/course-cache"
+import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
+
+const COURSE_TABS = {
+  info: "课程信息",
+  resources: "课程资源",
+  matrix: "矩阵管理",
+  supervision: "教学督导",
+} as const
+
+type CourseTabKey = keyof typeof COURSE_TABS
+const DEFAULT_COURSE_TAB: CourseTabKey = "info"
 
 export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeData, currentUser }: DetailPanelProps) {
   const [isEditingCourse, setIsEditingCourse] = useState(false)
@@ -48,6 +59,19 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
     { value: "2025-spring", label: "2025年春季学期" },
     { value: "2025-fall", label: "2025年秋季学期" },
   ])
+  const { setActivePage } = useActivePageTracker()
+
+  useEffect(() => {
+    if (!node) return
+    setActivePage(DEFAULT_COURSE_TAB, COURSE_TABS[DEFAULT_COURSE_TAB])
+  }, [node?.nodeId, setActivePage])
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value)
+    const tabKey = value as CourseTabKey
+    const label = COURSE_TABS[tabKey] ?? value
+    setActivePage(value, label)
+  }
 
   // 当节点改变时，退出编辑模式
   useEffect(() => {
@@ -331,7 +355,7 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
 
         {/* Content */}
         <div>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="w-full h-10 bg-secondary/50 backdrop-blur-sm border-b border-border rounded-none p-0">
               <TabsTrigger value="info" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">课程信息</TabsTrigger>
               <TabsTrigger value="resources" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">课程资源</TabsTrigger>

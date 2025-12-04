@@ -15,12 +15,22 @@ import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import type { DetailPanelProps } from "@/components/detail-panel/types"
 import { StatisticsCards } from "./shared/statistics-cards"
 import { Members } from "@/shared/components/members"
 import { TeachingQualityStats } from "@/modules/majors/components/shared/teaching-quality-stats"
 import { QuickCreateMajorDialog } from "@/modules/departments/components/shared/quick-create-major-dialog"
+import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
+
+const DEPARTMENT_TABS = {
+  overview: "院系概览",
+  members: "成员管理",
+  "teaching-quality": "教学质量",
+} as const
+
+type DepartmentTabKey = keyof typeof DEPARTMENT_TABS
+const DEFAULT_DEPARTMENT_TAB: DepartmentTabKey = "overview"
 
 export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode, onDeleteNode, currentUser }: DetailPanelProps) {
   const [newDeptName, setNewDeptName] = useState("")
@@ -29,6 +39,18 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isEditingDepartment, setIsEditingDepartment] = useState(false)
   const [isQuickCreateMajorOpen, setIsQuickCreateMajorOpen] = useState(false)
+  const { setActivePage } = useActivePageTracker()
+
+  useEffect(() => {
+    if (!node) return
+    setActivePage(DEFAULT_DEPARTMENT_TAB, DEPARTMENT_TABS[DEFAULT_DEPARTMENT_TAB])
+  }, [node?.nodeId, setActivePage])
+
+  const handleTabChange = (value: string) => {
+    const tabKey = value as DepartmentTabKey
+    const label = DEPARTMENT_TABS[tabKey] ?? value
+    setActivePage(value, label)
+  }
 
   const handleEditDepartment = () => {
     setNewDeptName(node.nodeName)
@@ -112,7 +134,7 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
 
       {/* Tabs for Overview and Members */}
       <div className="flex-1 overflow-auto">
-        <Tabs defaultValue="overview" className="w-full">
+        <Tabs defaultValue="overview" className="w-full" onValueChange={handleTabChange}>
           <TabsList className="w-full h-10 bg-secondary/50 backdrop-blur-sm border-b border-border rounded-none p-0">
             <TabsTrigger value="overview" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
               院系概览

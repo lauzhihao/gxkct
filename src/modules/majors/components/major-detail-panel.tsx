@@ -29,6 +29,17 @@ import {
   AlertDialogTitle,
 } from "@/shared/components/ui/alert-dialog"
 import React from "react"
+import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
+
+const MAJOR_TABS = {
+  courses: "课程管理",
+  details: "专业详情",
+  matrix: "专业矩阵",
+  "teaching-quality": "教学质量",
+} as const
+
+type MajorTabKey = keyof typeof MAJOR_TABS
+const DEFAULT_MAJOR_TAB: MajorTabKey = "courses"
 
 // 学期选择器子组件 - 使用 React.memo 防止不必要的重新渲染
 const SemesterSelector = React.memo(({
@@ -191,6 +202,18 @@ export function MajorDetail({
   ])
   const [isConfirmingSemesterChange, setIsConfirmingSemesterChange] = useState(false)
   const [pendingSemesterValue, setPendingSemesterValue] = useState<string | null>(null)
+  const { setActivePage } = useActivePageTracker()
+
+  useEffect(() => {
+    if (!node) return
+    setActivePage(DEFAULT_MAJOR_TAB, MAJOR_TABS[DEFAULT_MAJOR_TAB])
+  }, [node?.nodeId, setActivePage])
+
+  const handleTabChange = (value: string) => {
+    const tabKey = value as MajorTabKey
+    const label = MAJOR_TABS[tabKey] ?? value
+    setActivePage(value, label)
+  }
 
   // 生成默认学期名称
   const generateDefaultSemesterName = useCallback(() => {
@@ -399,7 +422,7 @@ export function MajorDetail({
         </div>
 
         <div className="flex-1 overflow-auto">
-          <Tabs defaultValue="courses" className="w-full">
+          <Tabs defaultValue="courses" className="w-full" onValueChange={handleTabChange}>
             <TabsList className="w-full h-10 bg-secondary/50 backdrop-blur-sm border-b border-border rounded-none p-0">
               <TabsTrigger value="courses" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
                 课程管理

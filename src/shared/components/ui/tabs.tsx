@@ -7,12 +7,24 @@ import { cn } from '@/shared/utils/utils'
 
 function Tabs({
   className,
+  onValueChange,
   ...props
 }: React.ComponentProps<typeof TabsPrimitive.Root>) {
+  const handleValueChange = React.useCallback(
+    (value: string) => {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('app-tabs-change', { detail: value }))
+      }
+      onValueChange?.(value)
+    },
+    [onValueChange],
+  )
+
   return (
     <TabsPrimitive.Root
       data-slot="tabs"
       className={cn('flex flex-col gap-2', className)}
+      onValueChange={handleValueChange}
       {...props}
     />
   )

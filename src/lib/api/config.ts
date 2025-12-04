@@ -15,7 +15,7 @@ export function getApiConfig(): ApiConfig {
   if (environment === 'dev') {
     baseUrl = '' // 使用相对路径，由rewrites代理
   } else {
-    baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://qa.gxkct.com/college'
+    baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://preview.gxkct.com/college'
   }
 
   return {
