@@ -255,3 +255,104 @@
     display: none;
   }
 }
+
+.ai-assistant-gradient-inner {
+  position: relative;
+  z-index: 1;
+  border-radius: 1.05rem;
+  background: var(--background);
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+}
+
+
+.ai-assistant-border-wrapper {
+  position: relative;
+  border-radius: 1rem;
+  width: 100%;
+  padding: 2px;
+  overflow: hidden;
+}
+
+.ai-assistant-border-wrapper::before,
+.ai-assistant-border-wrapper::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.ai-assistant-border-wrapper::before {
+  background: conic-gradient(
+    from 0deg,
+    #f79533,
+    #f37055,
+    #ef4e7b,
+    #a166ab,
+    #5073b8,
+    #1098ad,
+    #07b39b,
+    #f79533
+  );
+  opacity: 0.35;
+  z-index: 0;
+}
+
+.ai-assistant-border-wrapper::after {
+  --ai-assistant-border-angle: 0deg;
+  background: conic-gradient(
+    from var(--ai-assistant-border-angle),
+    #f79533,
+    #f37055,
+    #ef4e7b,
+    #a166ab,
+    #5073b8,
+    #1098ad,
+    #07b39b,
+    #f79533
+  );
+  opacity: 0;
+  z-index: 1;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.ai-assistant-border-surface {
+  position: relative;
+  border-radius: calc(1rem - 2px);
+  background: var(--background);
+  z-index: 2;
+}
+
+.ai-assistant-border-wrapper:focus-within::after {
+  opacity: 1;
+  animation: ai-assistant-border-spin 1.2s linear 0s infinite;
+}
+
+.ai-assistant-textarea {
+  border: none;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  position: relative;
+  z-index: 2;
+  background-clip: padding-box;
+}
+
+.ai-assistant-textarea:focus-visible {
+  border: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+@property --ai-assistant-border-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes ai-assistant-border-spin {
+  0% {
+    --ai-assistant-border-angle: 0deg;
+  }
+  100% {
+    --ai-assistant-border-angle: 360deg;
+  }
+}

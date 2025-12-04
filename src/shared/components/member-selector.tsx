@@ -44,35 +44,6 @@ interface MemberSelectorProps {
   description?: string
 }
 
-// 生成Mock数据 - 根据节点类型和过滤条件
-const generateFilteredUsers = (nodeType: NodeType, departmentId?: string, majorId?: string): MemberSelectorUser[] => {
-  // 这里使用与Members组件相同的数据源
-  const allUsers: MemberSelectorUser[] = [
-    { id: 4845, account: "2021017", name: "于骁晗", belong: "管理工程系", auth: "系部管理员", permission: 1001 },
-    { id: 4847, account: "2017063", name: "赵靖宇", belong: "管理工程系", auth: "专业管理员", permission: 2001 },
-    { id: 4848, account: "2006008", name: "徐一楠", belong: "管理工程系", auth: "专业管理员", permission: 2001 },
-    { id: 4849, account: "2019017", name: "郭慧莹", belong: "管理工程系", auth: "专业管理员", permission: 2001 },
-    { id: 4850, account: "2022076", name: "沈斯文", belong: "管理工程系", auth: "专业管理员", permission: 2001 },
-    { id: 6884, account: "lauzhihao", name: "lauzhihao", belong: "管理工程系", auth: "专业管理员", permission: 2001 },
-    { id: 6885, account: "lauzhihao@qq.com", name: "刘志昊", belong: "管理工程系", auth: "专业管理员", permission: 2001 },
-    { id: 4846, account: "2020045", name: "王微双", belong: "管理工程系", auth: "任课教师", permission: 3001 },
-    { id: 5004, account: "2012025", name: "宋玉丽", belong: "管理工程系", auth: "任课教师", permission: 3001 },
-    { id: 5005, account: "2009010", name: "孙玲", belong: "管理工程系", auth: "任课教师", permission: 3001 },
-  ]
-
-  // 根据departmentId、majorId进行过滤
-  const shouldMatchDepartmentName = departmentId ? Number.isNaN(Number(departmentId)) : false
-
-  return allUsers.filter((user) => {
-    if (shouldMatchDepartmentName && departmentId && user.belong !== departmentId) return false
-    if (majorId) {
-      // majorId过滤逻辑可根据实际需求调整
-      return false
-    }
-    return true
-  })
-}
-
 export function MemberSelector({
   mode = "single",
   departmentId,
@@ -95,42 +66,28 @@ export function MemberSelector({
 
   // 当弹窗打开时加载成员数据
   useEffect(() => {
-    if (open && departmentId) {
+    const targetId = departmentId || majorId
+    if (open && targetId) {
       const loadUsers = async () => {
         setIsLoading(true)
         try {
-          // 院系级别：从deptUsers.json加载数据，按院系ID过滤
           if (nodeType === "department") {
-            const response = await api.tree.getDepartmentUsers(departmentId)
-            if (response.data && response.data.length > 0) {
-              setAllUsers(response.data)
-            } else {
-              // 如果API返回空数据，使用空数组
-              setAllUsers([])
-            }
+            const response = await api.tree.getDepartmentUsers(targetId)
+            setAllUsers(response.data ?? [])
           } else {
-            // 其他类型：使用原有逻辑
-            const response = await api.users.getUsers(departmentId)
-            if (response.data) {
-              setAllUsers(response.data)
-            } else {
-              // 如果API返回空，使用Mock数据
-              const mockUsers = generateFilteredUsers(nodeType, departmentId, majorId)
-              setAllUsers(mockUsers)
-            }
+            const response = await api.users.getUsers(targetId)
+            setAllUsers(response.data ?? [])
           }
         } catch (error) {
           console.error("加载成员数据失败:", error)
-          // 加载失败时使用Mock数据
-          const mockUsers = generateFilteredUsers(nodeType, departmentId, majorId)
-          setAllUsers(mockUsers)
+          setAllUsers([])
         } finally {
           setIsLoading(false)
         }
       }
       loadUsers()
     }
-  }, [open, departmentId, nodeType, majorId])
+  }, [open, departmentId, majorId, nodeType])
 
   const filteredUsers = useMemo(
     () => {

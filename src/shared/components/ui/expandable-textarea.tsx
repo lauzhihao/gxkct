@@ -7,6 +7,7 @@ interface ExpandableTextareaProps {
   onChange: (value: string) => void
   onBlur?: () => void
   onFocus?: () => void
+  onKeyDown?: (event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void
   placeholder?: string
   maxLength?: number
   rows?: number
@@ -35,6 +36,7 @@ export const ExpandableTextarea = React.forwardRef<
       expandThreshold,
       hideCounter,
       onExpandedChange,
+      onKeyDown,
     },
     ref,
   ) => {
@@ -62,6 +64,10 @@ export const ExpandableTextarea = React.forwardRef<
       onChange(newValue)
     }
 
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      onKeyDown?.(event)
+    }
+
     if (isExpanded) {
       return (
         <div className="relative">
@@ -72,6 +78,7 @@ export const ExpandableTextarea = React.forwardRef<
             onChange={handleChange}
             onBlur={handleBlur}
             onFocus={handleFocus}
+            onKeyDown={handleKeyDown}
             maxLength={maxLength}
             className={cn(
               'w-full px-3 py-2 pb-8 border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none',
@@ -97,6 +104,7 @@ export const ExpandableTextarea = React.forwardRef<
           value={value}
           onChange={handleChange}
           onFocus={handleFocus}
+          onKeyDown={handleKeyDown}
           className={cn('cursor-text pr-12', className)}
         />
         {!hideCounter && (

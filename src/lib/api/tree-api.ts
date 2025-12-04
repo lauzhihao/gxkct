@@ -1,7 +1,6 @@
-import type { TreeNode } from "@/types"
+import type { TaskMember, TreeNode } from "@/types"
 import { StorageAdapter } from "./storage-adapter"
 import type { ApiResponse } from "./types"
-import { getCurrentUserId } from "./auth-config"
 
 /**
  * 从 nodeId 中提取数字 ID
@@ -29,6 +28,17 @@ function addCompatibilityProps(node: TreeNode): TreeNode {
   }
 
   return enhancedNode
+}
+
+interface DepartmentMember extends TaskMember {
+  relative?: number
+}
+
+interface DepartmentUsersPayload {
+  id: number
+  guiders?: DepartmentMember[]
+  users?: DepartmentMember[]
+  [key: string]: unknown
 }
 
 export class TreeApi {
@@ -284,47 +294,43 @@ export class TreeApi {
 
   /**
    * 获取院系的成员列表
-   * 根据departmentId从deptUsers.json中过滤数据
-   * @param departmentId 院系ID（字符串格式）
+   * 通过 /api/v3/manage/getCollegeDepartment 获取真实成员数据
+   * @param departmentId 院系ID（可带有前缀的字符串）
    * @returns 成员数组
    */
-  async getDepartmentUsers(departmentId: string): Promise<ApiResponse<any[]>> {
-    console.log(`[v0] TreeApi.getDepartmentUsers(${departmentId}) 开始加载成员数据`)
+  async getDepartmentUsers(departmentId: string): Promise<ApiResponse<DepartmentMember[]>> {
+    const resolvedDepartmentId = extractNumericIdFromNodeId(departmentId)
+    console.log(`[TreeApi] getDepartmentUsers(${resolvedDepartmentId}) 开始加载成员数据`)
 
     try {
-      // 模拟网络延迟
-      await new Promise(resolve => setTimeout(resolve, 300))
+      const response = await this.storage.getFromApi<DepartmentUsersPayload>(
+        `/api/v3/manage/getCollegeDepartment?id=${resolvedDepartmentId}`
+      )
 
-      const backendResponse = deptUsersData as BackendResponse<any>
-
-      // 使用统一的响应处理器
-      const response = handleBackendResponse(backendResponse, false)
       if (response.error || !response.data) {
-        console.log(`[v0] TreeApi.getDepartmentUsers() 响应处理失败:`, response.error)
+        console.warn(`[TreeApi] 获取院系成员失败:`, response.error)
         return { data: null, error: response.error, status: response.status }
       }
 
       const deptData = response.data
-
-      // 检查departmentId是否与data.id匹配
-      // departmentId是字符串，data.id是数字，需要转换后比较
-      const deptIdNum = parseInt(departmentId, 10)
-      if (isNaN(deptIdNum) || deptData.id !== deptIdNum) {
-        console.log(`[v0] TreeApi.getDepartmentUsers() 院系ID不匹配: 查询${departmentId}，数据中的ID为${deptData.id}`)
+      const requestedId = parseInt(resolvedDepartmentId, 10)
+      if (!Number.isNaN(requestedId) && deptData.id !== requestedId) {
+        console.warn(`[TreeApi] 院系ID不匹配: 查询${resolvedDepartmentId}, 返回${deptData.id}`)
         return { data: [], error: null, status: 200 }
       }
 
-      // 合并guiders和users数组
-      const allUsers = [
+      const allUsers: DepartmentMember[] = [
         ...(deptData.guiders || []),
-        ...(deptData.users || [])
+        ...(deptData.users || []),
       ]
 
-      console.log(`[v0] TreeApi.getDepartmentUsers() 返回 ${allUsers.length} 个成员（系部管理员: ${deptData.guiders?.length || 0}, 其他成员: ${deptData.users?.length || 0}）`)
+      console.log(
+        `[TreeApi] getDepartmentUsers(${resolvedDepartmentId}) 返回 ${allUsers.length} 个成员 (系部管理员: ${deptData.guiders?.length || 0}, 其他成员: ${deptData.users?.length || 0})`
+      )
 
       return { data: allUsers, error: null, status: 200 }
     } catch (error) {
-      console.error(`[v0] TreeApi.getDepartmentUsers() 错误:`, error)
+      console.error(`[TreeApi] getDepartmentUsers(${resolvedDepartmentId}) 错误:`, error)
       return { data: null, error: String(error), status: 500 }
     }
   }

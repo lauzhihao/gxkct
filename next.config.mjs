@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false,
+  compress: false, // disable gzip compression to avoid buffering SSE streams
 turbopack: {
   root: ".",
 },
@@ -28,7 +29,7 @@ turbopack: {
     rewrites: async () => ({
       beforeFiles: [
         {
-          source: '/api/:path*',
+          source: '/api/:path((?!chat/sse).*)', // ❗排除 SSE 的转发
           destination: 'http://localhost:38080/api/:path*',
         },
       ],

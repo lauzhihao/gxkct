@@ -112,52 +112,6 @@ const getRoleConfig = (nodeType: NodeType) => {
   return roleConfigs[nodeType] || roleConfigs.major
 }
 
-// Mock数据生成函数 - 根据节点类型加载不同数据源
-const generateMockUsers = (nodeType: NodeType): User[] => {
-  if (nodeType === "university") {
-    // 学校级：从users.json加载所有数据，按auth字段渲染
-    const usersData = [
-      { id: 4825, account: "2003001", name: "张静", auth: "管理员", permission: 1 },
-      { id: 4827, account: "2015060", name: "李文禹", auth: "管理员", permission: 1 },
-      { id: 4829, account: "2013026", name: "王可心", auth: "管理员", permission: 1 },
-      { id: 4830, account: "2013003", name: "张洪岩", auth: "管理员", permission: 1 },
-      { id: 4841, account: "2015034", name: "赵婷婷", auth: "管理员", permission: 1 },
-      { id: 4844, account: "2018001", name: "逯娅娜", auth: "管理员", permission: 1 },
-      { id: 4920, account: "2006009", name: "孟艳辉", auth: "管理员", permission: 1 },
-      { id: 5069, account: "2016010", name: "郝丽娜", auth: "管理员", permission: 1 },
-      { id: 5096, account: "2005013", name: "白雪", auth: "管理员", permission: 1 },
-      { id: 5097, account: "2010020", name: "陈景鑫", auth: "管理员", permission: 1 },
-      { id: 5098, account: "1997019", name: "曹然彬", auth: "管理员", permission: 1 },
-      { id: 5100, account: "2022005", name: "郭伟东", auth: "管理员", permission: 1 },
-      { id: 5101, account: "1997001", name: "曹勇安", auth: "管理员", permission: 1 },
-      { id: 5103, account: "2000009", name: "张振笋", auth: "管理员", permission: 1 },
-      { id: 5104, account: "1997015", name: "姜岩（财务）", auth: "管理员", permission: 1 },
-      { id: 5424, account: "20180555", name: "朱欣", auth: "管理员", permission: 1 },
-      { id: 5791, account: "2011001", name: "康静", auth: "管理员", permission: 1 },
-      { id: 5996, account: "ysj@gxkct.com", name: "叶树江", auth: "管理员", permission: 1 },
-      { id: 40, account: "pan@gxkct.com", name: "潘宇", auth: "管理员", permission: 88 },
-      { id: 3, account: "admin@gxkct.com", name: "老刘", auth: "管理员", permission: 88 },
-    ]
-
-    return usersData.map((userData) => ({
-      ...userData,
-      belong: "无",
-      relative: 0,
-      old: false,
-      disabled: false,
-    }))
-  } else if (nodeType === "department") {
-    // 院系级：数据从API加载（getDepartmentUsers），这里返回空数组
-    // 实际数据将通过api.tree.getDepartmentUsers(node.id)从deptUsers.json加载
-    return []
-  } else if (nodeType === "major") {
-    // 专业级：暂时返回空数组
-    return []
-  }
-
-  return []
-}
-
 export function Members({ node }: MembersProps) {
   const roleConfig = getRoleConfig(node.type)
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false)
@@ -170,41 +124,31 @@ export function Members({ node }: MembersProps) {
   const [newUserMajor, setNewUserMajor] = useState("")
   const [editingUserId, setEditingUserId] = useState<number | null>(null)
   const [userSearchQuery, setUserSearchQuery] = useState("")
-  const [users, setUsers] = useState<User[]>(generateMockUsers(node.type))
+  const [users, setUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (node) {
-      const config = getRoleConfig(node.type)
-      const loadUsers = async () => {
-        setIsLoading(true)
-        try {
-          // 院系级别：从deptUsers.json加载数据，按院系ID过滤
-          if (node.type === "department") {
-            const response = await api.tree.getDepartmentUsers(node.id)
-            if (response.data && response.data.length > 0) {
-              setUsers(response.data)
-            } else {
-              // 如果API返回空数据，使用空数组而不是mock数据
-              setUsers([])
-            }
-          } else {
-            // 其他类型：使用原有逻辑
-            const response = await api.users.getUsers(node.id)
-            if (response.data) {
-              setUsers(response.data)
-            } else {
-              const initialUsers = generateMockUsers(node.type)
-              setUsers(initialUsers)
-              await api.users.updateUsers(node.id, initialUsers)
-            }
-          }
-        } finally {
-          setIsLoading(false)
+    if (!node) return
+
+    const loadUsers = async () => {
+      setIsLoading(true)
+      try {
+        if (node.type === "department") {
+          const response = await api.tree.getDepartmentUsers(node.id)
+          setUsers(response.data ?? [])
+        } else {
+          const response = await api.users.getUsers(node.id)
+          setUsers(response.data ?? [])
         }
+      } catch (error) {
+        console.error("[Members] 加载成员失败:", error)
+        setUsers([])
+      } finally {
+        setIsLoading(false)
       }
-      loadUsers()
     }
+
+    loadUsers()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node.id, node.type])
 
@@ -742,5 +686,4 @@ export function Members({ node }: MembersProps) {
     </div>
   )
 }
-
 

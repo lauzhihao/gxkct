@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronDown, User, Palette, Bell, Sparkles, Send } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
@@ -161,6 +161,34 @@ const COLOR_THEMES = {
   },
 }
 
+const normalizeStreamChunk = (input: string) => {
+  const lines = input.split(/\n+/)
+  const parts: string[] = []
+  let done = false
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim()
+    if (!line) continue
+    const normalized = line.startsWith('data:') ? line.slice(5).trimStart() : line
+    if (!normalized) continue
+    if (normalized === '[DONE]' || normalized === 'done') {
+      done = true
+      break
+    }
+    if (normalized.startsWith('done:')) {
+      done = true
+      const payloadText = normalized.slice(5).trimStart()
+      if (payloadText) {
+        parts.push(payloadText)
+      }
+      break
+    }
+    parts.push(normalized)
+  }
+
+  return { parts, done }
+}
+
 interface HeaderProps {
   onResetData?: () => void
   isTreeCollapsed?: boolean
@@ -238,6 +266,9 @@ export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNode
   const [userName, setUserName] = useState<string>("用户")
   const [thinkingIndex, setThinkingIndex] = useState(0)
   const [streamingText, setStreamingText] = useState("")
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
+  const streamingControllerRef = useRef<AbortController | null>(null)
+  const scrollViewportRef = useRef<HTMLDivElement | null>(null)
   const { activeTabLabel } = useActivePageTracker()
   const thinkingPrompts = useMemo(
     () => [
@@ -289,6 +320,12 @@ export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNode
   }, [])
 
   useEffect(() => {
+    return () => {
+      streamingControllerRef.current?.abort()
+    }
+  }, [])
+
+  useEffect(() => {
     const timer = setInterval(() => {
       setThinkingIndex((prev) => (prev + 1) % thinkingPrompts.length)
     }, 2000 + Math.random() * 1500)
@@ -296,39 +333,10 @@ export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNode
   }, [thinkingPrompts.length])
 
   useEffect(() => {
-    const assistantMessages = chatMessages.filter((m) => m.role === "assistant")
-    const streamingTarget = assistantMessages[1]
-    if (!streamingTarget) {
-      setStreamingText("")
-      return
-    }
-
-    let currentIndex = 0
-    let timeoutId: NodeJS.Timeout | null = null
-    let cancelled = false
-
-    const step = () => {
-      if (cancelled) return
-      setStreamingText(streamingTarget.content.slice(0, currentIndex))
-      if (currentIndex >= streamingTarget.content.length) {
-        timeoutId = setTimeout(() => {
-          currentIndex = 0
-          if (!cancelled) step()
-        }, 1000)
-      } else {
-        const chunkSize = Math.max(1, Math.round(streamingTarget.content.length / 80))
-        currentIndex += chunkSize
-        timeoutId = setTimeout(step, 50)
-      }
-    }
-
-    step()
-
-    return () => {
-      cancelled = true
-      if (timeoutId) clearTimeout(timeoutId)
-    }
-  }, [chatMessages])
+    const viewport = scrollViewportRef.current
+    if (!viewport) return
+    viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' })
+  }, [chatMessages, streamingMessageId, streamingText])
 
   const applyTheme = async (themeKey: keyof typeof COLOR_THEMES) => {
     const theme = COLOR_THEMES[themeKey]
@@ -357,36 +365,136 @@ export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNode
     setCurrentTheme(themeKey)
   }
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!inputMessage.trim()) {
       return
     }
 
     const trimmedContent = inputMessage.trim()
+    const timestamp = Date.now().toString()
+    const aiMessageId = `${timestamp}-ai`
+
     const userMessage = {
-      id: String(Date.now()),
+      id: timestamp,
       role: "user" as const,
       content: trimmedContent,
       time: "刚刚",
     }
 
-    setChatMessages((prev) => [...prev, userMessage])
+    const assistantPlaceholder = {
+      id: aiMessageId,
+      role: "assistant" as const,
+      content: "",
+      time: "生成中",
+    }
+
+    setChatMessages((prev) => [...prev, userMessage, assistantPlaceholder])
     setInputMessage("")
+    setStreamingMessageId(aiMessageId)
+    setStreamingText("")
 
-    setTimeout(() => {
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          id: `${Date.now()}-ai`,
-          role: "assistant" as const,
-          content: "已记录你的需求，正在为你准备详细的分析建议。",
-          time: "几秒前",
-        },
-      ])
-    }, 600)
+    streamingControllerRef.current?.abort()
+    const controller = new AbortController()
+    streamingControllerRef.current = controller
+
+    const commitAssistantContent = (content: string) => {
+      setChatMessages((prev) =>
+        prev.map((message) => (message.id === aiMessageId ? { ...message, content, time: "刚刚" } : message)),
+      )
+    }
+
+    const requestUrl = `/api/chat/aliqwen-sse?unique=${encodeURIComponent(aiMessageId)}&message=${encodeURIComponent(trimmedContent)}`
+
+    try {
+      const eventSource = new EventSource(requestUrl)
+      streamingControllerRef.current = controller
+      controller.signal.addEventListener('abort', () => {
+        eventSource.close()
+      })
+
+      let accumulated = ''
+      let completed = false
+      let lastPayload: any = null
+
+      const extractContent = (payload: any) => {
+        if (payload && typeof payload.message === 'string' && payload.message.trim()) {
+          return payload.message
+        }
+        if (payload && Array.isArray(payload.history) && payload.history.length > 0) {
+          const latest = payload.history[payload.history.length - 1]
+          if (latest && typeof latest.content === 'string' && latest.content.trim()) {
+            return latest.content
+          }
+        }
+        return ''
+      }
+
+      const finalizeStream = (finalMessage?: string) => {
+        if (completed || controller.signal.aborted) return
+        completed = true
+        // 优先保留已流式累积的内容，避免被最终事件覆盖
+        const aggregatedText = accumulated.trim()
+        const finalChunk = finalMessage?.trim() ?? ''
+        const resultText = aggregatedText || finalChunk
+        const content = resultText || 'AI 暂无新的建议，请稍后再试。'
+        commitAssistantContent(content)
+        eventSource.close()
+        if (streamingControllerRef.current === controller) {
+          streamingControllerRef.current = null
+        }
+        setStreamingMessageId(null)
+        setStreamingText('')
+      }
+
+      eventSource.addEventListener('message', (event) => {
+        if (controller.signal.aborted) return
+        try {
+          const payload = JSON.parse(event.data)
+          lastPayload = payload
+          const chunk = extractContent(payload)
+          if (chunk) {
+            accumulated += chunk
+            setStreamingText(accumulated)
+          }
+        } catch (error) {
+          console.error('解析流式响应失败', error, event.data)
+        }
+      })
+
+      eventSource.addEventListener('done', (event) => {
+        if (controller.signal.aborted) return
+        try {
+          const payload = JSON.parse(event.data)
+          const finalText = extractContent(payload)
+          if (finalText) {
+            finalizeStream(finalText)
+            return
+          }
+        } catch (error) {
+          console.error('解析完成事件失败', error, event.data)
+        }
+        const fallbackText = extractContent(lastPayload)
+        finalizeStream(fallbackText || undefined)
+      })
+
+      eventSource.onerror = (error) => {
+        if (controller.signal.aborted) return
+        console.error('SSE 错误', error)
+        const fallbackText = extractContent(lastPayload)
+        finalizeStream(fallbackText || undefined)
+      }
+    } catch (error) {
+      const fallback = controller.signal.aborted
+        ? "已取消本次 AI 响应。"
+        : "抱歉，AI 服务暂时不可用，请稍后再试。"
+      commitAssistantContent(fallback)
+      if (streamingControllerRef.current === controller) {
+        streamingControllerRef.current = null
+      }
+      setStreamingMessageId(null)
+      setStreamingText('')
+    }
   }
-
-  const assistantMessages = chatMessages.filter((m) => m.role === "assistant")
 
   return (
     <header className="relative mb-6" data-current-path={currentPath ?? undefined}>
@@ -541,7 +649,11 @@ export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNode
             onClick={() => setAiDrawerOpen(true)}
             className="hover:bg-primary/10 transition-colors group"
           >
-            <Sparkles className="h-12 w-12 text-primary transition-transform duration-200 group-hover:scale-[1.5]" />
+            <img
+              src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAE4AAAAqCAMAAAAqEZ1jAAAAAXNSR0IArs4c6QAAAAlwSFlzAAAhOAAAITgBRZYxYAAAAKJQTFRFAAAAenb/RpP/k2j/XXf7cXX6P5z7i2n8W3j7ZHP7jmn9VID7Qpf8jWn8Xnr6iWr8YHb7i2n8RJb9dWz8WXr8mWj9RpP8W3n8bW/8l2j+QJz9Q5f9ToT8fWv9ZW/8lWj9VID8YnX7Pp79QZr9pWb+RJT8m2f9k2j9SYz8jWn9hmr8UIT8fmv8VX78Xnn7d2z8ZHT7WHr7bm77Xnb7Z3D7YHH7RJOQRAAAACJ0Uk5TABAgICAwQEBAWF5gZXBwgICbn5+fo7+/vsLP39/f3urv73XwOA8AAAKfSURBVHja7dbJcuIwFIXhIzCxMTMNcdwMDoMZY4NxeP9X66srEckYQlPVvcvPBhZ8dVSIAvz03xNV/Luq4Xq9Hgo8nfDqjXq97hS1yXZNhXg2Z3o+f1KnLqx62y17Pp5smp+158EUaW6I52rkxLF3eoNpt1Ne+bR+Fd8U5Oc8Px6P5M0Evgq11ytpy0jgbk6e5cSxd2pb7yKOikpTouWyhbsNMsnpefZpOzsCI7c8brkM74/LqFSC7HkwVTu9lsB14ZJy745LlDdV5+3iQTXC7s9z3pNEggOh9s3woOFqJT2BmzUSLnMQEEeeh2+rkraiOrjZeL+XXEBwyp71Ybg+hWL+iltGt8ftKQI9QMzSlDxz9VofssIMdxitdJEvbo3jxqAGKXtt6N4OkpvgkmiFa50Ch1UU8zab/Ya4Br/IUnnewHCHg+FEh7/ExUIXdq+KG4N7z3hfzXDkaa5FmGpdMENrYWWjaoDrJtJLu4ajFFfbUduryN1ue4brb2KpjSvgvETe53R24U6Ggz+RYJnsCTMujmMJ9qELErkv9y7cyXAGtNCoI2Dqx9ymAl1bcYMLJ2NO5fZ2dmHLxiBGrJlxEAl7M1HkTFUzseeiWHOxYK+CrwLltRX3qTk7/4PbTXDdaBHLxytMdcllaaA56U1RSEyU56M0jotfYBLvynM091ni0GGtPO73nLkR7AaK6yqOKnG1g+wXrnqZz9nrw87bszdjjn/dDGffbgdX9YmT4HykaoLTp/UABGfyypx7a1yFNb0wpl7BddW8geSO5JU5TE63xhmOPb2uok8reN1Nrn4qjQNBlmfdvkB5beaoMgdP4LpFgbNuX3svtSwABoZ7WPOKa0Inxgl7DurMdfFXVV7savjK8WQ1/cz5+Q9e7A/jUZeiPQO0fwAAAABJRU5ErkJggg=="
+              alt="AI 助手"
+              className="h-12 w-12 object-contain transition-transform duration-200 group-hover:scale-[1.5]"
+            />
           </Button>
         </div>
       </div>
@@ -550,7 +662,7 @@ export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNode
           side="right"
           className="!w-[403px] sm:!w-[461px] lg:!w-[499px] xl:!w-[538px] 2xl:!w-[576px] sm:!max-w-none lg:!max-w-none 2xl:!max-w-none max-w-[80vw] p-0 bg-background/90 backdrop-blur-xl border-border/40"
         >
-          <div className="flex h-full flex-col">
+          <div className="flex h-full min-h-0 flex-col">
             <SheetHeader className="px-6 pt-6 pb-4 border-b border-border/60">
               <SheetTitle className="text-left text-xl font-semibold flex items-center gap-3">
                 <Sparkles className="h-6 w-6 text-primary" />
@@ -578,17 +690,17 @@ export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNode
               )}
             </SheetHeader>
 
-            <ScrollArea className="flex-1 px-6 py-4">
+            <ScrollArea ref={scrollViewportRef} className="flex-1 min-h-0 px-6 py-4">
               <div className="space-y-5 pr-2">
-                {chatMessages.map((message, index) => {
+                {chatMessages.map((message) => {
                   const isAssistant = message.role === "assistant"
-                  const shouldShowThinking = isAssistant && index === chatMessages.length - 1
-                  const streamingTarget = assistantMessages[1]
-                  const shouldStream = streamingTarget && streamingTarget.id === message.id
+                  const shouldStream = streamingMessageId === message.id
+                  const shouldShowThinking = isAssistant && shouldStream
                   const displayContent =
                     message.id === "1" && isAssistant
                       ? message.content.replace("你好，", `${greetingForMessage} `)
                       : message.content
+                  const contentToRender = shouldStream ? streamingText || "AI 正在生成响应..." : displayContent
 
                   return isAssistant ? (
                     <div key={message.id} className="space-y-2 text-left">
@@ -605,7 +717,7 @@ export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNode
                         </div>
                       )}
                       <div className="border-t border-dashed border-border/60 pt-3 text-sm leading-relaxed whitespace-pre-line">
-                        {shouldStream ? streamingText : displayContent}
+                        {contentToRender}
                       </div>
                     </div>
                   ) : (
@@ -622,38 +734,48 @@ export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNode
               </div>
             </ScrollArea>
 
-            <div className="border-t border-border/60 bg-background/80 p-6">
-              <div className="rounded-2xl border border-border/60 bg-muted/40 p-4 shadow-inner">
-                <div className="flex flex-col gap-3">
-                  <div className="relative">
-                    <ExpandableTextarea
-                      value={inputMessage}
-                      onChange={(value) => setInputMessage(value)}
-                      onExpandedChange={setIsInputExpanded}
-                      placeholder="描述你的需求，例如：生成本专业的课程知识图谱..."
-                      className="border border-border/40 bg-background/80 px-3 py-2 text-sm pr-16 focus-visible:ring-1 focus-visible:ring-primary/40 focus-visible:ring-offset-0"
-                      rows={4}
-                      hideCounter
-                    />
-                    <Button
-                      size="icon"
-                      className="absolute right-3 h-7 w-7 rounded-full transition-[transform,top,bottom] duration-200"
-                      style={
-                        isInputExpanded
-                          ? { bottom: "12px", top: "auto", transform: "translateY(0)" }
-                          : { top: "50%", bottom: "auto", transform: "translateY(-50%)" }
-                      }
-                      disabled={!inputMessage.trim()}
-                      onClick={handleSendMessage}
-                    >
-                      <Send className="h-4 w-4" />
-                    </Button>
+            <div className="border-t border-border/60 bg-background/80 p-6 flex-shrink-0">
+              <div className="ai-assistant-gradient-inner p-4 shadow-inner flex-shrink-0">
+                  <div className="flex flex-col gap-3">
+                    <div className="relative">
+                      <div className="ai-assistant-border-wrapper">
+                        <div className="ai-assistant-border-surface">
+                        <ExpandableTextarea
+                          value={inputMessage}
+                          onChange={(value) => setInputMessage(value)}
+                          onExpandedChange={setIsInputExpanded}
+                          placeholder="描述你的需求，例如：生成本专业的课程知识图谱..."
+                          className="ai-assistant-textarea bg-background/80 px-3 py-2 text-sm pr-16"
+                          rows={4}
+                          hideCounter
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+                              event.preventDefault()
+                              handleSendMessage()
+                            }
+                          }}
+                        />
+                        </div>
+                      </div>
+                      <Button
+                        size="icon"
+                        className="absolute right-3 h-7 w-7 rounded-full transition-[transform,top,bottom] duration-200 z-10"
+                        style={
+                          isInputExpanded
+                            ? { bottom: "12px", top: "auto", transform: "translateY(0)" }
+                            : { top: "50%", bottom: "auto", transform: "translateY(-50%)" }
+                        }
+                        disabled={!inputMessage.trim()}
+                        onClick={handleSendMessage}
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">
+                      AI 可能会生成不准确的内容，请在使用前进行核对。
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">
-                    AI 可能会生成不准确的内容，请在使用前进行核对。
-                  </p>
                 </div>
-              </div>
             </div>
           </div>
         </SheetContent>
