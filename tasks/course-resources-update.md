@@ -229,3 +229,19 @@
     * 原因：用户反馈
     * 阻碍：无
     * 用户确认状态：待确认
+
+* 2025-12-04 09:21:12
+    * 步骤：选择器无资源时提示跳转
+    * 修改：src/modules/courses/components/dialogs/course-resource-picker-dialog.tsx
+    * 更改摘要：当课程资源为空时显示“当前课程暂无可用资源，可前往课程资源进行管理”的提示，并提供按钮关闭弹窗以便跳转。
+    * 原因：用户需求
+    * 阻碍：无
+    * 用户确认状态：待确认
+
+* 2025-12-04 09:30:36
+    * 步骤：课程资源选择器空状态与跳转
+    * 修改：src/modules/courses/components/dialogs/course-resource-picker-dialog.tsx, src/modules/courses/components/course-detail-panel.tsx, src/modules/courses/components/course/supervision/course-supervision-detail.tsx
+    * 更改摘要：为空目录时显示跳转提示并触发自定义事件，课程详情监听该事件切换到课程资源标签，评分页打开选择器时传递回调。
+    * 原因：用户反馈
+    * 阻碍：无
+    * 用户确认状态：待确认

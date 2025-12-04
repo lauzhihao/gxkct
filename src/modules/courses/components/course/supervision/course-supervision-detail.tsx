@@ -519,6 +519,7 @@ export function CourseSupervisionDetail({ task, onBack }: CourseSupervisionDetai
         onOpenChange={handlePickerOpenChange}
         selectionMode="multiple"
         onConfirm={handlePickerConfirm}
+        onNavigateToResources={() => window.dispatchEvent(new CustomEvent("open-course-resources-tab"))}
       />
     </div>
   )

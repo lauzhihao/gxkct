@@ -55,6 +55,12 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
     setIsDeleteDialogOpen(false)
   }, [node?.nodeId])
 
+  useEffect(() => {
+    const handleOpenResources = () => setActiveTab("resources")
+    window.addEventListener("open-course-resources-tab", handleOpenResources)
+    return () => window.removeEventListener("open-course-resources-tab", handleOpenResources)
+  }, [])
+
   // 加载课程详情数据
   useEffect(() => {
     const loadCourseDetail = async () => {

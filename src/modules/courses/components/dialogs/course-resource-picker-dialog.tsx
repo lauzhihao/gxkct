@@ -32,6 +32,7 @@ interface CourseResourcePickerDialogProps {
   onOpenChange: (open: boolean) => void
   selectionMode?: "single" | "multiple"
   onConfirm: (items: PickedResource[]) => void
+  onNavigateToResources?: () => void
 }
 
 export function CourseResourcePickerDialog({
@@ -40,6 +41,7 @@ export function CourseResourcePickerDialog({
   onOpenChange,
   selectionMode = "multiple",
   onConfirm,
+  onNavigateToResources,
 }: CourseResourcePickerDialogProps) {
   const {
     breadcrumbs,
@@ -55,6 +57,7 @@ export function CourseResourcePickerDialog({
     enterFolder,
     searchTerm,
     setSearchTerm,
+    refreshCurrentLevel,
   } = useCourseResources(nodeId)
 
   const [selectedItems, setSelectedItems] = useState<Map<string, PickedResource>>(new Map())
@@ -108,7 +111,27 @@ export function CourseResourcePickerDialog({
     onOpenChange(false)
   }, [selectedItems, onConfirm, onOpenChange])
 
+  const handleNavigateToResources = useCallback(() => {
+    onOpenChange(false)
+    if (onNavigateToResources) {
+      onNavigateToResources()
+    } else {
+      window.dispatchEvent(new CustomEvent("open-course-resources-tab"))
+    }
+  }, [onNavigateToResources, onOpenChange])
+
   const canConfirm = selectedItems.size > 0
+  const isInitializationState = !nodeId
+  const isEmptyState =
+    !isInitializationState &&
+    !isLoading &&
+    !isObjectsLoading &&
+    (entries.length === 0 || needInitialization)
+
+  useEffect(() => {
+    if (!open || !nodeId) return
+    refreshCurrentLevel()
+  }, [open, nodeId, refreshCurrentLevel])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -118,55 +141,72 @@ export function CourseResourcePickerDialog({
           <DialogDescription>浏览课程资源目录并选择需要引用的文件。</DialogDescription>
         </DialogHeader>
 
-        {needInitialization || !nodeId ? (
-          <Empty title="暂无课程资源" description="请先在课程资源页初始化目录。" />
-        ) : (
-          <div className="space-y-4">
-            <div className="space-y-3">
-              <div className="relative w-full">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={searchTerm}
-                  placeholder="搜索当前目录"
-                  className="h-9 pl-9"
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              <ResourceBreadcrumb path={breadcrumbs} onCrumbClick={goToBreadcrumb} />
+        <div className="space-y-4">
+          <div className="space-y-3">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchTerm}
+                placeholder="搜索当前目录"
+                className="h-9 pl-9"
+                onChange={(e) => setSearchTerm(e.target.value)}
+                disabled={!nodeId}
+              />
             </div>
-
-            {error ? (
-              <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-                {error}
-              </div>
-            ) : (
-              <div className="relative rounded-lg border border-border p-4">
-                {isLoading && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                  </div>
-                )}
-                {objectsError && (
-                  <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                    {objectsError}
-                  </div>
-                )}
-                <ResourceObjectList
-                  entries={entries}
-                  viewMode="grid"
-                  selectedIds={selectedIds}
-                  onToggleSelect={handleToggle}
-                  onFolderClick={enterFolder}
-                  isRootLevel={isRootLevel}
-                />
-              </div>
-            )}
-
-            {!isObjectsLoading && selectedItems.size > 0 && (
-              <p className="text-sm text-muted-foreground">已选择 {selectedItems.size} 个文件</p>
-            )}
+            <ResourceBreadcrumb path={breadcrumbs} onCrumbClick={goToBreadcrumb} />
           </div>
-        )}
+
+          {isInitializationState ? (
+            <Empty
+              title="暂无课程资源"
+              description="请先在课程资源页初始化目录。"
+            />
+          ) : isEmptyState ? (
+            <Empty
+              title="当前课程暂无可用资源"
+              description={
+                <button
+                  type="button"
+                  className="text-primary underline underline-offset-4"
+                  onClick={handleNavigateToResources}
+                >
+                  可前往课程资源进行管理
+                </button>
+              }
+            />
+          ) : (
+            <div className="relative rounded-lg border border-border p-4">
+              {(isLoading || isObjectsLoading) && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              )}
+              {error && (
+                <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                  {error}
+                </div>
+              )}
+              {objectsError && (
+                <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                  {objectsError}
+                </div>
+              )}
+
+              <ResourceObjectList
+                entries={entries}
+                viewMode="grid"
+                selectedIds={selectedIds}
+                onToggleSelect={handleToggle}
+                onFolderClick={enterFolder}
+                isRootLevel={isRootLevel}
+              />
+            </div>
+          )}
+
+          {!isObjectsLoading && selectedItems.size > 0 && (
+            <p className="text-sm text-muted-foreground">已选择 {selectedItems.size} 个文件</p>
+          )}
+        </div>
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} className="transition-colors hover:bg-primary hover:text-white">
