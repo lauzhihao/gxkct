@@ -1,9 +1,32 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import type { ResourceFolder, ResourceObjectSummary, ResourcePagination } from "@/lib/api"
+import type { ResourceFolder, ResourcePagination } from "@/lib/api"
 import { courseResourcesApi } from "@/modules/courses/api/courseResourcesApi"
 import { showError } from "@/shared/utils/toast-utils"
+
+// 后端返回的资源项类型（包含文件夹和文件）
+interface ResourceItem extends ResourceFolder {
+  type: "folder" | "file"
+  size?: number | null
+  mimeType?: string | null
+  downloadUrl?: string | null
+  uploader?: { id: string; name: string | null } | null
+  uploadedAt?: string | null
+  version?: string | null
+}
+
+// 文件对象类型（用于前端展示）
+export interface ResourceObject {
+  id: string
+  name: string
+  type: "file"
+  size: number
+  mimeType: string
+  downloadUrl: string
+  uploader?: { id: string; name: string | null } | null
+  uploadedAt: string | null
+}
 
 export interface ResourceBreadcrumbNode {
   id: string | null
@@ -19,12 +42,10 @@ interface UseCourseResourcesResult {
   breadcrumbs: ResourceBreadcrumbNode[]
   currentParentId: string | null
   directories: ResourceFolder[]
-  objects: ResourceObjectSummary[]
+  objects: ResourceObject[]
   objectsPagination: ResourcePagination | null
   isLoading: boolean
   error: string | null
-  isObjectsLoading: boolean
-  objectsError: string | null
   needInitialization: boolean
   isInitializing: boolean
   isRootLevel: boolean
@@ -35,20 +56,17 @@ interface UseCourseResourcesResult {
   enterFolder: (folder: ResourceFolder) => void
   goToBreadcrumb: (index: number) => void
   refreshCurrentLevel: () => void
-  reloadObjects: () => void
   initializeFolders: () => Promise<void>
 }
 
 export function useCourseResources(courseId?: string | null): UseCourseResourcesResult {
   const [directories, setDirectories] = useState<ResourceFolder[]>([])
-  const [objects, setObjects] = useState<ResourceObjectSummary[]>([])
+  const [objects, setObjects] = useState<ResourceObject[]>([])
   const [objectsPagination, setObjectsPagination] = useState<ResourcePagination | null>(null)
   const [breadcrumbs, setBreadcrumbs] = useState<ResourceBreadcrumbNode[]>([ROOT_CRUMB])
   const [currentParentId, setCurrentParentId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isObjectsLoading, setIsObjectsLoading] = useState(false)
-  const [objectsError, setObjectsError] = useState<string | null>(null)
   const [needInitialization, setNeedInitialization] = useState(false)
   const [isInitializing, setIsInitializing] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
@@ -65,11 +83,38 @@ export function useCourseResources(courseId?: string | null): UseCourseResources
           setError(response.error)
           showError(response.error)
           setDirectories([])
+          setObjects([])
           setNeedInitialization(parentId === null)
           return
         }
-        const list = response.data ?? []
-        if (parentId === null && list.length === 0) {
+        const list = (response.data ?? []) as ResourceItem[]
+        // 根据type字段分离文件夹和文件
+        const folders: ResourceFolder[] = []
+        const files: ResourceObject[] = []
+        for (const item of list) {
+          if (item.type === "folder") {
+            folders.push({
+              id: item.id,
+              name: item.name,
+              parentId: item.parentId,
+              hasChildren: item.hasChildren,
+              filesCount: item.filesCount,
+              latestUploadedAt: item.latestUploadedAt,
+            })
+          } else if (item.type === "file") {
+            files.push({
+              id: item.id,
+              name: item.name,
+              type: "file",
+              size: item.size ?? 0,
+              mimeType: item.mimeType ?? "application/octet-stream",
+              downloadUrl: item.downloadUrl ?? "",
+              uploader: item.uploader,
+              uploadedAt: item.uploadedAt ?? null,
+            })
+          }
+        }
+        if (parentId === null && folders.length === 0) {
           setNeedInitialization(true)
         } else {
           setNeedInitialization(false)
@@ -77,7 +122,8 @@ export function useCourseResources(courseId?: string | null): UseCourseResources
         if (nextBreadcrumbs) {
           setBreadcrumbs(nextBreadcrumbs)
         }
-        setDirectories(list)
+        setDirectories(folders)
+        setObjects(files)
         setCurrentParentId(parentId)
       } catch (err) {
         const message = err instanceof Error ? err.message : "加载目录失败"
@@ -88,46 +134,6 @@ export function useCourseResources(courseId?: string | null): UseCourseResources
       }
     },
     [courseId],
-  )
-
-  const loadObjects = useCallback(
-    async (folderId: string | null, keyword?: string) => {
-      if (!courseId || !folderId) {
-        setObjects([])
-        setObjectsPagination(null)
-        setObjectsError(null)
-        return
-      }
-      setIsObjectsLoading(true)
-      setObjectsError(null)
-      try {
-        const response = await courseResourcesApi.getObjects(courseId, {
-          folderId,
-          keyword: keyword?.trim() ? keyword : undefined,
-          offset: 0,
-          limit: viewMode === "grid" ? 24 : 50,
-          sortField: "uploadedAt",
-          sortOrder: "desc",
-          viewMode,
-        })
-        if (response.error) {
-          setObjects([])
-          setObjectsPagination(null)
-          setObjectsError(response.error)
-          showError(response.error)
-          return
-        }
-        setObjects(response.data?.items ?? [])
-        setObjectsPagination(response.data?.pagination ?? null)
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "加载文件失败"
-        setObjectsError(message)
-        showError(message)
-      } finally {
-        setIsObjectsLoading(false)
-      }
-    },
-    [courseId, viewMode],
   )
 
   const enterFolder = useCallback(
@@ -150,12 +156,7 @@ export function useCourseResources(courseId?: string | null): UseCourseResources
 
   const refreshCurrentLevel = useCallback(() => {
     void loadFolders(currentParentId, breadcrumbs)
-    void loadObjects(currentParentId, searchTerm)
-  }, [breadcrumbs, currentParentId, loadFolders, loadObjects, searchTerm])
-
-  const reloadObjects = useCallback(() => {
-    void loadObjects(currentParentId, searchTerm)
-  }, [currentParentId, loadObjects, searchTerm])
+  }, [breadcrumbs, currentParentId, loadFolders])
 
   const initializeFolders = useCallback(async () => {
     if (!courseId || isInitializing) return
@@ -170,8 +171,6 @@ export function useCourseResources(courseId?: string | null): UseCourseResources
       }
       await loadFolders(null, [ROOT_CRUMB])
       setSearchTerm("")
-      setObjects([])
-      setObjectsPagination(null)
     } catch (err) {
       const message = err instanceof Error ? err.message : "初始化目录失败"
       setError(message)
@@ -191,7 +190,6 @@ export function useCourseResources(courseId?: string | null): UseCourseResources
       setNeedInitialization(false)
       setError(null)
       setSearchTerm("")
-      setObjectsError(null)
       return
     }
     setBreadcrumbs([ROOT_CRUMB])
@@ -199,16 +197,6 @@ export function useCourseResources(courseId?: string | null): UseCourseResources
     setSearchTerm("")
     void loadFolders(null, [ROOT_CRUMB])
   }, [courseId, loadFolders])
-
-  useEffect(() => {
-    if (!courseId || !currentParentId) {
-      setObjects([])
-      setObjectsPagination(null)
-      setObjectsError(null)
-      return
-    }
-    void loadObjects(currentParentId, searchTerm)
-  }, [courseId, currentParentId, searchTerm, viewMode, loadObjects])
 
   const state = useMemo<UseCourseResourcesResult>(
     () => ({
@@ -219,8 +207,6 @@ export function useCourseResources(courseId?: string | null): UseCourseResources
       objectsPagination,
       isLoading,
       error,
-      isObjectsLoading,
-      objectsError,
       needInitialization,
       isInitializing,
       isRootLevel: currentParentId === null,
@@ -231,7 +217,6 @@ export function useCourseResources(courseId?: string | null): UseCourseResources
       enterFolder,
       goToBreadcrumb,
       refreshCurrentLevel,
-      reloadObjects,
       initializeFolders,
     }),
     [
@@ -242,8 +227,6 @@ export function useCourseResources(courseId?: string | null): UseCourseResources
       objectsPagination,
       isLoading,
       error,
-      isObjectsLoading,
-      objectsError,
       needInitialization,
       isInitializing,
       searchTerm,
@@ -251,7 +234,6 @@ export function useCourseResources(courseId?: string | null): UseCourseResources
       enterFolder,
       goToBreadcrumb,
       refreshCurrentLevel,
-      reloadObjects,
       initializeFolders,
     ],
   )

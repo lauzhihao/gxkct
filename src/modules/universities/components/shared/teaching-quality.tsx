@@ -182,7 +182,7 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
             className="gap-2 hover:bg-primary/10"
           >
             <Plus className="w-4 h-4 text-primary" />
-            <span className="text-primary font-medium">督导任务</span>
+            <span className="text-primary font-medium">新任务</span>
           </Button>
         </div>
 
@@ -234,7 +234,7 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
         {/* Teaching Tasks List */}
         <div className="space-y-3">
           <h3 className="text-base font-medium text-foreground">
-            {selectedStatus ? `${["未开始", "进行中", "已结束"][["not_started", "in_progress", "completed"].indexOf(selectedStatus)]}的教学质量督导任务` : "教学质量督导任务"}
+            {selectedStatus ? `${["未开始", "进行中", "已结束"][["not_started", "in_progress", "completed"].indexOf(selectedStatus)]}的任务` : "质量评价任务"}
           </h3>
           <TeachingTaskList
             tasks={tasks}

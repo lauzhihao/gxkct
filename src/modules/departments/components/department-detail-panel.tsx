@@ -26,7 +26,7 @@ import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
 const DEPARTMENT_TABS = {
   overview: "院系概览",
   members: "成员管理",
-  "teaching-quality": "教学质量",
+  "teaching-quality": "质量评价",
 } as const
 
 type DepartmentTabKey = keyof typeof DEPARTMENT_TABS
@@ -143,7 +143,7 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
               成员管理
             </TabsTrigger>
             <TabsTrigger value="teaching-quality" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
-              教学质量
+              质量评价
             </TabsTrigger>
           </TabsList>
 

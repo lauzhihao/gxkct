@@ -70,7 +70,7 @@ export const ExpandableTextarea = React.forwardRef<
 
     if (isExpanded) {
       return (
-        <div className="relative">
+        <div className="relative w-full flex-1 min-w-0">
           <textarea
             ref={ref as React.Ref<HTMLTextAreaElement>}
             placeholder={placeholder}
@@ -97,7 +97,7 @@ export const ExpandableTextarea = React.forwardRef<
     }
 
     return (
-      <div className="relative">
+      <div className="relative w-full flex-1 min-w-0">
         <Input
           ref={ref as React.Ref<HTMLInputElement>}
           placeholder={placeholder}

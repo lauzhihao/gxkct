@@ -139,10 +139,10 @@ export function MajorMatrix({ node, onUpdateNode }: MajorMatrixProps) {
   const graduationRequirements = getGraduationRequirements()
 
   return (
-    <div className="rounded-lg border border-border bg-white/40 backdrop-blur-md p-6 space-y-4">
+    <>
       {graduationRequirements.length > 0 ? (
-        <div className="rounded-lg border border-border bg-card/50 overflow-hidden">
-          <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
+        <>
+          <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
               <BookMarked className="w-5 h-5 text-primary" />
               专业矩阵
@@ -186,7 +186,7 @@ export function MajorMatrix({ node, onUpdateNode }: MajorMatrixProps) {
             )}
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="rounded-lg border border-border overflow-hidden overflow-x-auto mb-[15px]">
             <table className="w-full text-sm">
               <thead>
                 {/* 第一层表头：毕业要求 */}
@@ -359,7 +359,7 @@ export function MajorMatrix({ node, onUpdateNode }: MajorMatrixProps) {
               </tbody>
             </table>
           </div>
-        </div>
+        </>
       ) : (
         <div className="text-center py-12 text-muted-foreground">
           <BookMarked className="w-12 h-12 mx-auto mb-3 opacity-50" />
@@ -367,6 +367,6 @@ export function MajorMatrix({ node, onUpdateNode }: MajorMatrixProps) {
           <p className="text-xs">请先在专业详情中添加毕业要求</p>
         </div>
       )}
-    </div>
+    </>
   )
 }

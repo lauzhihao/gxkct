@@ -80,7 +80,7 @@ export function ResourceObjectList({
           return renderFolderTile(entry.folder.id, entry.folder.name, () => onFolderClick(entry.folder))
         }
         const checked = selectedIds.has(entry.object.id)
-        const Icon = getObjectIcon(entry.object.mimeType, entry.object.displayName)
+        const Icon = getObjectIcon(entry.object.mimeType, entry.object.name)
         return (
           <button
             key={entry.object.id}
@@ -91,10 +91,10 @@ export function ResourceObjectList({
                 ? "border-primary bg-primary/80 text-white"
                 : "hover:border-primary hover:bg-primary/70 hover:text-white",
             )}
-            title={entry.object.displayName}
+            title={entry.object.name}
           >
             <Icon className={cn("h-10 w-10", checked ? "text-white" : "text-primary")} />
-            <span className={cn("text-sm font-medium truncate w-full", checked ? "text-white" : "text-foreground")}>{entry.object.displayName}</span>
+            <span className={cn("text-sm font-medium truncate w-full", checked ? "text-white" : "text-foreground")}>{entry.object.name}</span>
           </button>
         )
       })}

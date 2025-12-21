@@ -69,7 +69,7 @@ export function MyComponent() {
 
 ## 实际应用示例
 
-在"新增教学质量督导任务"页面中的使用：
+在"新增质量评价督导任务"页面中的使用：
 
 ```typescript
 const [isPublishScopeDialogOpen, setIsPublishScopeDialogOpen] = useState(false)

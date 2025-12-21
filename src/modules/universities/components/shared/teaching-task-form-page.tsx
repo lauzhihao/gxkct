@@ -353,7 +353,7 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
               返回
             </Button>
             <h2 className="text-xl font-bold text-foreground">
-              {isEditMode ? "编辑教学质量督导任务" : "新增教学质量督导任务"}
+              {isEditMode ? "编辑任务" : "新增任务"}
             </h2>
           </div>
           <div className="flex items-center gap-2">
@@ -928,6 +928,52 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
               )}
             </div>
           </div>
+        </div>
+
+        {/* 底部保存取消按钮 */}
+        <div className="flex justify-center gap-2 pt-4">
+          <Button
+            variant="outline"
+            onClick={onBack}
+            className="gap-2 bg-transparent"
+            disabled={isSaving || isLoading || autoSaveStatus === "saving" || autoSaveStatus === "saved"}
+          >
+            <X className="w-4 h-4" />
+            取消
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            className="gap-2"
+            disabled={isSaving || isLoading || autoSaveStatus === "saving" || autoSaveStatus === "saved"}
+            variant={autoSaveStatus === "saved" ? "default" : autoSaveStatus === "failed" ? "destructive" : "default"}
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                保存中
+              </>
+            ) : autoSaveStatus === "saving" ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                自动保存中
+              </>
+            ) : autoSaveStatus === "saved" ? (
+              <>
+                <Check className="w-4 h-4" />
+                已保存
+              </>
+            ) : autoSaveStatus === "failed" ? (
+              <>
+                <X className="w-4 h-4" />
+                保存失败
+              </>
+            ) : (
+              <>
+                <Check className="w-4 h-4" />
+                保存
+              </>
+            )}
+          </Button>
         </div>
       </div>
     </div>

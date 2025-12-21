@@ -35,7 +35,7 @@ const MAJOR_TABS = {
   courses: "课程管理",
   details: "专业详情",
   matrix: "专业矩阵",
-  "teaching-quality": "教学质量",
+  "teaching-quality": "质量评价",
 } as const
 
 type MajorTabKey = keyof typeof MAJOR_TABS
@@ -111,7 +111,7 @@ const SemesterSelector = React.memo(({
       </div>
 
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="!w-[25vw] !h-[12vh]">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>创建新学期</DialogTitle>
             <DialogDescription>请输入新学期的名称，可选择立即切换到该学期。</DialogDescription>
@@ -376,7 +376,7 @@ export function MajorDetail({
   return (
     <>
       <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl overflow-hidden">
-        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6 border-b border-border">
+        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-6 py-3 border-b border-border">
           <div className="flex items-start justify-between">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center flex-shrink-0">
@@ -387,7 +387,7 @@ export function MajorDetail({
                 {node.description && <p className="text-muted-foreground mb-3">{node.description}</p>}
               </div>
             </div>
-            <div className="flex flex-col gap-2 absolute top-6 right-6">
+            <div className="flex flex-col gap-2 items-end flex-shrink-0">
               <div className="flex gap-2 justify-end">
                 {onUpdateNode && (
                   <Button
@@ -434,7 +434,7 @@ export function MajorDetail({
                 专业矩阵
               </TabsTrigger>
               <TabsTrigger value="teaching-quality" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
-                教学质量
+                质量评价
               </TabsTrigger>
             </TabsList>
 

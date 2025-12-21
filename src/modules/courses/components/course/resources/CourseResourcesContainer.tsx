@@ -25,8 +25,6 @@ export function CourseResourcesContainer({ nodeId }: CourseResourcesContainerPro
     objects,
     isLoading,
     error,
-    isObjectsLoading,
-    objectsError,
     needInitialization,
     isInitializing,
     isRootLevel,
@@ -268,7 +266,7 @@ export function CourseResourcesContainer({ nodeId }: CourseResourcesContainerPro
 
   const hasSelectableObjects = resourceEntries.some((entry) => entry.type === "object")
   const showActions = !needInitialization && !isRootLevel
-  const isCreateFolderDisabled = isLoading || isObjectsLoading
+  const isCreateFolderDisabled = isLoading
   const isCreateFolderConfirmDisabled =
     isCreatingFolder || Boolean(folderNameError) || newFolderName.trim().length === 0
 
@@ -294,7 +292,7 @@ export function CourseResourcesContainer({ nodeId }: CourseResourcesContainerPro
                 buttonText: "上传",
                 fileType: "任意文件",
                 maxFileCount: 20,
-                disabled: isLoading || isObjectsLoading,
+                disabled: isLoading,
                 buttonClassName: "text-muted-foreground",
               }}
               onCreateFolderClick={handleOpenCreateFolder}
@@ -384,20 +382,7 @@ export function CourseResourcesContainer({ nodeId }: CourseResourcesContainerPro
               </div>
             </div>
           )}
-          {objectsError && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-              {objectsError}
-            </div>
-          )}
           <div className="relative pb-[15px]">
-            {isObjectsLoading && (
-              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-background/60">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  正在加载文件
-                </div>
-              </div>
-            )}
             <ResourceObjectList
               entries={resourceEntries}
               viewMode={viewMode}

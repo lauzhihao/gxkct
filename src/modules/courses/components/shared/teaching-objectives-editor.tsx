@@ -419,8 +419,8 @@ export function TeachingObjectivesEditor({
                       <div className="space-y-3 pl-12 pr-4">
                         {/* 教学目标输入框 */}
                         {goalInput?.isEditing && (
-                          <div className="flex gap-2 p-2 bg-card/20 rounded-md border border-border mr-2">
-                            <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[0.7rem] font-medium text-primary self-center">
+                          <div className="flex gap-2 items-start">
+                            <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[0.7rem] font-medium text-primary mt-2">
                               {String.fromCharCode(97)}
                             </div>
                             <ExpandableTextarea
@@ -441,8 +441,8 @@ export function TeachingObjectivesEditor({
                           <div className="space-y-2">
                             {goalObjectivesList.map((objective, objIdx) => {
                               return (
-                                <div key={objective.id} className="flex gap-2 p-2 bg-card/20 rounded-md border border-border mr-2">
-                                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[0.7rem] font-medium text-primary self-center">
+                                <div key={objective.id} className="flex gap-2 items-start">
+                                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[0.7rem] font-medium text-primary mt-2">
                                     {String.fromCharCode(97 + objIdx)}
                                   </div>
                                   <ExpandableTextarea
@@ -457,7 +457,7 @@ export function TeachingObjectivesEditor({
                                     size="sm"
                                     variant="ghost"
                                     onClick={() => removeGoalObjective(goal.id, objective.id)}
-                                    className="gap-1 text-red-500 hover:text-red-600 hover:bg-red-50 h-5 px-1 flex-shrink-0 self-center"
+                                    className="gap-1 text-red-500 hover:text-red-600 hover:bg-red-50 h-5 px-1 flex-shrink-0 mt-2"
                                   >
                                     <Trash2 className="w-3 h-3" />
                                   </Button>

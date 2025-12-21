@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronDown, User, Palette, Bell, Sparkles, Send } from "lucide-react"
+import { ChevronDown, User, Palette, Bell } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import {
   DropdownMenu,
@@ -12,19 +12,10 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/shared/components/ui/avatar"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/shared/components/ui/sheet"
-import { ScrollArea } from "@/shared/components/ui/scroll-area"
-import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 import { cn } from "@/shared/utils/utils"
 import { api, getStoredAuthUser, clearAllAuthData } from "@/lib/api"
 import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/shared/components/ui/breadcrumb"
+import { CourseDevAssistant } from "./course-dev-assistant"
 
 const COLOR_THEMES = {
   green: {
@@ -161,34 +152,6 @@ const COLOR_THEMES = {
   },
 }
 
-const normalizeStreamChunk = (input: string) => {
-  const lines = input.split(/\n+/)
-  const parts: string[] = []
-  let done = false
-
-  for (const rawLine of lines) {
-    const line = rawLine.trim()
-    if (!line) continue
-    const normalized = line.startsWith('data:') ? line.slice(5).trimStart() : line
-    if (!normalized) continue
-    if (normalized === '[DONE]' || normalized === 'done') {
-      done = true
-      break
-    }
-    if (normalized.startsWith('done:')) {
-      done = true
-      const payloadText = normalized.slice(5).trimStart()
-      if (payloadText) {
-        parts.push(payloadText)
-      }
-      break
-    }
-    parts.push(normalized)
-  }
-
-  return { parts, done }
-}
-
 interface HeaderProps {
   onResetData?: () => void
   isTreeCollapsed?: boolean
@@ -238,58 +201,13 @@ const mockNotifications: Notification[] = [
 
 export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNodeName }: HeaderProps) {
   const router = useRouter()
-  const [aiDrawerOpen, setAiDrawerOpen] = useState(false)
-  const [inputMessage, setInputMessage] = useState("")
-  const [isInputExpanded, setIsInputExpanded] = useState(false)
-  const [chatMessages, setChatMessages] = useState([
-    {
-      id: "1",
-      role: "assistant" as const,
-      content: "你好，我是高校课程通的 AI 助手，可以帮助你快速分析课程结构、生成教学方案，或总结当前页面的信息。",
-      time: "刚刚",
-    },
-    {
-      id: "2",
-      role: "user" as const,
-      content: "帮我分析一下课程大纲里的关键知识点。",
-      time: "1 分钟前",
-    },
-    {
-      id: "3",
-      role: "assistant" as const,
-      content: "已根据课程大纲提取出 5 个重点知识点，并标记相关的教学目标与考核方式。你需要导出 Word 版本还是生成课堂提纲？",
-      time: "1 分钟前",
-    },
-  ])
+  const [courseDevDrawerOpen, setCourseDevDrawerOpen] = useState(false)
   const [currentTheme, setCurrentTheme] = useState<keyof typeof COLOR_THEMES>("vercelBlue")
   const [notifications, setNotifications] = useState<Notification[]>(mockNotifications)
   const [userName, setUserName] = useState<string>("用户")
-  const [thinkingIndex, setThinkingIndex] = useState(0)
-  const [streamingText, setStreamingText] = useState("")
-  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
-  const streamingControllerRef = useRef<AbortController | null>(null)
-  const scrollViewportRef = useRef<HTMLDivElement | null>(null)
   const { activeTabLabel } = useActivePageTracker()
-  const thinkingPrompts = useMemo(
-    () => [
-      "解析当前课程结构，识别关键节点",
-      "匹配历史案例，抽取可复用策略",
-      "评估教学目标是否与能力点一致",
-      "规划输出格式，准备建议与下一步行动",
-    ],
-    [],
-  )
 
   const unreadCount = notifications.filter((n) => !n.read).length
-
-  const getTimeGreeting = () => {
-    const hour = new Date().getHours()
-    if (hour < 12) return "上午好"
-    if (hour < 18) return "下午好"
-    return "晚上好"
-  }
-  const greetingText = `${getTimeGreeting()}，${userName}老师`
-  const greetingForMessage = `${userName}老师：${getTimeGreeting()}。`
 
   // 处理退出登录
   const handleLogout = () => {
@@ -319,25 +237,6 @@ export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNode
     loadTheme()
   }, [])
 
-  useEffect(() => {
-    return () => {
-      streamingControllerRef.current?.abort()
-    }
-  }, [])
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setThinkingIndex((prev) => (prev + 1) % thinkingPrompts.length)
-    }, 2000 + Math.random() * 1500)
-    return () => clearInterval(timer)
-  }, [thinkingPrompts.length])
-
-  useEffect(() => {
-    const viewport = scrollViewportRef.current
-    if (!viewport) return
-    viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' })
-  }, [chatMessages, streamingMessageId, streamingText])
-
   const applyTheme = async (themeKey: keyof typeof COLOR_THEMES) => {
     const theme = COLOR_THEMES[themeKey]
     const root = document.documentElement
@@ -363,137 +262,6 @@ export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNode
     // Save to localStorage
     await api.config.setTheme(themeKey)
     setCurrentTheme(themeKey)
-  }
-
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim()) {
-      return
-    }
-
-    const trimmedContent = inputMessage.trim()
-    const timestamp = Date.now().toString()
-    const aiMessageId = `${timestamp}-ai`
-
-    const userMessage = {
-      id: timestamp,
-      role: "user" as const,
-      content: trimmedContent,
-      time: "刚刚",
-    }
-
-    const assistantPlaceholder = {
-      id: aiMessageId,
-      role: "assistant" as const,
-      content: "",
-      time: "生成中",
-    }
-
-    setChatMessages((prev) => [...prev, userMessage, assistantPlaceholder])
-    setInputMessage("")
-    setStreamingMessageId(aiMessageId)
-    setStreamingText("")
-
-    streamingControllerRef.current?.abort()
-    const controller = new AbortController()
-    streamingControllerRef.current = controller
-
-    const commitAssistantContent = (content: string) => {
-      setChatMessages((prev) =>
-        prev.map((message) => (message.id === aiMessageId ? { ...message, content, time: "刚刚" } : message)),
-      )
-    }
-
-    const requestUrl = `/api/chat/aliqwen-sse?unique=${encodeURIComponent(aiMessageId)}&message=${encodeURIComponent(trimmedContent)}`
-
-    try {
-      const eventSource = new EventSource(requestUrl)
-      streamingControllerRef.current = controller
-      controller.signal.addEventListener('abort', () => {
-        eventSource.close()
-      })
-
-      let accumulated = ''
-      let completed = false
-      let lastPayload: any = null
-
-      const extractContent = (payload: any) => {
-        if (payload && typeof payload.message === 'string' && payload.message.trim()) {
-          return payload.message
-        }
-        if (payload && Array.isArray(payload.history) && payload.history.length > 0) {
-          const latest = payload.history[payload.history.length - 1]
-          if (latest && typeof latest.content === 'string' && latest.content.trim()) {
-            return latest.content
-          }
-        }
-        return ''
-      }
-
-      const finalizeStream = (finalMessage?: string) => {
-        if (completed || controller.signal.aborted) return
-        completed = true
-        // 优先保留已流式累积的内容，避免被最终事件覆盖
-        const aggregatedText = accumulated.trim()
-        const finalChunk = finalMessage?.trim() ?? ''
-        const resultText = aggregatedText || finalChunk
-        const content = resultText || 'AI 暂无新的建议，请稍后再试。'
-        commitAssistantContent(content)
-        eventSource.close()
-        if (streamingControllerRef.current === controller) {
-          streamingControllerRef.current = null
-        }
-        setStreamingMessageId(null)
-        setStreamingText('')
-      }
-
-      eventSource.addEventListener('message', (event) => {
-        if (controller.signal.aborted) return
-        try {
-          const payload = JSON.parse(event.data)
-          lastPayload = payload
-          const chunk = extractContent(payload)
-          if (chunk) {
-            accumulated += chunk
-            setStreamingText(accumulated)
-          }
-        } catch (error) {
-          console.error('解析流式响应失败', error, event.data)
-        }
-      })
-
-      eventSource.addEventListener('done', (event) => {
-        if (controller.signal.aborted) return
-        try {
-          const payload = JSON.parse(event.data)
-          const finalText = extractContent(payload)
-          if (finalText) {
-            finalizeStream(finalText)
-            return
-          }
-        } catch (error) {
-          console.error('解析完成事件失败', error, event.data)
-        }
-        const fallbackText = extractContent(lastPayload)
-        finalizeStream(fallbackText || undefined)
-      })
-
-      eventSource.onerror = (error) => {
-        if (controller.signal.aborted) return
-        console.error('SSE 错误', error)
-        const fallbackText = extractContent(lastPayload)
-        finalizeStream(fallbackText || undefined)
-      }
-    } catch (error) {
-      const fallback = controller.signal.aborted
-        ? "已取消本次 AI 响应。"
-        : "抱歉，AI 服务暂时不可用，请稍后再试。"
-      commitAssistantContent(fallback)
-      if (streamingControllerRef.current === controller) {
-        streamingControllerRef.current = null
-      }
-      setStreamingMessageId(null)
-      setStreamingText('')
-    }
   }
 
   return (
@@ -642,144 +410,29 @@ export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNode
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* AI 助手入口 */}
+          {/* 课程开发助手入口 */}
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setAiDrawerOpen(true)}
+            onClick={() => setCourseDevDrawerOpen(true)}
             className="hover:bg-primary/10 transition-colors group"
           >
             <img
               src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAE4AAAAqCAMAAAAqEZ1jAAAAAXNSR0IArs4c6QAAAAlwSFlzAAAhOAAAITgBRZYxYAAAAKJQTFRFAAAAenb/RpP/k2j/XXf7cXX6P5z7i2n8W3j7ZHP7jmn9VID7Qpf8jWn8Xnr6iWr8YHb7i2n8RJb9dWz8WXr8mWj9RpP8W3n8bW/8l2j+QJz9Q5f9ToT8fWv9ZW/8lWj9VID8YnX7Pp79QZr9pWb+RJT8m2f9k2j9SYz8jWn9hmr8UIT8fmv8VX78Xnn7d2z8ZHT7WHr7bm77Xnb7Z3D7YHH7RJOQRAAAACJ0Uk5TABAgICAwQEBAWF5gZXBwgICbn5+fo7+/vsLP39/f3urv73XwOA8AAAKfSURBVHja7dbJcuIwFIXhIzCxMTMNcdwMDoMZY4NxeP9X66srEckYQlPVvcvPBhZ8dVSIAvz03xNV/Luq4Xq9Hgo8nfDqjXq97hS1yXZNhXg2Z3o+f1KnLqx62y17Pp5smp+158EUaW6I52rkxLF3eoNpt1Ne+bR+Fd8U5Oc8Px6P5M0Evgq11ytpy0jgbk6e5cSxd2pb7yKOikpTouWyhbsNMsnpefZpOzsCI7c8brkM74/LqFSC7HkwVTu9lsB14ZJy745LlDdV5+3iQTXC7s9z3pNEggOh9s3woOFqJT2BmzUSLnMQEEeeh2+rkraiOrjZeL+XXEBwyp71Ybg+hWL+iltGt8ftKQI9QMzSlDxz9VofssIMdxitdJEvbo3jxqAGKXtt6N4OkpvgkmiFa50Ch1UU8zab/Ya4Br/IUnnewHCHg+FEh7/ExUIXdq+KG4N7z3hfzXDkaa5FmGpdMENrYWWjaoDrJtJLu4ajFFfbUduryN1ue4brb2KpjSvgvETe53R24U6Ggz+RYJnsCTMujmMJ9qELErkv9y7cyXAGtNCoI2Dqx9ymAl1bcYMLJ2NO5fZ2dmHLxiBGrJlxEAl7M1HkTFUzseeiWHOxYK+CrwLltRX3qTk7/4PbTXDdaBHLxytMdcllaaA56U1RSEyU56M0jotfYBLvynM091ni0GGtPO73nLkR7AaK6yqOKnG1g+wXrnqZz9nrw87bszdjjn/dDGffbgdX9YmT4HykaoLTp/UABGfyypx7a1yFNb0wpl7BddW8geSO5JU5TE63xhmOPb2uok8reN1Nrn4qjQNBlmfdvkB5beaoMgdP4LpFgbNuX3svtSwABoZ7WPOKa0Inxgl7DurMdfFXVV7savjK8WQ1/cz5+Q9e7A/jUZeiPQO0fwAAAABJRU5ErkJggg=="
-              alt="AI 助手"
+              alt="课程开发助手"
               className="h-12 w-12 object-contain transition-transform duration-200 group-hover:scale-[1.5]"
             />
           </Button>
         </div>
       </div>
-      <Sheet open={aiDrawerOpen} onOpenChange={setAiDrawerOpen}>
-        <SheetContent
-          side="right"
-          className="!w-[403px] sm:!w-[461px] lg:!w-[499px] xl:!w-[538px] 2xl:!w-[576px] sm:!max-w-none lg:!max-w-none 2xl:!max-w-none max-w-[80vw] p-0 bg-background/90 backdrop-blur-xl border-border/40"
-        >
-          <div className="flex h-full min-h-0 flex-col">
-            <SheetHeader className="px-6 pt-6 pb-4 border-b border-border/60">
-              <SheetTitle className="text-left text-xl font-semibold flex items-center gap-3">
-                <Sparkles className="h-6 w-6 text-primary" />
-                AI 助手
-              </SheetTitle>
-              <p className="text-sm text-muted-foreground text-left">
-                灵感来自 ChatGPT，实时协助你分析课程、生成摘要与行动建议。
-              </p>
-              {(selectedNodeName || activeTabLabel) && (
-                <Breadcrumb className="mt-3">
-                  <BreadcrumbList className="text-xs text-muted-foreground text-left">
-                    {selectedNodeName && (
-                      <BreadcrumbItem>
-                        <BreadcrumbPage>{selectedNodeName}</BreadcrumbPage>
-                      </BreadcrumbItem>
-                    )}
-                    {selectedNodeName && activeTabLabel && <BreadcrumbSeparator />}
-                    {activeTabLabel && (
-                      <BreadcrumbItem>
-                        <BreadcrumbPage>{activeTabLabel}</BreadcrumbPage>
-                      </BreadcrumbItem>
-                    )}
-                  </BreadcrumbList>
-                </Breadcrumb>
-              )}
-            </SheetHeader>
-
-            <ScrollArea ref={scrollViewportRef} className="flex-1 min-h-0 px-6 py-4">
-              <div className="space-y-5 pr-2">
-                {chatMessages.map((message) => {
-                  const isAssistant = message.role === "assistant"
-                  const shouldStream = streamingMessageId === message.id
-                  const shouldShowThinking = isAssistant && shouldStream
-                  const displayContent =
-                    message.id === "1" && isAssistant
-                      ? message.content.replace("你好，", `${greetingForMessage} `)
-                      : message.content
-                  const contentToRender = shouldStream ? streamingText || "AI 正在生成响应..." : displayContent
-
-                  return isAssistant ? (
-                    <div key={message.id} className="space-y-2 text-left">
-                      <div className="text-xs text-muted-foreground">简报 · {message.time}</div>
-                      {shouldShowThinking && (
-                        <div className="space-y-1 text-xs">
-                          <div className="flex items-center gap-2 text-primary/80">
-                            <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
-                            <span>AI 正在思考：{thinkingPrompts[thinkingIndex]}</span>
-                          </div>
-                          <div className="text-[11px] text-muted-foreground/80">
-                            主要思考：{thinkingPrompts[(thinkingIndex + 1) % thinkingPrompts.length]}
-                          </div>
-                        </div>
-                      )}
-                      <div className="border-t border-dashed border-border/60 pt-3 text-sm leading-relaxed whitespace-pre-line">
-                        {contentToRender}
-                      </div>
-                    </div>
-                  ) : (
-                    <div key={message.id} className="flex items-start justify-end text-right">
-                      <div className="space-y-1 max-w-[80%]">
-                        <div className="text-xs text-muted-foreground">简报 · {message.time}</div>
-                        <div className="rounded-2xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm leading-relaxed shadow-sm">
-                          {message.content}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </ScrollArea>
-
-            <div className="border-t border-border/60 bg-background/80 p-6 flex-shrink-0">
-              <div className="ai-assistant-gradient-inner p-4 shadow-inner flex-shrink-0">
-                  <div className="flex flex-col gap-3">
-                    <div className="relative">
-                      <div className="ai-assistant-border-wrapper">
-                        <div className="ai-assistant-border-surface">
-                        <ExpandableTextarea
-                          value={inputMessage}
-                          onChange={(value) => setInputMessage(value)}
-                          onExpandedChange={setIsInputExpanded}
-                          placeholder="描述你的需求，例如：生成本专业的课程知识图谱..."
-                          className="ai-assistant-textarea bg-background/80 px-3 py-2 text-sm pr-16"
-                          rows={4}
-                          hideCounter
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
-                              event.preventDefault()
-                              handleSendMessage()
-                            }
-                          }}
-                        />
-                        </div>
-                      </div>
-                      <Button
-                        size="icon"
-                        className="absolute right-3 h-7 w-7 rounded-full transition-[transform,top,bottom] duration-200 z-10"
-                        style={
-                          isInputExpanded
-                            ? { bottom: "12px", top: "auto", transform: "translateY(0)" }
-                            : { top: "50%", bottom: "auto", transform: "translateY(-50%)" }
-                        }
-                        disabled={!inputMessage.trim()}
-                        onClick={handleSendMessage}
-                      >
-                        <Send className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">
-                      AI 可能会生成不准确的内容，请在使用前进行核对。
-                    </p>
-                  </div>
-                </div>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+      <CourseDevAssistant
+        open={courseDevDrawerOpen}
+        onOpenChange={setCourseDevDrawerOpen}
+        userName={userName}
+        onComplete={(data) => {
+          console.log('课程开发完成，数据：', data)
+        }}
+      />
     </header>
   )
 }

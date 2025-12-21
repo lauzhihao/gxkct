@@ -682,7 +682,7 @@ export const TreeView = React.forwardRef<
   }, [searchTerm, matchingNodeIds, pathNodeIds])
 
   return (
-    <>
+    <div className="relative">
       {/* 展开/收起按钮 - 压在顶部边框中间 */}
       {onToggleCollapse && (
         <button
@@ -755,7 +755,7 @@ export const TreeView = React.forwardRef<
       <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl p-6">
         <div className="mb-4">
           <div className="flex items-center gap-2">
-            <div className="relative flex-1">
+            <div className="relative flex-1 h-9">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 type="text"
@@ -864,6 +864,6 @@ export const TreeView = React.forwardRef<
         </div>
       </div>
       )}
-    </>
+    </div>
   )
 })

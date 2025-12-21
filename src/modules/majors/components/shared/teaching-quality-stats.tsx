@@ -130,7 +130,7 @@ export function TeachingQualityStats({ node, nodeType, treeData, departmentMajor
   if (tasks.length === 0) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-muted-foreground">暂无教学质量督导任务</p>
+        <p className="text-muted-foreground">暂无进行中的任务</p>
       </div>
     )
   }

@@ -55,7 +55,7 @@ export function CoursePoints({ coursePoints }: CoursePointsProps) {
       <AccordionTrigger className="px-5 hover:no-underline">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-sm bg-primary" />
-          <h3 className="text-base font-semibold text-foreground">课点信息</h3>
+          <h3 className="text-base font-semibold text-foreground">KSA</h3>
           {coursePoints.length > 0 && (
             <Badge variant="default" className="ml-2 bg-primary text-primary-foreground">
               {coursePoints.length}
@@ -70,7 +70,7 @@ export function CoursePoints({ coursePoints }: CoursePointsProps) {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="搜索课点信息..."
+              placeholder="搜索KSA信息..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
@@ -79,7 +79,7 @@ export function CoursePoints({ coursePoints }: CoursePointsProps) {
         </div>
         {filteredPoints.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground text-sm">
-            {coursePoints.length === 0 ? "暂无课点信息" : "无相关结果"}
+            {coursePoints.length === 0 ? "暂无KSA信息" : "无相关结果"}
           </div>
         ) : (
           <div className="overflow-x-auto">

@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/shared/components/ui/alert-dialog"
 import { CourseBasicInfo } from "@/modules/courses/components/course/course-basic-info"
+import { CourseGoals } from "@/modules/courses/components/course/course-goals"
 import { CourseTeachingObjectives } from "@/modules/courses/components/course/course-teaching-objectives"
 import { CoursePoints } from "@/modules/courses/components/course/course-points"
 import { CourseChapters } from "@/modules/courses/components/course/course-chapters"
@@ -115,7 +116,7 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
     }
   }, [node?.id])
 
-  // 加载教学目标数据
+  // 加载教学目标数据（课程详情加载完成后即加载）
   useEffect(() => {
     const loadCourseGoals = async () => {
       try {
@@ -140,10 +141,11 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
       }
     }
 
-    if (isEditingTeachingObjectives && courseDetailData) {
+    // 当课程详情加载完成后，加载教学目标数据
+    if (courseDetailData) {
       loadCourseGoals()
     }
-  }, [isEditingTeachingObjectives, node?.id, courseDetailData])
+  }, [node?.id, courseDetailData])
 
   if (!node || node.nodeType !== "course") return null
 
@@ -372,6 +374,10 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
               />
 
               <Accordion type="multiple" className="space-y-4 pb-4">
+                {courseGoals && courseGoals.length > 0 && (
+                  <CourseGoals courseGoals={courseGoals} />
+                )}
+
                 {courseDetailInfo.pointksa.points && courseDetailInfo.pointksa.points.length > 0 && (
                   <CourseTeachingObjectives objectives={courseDetailInfo.pointksa.points} />
                 )}

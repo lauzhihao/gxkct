@@ -1,9 +1,9 @@
-import type { ResourceFolder, ResourceObjectSummary } from "@/lib/api"
-import type { ResourceBreadcrumbNode } from "@/modules/courses/hooks/use-course-resources"
+import type { ResourceFolder } from "@/lib/api"
+import type { ResourceBreadcrumbNode, ResourceObject } from "@/modules/courses/hooks/use-course-resources"
 import type { FileUploadProps } from "@/shared/components/ui/file-upload"
 
 export type FolderData = ResourceFolder
-export type ResourceObjectItem = ResourceObjectSummary
+export type ResourceObjectItem = ResourceObject
 
 export interface ResourceBreadcrumbProps {
   path: ResourceBreadcrumbNode[]

@@ -1,4 +1,4 @@
-# 教学质量督导任务 REST 接口规范
+# 质量评价督导任务 REST 接口规范
 
 ## 通用约定
 - 基础路径：`/api/universities/{universityId}/teaching-supervisory-tasks`
@@ -70,7 +70,7 @@
   "startDate": "2025-09-01",
   "endDate": "2025-10-10",
   "status": "not_started",
-  "creator": "教学质量办公室",
+  "creator": "质量评价办公室",
   "scoringType": "percentage",
   "publishNodes": [{ "nodeId": 1001, "nodeType": "department", "nodeName": "信息学院" }],
   "evaluationCriteria": {
