@@ -193,6 +193,7 @@ export function MajorDetail({
   const [isEditingMajor, setIsEditingMajor] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isQuickCreateCourseOpen, setIsQuickCreateCourseOpen] = useState(false)
+  const [coursesRefreshKey, setCoursesRefreshKey] = useState(0)
   const [selectedSemester, setSelectedSemester] = useState("2024-spring")
   const [semesters, setSemesters] = useState([
     { value: "2024-spring", label: "2024年春季学期" },
@@ -335,20 +336,9 @@ export function MajorDetail({
     setIsAddingCourse(false)
   }
 
-  const handleQuickCreateCourse = (data: { name: string; teachers: any[] }) => {
-    // 创建新课程对象
-    const newCourse: TreeNode = {
-      id: `course-${Date.now()}`,
-      name: data.name,
-      type: "course",
-      metadata: {
-        teachers: data.teachers,
-      },
-    }
-
-    if (onAddCourse) {
-      onAddCourse(node.id, newCourse)
-    }
+  // 课程创建成功后的回调，刷新课程列表
+  const handleQuickCreateCourseSuccess = () => {
+    setCoursesRefreshKey((prev) => prev + 1)
   }
 
   if (isEditingMajor && node.type === "major") {
@@ -399,16 +389,6 @@ export function MajorDetail({
                     <Pencil className="w-4 h-4 text-primary" />
                   </Button>
                 )}
-                {onDeleteNode && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setIsDeleteDialogOpen(true)}
-                    className="gap-2 hover:bg-red-500/10 text-red-500"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                )}
               </div>
               <SemesterSelector
                 value={selectedSemester}
@@ -454,6 +434,7 @@ export function MajorDetail({
                 onAddCourse={() => setIsQuickCreateCourseOpen(true)}
                 majorCourses={majorCourses}
                 departmentId={node.parentId?.replace("dept_", "")}
+                refreshKey={coursesRefreshKey}
               />
             </TabsContent>
 
@@ -467,8 +448,9 @@ export function MajorDetail({
       <QuickCreateCourseDialog
         open={isQuickCreateCourseOpen}
         onOpenChange={setIsQuickCreateCourseOpen}
-        onSubmit={handleQuickCreateCourse}
-        majorName={node.name}
+        onSuccess={handleQuickCreateCourseSuccess}
+        majorId={node.id ?? node.nodeId ?? ""}
+        majorName={node.name ?? node.nodeName ?? ""}
         departmentId={node.parentId?.replace("dept_", "")}
       />
 

@@ -31,11 +31,22 @@ interface StatisticsCardsProps {
   onNodeSelect?: (node: any) => void
   headerAction?: React.ReactNode
   currentUser?: { username: string; role: string } | null
+  // 用于外部设置初始搜索值（如创建专业后自动填充）
+  initialMajorSearch?: string
+  // 用于触发重新获取专业列表
+  refreshKey?: number
 }
 
-export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser }: StatisticsCardsProps) {
+export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser, initialMajorSearch, refreshKey }: StatisticsCardsProps) {
   const [departmentSearch, setDepartmentSearch] = useState("")
   const [majorSearch, setMajorSearch] = useState("")
+
+  // 监听 initialMajorSearch 变化，自动填充搜索框
+  useEffect(() => {
+    if (initialMajorSearch !== undefined) {
+      setMajorSearch(initialMajorSearch)
+    }
+  }, [initialMajorSearch])
 
   // 院系详情独立获取的专业列表数据
   const [majors, setMajors] = useState<MajorItem[]>([])
@@ -99,7 +110,7 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser 
     }
 
     fetchMajors()
-  }, [isDepartment, node.id])
+  }, [isDepartment, node.id, refreshKey])
 
   // 获取专业ID
   const getMajorId = (major: MajorItem) => major.self?.value || ''

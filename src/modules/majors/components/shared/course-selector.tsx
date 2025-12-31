@@ -89,27 +89,9 @@ export function CourseSelector({ open, onOpenChange, majorId, majorName, departm
     setSelectedSupport({})
   }
 
-  const handleQuickCreateCourse = (data: { name: string; teachers: any[] }) => {
-    // 创建新课程对象
-    const newCourse: TreeNode = {
-      id: `course-${Date.now()}`,
-      name: data.name,
-      type: "course",
-      metadata: {
-        teachers: data.teachers,
-      },
-    }
-
-    // 添加到课程列表
-    setCourses([newCourse, ...courses])
-    setIsQuickCreateOpen(false)
-
-    toast({
-      variant: "success",
-      title: "创建成功",
-      description: `课程 "${data.name}" 已开设`,
-      duration: 3000,
-    })
+  // 课程创建成功后刷新列表
+  const handleQuickCreateCourseSuccess = () => {
+    loadCourses()
   }
 
   return (
@@ -252,7 +234,8 @@ export function CourseSelector({ open, onOpenChange, majorId, majorName, departm
       <QuickCreateCourseDialog
         open={isQuickCreateOpen}
         onOpenChange={setIsQuickCreateOpen}
-        onSubmit={handleQuickCreateCourse}
+        onSuccess={handleQuickCreateCourseSuccess}
+        majorId={majorId}
         majorName={majorName}
         departmentId={departmentId}
       />

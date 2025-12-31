@@ -315,7 +315,7 @@ function TreeNodeComponent({
           {displayChildren.length > 0 ? (
             displayChildren.map((child, index) => (
               <TreeNodeComponent
-                key={child.nodeId}
+                key={`${node.nodeId}-${child.nodeId || index}`}
                 node={child}
                 level={level + 1}
                 onSelect={onSelect}
@@ -642,6 +642,39 @@ export const TreeView = React.forwardRef<
 
 
 
+  // 获取选中节点的完整路径（用于折叠状态显示）
+  const selectedNodePath = React.useMemo(() => {
+    if (!selectedNode || !treeData.children) return []
+
+    const findPathWithNodes = (
+      nodes: TreeNode[],
+      targetId: string,
+      currentPath: TreeNode[]
+    ): TreeNode[] | null => {
+      for (const node of nodes) {
+        const newPath = [...currentPath, node]
+
+        if (node.nodeId === targetId) {
+          return newPath
+        }
+
+        // 获取子节点（考虑动态加载的数据）
+        let children = node.children || []
+        if (node.nodeType === "department" && departmentMajors.has(node.nodeId)) {
+          children = departmentMajors.get(node.nodeId) || []
+        }
+
+        if (children.length > 0) {
+          const result = findPathWithNodes(children, targetId, newPath)
+          if (result) return result
+        }
+      }
+      return null
+    }
+
+    return findPathWithNodes(treeData.children, selectedNode.nodeId, []) || []
+  }, [selectedNode, treeData.children, departmentMajors])
+
   const matchingNodeIds = React.useMemo(() => {
     if (!searchTerm.trim() || searchResults.length === 0) return undefined
     return new Set(searchResults.map(({ node }) => node.nodeId))
@@ -682,28 +715,11 @@ export const TreeView = React.forwardRef<
   }, [searchTerm, matchingNodeIds, pathNodeIds])
 
   return (
-    <div className="relative">
-      {/* 展开/收起按钮 - 压在顶部边框中间 */}
-      {onToggleCollapse && (
-        <button
-          onClick={onToggleCollapse}
-          className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-8 h-8 bg-card border border-border rounded-full shadow-md hover:bg-primary hover:border-primary transition-all flex items-center justify-center group"
-          aria-label={isCollapsed ? "展开侧边栏" : "收起侧边栏"}
-        >
-          {isCollapsed ? (
-            <ChevronsRight className="text-primary group-hover:text-primary-foreground transition-colors" style={{ width: '21px', height: '21px' }} />
-          ) : (
-            <ChevronsLeft className="text-primary group-hover:text-primary-foreground transition-colors" style={{ width: '21px', height: '21px' }} />
-          )}
-        </button>
-      )}
-
-
-
-      {/* 收起状态下显示搜索图标和一级节点图标 */}
+    <div className="flex flex-col h-full">
+      {/* 收起状态下显示搜索图标和选中路径首字 */}
       {isCollapsed && (
-        <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl p-2 h-full flex flex-col items-center">
-          {/* 搜索图标 */}
+        <div className="rounded-t-xl border border-b-0 border-border bg-card/30 backdrop-blur-md shadow-2xl p-2 flex-1 min-h-0 flex flex-col items-center">
+          {/* 搜索图标 - 点击展开侧边栏 */}
           {onToggleCollapse && (
             <button
               onClick={onToggleCollapse}
@@ -715,36 +731,38 @@ export const TreeView = React.forwardRef<
           )}
 
           {/* 分隔线 */}
-          {treeData.children && treeData.children.length > 0 && (
+          {selectedNodePath.length > 0 && (
             <div className="w-full h-px bg-border my-2 flex-shrink-0" />
           )}
 
-          {/* 一级节点图标列表 - 可滚动区域 */}
+          {/* 选中路径首字列表 */}
           <div className="flex-1 overflow-y-auto overflow-x-hidden w-full flex flex-col items-center gap-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent py-2 px-1">
-            {treeData.children?.map((child) => {
-              const Icon = getIcon(child.nodeType)
-              const isSelected = selectedNode?.nodeId === child.nodeId
-              const isStarred = child.isStarred || false
+            {selectedNodePath.map((node) => {
+              const isCurrentSelected = selectedNode?.nodeId === node.nodeId
+              const firstChar = node.nodeName.charAt(0)
 
               return (
-                <div key={child.nodeId} className="relative flex-shrink-0">
-                  <button
-                    onClick={() => onNodeSelect(child)}
-                    className={cn(
-                      "w-12 h-12 flex items-center justify-center rounded-md transition-all group",
-                      isSelected
-                        ? "bg-primary text-white shadow-md"
-                        : "hover:bg-primary text-muted-foreground hover:text-white hover:shadow-md"
-                    )}
-                    aria-label={child.nodeName}
-                    title={child.nodeName}
-                  >
-                    <Icon className="w-5 h-5 transition-colors" />
-                  </button>
-                  {isStarred && (
-                    <div className="absolute top-0.5 right-0.5 w-2.5 h-2.5 bg-yellow-500 rounded-full border border-card shadow-sm" />
-                  )}
-                </div>
+                <TooltipProvider key={node.nodeId}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => onNodeSelect(node)}
+                        className={cn(
+                          "w-10 h-10 flex items-center justify-center rounded-full transition-all text-sm font-medium flex-shrink-0",
+                          isCurrentSelected
+                            ? "bg-primary text-white shadow-md"
+                            : "bg-card/60 text-foreground hover:bg-primary/20 hover:shadow-sm border border-border/50"
+                        )}
+                        aria-label={node.nodeName}
+                      >
+                        {firstChar}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" align="center">
+                      {node.nodeName}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )
             })}
           </div>
@@ -752,7 +770,7 @@ export const TreeView = React.forwardRef<
       )}
 
       {!isCollapsed && (
-      <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl p-6">
+      <div className="rounded-t-xl border border-b-0 border-border bg-card/30 backdrop-blur-md shadow-2xl p-6 flex-1 min-h-0 overflow-y-auto">
         <div className="mb-4">
           <div className="flex items-center gap-2">
             <div className="relative flex-1 h-9">
@@ -836,6 +854,13 @@ export const TreeView = React.forwardRef<
               </Dialog>
             )}
           </div>
+
+          {/* 搜索无结果提示 */}
+          {searchTerm.trim() && !isSearching && searchResults.length === 0 && (
+            <div className="mt-2 text-sm text-muted-foreground text-center py-2">
+              未找到包含"{searchTerm}"的节点
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -863,6 +888,21 @@ export const TreeView = React.forwardRef<
           ))}
         </div>
       </div>
+      )}
+
+      {/* 展开/收起按钮 - 位于容器底部 */}
+      {onToggleCollapse && (
+        <button
+          onClick={onToggleCollapse}
+          className="w-full h-8 bg-card border border-border border-t-0 rounded-b-xl shadow-md hover:bg-primary hover:border-primary transition-all flex items-center justify-center group flex-shrink-0"
+          aria-label={isCollapsed ? "展开侧边栏" : "收起侧边栏"}
+        >
+          {isCollapsed ? (
+            <ChevronsRight className="text-primary group-hover:text-primary-foreground transition-colors" style={{ width: '21px', height: '21px' }} />
+          ) : (
+            <ChevronsLeft className="text-primary group-hover:text-primary-foreground transition-colors" style={{ width: '21px', height: '21px' }} />
+          )}
+        </button>
       )}
     </div>
   )

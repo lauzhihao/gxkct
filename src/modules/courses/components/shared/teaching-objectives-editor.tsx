@@ -407,15 +407,15 @@ export function TeachingObjectivesEditor({
                         <div className="flex-shrink-0 w-6 h-6 rounded-full bg-accent/10 border border-primary/30 flex items-center justify-center text-xs font-medium text-primary">
                           {goalIdx + 1}
                         </div>
-                        <div className="flex-1 text-left min-w-0">
-                          <p className="text-base font-medium text-foreground truncate">
+                        <div className="text-left min-w-0 w-[95%]">
+                          <p className="text-base font-medium text-foreground break-words">
                             {highlightKeyword(goal.description, debouncedFilterKeyword)}
                           </p>
                         </div>
                       </div>
                     </AccordionTrigger>
 
-                    <AccordionContent className="pt-0 pb-4">
+                    <AccordionContent className="pt-3 pb-4">
                       <div className="space-y-3 pl-12 pr-4">
                         {/* 教学目标输入框 */}
                         {goalInput?.isEditing && (

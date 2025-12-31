@@ -9,7 +9,7 @@ import { cn } from "@/shared/utils/utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
 import { Accordion } from "@/shared/components/ui/accordion"
 import AddCourseForm from "@/components/add-course-form"
-import type { CombinedCourseDetail } from "@/lib/api"
+import { api, type CombinedCourseDetail, type SaveCourseUnitRequest } from "@/lib/api"
 import { courseApiService } from "@/modules/courses/api"
 import { courseGoalsApi } from "@/modules/courses/api/courseGoalsApi"
 import {
@@ -38,7 +38,7 @@ const COURSE_TABS = {
   info: "课程信息",
   resources: "课程资源",
   matrix: "矩阵管理",
-  supervision: "教学督导",
+  supervision: "质量评价",
 } as const
 
 type CourseTabKey = keyof typeof COURSE_TABS
@@ -149,10 +149,73 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
 
   if (!node || node.nodeType !== "course") return null
 
-  const handleEditCourseFormSubmit = (courseData: any) => {
-    if (onUpdateNode) {
-      onUpdateNode(node.nodeId, courseData)
-      setIsEditingCourse(false)
+  const handleEditCourseFormSubmit = async (courseData: any, isAutoSave: boolean = false) => {
+    try {
+      // 构建保存请求数据
+      const courseId = node?.id ? parseInt(node.id, 10) : 0
+      const majorId = courseDetailData?.courseDetailData?.course?.majorId || 0
+      const classId = courseDetailData?.courseDetailData?.course?.classId || 1
+      const typeId = courseData.metadata?.courseNatureId || courseDetailData?.courseDetailData?.course?.typeId || 1
+
+      const saveRequest: SaveCourseUnitRequest = {
+        course: {
+          id: courseId,
+          majorId: majorId,
+          classId: classId,
+          typeId: typeId,
+          name: courseData.name || "",
+          introduction: courseData.metadata?.introduction || null,
+          criterion: null,
+          theoryPeriod: courseData.metadata?.theoryPeriod || 0,
+          practicePeriod: courseData.metadata?.practicePeriod || 0,
+          courseMatrixVOS: courseDetailData?.courseDetailData?.course?.courseMatrixVOS || [],
+          position: null,
+          // 扩展字段
+          teachingClass: courseData.metadata?.teachingClass,
+          teachingLocation: courseData.metadata?.teachingLocation,
+          teachingTime: courseData.metadata?.teachingTime,
+          studentCount: courseData.metadata?.studentCount,
+          credits: courseData.metadata?.credits,
+          mainTextbook: courseData.metadata?.mainTextbook,
+          referenceResources: courseData.metadata?.referenceResources,
+          attendancePolicy: courseData.metadata?.attendancePolicy,
+          assignmentPolicy: courseData.metadata?.assignmentPolicy,
+          conductRequirements: courseData.metadata?.conductRequirements,
+          practiceRequirements: courseData.metadata?.practiceRequirements,
+          teamworkRequirements: courseData.metadata?.teamworkRequirements,
+          bonusRequirements: courseData.metadata?.bonusRequirements,
+          otherSuggestions: courseData.metadata?.otherSuggestions,
+          assessmentMethod: courseData.metadata?.assessmentMethod,
+          assessmentForm: courseData.metadata?.assessmentForm,
+          scoreType: courseData.metadata?.scoreType,
+          scoreTable: courseData.metadata?.scoreTable,
+          assessmentDescription: courseData.metadata?.assessmentDescription,
+        }
+      }
+
+      console.log("[CourseDetail] 保存课程数据", saveRequest)
+
+      // 调用保存接口
+      const response = await api.courseDetail.saveCourseUnit(saveRequest)
+
+      if (response.error) {
+        console.error("[CourseDetail] 保存课程失败:", response.error)
+        return
+      }
+
+      console.log("[CourseDetail] 课程保存成功")
+
+      // 更新本地节点数据
+      if (onUpdateNode) {
+        onUpdateNode(node.nodeId, courseData)
+      }
+
+      // 手动保存时退出编辑模式，自动保存时不退出
+      if (!isAutoSave) {
+        setIsEditingCourse(false)
+      }
+    } catch (error) {
+      console.error("[CourseDetail] 保存课程异常:", error)
     }
   }
 
@@ -362,7 +425,7 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
               <TabsTrigger value="info" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">课程信息</TabsTrigger>
               <TabsTrigger value="resources" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">课程资源</TabsTrigger>
               <TabsTrigger value="matrix" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">矩阵管理</TabsTrigger>
-              <TabsTrigger value="supervision" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">教学督导</TabsTrigger>
+              <TabsTrigger value="supervision" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">质量评价</TabsTrigger>
             </TabsList>
 
             <TabsContent value="info" className="space-y-6 mt-4 px-6">

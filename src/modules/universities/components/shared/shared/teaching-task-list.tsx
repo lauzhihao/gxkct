@@ -2,7 +2,8 @@
 
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { Badge } from "@/shared/components/ui/badge"
-import { Calendar, User } from "lucide-react"
+import { Button } from "@/shared/components/ui/button"
+import { Calendar, User, Settings } from "lucide-react"
 import type { TeachingSupervisoryTask, Long } from "@/types"
 import cn from "classnames"
 
@@ -10,9 +11,10 @@ interface TeachingTaskListProps {
   tasks: TeachingSupervisoryTask[]
   selectedStatus?: "not_started" | "in_progress" | "completed" | null
   onTaskClick?: (task: TeachingSupervisoryTask) => void
+  onSettingsClick?: (task: TeachingSupervisoryTask) => void
 }
 
-export function TeachingTaskList({ tasks, selectedStatus, onTaskClick }: TeachingTaskListProps) {
+export function TeachingTaskList({ tasks, selectedStatus, onTaskClick, onSettingsClick }: TeachingTaskListProps) {
   // 过滤任务
   const filteredTasks = selectedStatus
     ? tasks.filter((task) => task.status === selectedStatus)
@@ -49,25 +51,36 @@ export function TeachingTaskList({ tasks, selectedStatus, onTaskClick }: Teachin
       {filteredTasks.map((task) => (
         <Card
           key={task.id}
-          className="hover:shadow-md transition-shadow border-border bg-card/50 backdrop-blur-sm relative"
+          className="hover:shadow-md transition-shadow border-border bg-card/50 backdrop-blur-sm relative cursor-pointer hover:border-primary/50"
+          onClick={() => onTaskClick?.(task)}
         >
-          <Badge
-            variant="outline"
-            className={cn("absolute top-2 right-2 text-xs", getStatusColor(task.status))}
-          >
-            {getStatusLabel(task.status)}
-          </Badge>
+          <div className="absolute top-2 right-2 flex items-center gap-2">
+            {onSettingsClick && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 hover:bg-primary/10"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onSettingsClick(task)
+                }}
+              >
+                <Settings className="w-4 h-4 text-muted-foreground hover:text-primary" />
+              </Button>
+            )}
+            <Badge
+              variant="outline"
+              className={cn("text-xs", getStatusColor(task.status))}
+            >
+              {getStatusLabel(task.status)}
+            </Badge>
+          </div>
 
           <CardContent className="p-4 pt-8 pb-4">
             <div className="space-y-3">
-              <div
-                className="cursor-pointer"
-                onClick={() => onTaskClick?.(task)}
-              >
-                <h4 className="font-semibold text-foreground text-base mb-2 line-clamp-2 text-center">
-                  {task.title}
-                </h4>
-              </div>
+              <h4 className="font-semibold text-foreground text-base mb-2 line-clamp-2 text-center">
+                {task.title}
+              </h4>
 
               <div className="space-y-2 text-sm text-muted-foreground">
                 <div className="flex items-center justify-center gap-2">

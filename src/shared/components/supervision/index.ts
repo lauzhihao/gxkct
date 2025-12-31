@@ -1,0 +1,4 @@
+export { EvaluationDetail } from "./EvaluationDetail"
+export { CourseEvaluationList } from "./CourseEvaluationList"
+export { MajorEvaluationList } from "./MajorEvaluationList"
+export { DeptEvaluationList } from "./DeptEvaluationList"

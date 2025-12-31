@@ -9,18 +9,20 @@ import { TeachingTaskList } from "./shared/teaching-task-list"
 import { TeachingTaskEvaluation } from "./teaching-task-evaluation"
 import { TeachingTaskFormPage } from "./teaching-task-form-page"
 import { useTeachingTasks } from "@/modules/universities/hooks/use-teaching-tasks"
+import { DeptEvaluationList } from "@/shared/components/supervision"
 
 interface TeachingQualityProps {
   node: TreeNode
 }
 
-type PageState = "list" | "view" | "create" | "edit"
+type PageState = "list" | "view" | "create" | "edit" | "depts"
 type TeachingTaskDraft = Omit<TeachingSupervisoryTask, "id" | "createdAt" | "updatedAt">
 
 export function TeachingQuality({ node }: TeachingQualityProps) {
   // 从 node.id 中提取数字部分（处理 "univ_86" 格式）
-  const idMatch = node.id.match(/\d+/)
-  const universityLongId = (idMatch ? Number(idMatch[0]) : Number(node.id)) as Long
+  const nodeId = node.id || node.nodeId || ""
+  const idMatch = nodeId.match(/\d+/)
+  const universityLongId = (idMatch ? Number(idMatch[0]) : Number(nodeId)) as Long
   const {
     tasks,
     isLoading,
@@ -89,6 +91,11 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
       creator: task.creator,
       publishNodes: (task.publishNodes || []).map((node) => ({ ...node })),
       scoringType: task.scoringType || "percentage",
+      teacherSelfEvaluation: task.teacherSelfEvaluation,
+      juryType: task.juryType,
+      juryMembers: task.juryMembers ? [...task.juryMembers] : undefined,
+      collegeJuryType: task.collegeJuryType,
+      collegeJuryMembers: task.collegeJuryMembers ? [...task.collegeJuryMembers] : undefined,
     }
 
     // 保存复制的评价标准到临时状态
@@ -114,12 +121,15 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
       universityId: universityLongId,
       title: "",
       description: "",
-      startDate: new Date().toISOString().split("T")[0],
-      endDate: new Date().toISOString().split("T")[0],
+      startDate: "",
+      endDate: "",
       status: "not_started",
       creator: "",
       publishNodes: [],
       scoringType: "percentage",
+      teacherSelfEvaluation: true,
+      juryType: "major_admin",
+      collegeJuryType: "college_admin",
     }
     return (
       <TeachingTaskFormPage
@@ -155,6 +165,23 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
         onArchive={handleArchiveTask}
         onStatusChange={handleStatusChange}
       />
+    )
+  }
+
+  // 显示院系评估列表
+  if (pageState === "depts" && selectedTask) {
+    return (
+      <div className="flex-1 overflow-auto p-6">
+        <DeptEvaluationList
+          task={selectedTask}
+          collegeId={universityLongId}
+          collegeName={node.nodeName || node.name}
+          onBack={() => {
+            setSelectedTask(null)
+            setPageState("list")
+          }}
+        />
+      </div>
     )
   }
 
@@ -234,12 +261,16 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
         {/* Teaching Tasks List */}
         <div className="space-y-3">
           <h3 className="text-base font-medium text-foreground">
-            {selectedStatus ? `${["未开始", "进行中", "已结束"][["not_started", "in_progress", "completed"].indexOf(selectedStatus)]}的任务` : "质量评价任务"}
+            {selectedStatus ? `${["未开始", "进行中", "已结束"][["not_started", "in_progress", "completed"].indexOf(selectedStatus)]}的任务` : "教学质量督导任务"}
           </h3>
           <TeachingTaskList
             tasks={tasks}
             selectedStatus={selectedStatus}
             onTaskClick={(task) => {
+              setSelectedTask(task)
+              setPageState("depts")
+            }}
+            onSettingsClick={(task) => {
               setSelectedTask(task)
               setPageState("view")
             }}

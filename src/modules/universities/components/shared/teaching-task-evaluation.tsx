@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, Plus, Edit, Copy, Info, Archive, Play, Square } from "lucide-react"
+import { ArrowLeft, Plus, Edit, Copy, Info, Archive, Play, Square, Search } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import {
   AlertDialog,
@@ -12,6 +12,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/shared/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/components/ui/dialog"
+import { Input } from "@/shared/components/ui/input"
+import { ScrollArea } from "@/shared/components/ui/scroll-area"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/components/ui/tooltip"
 import type { TeachingSupervisoryTask, TaskEvaluationCriteria } from "@/types"
 import { useEffect, useState } from "react"
@@ -29,42 +38,48 @@ interface TeachingTaskEvaluationProps {
   ) => Promise<void>
 }
 
-export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy, onArchive, onStatusChange }: TeachingTaskEvaluationProps) {
+export function TeachingTaskEvaluation({ task: initialTask, onBack, onEdit, onCopy, onArchive, onStatusChange }: TeachingTaskEvaluationProps) {
+  const [task, setTask] = useState<TeachingSupervisoryTask>(initialTask)
   const [criteria, setCriteria] = useState<TaskEvaluationCriteria | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isArchiving, setIsArchiving] = useState(false)
   const [statusUpdating, setStatusUpdating] = useState<"not_started" | "in_progress" | "completed" | null>(null)
   const [isStopDialogOpen, setIsStopDialogOpen] = useState(false)
+  const [isPublishNodesDialogOpen, setIsPublishNodesDialogOpen] = useState(false)
+  const [publishNodesFilter, setPublishNodesFilter] = useState("")
+  const [isJuryMembersDialogOpen, setIsJuryMembersDialogOpen] = useState(false)
+  const [juryMembersFilter, setJuryMembersFilter] = useState("")
+  const [isCollegeJuryMembersDialogOpen, setIsCollegeJuryMembersDialogOpen] = useState(false)
+  const [collegeJuryMembersFilter, setCollegeJuryMembersFilter] = useState("")
 
+  // 根据任务ID查询最新数据
   useEffect(() => {
-    if (typeof task.id !== "number") {
+    if (typeof initialTask.id !== "number") {
       setCriteria(null)
-      setIsLoading(false)
-      return
-    }
-
-    const existingCriteria = task.evaluationCriteria
-    if (existingCriteria && existingCriteria.items?.length) {
-      setCriteria(existingCriteria)
       setIsLoading(false)
       return
     }
 
     setIsLoading(true)
     let cancelled = false
-    const loadCriteria = async () => {
+
+    const loadTaskData = async () => {
       try {
-        const response = await api.teachingTasks.getTask(task.universityId, task.id, {
+        const response = await api.teachingTasks.getTask(initialTask.universityId, initialTask.id, {
           includeCriteria: true,
         })
-        if (!cancelled) {
-          const fetched = response.data?.evaluationCriteria || null
-          setCriteria(fetched)
+        if (!cancelled && response.data) {
+          // 更新任务数据
+          setTask(response.data)
+          // 更新评价标准
+          setCriteria(response.data.evaluationCriteria || null)
         }
       } catch (error) {
         if (!cancelled) {
-          console.error("加载评价标准失败:", error)
-          setCriteria(null)
+          console.error("加载任务数据失败:", error)
+          // 加载失败时使用传入的数据
+          setTask(initialTask)
+          setCriteria(initialTask.evaluationCriteria || null)
         }
       } finally {
         if (!cancelled) {
@@ -73,12 +88,12 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy, onArchive
       }
     }
 
-    loadCriteria()
+    loadTaskData()
 
     return () => {
       cancelled = true
     }
-  }, [task.id, task.universityId, task.evaluationCriteria])
+  }, [initialTask.id, initialTask.universityId])
 
   const handleArchive = async () => {
     if (!onArchive || typeof task.id !== "number") return
@@ -96,6 +111,8 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy, onArchive
     try {
       setStatusUpdating(status)
       await onStatusChange(task.id, status)
+      // 状态变更成功后更新本地任务状态
+      setTask((prev) => ({ ...prev, status }))
     } finally {
       setStatusUpdating(null)
     }
@@ -258,41 +275,150 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy, onArchive
           <div className="border-t border-dashed border-border" />
 
           <div className="space-y-4">
-            {/* Row 1: Date Range */}
-            <div className="grid grid-cols-4 gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground mb-2">开始日期</p>
-                <p className="font-medium" style={{ fontFamily: "'Source Han Sans CN', 'Source Han Sans', sans-serif", fontWeight: 700 }}>
-                  {new Date(task.startDate).toLocaleDateString("zh-CN")}
-                </p>
+            {/* Row 1: 日期区间 + 任务标题 */}
+            <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-2">开始日期</p>
+                  <p className="font-medium" style={{ fontFamily: "'Source Han Sans CN', 'Source Han Sans', sans-serif", fontWeight: 700 }}>
+                    {new Date(task.startDate).toLocaleDateString("zh-CN")}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground mb-2">结束日期</p>
+                  <p className="font-medium" style={{ fontFamily: "'Source Han Sans CN', 'Source Han Sans', sans-serif", fontWeight: 700 }}>
+                    {new Date(task.endDate).toLocaleDateString("zh-CN")}
+                  </p>
+                </div>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground mb-2">结束日期</p>
-                <p className="font-medium" style={{ fontFamily: "'Source Han Sans CN', 'Source Han Sans', sans-serif", fontWeight: 700 }}>
-                  {new Date(task.endDate).toLocaleDateString("zh-CN")}
-                </p>
-              </div>
-            </div>
-
-            {/* Row 2: Task Title */}
-            <div className="grid grid-cols-4 gap-4">
-              <div className="col-span-2">
                 <p className="text-sm text-muted-foreground mb-2">任务标题</p>
                 <p className="font-medium" style={{ fontFamily: "'Source Han Sans CN', 'Source Han Sans', sans-serif", fontWeight: 700 }}>{task.title}</p>
               </div>
             </div>
 
-            {/* Row 3: Task Description */}
-            {task.description && (
-              <div className="grid grid-cols-4 gap-4">
-                <div className="col-span-2">
-                  <p className="text-sm text-muted-foreground mb-2">任务说明</p>
-                  <p className="text-sm whitespace-pre-wrap text-foreground" style={{ fontFamily: "'Source Han Sans CN', 'Source Han Sans', sans-serif", fontWeight: 700 }}>
-                    {task.description}
-                  </p>
+            {/* Row 2: 评分类型 + 任务说明 */}
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">评分类型</p>
+                <p className="font-medium" style={{ fontFamily: "'Source Han Sans CN', 'Source Han Sans', sans-serif", fontWeight: 700 }}>
+                  {task.scoringType === "five_level" ? "五级制" : "百分制"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">任务说明</p>
+                <p className="text-sm whitespace-pre-wrap text-foreground" style={{ fontFamily: "'Source Han Sans CN', 'Source Han Sans', sans-serif", fontWeight: 700 }}>
+                  {task.description || "（无）"}
+                </p>
+              </div>
+            </div>
+
+            {/* Row 3: 发布范围 + 教师自评 */}
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">发布范围</p>
+                <div className="flex flex-wrap gap-2">
+                  {task.publishNodes && task.publishNodes.length > 0 ? (
+                    <>
+                      {task.publishNodes.slice(0, 3).map((node, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center px-2 py-1 bg-primary/10 border border-primary/30 rounded-md text-sm"
+                        >
+                          {node.nodeName}
+                        </span>
+                      ))}
+                      {task.publishNodes.length > 3 && (
+                        <span
+                          className="inline-flex items-center px-2 py-1 bg-primary/5 border border-primary/30 rounded-md text-sm cursor-pointer hover:bg-primary/10 transition-colors"
+                          onClick={() => setIsPublishNodesDialogOpen(true)}
+                        >
+                          等{task.publishNodes.length}个
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <p className="font-medium text-muted-foreground">（未设置）</p>
+                  )}
                 </div>
               </div>
-            )}
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">教师自评</p>
+                <p className="font-medium" style={{ fontFamily: "'Source Han Sans CN', 'Source Han Sans', sans-serif", fontWeight: 700 }}>
+                  {task.teacherSelfEvaluation === false ? "不需要" : "需要"}
+                </p>
+              </div>
+            </div>
+
+            {/* Row 4: 专业评委 + 院校评委 */}
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">专业评委</p>
+                <div className="flex flex-wrap gap-2">
+                  {task.juryType === "designated_member" ? (
+                    task.juryMembers && task.juryMembers.length > 0 ? (
+                      <>
+                        {task.juryMembers.slice(0, 3).map((member, index) => (
+                          <span
+                            key={index}
+                            className="inline-flex items-center px-2 py-1 bg-primary/10 border border-primary/30 rounded-md text-sm"
+                          >
+                            {member.name}
+                          </span>
+                        ))}
+                        {task.juryMembers.length > 3 && (
+                          <span
+                            className="inline-flex items-center px-2 py-1 bg-primary/5 border border-primary/30 rounded-md text-sm cursor-pointer hover:bg-primary/10 transition-colors"
+                            onClick={() => setIsJuryMembersDialogOpen(true)}
+                          >
+                            等{task.juryMembers.length}人
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <p className="font-medium text-muted-foreground">（未设置）</p>
+                    )
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-1 bg-accent/10 border border-accent/30 rounded-md text-sm">
+                      专业管理员
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">院校评委</p>
+                <div className="flex flex-wrap gap-2">
+                  {task.collegeJuryType === "designated_member" ? (
+                    task.collegeJuryMembers && task.collegeJuryMembers.length > 0 ? (
+                      <>
+                        {task.collegeJuryMembers.slice(0, 3).map((member, index) => (
+                          <span
+                            key={index}
+                            className="inline-flex items-center px-2 py-1 bg-primary/10 border border-primary/30 rounded-md text-sm"
+                          >
+                            {member.name}
+                          </span>
+                        ))}
+                        {task.collegeJuryMembers.length > 3 && (
+                          <span
+                            className="inline-flex items-center px-2 py-1 bg-primary/5 border border-primary/30 rounded-md text-sm cursor-pointer hover:bg-primary/10 transition-colors"
+                            onClick={() => setIsCollegeJuryMembersDialogOpen(true)}
+                          >
+                            等{task.collegeJuryMembers.length}人
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <p className="font-medium text-muted-foreground">（未设置）</p>
+                    )
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-1 bg-accent/10 border border-accent/30 rounded-md text-sm">
+                      院校管理员
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -439,6 +565,150 @@ export function TeachingTaskEvaluation({ task, onBack, onEdit, onCopy, onArchive
           </AlertDialogContent>
         </AlertDialog>
       )}
+
+      {/* 发布范围完整列表弹窗 */}
+      <Dialog
+        open={isPublishNodesDialogOpen}
+        onOpenChange={(open) => {
+          setIsPublishNodesDialogOpen(open)
+          if (!open) setPublishNodesFilter("")
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>发布范围</DialogTitle>
+            <DialogDescription>
+              共 {task.publishNodes?.length || 0} 个课程
+            </DialogDescription>
+          </DialogHeader>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="搜索课程名称..."
+              value={publishNodesFilter}
+              onChange={(e) => setPublishNodesFilter(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <ScrollArea className="max-h-80">
+            <div className="flex flex-wrap gap-2 p-1">
+              {task.publishNodes
+                ?.filter((node) =>
+                  node.nodeName.toLowerCase().includes(publishNodesFilter.toLowerCase())
+                )
+                .map((node, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center px-2 py-1 bg-primary/10 border border-primary/30 rounded-md text-sm"
+                  >
+                    {node.nodeName}
+                  </span>
+                ))}
+              {task.publishNodes?.filter((node) =>
+                node.nodeName.toLowerCase().includes(publishNodesFilter.toLowerCase())
+              ).length === 0 && (
+                <p className="text-sm text-muted-foreground py-4 w-full text-center">无匹配结果</p>
+              )}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* 专业评委完整列表弹窗 */}
+      <Dialog
+        open={isJuryMembersDialogOpen}
+        onOpenChange={(open) => {
+          setIsJuryMembersDialogOpen(open)
+          if (!open) setJuryMembersFilter("")
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>专业评委</DialogTitle>
+            <DialogDescription>
+              共 {task.juryMembers?.length || 0} 人
+            </DialogDescription>
+          </DialogHeader>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="搜索成员姓名..."
+              value={juryMembersFilter}
+              onChange={(e) => setJuryMembersFilter(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <ScrollArea className="max-h-80">
+            <div className="flex flex-wrap gap-2 p-1">
+              {task.juryMembers
+                ?.filter((member) =>
+                  member.name.toLowerCase().includes(juryMembersFilter.toLowerCase())
+                )
+                .map((member, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center px-2 py-1 bg-primary/10 border border-primary/30 rounded-md text-sm"
+                  >
+                    {member.name}
+                  </span>
+                ))}
+              {task.juryMembers?.filter((member) =>
+                member.name.toLowerCase().includes(juryMembersFilter.toLowerCase())
+              ).length === 0 && (
+                <p className="text-sm text-muted-foreground py-4 w-full text-center">无匹配结果</p>
+              )}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* 院校评委完整列表弹窗 */}
+      <Dialog
+        open={isCollegeJuryMembersDialogOpen}
+        onOpenChange={(open) => {
+          setIsCollegeJuryMembersDialogOpen(open)
+          if (!open) setCollegeJuryMembersFilter("")
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>院校评委</DialogTitle>
+            <DialogDescription>
+              共 {task.collegeJuryMembers?.length || 0} 人
+            </DialogDescription>
+          </DialogHeader>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="搜索成员姓名..."
+              value={collegeJuryMembersFilter}
+              onChange={(e) => setCollegeJuryMembersFilter(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <ScrollArea className="max-h-80">
+            <div className="flex flex-wrap gap-2 p-1">
+              {task.collegeJuryMembers
+                ?.filter((member) =>
+                  member.name.toLowerCase().includes(collegeJuryMembersFilter.toLowerCase())
+                )
+                .map((member, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center px-2 py-1 bg-primary/10 border border-primary/30 rounded-md text-sm"
+                  >
+                    {member.name}
+                  </span>
+                ))}
+              {task.collegeJuryMembers?.filter((member) =>
+                member.name.toLowerCase().includes(collegeJuryMembersFilter.toLowerCase())
+              ).length === 0 && (
+                <p className="text-sm text-muted-foreground py-4 w-full text-center">无匹配结果</p>
+              )}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
     </div>
   )

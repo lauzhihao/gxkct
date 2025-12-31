@@ -78,6 +78,68 @@ export interface MajorDetailData {
   }>
 }
 
+// 保存课程请求数据结构
+export interface SaveCourseUnitRequest {
+  manage?: {
+    id: number
+    collegeId: number
+    permissionId: number
+    relativeId: number
+  }
+  current?: {
+    id: number
+    userId: number
+    permissionId: number
+    relativeId: number
+    department: {
+      id: number
+      collegeId: number
+      name: string
+      type: null | string
+    }
+    college: {
+      id: number
+      name: string
+      image: string
+      collegeType: null | string
+    }
+    multiple: boolean
+  }
+  course: {
+    id: number
+    majorId: number
+    classId: number
+    typeId: number
+    name: string
+    introduction: string | null
+    criterion: string | null
+    theoryPeriod: number
+    practicePeriod: number
+    courseMatrixVOS: any[]
+    position: string | null
+    // 扩展字段
+    teachingClass?: string
+    teachingLocation?: string
+    teachingTime?: string
+    studentCount?: number
+    credits?: number
+    mainTextbook?: string
+    referenceResources?: string
+    attendancePolicy?: string
+    assignmentPolicy?: string
+    conductRequirements?: string
+    practiceRequirements?: string
+    teamworkRequirements?: string
+    bonusRequirements?: string
+    otherSuggestions?: string
+    assessmentMethod?: string
+    assessmentForm?: string
+    scoreType?: string
+    scoreTable?: any
+    assessmentDescription?: string
+  }
+}
+
 export class CourseDetailApi {
   private storage = new StorageAdapter()
 
@@ -183,6 +245,42 @@ export class CourseDetailApi {
       }
     } catch (error) {
       console.error("[CourseDetailApi] 获取课程详情失败:", error)
+      return {
+        data: null,
+        error: String(error),
+        status: 500,
+      }
+    }
+  }
+
+  /**
+   * 保存课程数据
+   * @param data 课程保存请求数据
+   */
+  async saveCourseUnit(data: SaveCourseUnitRequest): Promise<ApiResponse<any>> {
+    try {
+      console.log(`[CourseDetailApi] 保存课程数据`, data)
+
+      const response = await this.storage.postToApi<any>('/api/major/v2.0/savecourseunit', data)
+
+      if (response.error) {
+        console.error("[CourseDetailApi] 保存课程失败:", response.error)
+        return {
+          data: null,
+          error: response.error,
+          status: response.status,
+        }
+      }
+
+      console.log("[CourseDetailApi] 课程保存成功", response.data)
+
+      return {
+        data: response.data,
+        error: null,
+        status: 200,
+      }
+    } catch (error) {
+      console.error("[CourseDetailApi] 保存课程失败:", error)
       return {
         data: null,
         error: String(error),

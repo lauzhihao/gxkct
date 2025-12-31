@@ -13,6 +13,19 @@ interface CourseSupervisionProps {
   collegeId?: number
 }
 
+// 状态映射配置
+const STATUS_CONFIG = {
+  not_started: { label: "未开始", className: "bg-muted text-muted-foreground" },
+  in_progress: { label: "进行中", className: "bg-primary/10 text-primary border-primary/30" },
+  completed: { label: "已完成", className: "bg-green-500/10 text-green-600 border-green-500/30" },
+} as const
+
+// 格式化分数显示：整数不显示小数点，非整数保留1位小数
+const formatScore = (score: number | null | undefined): string => {
+  if (score === null || score === undefined) return "-"
+  return Number.isInteger(score) ? String(score) : score.toFixed(1)
+}
+
 const normalizeCourseId = (rawId?: string | number): number | null => {
   if (rawId === undefined || rawId === null) return null
   if (typeof rawId === "number" && !Number.isNaN(rawId)) {
@@ -43,8 +56,8 @@ const mapTaskToTeachingTask = (
     id: task.taskId ?? task.id,
     evaluationRecordId: task.id,
     universityId: resolvedCollegeId as Long,
-    title: task.title || task.courseName || "教学督导任务",
-    description: task.description || task.courseName,
+    title: task.title || task.courseName || "教学质量督导任务",
+    description: task.description || "",
     startDate: task.startDate,
     endDate: task.endDate,
     status: normalizedStatus,
@@ -114,7 +127,7 @@ export function CourseSupervision({ courseId, collegeId }: CourseSupervisionProp
     <div className="space-y-3 pb-[15px]">
       <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
         <ClipboardCheck className="w-4 h-4" />
-        教学督导任务
+        教学质量督导任务
       </h3>
       <div className="border-t border-dashed border-border" />
 
@@ -124,29 +137,56 @@ export function CourseSupervision({ courseId, collegeId }: CourseSupervisionProp
         <div className="text-center py-8 text-muted-foreground">暂无进行中的督导任务</div>
       ) : (
         <div className="grid grid-cols-3 gap-3">
-          {tasks.map((task) => (
-            <button
-              key={task.id}
-              onClick={() => setSelectedTask(task)}
-              className="relative rounded-lg border border-border px-4 py-3 text-left hover:border-primary/50 hover:bg-accent/5 transition-colors group"
-            >
-              <div className="absolute top-3 right-3">
-                <Badge variant="outline" className="text-xs">
-                  未评分
-                </Badge>
-              </div>
-
-              <div className="space-y-2 pr-10">
-                <h4 className="text-sm font-semibold text-foreground line-clamp-2 group-hover:text-primary transition-colors">
-                  {task.title}
-                </h4>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Calendar className="w-3 h-3 flex-shrink-0" />
-                  <span>{formatDate(task.startDate)} 至 {formatDate(task.endDate)}</span>
+          {tasks.map((task) => {
+            const statusConfig = STATUS_CONFIG[task.overallStatus || "not_started"]
+            return (
+              <button
+                key={task.id}
+                onClick={() => setSelectedTask(task)}
+                className="relative rounded-lg border border-border px-4 py-3 text-left hover:border-primary/50 hover:bg-accent/5 transition-colors group flex flex-col"
+              >
+                {/* 左上角日期区间 + 右上角状态 */}
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Calendar className="w-3 h-3 flex-shrink-0" />
+                    <span>{formatDate(task.startDate)} 至 {formatDate(task.endDate)}</span>
+                  </div>
+                  <Badge variant="outline" className={`text-xs shrink-0 ${statusConfig.className}`}>
+                    {statusConfig.label}
+                  </Badge>
                 </div>
-              </div>
-            </button>
-          ))}
+
+                {/* 任务名称 - 垂直水平居中 */}
+                <div className="flex-1 flex items-center justify-center py-3">
+                  <h4 className="text-sm font-semibold text-foreground text-center line-clamp-2 group-hover:text-primary transition-colors">
+                    {task.title}
+                  </h4>
+                </div>
+
+                {/* 评分结果 */}
+                <div className="flex items-center justify-between pt-2">
+                  <div className="flex flex-col items-center flex-1">
+                    <span className="text-lg font-bold text-foreground">
+                      {formatScore(task.selfTotalScore)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">自评得分</span>
+                  </div>
+                  <div className="flex flex-col items-center flex-1 border-x border-border">
+                    <span className="text-lg font-bold text-foreground">
+                      {formatScore(task.deptTotalScore)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">专业评分</span>
+                  </div>
+                  <div className="flex flex-col items-center flex-1">
+                    <span className="text-lg font-bold text-foreground">
+                      {formatScore(task.schoolTotalScore)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">院校评分</span>
+                  </div>
+                </div>
+              </button>
+            )
+          })}
         </div>
       )}
     </div>

@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { Sparkles, Send } from "lucide-react"
+import { Send } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/shared/components/ui/sheet"
 import { ScrollArea } from "@/shared/components/ui/scroll-area"
@@ -99,11 +99,26 @@ export function AiAssistantDrawer({
     return () => clearInterval(timer)
   }, [thinkingPrompts.length])
 
+  const prevMessageCountRef = useRef(chatMessages.length)
+  const wasOpenRef = useRef(false)
+
   useEffect(() => {
     const viewport = scrollViewportRef.current
     if (!viewport) return
-    viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' })
-  }, [chatMessages, streamingMessageId, streamingText])
+
+    // 组件从关闭变为打开时，滚动到底部（仅当有历史消息时）
+    const justOpened = open && !wasOpenRef.current && chatMessages.length > 1
+    // 只在消息数量增加或正在流式输出时滚动到底部
+    const hasNewMessage = chatMessages.length > prevMessageCountRef.current
+    const isStreaming = streamingMessageId !== null
+
+    if (justOpened || hasNewMessage || isStreaming) {
+      viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' })
+    }
+
+    prevMessageCountRef.current = chatMessages.length
+    wasOpenRef.current = open
+  }, [open, chatMessages, streamingMessageId, streamingText])
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) {
@@ -248,16 +263,20 @@ export function AiAssistantDrawer({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="ai-drawer-content !w-[403px] sm:!w-[461px] lg:!w-[499px] xl:!w-[538px] 2xl:!w-[576px] sm:!max-w-none lg:!max-w-none 2xl:!max-w-none max-w-[80vw] p-0 bg-background/90 backdrop-blur-xl border-border/40"
+        className="ai-drawer-content !w-[605px] sm:!w-[692px] lg:!w-[749px] xl:!w-[807px] 2xl:!w-[864px] sm:!max-w-none lg:!max-w-none 2xl:!max-w-none max-w-[90vw] p-0 bg-background/90 backdrop-blur-xl border-border/40"
       >
         <div className="flex h-full min-h-0 flex-col">
-          <SheetHeader className="px-6 pt-6 pb-4 border-b border-border/60">
-            <SheetTitle className="text-left text-xl font-semibold flex items-center gap-3">
-              <Sparkles className="h-6 w-6 text-primary" />
-              AI 助手
+          <SheetHeader className="px-6 pt-6 pb-4 relative">
+            <SheetTitle className="text-left text-xl font-semibold flex items-center gap-2">
+              <img
+                src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAE4AAAAqCAMAAAAqEZ1jAAAAAXNSR0IArs4c6QAAAAlwSFlzAAAhOAAAITgBRZYxYAAAAKJQTFRFAAAAenb/RpP/k2j/XXf7cXX6P5z7i2n8W3j7ZHP7jmn9VID7Qpf8jWn8Xnr6iWr8YHb7i2n8RJb9dWz8WXr8mWj9RpP8W3n8bW/8l2j+QJz9Q5f9ToT8fWv9ZW/8lWj9VID8YnX7Pp79QZr9pWb+RJT8m2f9k2j9SYz8jWn9hmr8UIT8fmv8VX78Xnn7d2z8ZHT7WHr7bm77Xnb7Z3D7YHH7RJOQRAAAACJ0Uk5TABAgICAwQEBAWF5gZXBwgICbn5+fo7+/vsLP39/f3urv73XwOA8AAAKfSURBVHja7dbJcuIwFIXhIzCxMTMNcdwMDoMZY4NxeP9X66srEckYQlPVvcvPBhZ8dVSIAvz03xNV/Luq4Xq9Hgo8nfDqjXq97hS1yXZNhXg2Z3o+f1KnLqx62y17Pp5smp+158EUaW6I52rkxLF3eoNpt1Ne+bR+Fd8U5Oc8Px6P5M0Evgq11ytpy0jgbk6e5cSxd2pb7yKOikpTouWyhbsNMsnpefZpOzsCI7c8brkM74/LqFSC7HkwVTu9lsB14ZJy745LlDdV5+3iQTXC7s9z3pNEggOh9s3woOFqJT2BmzUSLnMQEEeeh2+rkraiOrjZeL+XXEBwyp71Ybg+hWL+iltGt8ftKQI9QMzSlDxz9VofssIMdxitdJEvbo3jxqAGKXtt6N4OkpvgkmiFa50Ch1UU8zab/Ya4Br/IUnnewHCHg+FEh7/ExUIXdq+KG4N7z3hfzXDkaa5FmGpdMENrYWWjaoDrJtJLu4ajFFfbUduryN1ue4brb2KpjSvgvETe53R24U6Ggz+RYJnsCTMujmMJ9qELErkv9y7cyXAGtNCoI2Dqx9ymAl1bcYMLJ2NO5fZ2dmHLxiBGrJlxEAl7M1HkTFUzseeiWHOxYK+CrwLltRX3qTk7/4PbTXDdaBHLxytMdcllaaA56U1RSEyU56M0jotfYBLvynM091ni0GGtPO73nLkR7AaK6yqOKnG1g+wXrnqZz9nrw87bszdjjn/dDGffbgdX9YmT4HykaoLTp/UABGfyypx7a1yFNb0wpl7BddW8geSO5JU5TE63xhmOPb2uok8reN1Nrn4qjQNBlmfdvkB5beaoMgdP4LpFgbNuX3svtSwABoZ7WPOKa0Inxgl7DurMdfFXVV7savjK8WQ1/cz5+Q9e7A/jUZeiPQO0fwAAAABJRU5ErkJggg=="
+                alt="AI 助手"
+                className="h-8 w-8 object-contain"
+              />
+              课程开发AI助手
             </SheetTitle>
             <p className="text-sm text-muted-foreground text-left">
-              灵感来自 ChatGPT，实时协助你分析课程、生成摘要与行动建议。
+              灵感来自人工智能，实时协助你分析课程、生成摘要与行动建议。
             </p>
             {(selectedNodeName || activeTabLabel) && (
               <Breadcrumb className="mt-3">
@@ -276,6 +295,10 @@ export function AiAssistantDrawer({
                 </BreadcrumbList>
               </Breadcrumb>
             )}
+            {/* 炫彩分割线 - AI回复时显示动画 */}
+            <div
+              className={`ai-header-divider ${streamingMessageId ? 'ai-header-divider-active' : ''}`}
+            />
           </SheetHeader>
 
           <ScrollArea ref={scrollViewportRef} className="flex-1 min-h-0 px-6 py-4">
@@ -363,7 +386,7 @@ export function AiAssistantDrawer({
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">
-                    AI 可能会生成不准确的内容，请在使用前进行核对。
+                    AI 可能会生成不准确的内容，请务必核对后再决定是否采纳。
                   </p>
                 </div>
               </div>

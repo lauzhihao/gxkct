@@ -39,6 +39,10 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isEditingDepartment, setIsEditingDepartment] = useState(false)
   const [isQuickCreateMajorOpen, setIsQuickCreateMajorOpen] = useState(false)
+  // 用于创建专业后自动填充搜索框
+  const [majorSearchFilter, setMajorSearchFilter] = useState<string | undefined>(undefined)
+  // 用于触发重新获取专业列表
+  const [refreshMajorsKey, setRefreshMajorsKey] = useState(0)
   const { setActivePage } = useActivePageTracker()
 
   useEffect(() => {
@@ -97,6 +101,9 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
         },
       })
     }
+    // 创建成功后，自动填充搜索框并刷新专业列表
+    setMajorSearchFilter(data.name)
+    setRefreshMajorsKey((prev) => prev + 1)
     setIsQuickCreateMajorOpen(false)
   }
 
@@ -118,16 +125,6 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
             <Button size="sm" variant="ghost" onClick={handleEditDepartment} className="gap-2 hover:bg-primary/10">
               <Pencil className="w-4 h-4 text-primary" />
             </Button>
-            {onDeleteNode && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => handleDeleteNode(node.nodeId)}
-                className="gap-2 hover:bg-red-500/10 text-red-500"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            )}
           </div>
         </div>
       </div>
@@ -152,6 +149,8 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
               node={node}
               onNodeSelect={onNodeSelect}
               currentUser={currentUser}
+              initialMajorSearch={majorSearchFilter}
+              refreshKey={refreshMajorsKey}
               headerAction={
                 <Button
                 size="sm"

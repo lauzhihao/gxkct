@@ -46,7 +46,7 @@ interface ChapterProject {
 interface AddCourseFormProps {
   majorId: string
   onCancel: () => void
-  onSubmit: (courseData: any) => void
+  onSubmit: (courseData: any, isAutoSave?: boolean) => void
   initialData?: any
   isEditMode?: boolean
   courseDetailData?: any
@@ -67,6 +67,10 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
   const [courseNaturePopoverOpen, setCourseNaturePopoverOpen] = useState(false)
   const [autoSaveStatus, setAutoSaveStatus] = useState<"" | "saving" | "saved" | "failed">("")
   const teachingObjectivesSnapshotRef = useRef<TeachingObjective[]>([])
+  // 自动保存开关状态（编辑模式下默认开启）
+  const [isAutoSaveEnabled, setIsAutoSaveEnabled] = useState(isEditMode)
+  // 用于自动保存的定时器引用
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // 从majorId中提取真实的majorId（如果是major-3895格式，提取3895）
   const realMajorId = useMemo(() => {
@@ -698,17 +702,49 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
     return () => clearInterval(autoSaveInterval)
   }, [isEditMode, realCourseId, realMajorId])
 
-  const handleSubmit = () => {
-    setIsLoading(true)
+  // 自动保存课程表单（每10秒）
+  useEffect(() => {
+    // 清除之前的定时器
+    if (autoSaveTimerRef.current) {
+      clearInterval(autoSaveTimerRef.current)
+      autoSaveTimerRef.current = null
+    }
+
+    // 如果自动保存未启用或不是编辑模式，不启动定时器
+    if (!isAutoSaveEnabled || !isEditMode) {
+      return
+    }
+
+    // 启动自动保存定时器
+    autoSaveTimerRef.current = setInterval(() => {
+      console.log("[AddCourseForm] 自动保存触发")
+      handleSubmit(true)
+    }, 10000) // 每10秒自动保存一次
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearInterval(autoSaveTimerRef.current)
+        autoSaveTimerRef.current = null
+      }
+    }
+  }, [isAutoSaveEnabled, isEditMode, courseName, courseNatureId, introduction, theoryPeriod, practicePeriod, teachingClass, teachingLocation, teachingScheduleRows, studentCount, credits, mainTextbook, referenceResources, attendancePolicy, assignmentPolicy, conductRequirements, practiceRequirements, teamworkRequirements, bonusRequirements, otherSuggestions, assessmentMethod, assessmentForm, scoreType, scoreTable, assessmentDescription, teachingObjectives, coursePoints, chapters])
+
+  const handleSubmit = (isAutoSave: boolean = false) => {
+    // 自动保存时不设置loading状态（避免干扰用户操作）
+    if (!isAutoSave) {
+      setIsLoading(true)
+    }
 
     if (!courseName.trim() || !courseNatureId) {
-      toast({
-        variant: "destructive",
-        title: "表单验证失败",
-        description: "请完整填写表单内容",
-        duration: 5000,
-      })
-      setIsLoading(false)
+      if (!isAutoSave) {
+        toast({
+          variant: "destructive",
+          title: "表单验证失败",
+          description: "请完整填写表单内容",
+          duration: 5000,
+        })
+        setIsLoading(false)
+      }
       return
     }
 
@@ -751,14 +787,18 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
       children: initialData?.children || [],
     }
 
-    toast({
-      variant: "success",
-      title: "保存成功",
-      description: isEditMode ? "课程信息已成功更新" : "课程信息已成功保存",
-      duration: 3000,
-    })
-    onSubmit(courseData)
-    setIsLoading(false)
+    if (!isAutoSave) {
+      toast({
+        variant: "success",
+        title: "保存成功",
+        description: isEditMode ? "课程信息已成功更新" : "课程信息已成功保存",
+        duration: 3000,
+      })
+    }
+    onSubmit(courseData, isAutoSave)
+    if (!isAutoSave) {
+      setIsLoading(false)
+    }
   }
 
   const totalTheoryHours = chapters.reduce((sum, ch) => sum + (ch.theoryHours || 0), 0)
@@ -788,7 +828,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
             取消
           </Button>
           <Button
-            onClick={handleSubmit}
+            onClick={() => handleSubmit(false)}
             className="gap-2"
             disabled={isLoading || autoSaveStatus === "saving" || autoSaveStatus === "saved"}
             variant={autoSaveStatus === "saved" ? "default" : autoSaveStatus === "failed" ? "destructive" : "default"}
@@ -1610,7 +1650,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
           <X className="w-4 h-4" />
           取消
         </Button>
-        <Button onClick={handleSubmit} className="gap-2" disabled={isLoading}>
+        <Button onClick={() => handleSubmit(false)} className="gap-2" disabled={isLoading}>
           {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
           保存
         </Button>

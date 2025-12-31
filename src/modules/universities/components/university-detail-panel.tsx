@@ -17,6 +17,8 @@ import { Label } from "@/shared/components/ui/label"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
 import { useEffect, useState } from "react"
+import { api } from "@/lib/api"
+import { useToast } from "@/shared/hooks/use-toast"
 import type { DetailPanelProps } from "@/components/detail-panel/types"
 import { StatisticsCards } from "@/modules/departments/components/shared/statistics-cards"
 import { Members } from "@/shared/components/members"
@@ -35,9 +37,10 @@ const DEFAULT_UNIVERSITY_TAB: UniversityTabKey = "overview"
 export function UniversityDetail({ node, onNodeSelect, onAddDepartment, onSetCurrentSchool, onToggleExpand, currentUser }: DetailPanelProps) {
   const [newDeptName, setNewDeptName] = useState("")
   const [newDeptDesc, setNewDeptDesc] = useState("")
-  const [newDeptDirector, setNewDeptDirector] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isCreating, setIsCreating] = useState(false)
   const { setActivePage } = useActivePageTracker()
+  const { toast } = useToast()
 
   useEffect(() => {
     if (!node) return
@@ -50,21 +53,43 @@ export function UniversityDetail({ node, onNodeSelect, onAddDepartment, onSetCur
     setActivePage(value, label)
   }
 
-  const handleCreateDepartment = () => {
-    if (!newDeptName.trim() || !onAddDepartment) return
+  const handleCreateDepartment = async () => {
+    if (!newDeptName.trim() || !node) return
 
-    const universityId = extractNumericId(node.nodeId)
-    onAddDepartment(universityId.toString(), {
-      nodeName: newDeptName,
-      nodeType: "department" as const,
-      description: newDeptDesc || undefined,
-      children: [],
-    })
+    setIsCreating(true)
+    try {
+      const universityId = extractNumericId(node.nodeId)
+      const response = await api.tree.createDepartment(universityId.toString(), newDeptName.trim())
 
-    setNewDeptName("")
-    setNewDeptDesc("")
-    setNewDeptDirector("")
-    setIsDialogOpen(false)
+      if (response.error) {
+        toast({
+          title: "创建失败",
+          description: response.error,
+          variant: "destructive",
+        })
+        return
+      }
+
+      toast({
+        title: "创建成功",
+        description: `院系"${newDeptName}"已创建`,
+      })
+
+      setNewDeptName("")
+      setNewDeptDesc("")
+      setIsDialogOpen(false)
+
+      // 刷新页面以更新树数据
+      window.location.reload()
+    } catch (error) {
+      toast({
+        title: "创建失败",
+        description: String(error),
+        variant: "destructive",
+      })
+    } finally {
+      setIsCreating(false)
+    }
   }
 
   return (
@@ -149,25 +174,16 @@ export function UniversityDetail({ node, onNodeSelect, onAddDepartment, onSetCur
                           onChange={(e) => setNewDeptDesc(e.target.value)}
                         />
                       </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="dept-director">负责人</Label>
-                        <Input
-                          id="dept-director"
-                          placeholder="例如：张教授"
-                          value={newDeptDirector}
-                          onChange={(e) => setNewDeptDirector(e.target.value)}
-                        />
-                      </div>
                     </div>
                     <DialogFooter>
                       <Button
                         type="submit"
                         className="gap-2"
                         onClick={handleCreateDepartment}
-                        disabled={!newDeptName.trim()}
+                        disabled={!newDeptName.trim() || isCreating}
                       >
                         <Plus className="w-4 h-4" />
-                        创建院系
+                        {isCreating ? "创建中..." : "创建院系"}
                       </Button>
                     </DialogFooter>
                   </DialogContent>

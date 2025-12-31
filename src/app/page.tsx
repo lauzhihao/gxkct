@@ -20,11 +20,13 @@ export default function Page() {
   const [initialData, setInitialData] = useState<TreeNode | null>(null)
   const [currentSchoolId, setCurrentSchoolId] = useLocalStorage<string | null>(CURRENT_SCHOOL_STORAGE_KEY, null)
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null)
-  const [isTreeCollapsed, setIsTreeCollapsed] = useLocalStorage<boolean>(TREE_COLLAPSED_STORAGE_KEY, false)
+  const [isTreeCollapsed, setIsTreeCollapsed] = useLocalStorage<boolean>(TREE_COLLAPSED_STORAGE_KEY, true)
   const [departmentMajors, setDepartmentMajors] = useState<Map<string, TreeNode[]>>(new Map())
   const [currentUser, setCurrentUser] = useState<{ username: string; role: string } | null>(null)
   // 添加ref来存储TreeView的handleToggleExpand方法
   const treeViewRef = useRef<{ toggleExpand: (nodeId: string) => void }>(null)
+  // 添加ref来引用右侧详情面板容器，用于滚动控制
+  const detailPanelContainerRef = useRef<HTMLDivElement>(null)
   const treeDataHook = useTreeData(initialData)
   const hasInitialized = useRef(false)
   const hasLoadedTree = useRef(false)
@@ -144,6 +146,13 @@ export default function Page() {
     console.log("[v0] selectedNode状态变化:", selectedNode)
   }, [selectedNode])
 
+  // 当选中节点变化时，滚动右侧详情面板到顶部
+  useEffect(() => {
+    if (selectedNode && detailPanelContainerRef.current) {
+      detailPanelContainerRef.current.scrollTo({ top: 0, behavior: "instant" })
+    }
+  }, [selectedNode?.nodeId])
+
   const findParentId = (node: TreeNode, targetId: string, parentId?: string): string | null => {
     if (node.nodeId === targetId) {
       return parentId || null
@@ -222,8 +231,8 @@ export default function Page() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[oklch(0.97_0.005_240)] via-[oklch(0.96_0.005_240)] to-[oklch(0.95_0.008_240)] px-6 py-6 md:py-8 overflow-x-hidden">
-      <div className="w-full">
+    <div className="h-screen bg-gradient-to-br from-[oklch(0.97_0.005_240)] via-[oklch(0.96_0.005_240)] to-[oklch(0.95_0.008_240)] px-6 py-6 md:py-8 overflow-hidden flex flex-col">
+      <div className="w-full flex flex-col flex-1 min-h-0">
         <Header
           onResetData={handleResetData}
           isTreeCollapsed={isTreeCollapsed}
@@ -231,10 +240,10 @@ export default function Page() {
           selectedNodeName={selectedNode?.nodeName}
         />
 
-        <div className="flex gap-3 relative w-full">
+        <div className="flex gap-3 relative w-full flex-1 min-h-0">
           <div
             className={cn(
-              "flex-shrink-0 transition-all duration-300 ease-in-out relative overflow-visible",
+              "flex-shrink-0 transition-all duration-300 ease-in-out relative",
               isTreeCollapsed ? "w-[70px]" : "w-[calc(23%-0.375rem)]"
             )}
           >
@@ -253,8 +262,9 @@ export default function Page() {
             />
           </div>
           <div
+            ref={detailPanelContainerRef}
             className={cn(
-              "flex-shrink-0 transition-all duration-300 ease-in-out",
+              "flex-shrink-0 transition-all duration-300 ease-in-out overflow-y-auto",
               isTreeCollapsed ? "w-[calc(100%-70px-0.75rem)]" : "w-[calc(77%-0.375rem)]"
             )}
           >

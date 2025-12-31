@@ -7,10 +7,14 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
+# 切换到项目根目录（脚本所在目录的上级）
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR/.."
+
 ### ====== 可按需修改的参数 ======
 USER="root"                 # 你的 ECS 登录用户名，如 root / ubuntu / centos / ecs-user
 HOST="47.94.104.82"      # 例如 1.2.3.4 或 ecs-xx.compute.aliyun.com
-SSH_KEY="/Users/liuzhihao/.ssh/liuzhihao"                      # 如使用私钥登录：/home/you/.ssh/id_rsa；留空则走默认
+SSH_KEY="/root/.ssh/id_ed25519"                      # 如使用私钥登录：/home/you/.ssh/id_rsa；留空则走默认
 LOCAL_DIST=".next"             # 本地打包输出目录
 REMOTE_ROOT="/var/www/gxkct"   # 远端站点根目录（我已帮你选好）
 NGINX_PREFIX="/etc/nginx" # 你的 Nginx 安装目录

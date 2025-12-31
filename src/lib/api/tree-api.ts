@@ -41,6 +41,18 @@ interface DepartmentUsersPayload {
   [key: string]: unknown
 }
 
+interface UniversityMember {
+  id: number
+  account: string
+  name: string
+  belong: string
+  relative: number
+  auth: string
+  permission: number
+  old: boolean
+  disabled: boolean
+}
+
 export class TreeApi {
   private storage = new StorageAdapter()
   private treeKey = "tree-data"
@@ -225,22 +237,24 @@ export class TreeApi {
    * 返回匹配的节点及其完整路径
    */
   async searchTree(keyword: string): Promise<ApiResponse<Array<{ node: TreeNode; path: TreeNode[] }>>> {
-    console.log(`[v0] TreeApi.searchTree(${keyword}) 开始搜索`)
+    console.log(`[v0] TreeApi.searchTree(${keyword}) 开始远程搜索`)
 
-    const treeResponse = await this.getTree()
+    // 使用远程搜索：将关键字传递给后端
+    const treeResponse = await this.getTree(keyword)
     if (treeResponse.error || !treeResponse.data) {
       return { data: null, error: treeResponse.error, status: treeResponse.status }
     }
 
     const tree = structuredClone(treeResponse.data)
 
+    // 收集所有匹配的节点及其路径
     const results: Array<{ node: TreeNode; path: TreeNode[] }> = []
     const lowerKeyword = keyword.toLowerCase()
 
-    const search = (node: TreeNode, path: TreeNode[] = []): void => {
+    const collectResults = (node: TreeNode, path: TreeNode[] = []): void => {
       const currentPath = [...path, node]
 
-      // 检查当前节点是否匹配
+      // 检查当前节点是否匹配关键字
       if (
         node.nodeName.toLowerCase().includes(lowerKeyword) ||
         node.description?.toLowerCase().includes(lowerKeyword)
@@ -248,14 +262,14 @@ export class TreeApi {
         results.push({ node, path: currentPath })
       }
 
-      // 递归搜索子节点
+      // 递归处理子节点
       if (node.children) {
-        node.children.forEach((child) => search(child, currentPath))
+        node.children.forEach((child) => collectResults(child, currentPath))
       }
     }
 
-    search(tree)
-    console.log(`[v0] TreeApi.searchTree() 找到 ${results.length} 个匹配结果`)
+    collectResults(tree)
+    console.log(`[v0] TreeApi.searchTree() 远程搜索找到 ${results.length} 个匹配结果`)
 
     return { data: results, error: null, status: 200 }
   }
@@ -288,6 +302,34 @@ export class TreeApi {
       return { data: enhancedCourses, error: null, status: 200 }
     } catch (error) {
       console.error(`[TreeApi] 获取课程列表异常:`, error)
+      return { data: null, error: String(error), status: 500 }
+    }
+  }
+
+  /**
+   * 获取学校的成员列表
+   * 通过 /api/v5/manage/users 获取真实成员数据
+   * @param universityId 学校ID（可带有前缀的字符串）
+   * @returns 成员数组
+   */
+  async getUniversityUsers(universityId: string): Promise<ApiResponse<UniversityMember[]>> {
+    const resolvedUniversityId = extractNumericIdFromNodeId(universityId)
+    console.log(`[TreeApi] getUniversityUsers(${resolvedUniversityId}) 开始加载成员数据`)
+
+    try {
+      const response = await this.storage.getFromApi<UniversityMember[]>(
+        `/api/v5/manage/users?collegeId=${resolvedUniversityId}`
+      )
+
+      if (response.error || !response.data) {
+        console.warn(`[TreeApi] 获取学校成员失败:`, response.error)
+        return { data: null, error: response.error, status: response.status }
+      }
+
+      console.log(`[TreeApi] getUniversityUsers(${resolvedUniversityId}) 返回 ${response.data.length} 个成员`)
+      return { data: response.data, error: null, status: 200 }
+    } catch (error) {
+      console.error(`[TreeApi] getUniversityUsers(${resolvedUniversityId}) 错误:`, error)
       return { data: null, error: String(error), status: 500 }
     }
   }
@@ -335,5 +377,38 @@ export class TreeApi {
     }
   }
 
+  /**
+   * 创建院系
+   * 通过 /api/v3/manage/updateDepartment 创建新院系
+   * @param collegeId 学校ID
+   * @param name 院系名称
+   * @returns 创建结果
+   */
+  async createDepartment(collegeId: string, name: string): Promise<ApiResponse<any>> {
+    const resolvedCollegeId = extractNumericIdFromNodeId(collegeId)
+    console.log(`[TreeApi] createDepartment(${resolvedCollegeId}, ${name}) 开始创建院系`)
 
+    try {
+      const response = await this.storage.postToApi<any>(
+        `/api/v3/manage/updateDepartment`,
+        {
+          id: 0,
+          collegeid: parseInt(resolvedCollegeId, 10),
+          name,
+          del: 0,
+        }
+      )
+
+      if (response.error) {
+        console.warn(`[TreeApi] 创建院系失败:`, response.error)
+        return { data: null, error: response.error, status: response.status }
+      }
+
+      console.log(`[TreeApi] createDepartment 创建成功`)
+      return { data: response.data, error: null, status: 200 }
+    } catch (error) {
+      console.error(`[TreeApi] createDepartment 错误:`, error)
+      return { data: null, error: String(error), status: 500 }
+    }
+  }
 }

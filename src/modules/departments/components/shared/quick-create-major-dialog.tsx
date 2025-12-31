@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
@@ -10,6 +10,7 @@ import { Plus, X, Check } from "lucide-react"
 import { cn } from "@/shared/utils/utils"
 import { MemberSelector } from "@/shared/components/member-selector"
 import { useToast } from "@/shared/hooks/use-toast"
+import { majorApiService, type CreateMajorRequest } from "@/modules/majors/api"
 
 interface QuickCreateMajorDialogProps {
   open: boolean
@@ -36,6 +37,14 @@ export function QuickCreateMajorDialog({
   const [directors, setDirectors] = useState<Director[]>([])
   const [memberSelectorOpen, setMemberSelectorOpen] = useState(false)
 
+  // 对话框打开时清空表单
+  useEffect(() => {
+    if (open) {
+      setMajorName("")
+      setDirectors([])
+    }
+  }, [open])
+
   const handleMemberSelect = (selected: any) => {
     const selectedArray = Array.isArray(selected) ? selected : [selected]
     setDirectors(selectedArray)
@@ -45,7 +54,9 @@ export function QuickCreateMajorDialog({
     setDirectors(directors.filter((d) => d.id !== directorId))
   }
 
-  const handleSubmit = () => {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const handleSubmit = async () => {
     if (!majorName.trim()) {
       toast({
         variant: "destructive",
@@ -66,14 +77,63 @@ export function QuickCreateMajorDialog({
       return
     }
 
-    onSubmit({
-      name: majorName,
-      directors,
-    })
+    setIsSubmitting(true)
 
-    setMajorName("")
-    setDirectors([])
-    onOpenChange(false)
+    // 构建 API 请求体
+    const requestData: CreateMajorRequest = {
+      id: 0,
+      departmentId: parseInt(departmentId, 10),
+      name: majorName,
+      keyword: "",
+      majorLevel: "",
+      majorClass: "",
+      feature: "",
+      careerLevel: "",
+      demandType: "",
+      demandArea: "",
+      position: "",
+      requiresVOS: [],
+      upload: false,
+      professionsVOS: [],
+    }
+
+    try {
+      const response = await majorApiService.createMajor(requestData)
+
+      if (response.error) {
+        toast({
+          variant: "destructive",
+          title: "创建失败",
+          description: response.error,
+          duration: 3000,
+        })
+        return
+      }
+
+      toast({
+        title: "创建成功",
+        description: `专业"${majorName}"已创建`,
+        duration: 3000,
+      })
+
+      onSubmit({
+        name: majorName,
+        directors,
+      })
+
+      setMajorName("")
+      setDirectors([])
+      onOpenChange(false)
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "创建失败",
+        description: "网络错误，请稍后重试",
+        duration: 3000,
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleCancel = () => {
@@ -145,9 +205,9 @@ export function QuickCreateMajorDialog({
               <X className="w-4 h-4" />
               取消
             </Button>
-            <Button onClick={handleSubmit} disabled={!majorName.trim() || directors.length === 0} className="gap-2">
+            <Button onClick={handleSubmit} disabled={!majorName.trim() || directors.length === 0 || isSubmitting} className="gap-2">
               <Check className="w-4 h-4" />
-              保存
+              {isSubmitting ? "保存中..." : "保存"}
             </Button>
           </DialogFooter>
         </DialogContent>

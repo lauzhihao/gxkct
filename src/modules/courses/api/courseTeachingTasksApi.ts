@@ -1,9 +1,77 @@
 import { api } from "@/lib/api"
 import { HttpAdapter } from "@/lib/api/http-adapter"
 import type { ApiResponse } from "@/lib/api/types"
-import type { TeachingSupervisoryTask, Long } from "@/types"
+import type { TeachingSupervisoryTask, Long, EvaluationCriterion } from "@/types"
 
 const http = new HttpAdapter()
+
+// 单项评价数据（自评/专业评/院校评）
+export interface EvaluationRecord {
+  level: "A" | "B" | "C" | "D" | null
+  comment: string | null
+  score: number | null
+  materials: EvaluationMaterial[]
+  evaluatorName?: string | null
+  evaluatedAt?: string | null
+}
+
+// 支撑材料
+export interface EvaluationMaterial {
+  id: string
+  name: string
+  type: string
+  url?: string
+}
+
+// 评分项详情
+export interface EvaluationItemDetail {
+  criterion: EvaluationCriterion // 评价标准项
+  selfEvaluation: EvaluationRecord | null // 自评数据
+  deptEvaluation: EvaluationRecord | null // 专业评价数据
+  schoolEvaluation: EvaluationRecord | null // 院校评价数据
+}
+
+// 课程评分详情响应
+export interface CourseEvaluationDetailResponse {
+  // 任务基本信息
+  taskId: Long
+  courseId: Long
+  title: string
+  description: string | null
+  startDate: string
+  endDate: string
+  // 评分汇总
+  selfTotalScore: number | null
+  deptTotalScore: number | null
+  schoolTotalScore: number | null
+  // 评价标准及评分详情
+  items: EvaluationItemDetail[]
+  // 权限控制
+  editable: boolean
+  evaluationType: "self" | "dept" | "school" | null // 当前评价类型
+  canSelfEvaluate: boolean // 是否可以自评
+  canDeptEvaluate: boolean // 是否可以专业评价
+  canSchoolEvaluate: boolean // 是否可以院校评价
+}
+
+// 提交评价的单项数据
+export interface EvaluationItemSubmit {
+  criterionId: Long
+  level: "A" | "B" | "C" | "D" | null
+  comment: string
+  materialIds: string[]
+}
+
+// 单个评价类型的提交数据
+export interface EvaluationTypeSubmit {
+  evaluationType: "SELF" | "DEPT" | "SCHOOL"
+  items: EvaluationItemSubmit[]
+}
+
+// 课程评价提交请求体
+export interface CourseEvaluationSubmitDTO {
+  evaluations: EvaluationTypeSubmit[]
+}
 
 export interface CourseTeachingTaskResponse {
   id: Long
@@ -33,6 +101,76 @@ export interface CourseTeachingTaskResponse {
   description?: string | null
 }
 
+// 专业下课程评分列表项
+export interface MajorCourseEvaluationItem {
+  courseId: Long
+  courseName: string
+  selfTotalScore: number | null
+  deptTotalScore: number | null
+  schoolTotalScore: number | null
+  selfEvaluationStatus: string
+  deptEvaluationStatus: string
+  schoolEvaluationStatus: string
+}
+
+// 院系下专业评分列表项
+export interface DeptMajorEvaluationItem {
+  majorId: Long
+  majorName: string
+  courseCount: number
+  completedCount: number
+  inProgressCount: number
+  notStartedCount: number
+  avgDeptScore: number | null
+}
+
+// 院系级任务列表项
+export interface DeptTaskItem {
+  taskId: Long
+  title: string
+  startDate: string
+  endDate: string
+  status: "not_started" | "in_progress" | "completed"
+  deptId: Long
+  deptName: string
+  courseCount: number
+  majorCount: number
+  avgDeptScore: number | null
+  completedCount: number
+  inProgressCount: number
+  notStartedCount: number
+}
+
+// 学校级任务列表项
+export interface CollegeTaskItem {
+  taskId: Long
+  title: string
+  startDate: string
+  endDate: string
+  status: "not_started" | "in_progress" | "completed"
+  collegeId: Long
+  collegeName: string
+  deptCount: number
+  majorCount: number
+  courseCount: number
+  avgScore: number | null
+  completedCount: number
+  inProgressCount: number
+  notStartedCount: number
+}
+
+// 学校下院系评分列表项
+export interface CollegeDeptEvaluationItem {
+  deptId: Long
+  deptName: string
+  majorCount: number
+  courseCount: number
+  avgDeptScore: number | null
+  completedCount: number
+  inProgressCount: number
+  notStartedCount: number
+}
+
 export const courseTeachingTasksApi = {
   getTasksByCourse(courseId: Long): Promise<ApiResponse<CourseTeachingTaskResponse[]>> {
     return http.get<CourseTeachingTaskResponse[]>(`/api/v5/task-evaluation/courses/${courseId}/tasks`)
@@ -48,5 +186,71 @@ export const courseTeachingTasksApi = {
     taskId: Long,
   ): Promise<ApiResponse<TeachingSupervisoryTask>> {
     return api.teachingTasks.getTask(universityId, taskId, { includeCriteria: true })
+  },
+
+  // 获取课程评分详情（根据任务ID和课程ID）
+  getEvaluationDetail(
+    taskId: Long,
+    courseId: Long,
+  ): Promise<ApiResponse<CourseEvaluationDetailResponse>> {
+    return http.get<CourseEvaluationDetailResponse>(
+      `/api/v5/task-evaluation/tasks/${taskId}/courses/${courseId}/evaluation`
+    )
+  },
+
+  // 提交课程评价
+  submitEvaluation(
+    taskId: Long,
+    courseId: Long,
+    submitDTO: CourseEvaluationSubmitDTO,
+  ): Promise<ApiResponse<CourseEvaluationDetailResponse>> {
+    return http.post<CourseEvaluationDetailResponse>(
+      `/api/v5/task-evaluation/tasks/${taskId}/courses/${courseId}/evaluation`,
+      submitDTO
+    )
+  },
+
+  // 获取任务下专业的课程评分列表
+  getCoursesByTaskAndMajor(
+    taskId: Long,
+    majorId: Long,
+  ): Promise<ApiResponse<MajorCourseEvaluationItem[]>> {
+    return http.get<MajorCourseEvaluationItem[]>(
+      `/api/v5/task-evaluation/tasks/${taskId}/majors/${majorId}/courses`
+    )
+  },
+
+  // 获取院系的任务列表
+  getTasksByDept(deptId: Long): Promise<ApiResponse<DeptTaskItem[]>> {
+    return http.get<DeptTaskItem[]>(
+      `/api/v5/task-evaluation/depts/${deptId}/tasks`
+    )
+  },
+
+  // 获取任务下院系的专业评分列表
+  getMajorsByTaskAndDept(
+    taskId: Long,
+    deptId: Long,
+  ): Promise<ApiResponse<DeptMajorEvaluationItem[]>> {
+    return http.get<DeptMajorEvaluationItem[]>(
+      `/api/v5/task-evaluation/tasks/${taskId}/depts/${deptId}/majors`
+    )
+  },
+
+  // 获取学校的任务列表
+  getTasksByCollege(collegeId: Long): Promise<ApiResponse<CollegeTaskItem[]>> {
+    return http.get<CollegeTaskItem[]>(
+      `/api/v5/task-evaluation/colleges/${collegeId}/tasks`
+    )
+  },
+
+  // 获取任务下学校的院系评分列表
+  getDeptsByTaskAndCollege(
+    taskId: Long,
+    collegeId: Long,
+  ): Promise<ApiResponse<CollegeDeptEvaluationItem[]>> {
+    return http.get<CollegeDeptEvaluationItem[]>(
+      `/api/v5/task-evaluation/tasks/${taskId}/colleges/${collegeId}/depts`
+    )
   },
 }

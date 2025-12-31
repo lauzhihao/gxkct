@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useState, useEffect } from "react"
+import { useCallback, useMemo, useState, useEffect, useRef } from "react"
 import {
   Dialog,
   DialogContent,
@@ -61,10 +61,16 @@ export function CourseResourcePickerDialog({
   } = useCourseResources(nodeId)
 
   const [selectedItems, setSelectedItems] = useState<Map<string, PickedResource>>(new Map())
+  const prevOpenRef = useRef(false)
 
+  // 当对话框从关闭变为打开时，重置选中项和导航状态到根目录
   useEffect(() => {
-    setSelectedItems(new Map())
-  }, [nodeId])
+    if (open && !prevOpenRef.current) {
+      setSelectedItems(new Map())
+      goToBreadcrumb(0)
+    }
+    prevOpenRef.current = open
+  }, [open, goToBreadcrumb])
 
   const breadcrumbPath = useCallback(
     (crumbs: ResourceBreadcrumbNode[], name: string) => crumbs.map((c) => c.name).concat(name).join(" / "),
@@ -127,11 +133,6 @@ export function CourseResourcePickerDialog({
     !isLoading &&
     !isObjectsLoading &&
     (entries.length === 0 || needInitialization)
-
-  useEffect(() => {
-    if (!open || !nodeId) return
-    refreshCurrentLevel()
-  }, [open, nodeId, refreshCurrentLevel])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

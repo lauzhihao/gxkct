@@ -1,17 +1,20 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
-import { Plus, X, Check } from "lucide-react"
+import { Plus, X, Check, Loader2 } from "lucide-react"
 import { MemberSelector } from "@/shared/components/member-selector"
 import { useToast } from "@/shared/hooks/use-toast"
+import { buildApiUrl } from "@/lib/api/config"
+import { getStoredAuthToken } from "@/lib/api/auth-config"
 
 interface QuickCreateCourseDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSubmit: (data: { name: string; teachers: any[] }) => void
+  onSuccess: () => void
+  majorId: string
   majorName: string
   departmentId?: string
 }
@@ -19,34 +22,46 @@ interface QuickCreateCourseDialogProps {
 export function QuickCreateCourseDialog({
   open,
   onOpenChange,
-  onSubmit,
+  onSuccess,
+  majorId,
   majorName,
   departmentId,
 }: QuickCreateCourseDialogProps) {
   const { toast } = useToast()
   const [courseName, setCourseName] = useState("")
-  const [teachers, setTeachers] = useState<any[]>([])
+  const [teacher, setTeacher] = useState<any>(null)
   const [memberSelectorOpen, setMemberSelectorOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const courseNameInputRef = useRef<HTMLInputElement>(null)
 
+  // 从 localStorage 获取当前学校 ID，用于获取全部成员
+  const currentUniversityId = useMemo(() => {
+    if (typeof window === "undefined") return undefined
+    const stored = localStorage.getItem("education-current-school")
+    return stored ? JSON.parse(stored) : undefined
+  }, [])
+
+  // 每次对话框打开时清空表单并聚焦输入框
   useEffect(() => {
     if (open) {
+      setCourseName("")
+      setTeacher(null)
       setTimeout(() => {
         courseNameInputRef.current?.focus()
       }, 0)
     }
   }, [open])
 
+  // 单选模式下，直接设置选中的教师
   const handleMemberSelect = (selected: any) => {
-    const selectedArray = Array.isArray(selected) ? selected : [selected]
-    setTeachers(selectedArray)
+    setTeacher(Array.isArray(selected) ? selected[0] : selected)
   }
 
-  const removeTeacher = (teacherId: string) => {
-    setTeachers(teachers.filter((t) => t.id !== teacherId))
+  const removeTeacher = () => {
+    setTeacher(null)
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!courseName.trim()) {
       toast({
         variant: "destructive",
@@ -57,29 +72,75 @@ export function QuickCreateCourseDialog({
       return
     }
 
-    if (teachers.length === 0) {
+    if (!teacher) {
       toast({
         variant: "destructive",
         title: "验证失败",
-        description: "请选择至少一位任课老师",
+        description: "请选择任课老师",
         duration: 3000,
       })
       return
     }
 
-    onSubmit({
-      name: courseName,
-      teachers,
-    })
+    setIsSubmitting(true)
+    try {
+      const url = buildApiUrl("/api/v5/tree/course")
+      const headers: Record<string, string> = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      }
+      const authToken = getStoredAuthToken()
+      if (authToken) {
+        headers["authToken"] = authToken
+      }
 
-    setCourseName("")
-    setTeachers([])
-    onOpenChange(false)
+      // 从 majorId 中提取数字 ID
+      const numericMajorId = majorId.match(/\d+/)?.[0] || majorId
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          majorId: parseInt(numericMajorId, 10),
+          name: courseName.trim(),
+        }),
+      })
+
+      const result = await response.json()
+      if (result.code === "0" || result.code === 0) {
+        toast({
+          title: "创建成功",
+          description: `课程"${courseName}"已成功创建`,
+          duration: 3000,
+        })
+        setCourseName("")
+        setTeacher(null)
+        onOpenChange(false)
+        onSuccess()
+      } else {
+        toast({
+          variant: "destructive",
+          title: "创建失败",
+          description: result.msg || "请稍后重试",
+          duration: 3000,
+        })
+      }
+    } catch (error) {
+      console.error("[QuickCreateCourseDialog] 创建课程失败:", error)
+      toast({
+        variant: "destructive",
+        title: "创建失败",
+        description: "网络错误，请稍后重试",
+        duration: 3000,
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleCancel = () => {
     setCourseName("")
-    setTeachers([])
+    setTeacher(null)
     onOpenChange(false)
   }
 
@@ -127,22 +188,20 @@ export function QuickCreateCourseDialog({
               </label>
               <div className="h-10 rounded-md bg-background px-3 flex items-center justify-between gap-2 border border-gray-300">
                 <div className="flex items-center flex-wrap gap-2 flex-1 overflow-hidden">
-                  {teachers.length > 0 ? (
-                    teachers.map((teacher: any) => (
-                      <div key={teacher.id} className="gap-1 bg-primary/5 border border-primary/20 text-foreground text-sm px-2 py-1 flex items-center">
-                        {teacher.name}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            removeTeacher(teacher.id)
-                          }}
-                          className="ml-1 hover:text-destructive"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))
+                  {teacher ? (
+                    <div className="gap-1 bg-primary/5 border border-primary/20 text-foreground text-sm px-2 py-1 flex items-center">
+                      {teacher.name}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          removeTeacher()
+                        }}
+                        className="ml-1 hover:text-destructive"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
                   ) : (
                     <span className="text-sm text-muted-foreground">点击右侧加号选择老师</span>
                   )}
@@ -150,7 +209,7 @@ export function QuickCreateCourseDialog({
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-8 w-8 p-0 flex-shrink-0"
+                  className="h-8 w-8 p-0 flex-shrink-0 hover:bg-primary [&:hover>svg]:text-white"
                   onClick={() => setMemberSelectorOpen(true)}
                 >
                   <Plus className="w-4 h-4" />
@@ -160,12 +219,12 @@ export function QuickCreateCourseDialog({
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={handleCancel} className="gap-2 bg-transparent">
+            <Button variant="outline" onClick={handleCancel} className="gap-2 bg-transparent" disabled={isSubmitting}>
               <X className="w-4 h-4" />
               取消
             </Button>
-            <Button onClick={handleSubmit} disabled={!courseName.trim() || teachers.length === 0} className="gap-2">
-              <Check className="w-4 h-4" />
+            <Button onClick={handleSubmit} disabled={!courseName.trim() || !teacher || isSubmitting} className="gap-2">
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
               保存
             </Button>
           </DialogFooter>
@@ -173,14 +232,15 @@ export function QuickCreateCourseDialog({
       </Dialog>
 
       <MemberSelector
-        mode="multiple"
+        mode="single"
         nodeType="department"
         departmentId={departmentId}
+        universityId={currentUniversityId}
         open={memberSelectorOpen}
         onOpenChange={setMemberSelectorOpen}
         onConfirm={handleMemberSelect}
         title="选择任课老师"
-        description="请选择该课程的任课老师（可多选）"
+        description="请选择该课程的任课老师"
       />
     </>
   )

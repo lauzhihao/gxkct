@@ -105,4 +105,10 @@ export class TeachingTaskApi {
   ): Promise<ApiResponse<TeachingSupervisoryTask[]>> {
     return this.getTasks(universityId, { status })
   }
+
+  // 获取专业下的任务列表
+  async getTasksByMajor(majorId: Long): Promise<ApiResponse<TeachingSupervisoryTask[]>> {
+    const endpoint = `/api/v5/task-evaluation/majors/${majorId}/tasks`
+    return this.http.get<TeachingSupervisoryTask[]>(endpoint)
+  }
 }

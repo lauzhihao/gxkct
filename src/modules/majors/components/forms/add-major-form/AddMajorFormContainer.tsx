@@ -5,15 +5,20 @@
 
 "use client"
 
-import { useEffect, useMemo } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { AddMajorFormProps } from "./types"
 import { useMajorFormState } from "@/modules/majors/hooks/use-major-form-state"
 import { useCareerInfo } from "@/modules/majors/hooks/use-career-info"
 import { useGraduationRequirements } from "@/modules/majors/hooks/use-graduation-requirements"
 import { useToast } from "@/shared/hooks/use-toast"
 import { api } from "@/lib/api"
+import { TreeApi } from "@/lib/api/tree-api"
+import { majorApiService } from "@/modules/majors/api"
 import worksJsonData from "@/mock-data/works.json"
 import type { WorksData } from "./types"
+
+// 创建 TreeApi 实例
+const treeApiInstance = new TreeApi()
 
 // 导入原始组件的UI部分 - 这里暂时保留原始渲染逻辑
 // 后续可以继续拆分为更小的展示组件
@@ -47,48 +52,125 @@ export function AddMajorFormContainer({
     formState.lastIndicatorRefs
   )
 
-  // 自动保存指标点与课程的支撑关系
+  // 加载状态
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false)
+  const hasLoadedDetailRef = useRef(false)
+
+  // 编辑模式下加载专业详情
   useEffect(() => {
-    // 使用 initialData.id 作为 majorId
-    const majorId = initialData?.id
-    if (!isEditMode || !majorId || graduationReqs.isCourseSelectorOpenRef) return
+    const majorId = initialData?.id || initialData?.nodeId
+    if (!isEditMode || !majorId || hasLoadedDetailRef.current) return
+
+    hasLoadedDetailRef.current = true
+
+    const loadMajorDetail = async () => {
+      setIsLoadingDetail(true)
+      try {
+        const response = await treeApiInstance.getMajorDetail(majorId)
+        if (response.data) {
+          const detailData = response.data
+
+          // 更新基础表单状态
+          if (detailData.majorClass || detailData.code) {
+            formState.setMajorCode(detailData.majorClass || detailData.code || "")
+          }
+          if (detailData.majorLevel) {
+            formState.setMajorLevel(detailData.majorLevel)
+          }
+          if (detailData.feature) {
+            formState.setEducationalFeatures(detailData.feature)
+          }
+          if (detailData.demandType) {
+            formState.setDemandStatus(detailData.demandType)
+          }
+          if (detailData.demandArea) {
+            formState.setSelectedProvince(detailData.demandArea)
+          }
+          if (detailData.position) {
+            formState.setPosition(detailData.position)
+          }
+
+          // 更新职业信息
+          if (detailData.professionsVOS && detailData.professionsVOS.length > 0) {
+            const careerInfoList = detailData.professionsVOS.map((professionVO: any, index: number) => ({
+              id: String(professionVO.id || index + 1),
+              level: "中级",
+              direction: {
+                category1: professionVO.profession?.[0]?.name || "",
+                category2: professionVO.profession?.[1]?.name || "",
+                category3: professionVO.profession?.[2]?.name || "",
+                category4: professionVO.profession?.[3]?.name || "",
+              },
+              tasks: professionVO.task || "",
+            }))
+            careerInfo.setCareerInfoList(careerInfoList)
+          }
+
+          // 更新毕业要求
+          if (detailData.requiresVOS && detailData.requiresVOS.length > 0) {
+            const graduationRequirements = detailData.requiresVOS.map((requireVO: any) => ({
+              id: String(requireVO.id),
+              content: requireVO.description || "",
+              indicators: requireVO.children?.map((child: any) => child.description || "") || [""],
+            }))
+            graduationReqs.setGraduationRequirements(graduationRequirements)
+          }
+        }
+      } catch (error) {
+        console.error("加载专业详情失败:", error)
+      } finally {
+        setIsLoadingDetail(false)
+      }
+    }
+
+    loadMajorDetail()
+  }, [isEditMode, initialData?.id, initialData?.nodeId])
+
+  // 保存 handleSubmit 函数引用，供自动保存使用
+  const handleSubmitRef = useRef<((isAutoSave?: boolean) => Promise<void>) | null>(null)
+
+  // 编辑模式下自动保存（每10秒调用一次保存）
+  useEffect(() => {
+    if (!isEditMode || !initialData?.id) return
 
     const autoSaveInterval = setInterval(() => {
-      const snapshot = graduationReqs.indicatorCoursesSnapshotRef.current
-
-      Promise.resolve().then(async () => {
-        try {
-          formState.setAutoSaveStatus("saving")
-          await api.matrices.updateMajorIndicatorCourseSupports(majorId, snapshot)
-          formState.setAutoSaveStatus("saved")
-          setTimeout(() => formState.setAutoSaveStatus(""), 3000)
-        } catch (error) {
-          console.error("自动保存指标点课程支撑关系失败:", error)
-          formState.setAutoSaveStatus("failed")
-          setTimeout(() => formState.setAutoSaveStatus(""), 3000)
-        }
-      })
+      // 调用保存函数（静默模式，不退出编辑）
+      if (handleSubmitRef.current) {
+        handleSubmitRef.current(true)
+      }
     }, 10000)
 
     return () => clearInterval(autoSaveInterval)
-  }, [isEditMode, initialData?.id, graduationReqs.isCourseSelectorOpenRef])
+  }, [isEditMode, initialData?.id])
 
   // 表单提交逻辑
-  const handleSubmit = () => {
-    formState.setIsLoading(true)
+  // isAutoSave: 是否为自动保存，自动保存时不退出编辑模式
+  const handleSubmit = async (isAutoSave = false) => {
+    // 自动保存时使用静默加载状态
+    if (!isAutoSave) {
+      formState.setIsLoading(true)
+    } else {
+      formState.setAutoSaveStatus("saving")
+    }
 
     if (
       !formState.majorCode.trim() ||
       !formState.majorName.trim() ||
       !formState.educationalFeatures.trim()
     ) {
-      toast({
-        variant: "destructive",
-        title: "表单验证失败",
-        description: "请完整填写表单内容",
-        duration: 5000,
-      })
-      formState.setIsLoading(false)
+      // 自动保存时静默失败，不显示 toast
+      if (!isAutoSave) {
+        toast({
+          variant: "destructive",
+          title: "表单验证失败",
+          description: "请完整填写表单内容",
+          duration: 5000,
+        })
+        formState.setIsLoading(false)
+      } else {
+        formState.setAutoSaveStatus("failed")
+        setTimeout(() => formState.setAutoSaveStatus(""), 3000)
+      }
       return
     }
 
@@ -158,7 +240,7 @@ export function AddMajorFormContainer({
       children: requirement.indicators.map((indicator, indIndex) => ({
         id: parseInt(requirement.id) * 1000 + indIndex + 1,
         description: indicator,
-        children: null,
+        children: [] as any[],
       })),
     }))
 
@@ -179,15 +261,97 @@ export function AddMajorFormContainer({
       children: initialData?.children || [],
     }
 
+    // 编辑模式下调用更新专业接口
+    if (isEditMode && initialData?.id) {
+      try {
+        // 构造 API 请求参数
+        const majorId = initialData.id.replace("major_", "")
+        const apiRequestData = {
+          id: parseInt(majorId) || 0,
+          departmentId: parseInt(effectiveDepartmentId) || 0,
+          name: formState.majorName,
+          keyword: formState.majorCode,
+          majorLevel: formState.majorLevel,
+          majorClass: formState.majorCode,
+          feature: formState.educationalFeatures,
+          careerLevel: "",
+          demandType: formState.demandStatus,
+          demandArea: formState.selectedProvince,
+          position: formState.position,
+          requiresVOS: requiresVOS,
+          upload: false,
+          professionsVOS: professionsVOS.map((p, idx) => ({
+            id: p.id,
+            majorId: parseInt(majorId) || 0,
+            task: p.task,
+            lang: 0,
+          })),
+        }
+
+        const response = await majorApiService.createMajor(apiRequestData)
+
+        if (response.status === 200 || response.data) {
+          if (isAutoSave) {
+            // 自动保存成功：更新状态，不退出编辑模式
+            formState.setAutoSaveStatus("saved")
+            setTimeout(() => formState.setAutoSaveStatus(""), 3000)
+          } else {
+            // 手动保存成功：显示 toast，退出编辑模式
+            toast({
+              variant: "success",
+              title: "保存成功",
+              description: "专业信息已成功更新",
+              duration: 3000,
+            })
+            onSubmit(majorData)
+          }
+        } else {
+          if (isAutoSave) {
+            formState.setAutoSaveStatus("failed")
+            setTimeout(() => formState.setAutoSaveStatus(""), 3000)
+          } else {
+            toast({
+              variant: "destructive",
+              title: "保存失败",
+              description: response.error || "更新专业信息失败，请重试",
+              duration: 5000,
+            })
+          }
+        }
+      } catch (error) {
+        console.error("更新专业失败:", error)
+        if (isAutoSave) {
+          formState.setAutoSaveStatus("failed")
+          setTimeout(() => formState.setAutoSaveStatus(""), 3000)
+        } else {
+          toast({
+            variant: "destructive",
+            title: "保存失败",
+            description: "更新专业信息失败，请重试",
+            duration: 5000,
+          })
+        }
+      } finally {
+        if (!isAutoSave) {
+          formState.setIsLoading(false)
+        }
+      }
+      return
+    }
+
+    // 新建模式直接调用回调（新建模式不支持自动保存）
     toast({
       variant: "success",
       title: "保存成功",
-      description: isEditMode ? "专业信息已成功更新" : "专业信息已成功保存",
+      description: "专业信息已成功保存",
       duration: 3000,
     })
     onSubmit(majorData)
     formState.setIsLoading(false)
   }
+
+  // 更新 handleSubmit 引用，供自动保存使用
+  handleSubmitRef.current = handleSubmit
 
   return (
     <AddMajorFormView
@@ -201,6 +365,7 @@ export function AddMajorFormContainer({
       onCancel={onCancel}
       handleSubmit={handleSubmit}
       toast={toast}
+      isLoadingDetail={isLoadingDetail}
     />
   )
 }

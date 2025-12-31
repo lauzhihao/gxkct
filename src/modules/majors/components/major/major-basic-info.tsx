@@ -93,7 +93,7 @@ export function MajorBasicInfo({ node }: MajorBasicInfoProps) {
               <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
               专业代码
             </div>
-            <div className="text-base font-semibold text-foreground">{metadata?.code || "未设置"}</div>
+            <div className="text-base font-semibold text-foreground">{metadata?.majorClass || "未设置"}</div>
           </div>
 
           <div className="rounded-lg border border-border bg-card/50 p-4">
@@ -270,8 +270,7 @@ export function MajorBasicInfo({ node }: MajorBasicInfoProps) {
       )}
 
       {/* Show message if no detailed data */}
-      {!metadata?.code &&
-        !metadata?.majorClass &&
+      {!metadata?.majorClass &&
         !metadata?.feature &&
         (!metadata?.professionsVOS || metadata.professionsVOS.length === 0) &&
         !metadata?.position &&

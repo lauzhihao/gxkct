@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react"
 import { Card } from "@/shared/components/ui/card"
 import { Badge } from "@/shared/components/ui/badge"
-import { Users, TrendingUp } from "lucide-react"
 import { api } from "@/lib/api"
 import type { TeachingSupervisoryTask, TreeNode, Long } from "@/types"
+import { CourseEvaluationList, MajorEvaluationList } from "@/shared/components/supervision"
+import { courseTeachingTasksApi } from "@/modules/courses/api/courseTeachingTasksApi"
 
 interface TeachingQualityStatsProps {
   node: TreeNode
@@ -18,6 +19,7 @@ interface TeachingQualityStatsProps {
 export function TeachingQualityStats({ node, nodeType, treeData, departmentMajors, majorCourses }: TeachingQualityStatsProps) {
   const [tasks, setTasks] = useState<TeachingSupervisoryTask[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [selectedTask, setSelectedTask] = useState<TeachingSupervisoryTask | null>(null)
 
   // 获取 collegeId - 从 parentId 中提取
   const getCollegeId = (): string | null => {
@@ -49,19 +51,63 @@ export function TeachingQualityStats({ node, nodeType, treeData, departmentMajor
     return null
   }
 
+  // 从 node.nodeId 中提取数字部分（处理 "major_123" 格式）
+  const getMajorId = (): Long | null => {
+    if (nodeType !== "major") return null
+    const idMatch = node.nodeId?.match(/\d+/)
+    return idMatch ? (Number(idMatch[0]) as Long) : null
+  }
+
+  // 从 node.nodeId 中提取院系ID（处理 "dept_123" 格式）
+  const getDeptId = (): Long | null => {
+    if (nodeType !== "department") return null
+    const idMatch = node.nodeId?.match(/\d+/)
+    return idMatch ? (Number(idMatch[0]) as Long) : null
+  }
+
   useEffect(() => {
     const fetchTasks = async () => {
       try {
         setIsLoading(true)
-        const collegeId = getCollegeId()
-        if (!collegeId) {
-          console.warn("无法找到 collegeId")
-          setIsLoading(false)
-          return
-        }
-        const response = await api.teachingTasks.getTasks(Number(collegeId) as Long)
-        if (response.data) {
-          setTasks(response.data)
+
+        if (nodeType === "major") {
+          // 专业使用专业 API
+          const majorId = getMajorId()
+          if (!majorId) {
+            console.warn("无法找到 majorId")
+            setIsLoading(false)
+            return
+          }
+          const response = await api.teachingTasks.getTasksByMajor(majorId)
+          if (response.data) {
+            setTasks(response.data)
+          }
+        } else if (nodeType === "department") {
+          // 院系使用院系 API
+          const deptId = getDeptId()
+          if (!deptId) {
+            console.warn("无法找到 deptId")
+            setIsLoading(false)
+            return
+          }
+          const response = await courseTeachingTasksApi.getTasksByDept(deptId)
+          if (response.data) {
+            // 转换为 TeachingSupervisoryTask 格式
+            const mappedTasks: TeachingSupervisoryTask[] = response.data.map((task) => ({
+              id: task.taskId,
+              taskId: task.taskId,
+              title: task.title,
+              description: "",
+              startDate: task.startDate,
+              endDate: task.endDate,
+              status: task.status,
+              creator: task.deptName || "",
+              courseCount: task.courseCount,
+              majorCount: task.majorCount,
+              avgDeptScore: task.avgDeptScore,
+            }))
+            setTasks(mappedTasks)
+          }
         }
       } catch (error) {
         console.error("获取教学督导任务失败:", error)
@@ -71,17 +117,7 @@ export function TeachingQualityStats({ node, nodeType, treeData, departmentMajor
     }
 
     fetchTasks()
-  }, [node.id, node.parentId, treeData, nodeType])
-
-  // Mock数据：生成参与数和平均分
-  const getTaskStats = (taskId: string) => {
-    // 根据taskId生成稳定的mock数据
-    const hash = taskId.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
-    return {
-      participantCount: 5 + (hash % 10), // 5-14个参与者
-      averageScore: 75 + (hash % 20), // 75-95分
-    }
-  }
+  }, [node.id, node.nodeId, node.parentId, treeData, nodeType])
 
   const getStatusLabel = (status: string) => {
     const statusMap: Record<string, string> = {
@@ -101,24 +137,6 @@ export function TeachingQualityStats({ node, nodeType, treeData, departmentMajor
     return colorMap[status] || "bg-gray-100 text-gray-800"
   }
 
-  // 计算院系的专业数和课程数
-  const getDepartmentStats = () => {
-    if (nodeType !== "department") return { majorCount: 0, courseCount: 0 }
-
-    const majors = departmentMajors?.get(node.id) || []
-    let courseCount = 0
-
-    majors.forEach((major) => {
-      const courses = majorCourses?.get(major.id) || []
-      courseCount += courses.length
-    })
-
-    return {
-      majorCount: majors.length,
-      courseCount,
-    }
-  }
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -135,15 +153,48 @@ export function TeachingQualityStats({ node, nodeType, treeData, departmentMajor
     )
   }
 
+  // 专业级别：选中任务后显示课程列表
+  if (selectedTask && nodeType === "major") {
+    const majorId = getMajorId()
+    if (majorId) {
+      return (
+        <CourseEvaluationList
+          task={selectedTask}
+          majorId={majorId}
+          majorName={node.nodeName || node.name}
+          onBack={() => setSelectedTask(null)}
+        />
+      )
+    }
+  }
+
+  // 院系级别：选中任务后显示专业列表
+  if (selectedTask && nodeType === "department") {
+    const deptId = getDeptId()
+    if (deptId) {
+      return (
+        <MajorEvaluationList
+          task={selectedTask}
+          deptId={deptId}
+          deptName={node.nodeName || node.name}
+          onBack={() => setSelectedTask(null)}
+        />
+      )
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {tasks.map((task) => {
-          const stats = getTaskStats(task.id)
-          const deptStats = nodeType === "department" ? getDepartmentStats() : null
+          const taskKey = task.taskId ?? task.id
 
           return (
-            <Card key={task.id} className="p-6 hover:shadow-md transition-shadow border-border bg-card/50 backdrop-blur-sm flex flex-col">
+            <Card
+              key={taskKey}
+              className="p-6 hover:shadow-md transition-shadow border-border bg-card/50 backdrop-blur-sm flex flex-col cursor-pointer hover:border-primary/50"
+              onClick={() => setSelectedTask(task)}
+            >
               <div className="space-y-4 flex-1">
                 {/* 标题和状态 */}
                 <div className="flex items-start justify-between gap-2">
@@ -155,35 +206,35 @@ export function TeachingQualityStats({ node, nodeType, treeData, departmentMajor
 
                 {/* 统计指标 - 数字在上，指标在下 */}
                 <div className="py-4">
-                  {nodeType === "department" && deptStats ? (
+                  {nodeType === "department" ? (
                     <div className="grid grid-cols-3 gap-4">
-                      {/* 专业数 */}
+                      {/* 专业 */}
                       <div className="flex flex-col items-center justify-center">
-                        <div className="text-2xl font-bold text-primary">{deptStats.majorCount}</div>
+                        <div className="text-2xl font-bold text-primary">{task.majorCount ?? 0}</div>
                         <div className="text-xs text-muted-foreground mt-1">专业</div>
                       </div>
-                      {/* 课程数 */}
+                      {/* 课程 */}
                       <div className="flex flex-col items-center justify-center">
-                        <div className="text-2xl font-bold text-primary">{deptStats.courseCount}</div>
+                        <div className="text-2xl font-bold text-primary">{task.courseCount ?? 0}</div>
                         <div className="text-xs text-muted-foreground mt-1">课程</div>
                       </div>
-                      {/* 平均分 */}
+                      {/* 平均 */}
                       <div className="flex flex-col items-center justify-center">
-                        <div className="text-2xl font-bold text-primary">{stats.averageScore}</div>
-                        <div className="text-xs text-muted-foreground mt-1">平均分</div>
+                        <div className="text-2xl font-bold text-primary">{task.avgDeptScore != null ? task.avgDeptScore.toFixed(1) : "-"}</div>
+                        <div className="text-xs text-muted-foreground mt-1">平均</div>
                       </div>
                     </div>
                   ) : (
                     <div className="flex justify-around">
-                      {/* 参与课程数 */}
+                      {/* 课程 */}
                       <div className="flex flex-col items-center justify-center">
-                        <div className="text-2xl font-bold text-primary">{stats.participantCount}</div>
+                        <div className="text-2xl font-bold text-primary">{task.courseCount ?? 0}</div>
                         <div className="text-xs text-muted-foreground mt-1">课程</div>
                       </div>
-                      {/* 平均分 */}
+                      {/* 平均 */}
                       <div className="flex flex-col items-center justify-center">
-                        <div className="text-2xl font-bold text-primary">{stats.averageScore}</div>
-                        <div className="text-xs text-muted-foreground mt-1">平均分</div>
+                        <div className="text-2xl font-bold text-primary">{task.avgDeptScore != null ? task.avgDeptScore.toFixed(1) : "-"}</div>
+                        <div className="text-xs text-muted-foreground mt-1">平均</div>
                       </div>
                     </div>
                   )}

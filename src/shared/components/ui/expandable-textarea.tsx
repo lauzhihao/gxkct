@@ -55,8 +55,11 @@ export const ExpandableTextarea = React.forwardRef<
     }
 
     const handleBlur = () => {
-      setIsFocused(false)
-      onBlur?.()
+      // 延迟处理blur，避免与click事件冲突导致需要二次点击
+      setTimeout(() => {
+        setIsFocused(false)
+        onBlur?.()
+      }, 150)
     }
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -81,7 +84,7 @@ export const ExpandableTextarea = React.forwardRef<
             onKeyDown={handleKeyDown}
             maxLength={maxLength}
             className={cn(
-              'w-full px-3 py-2 pb-8 border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 resize-none',
+              'w-full px-3 py-2 pb-8 border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[var(--naive-primary-light)] focus:animate-shadow-flash resize-none',
               className,
             )}
             rows={rows}
@@ -105,7 +108,7 @@ export const ExpandableTextarea = React.forwardRef<
           onChange={handleChange}
           onFocus={handleFocus}
           onKeyDown={handleKeyDown}
-          className={cn('cursor-text pr-12', className)}
+          className={cn('cursor-text', className, 'pr-16')}
         />
         {!hideCounter && (
           <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">

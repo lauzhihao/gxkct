@@ -83,9 +83,9 @@ export function TeachingTaskForm({ universityId, onSubmit, initialData }: Teachi
       </DialogTrigger>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>{initialData ? "编辑教学督导任务" : "新增教学督导任务"}</DialogTitle>
+          <DialogTitle>{initialData ? "编辑教学质量督导任务" : "新增教学质量督导任务"}</DialogTitle>
           <DialogDescription>
-            {initialData ? "修改教学督导任务信息" : "创建新的教学督导任务"}
+            {initialData ? "修改教学质量督导任务信息" : "创建新的教学质量督导任务"}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">

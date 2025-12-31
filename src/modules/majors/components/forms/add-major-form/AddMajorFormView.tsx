@@ -29,6 +29,7 @@ interface AddMajorFormViewProps {
   onCancel: () => void
   handleSubmit: () => void
   toast: any
+  isLoadingDetail?: boolean
 }
 
 export function AddMajorFormView({
@@ -42,7 +43,24 @@ export function AddMajorFormView({
   onCancel,
   handleSubmit,
   toast,
+  isLoadingDetail = false,
 }: AddMajorFormViewProps) {
+  // 加载专业详情时显示加载状态
+  if (isLoadingDetail) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="text-center">
+          <div className="mb-4">
+            <div className="inline-block">
+              <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+            </div>
+          </div>
+          <div className="text-sm text-muted-foreground">正在加载专业详情...</div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* 表单头部 */}

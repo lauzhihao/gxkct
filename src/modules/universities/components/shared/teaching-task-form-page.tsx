@@ -5,16 +5,20 @@ import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
 import { Textarea } from "@/shared/components/ui/textarea"
+import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import type {
   TeachingSupervisoryTask,
   EvaluationCriterion,
   PublishNode,
   TaskEvaluationCriteria,
+  TaskMember,
 } from "@/types"
 import { api } from "@/lib/api"
+import { cn } from "@/shared/utils/utils"
 import { UniversalTreeSelector } from "@/shared/components/universal-tree-selector"
+import { MemberSelector } from "@/shared/components/member-selector"
 
 type TeachingTaskSubmitHandler = (
   task: TeachingSupervisoryTask,
@@ -28,10 +32,15 @@ interface TeachingTaskFormPageProps {
   isLoading?: boolean
 }
 
-export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoading = false }: TeachingTaskFormPageProps) {
+export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAutoSave, isLoading = false }: TeachingTaskFormPageProps) {
   const [formData, setFormData] = useState<TeachingSupervisoryTask>({
-    ...task,
-    scoringType: task.scoringType || "percentage",
+    ...initialTask,
+    scoringType: initialTask.scoringType || "percentage",
+    teacherSelfEvaluation: initialTask.teacherSelfEvaluation ?? true,
+    juryType: "designated_member",
+    juryMembers: initialTask.juryMembers || [],
+    collegeJuryType: "designated_member",
+    collegeJuryMembers: initialTask.collegeJuryMembers || [],
   })
   const [criteria, setCriteria] = useState<EvaluationCriterion[]>([
     {
@@ -44,8 +53,27 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
     },
   ])
   const [isSaving, setIsSaving] = useState(false)
+  const [isDataLoading, setIsDataLoading] = useState(typeof initialTask.id === "number")
   const [autoSaveStatus, setAutoSaveStatus] = useState<"" | "saving" | "saved" | "failed">("")
   const [isPublishSelectorOpen, setIsPublishSelectorOpen] = useState(false)
+  const [isMemberSelectorOpen, setIsMemberSelectorOpen] = useState(false)
+  const [isCollegeMemberSelectorOpen, setIsCollegeMemberSelectorOpen] = useState(false)
+
+  // 表单字段 ref，用于校验失败时聚焦
+  const startDateRef = useRef<HTMLInputElement>(null)
+  const endDateRef = useRef<HTMLInputElement>(null)
+  const titleRef = useRef<HTMLInputElement>(null)
+  const descriptionRef = useRef<HTMLTextAreaElement>(null)
+  const publishNodesRef = useRef<HTMLDivElement>(null)
+
+  // 表单错误状态
+  const [formErrors, setFormErrors] = useState<{
+    startDate?: boolean
+    endDate?: boolean
+    title?: boolean
+    description?: boolean
+    publishNodes?: boolean
+  }>({})
 
   // 初始化时检查是否有复制的数据
   const sortCriteriaByIdDesc = (items: EvaluationCriterion[]): EvaluationCriterion[] => {
@@ -67,6 +95,11 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
       setFormData({
         ...copiedData.task,
         scoringType: copiedData.task?.scoringType || "percentage",
+        teacherSelfEvaluation: copiedData.task?.teacherSelfEvaluation ?? true,
+        juryType: "designated_member",
+        juryMembers: copiedData.task?.juryMembers || [],
+        collegeJuryType: "designated_member",
+        collegeJuryMembers: copiedData.task?.collegeJuryMembers || [],
       })
       setCriteria(normalizeCriteriaOrder(copiedData.criteria || copiedData.standards || []))
       // 清除临时数据
@@ -82,54 +115,76 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
     }))
   }
 
-  // 根据任务数据加载评价标准（优先使用 props 携带的数据，必要时退回 API 请求）
+  // 编辑模式下根据任务ID查询最新数据
   useEffect(() => {
-    if (typeof task.id !== "number") {
-      return
-    }
-
-    const itemsFromProps = task.evaluationCriteria?.items
-    if (itemsFromProps && itemsFromProps.length > 0) {
-      setCriteria(normalizeCriteriaOrder(normalizeCriteriaItems(itemsFromProps)))
+    if (typeof initialTask.id !== "number") {
+      setIsDataLoading(false)
       return
     }
 
     let cancelled = false
-    const fetchTaskWithCriteria = async () => {
+    setIsDataLoading(true)
+
+    const fetchTaskData = async () => {
       try {
-        const response = await api.teachingTasks.getTask(task.universityId, task.id, {
+        const response = await api.teachingTasks.getTask(initialTask.universityId, initialTask.id, {
           includeCriteria: true,
         })
-        if (!cancelled) {
-          const fetchedItems = response.data?.evaluationCriteria?.items || []
+        if (!cancelled && response.data) {
+          // 更新表单数据
+          const taskData = response.data
+          setFormData({
+            ...taskData,
+            scoringType: taskData.scoringType || "percentage",
+            teacherSelfEvaluation: taskData.teacherSelfEvaluation ?? true,
+            juryType: "designated_member",
+            juryMembers: taskData.juryMembers || [],
+            collegeJuryType: "designated_member",
+            collegeJuryMembers: taskData.collegeJuryMembers || [],
+          })
+          // 更新评价标准
+          const fetchedItems = taskData.evaluationCriteria?.items || []
           setCriteria(
             fetchedItems.length ? normalizeCriteriaOrder(normalizeCriteriaItems(fetchedItems)) : [],
           )
         }
       } catch (error) {
         if (!cancelled) {
-          console.error("加载评价标准失败:", error)
-          setCriteria([])
+          console.error("加载任务数据失败:", error)
+          // 加载失败时使用传入的数据
+          const itemsFromProps = initialTask.evaluationCriteria?.items
+          if (itemsFromProps && itemsFromProps.length > 0) {
+            setCriteria(normalizeCriteriaOrder(normalizeCriteriaItems(itemsFromProps)))
+          }
+        }
+      } finally {
+        if (!cancelled) {
+          setIsDataLoading(false)
         }
       }
     }
 
-    fetchTaskWithCriteria()
+    fetchTaskData()
 
     return () => {
       cancelled = true
     }
-  }, [task.id, task.universityId, task.evaluationCriteria])
+  }, [initialTask.id, initialTask.universityId])
 
   // 自动保存（编辑模式，每30秒保存一次）
   useEffect(() => {
     // 只在编辑模式下启用自动保存
-    if (typeof task.id !== "number") {
+    if (typeof initialTask.id !== "number") {
       return
     }
 
-    // 当发布范围弹窗打开时，停止自动保存
-    if (isPublishSelectorOpen) {
+    // 当任意弹窗打开时，停止自动保存
+    if (isPublishSelectorOpen || isMemberSelectorOpen || isCollegeMemberSelectorOpen) {
+      return
+    }
+
+    // 数据加载中时不自动保存
+    if (isDataLoading) {
       return
     }
 
@@ -137,12 +192,15 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
       try {
         setAutoSaveStatus("saving")
 
-        const evaluationPayload = buildEvaluationCriteriaPayload(task.id)
+        const evaluationPayload = buildEvaluationCriteriaPayload(initialTask.id)
         const taskToSubmit: TeachingSupervisoryTask = {
           ...formData,
-          id: task.id,
-          universityId: formData.universityId || task.universityId,
+          id: initialTask.id,
+          universityId: formData.universityId || initialTask.universityId,
           scoringType: formData.scoringType || "percentage",
+          // 只传递成员id和姓名
+          juryMembers: formData.juryMembers?.map((m) => ({ id: m.id, name: m.name })) as any,
+          collegeJuryMembers: formData.collegeJuryMembers?.map((m) => ({ id: m.id, name: m.name })) as any,
           ...(evaluationPayload ? { evaluationCriteria: evaluationPayload } : {}),
         }
 
@@ -162,7 +220,7 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
     }, 30000) // 每30秒执行一次
 
     return () => clearInterval(autoSaveInterval)
-  }, [task.id, task.universityId, formData, criteria, onAutoSave, isPublishSelectorOpen])
+  }, [initialTask.id, initialTask.universityId, formData, criteria, onAutoSave, isPublishSelectorOpen, isMemberSelectorOpen, isCollegeMemberSelectorOpen, isDataLoading])
 
   const handleAddCriterion = () => {
     const newCriterion: EvaluationCriterion = {
@@ -300,7 +358,7 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
     if (validCriteria.length === 0) {
       return undefined
     }
-    const resolvedUniversityId = formData.universityId || task.universityId
+    const resolvedUniversityId = formData.universityId || initialTask.universityId
     if (!resolvedUniversityId) {
       return undefined
     }
@@ -312,13 +370,63 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
   }
 
   const handleSubmit = async () => {
+    // 验证必填字段，收集所有错误
+    const errors: typeof formErrors = {}
+
+    if (!formData.startDate) {
+      errors.startDate = true
+    }
+
+    if (!formData.endDate) {
+      errors.endDate = true
+    }
+
+    if (formData.startDate && formData.endDate && formData.startDate > formData.endDate) {
+      errors.startDate = true
+      errors.endDate = true
+    }
+
+    if (!formData.title || !formData.title.trim()) {
+      errors.title = true
+    }
+
+    if (!formData.description || !formData.description.trim()) {
+      errors.description = true
+    }
+
+    if (!formData.publishNodes || formData.publishNodes.length === 0) {
+      errors.publishNodes = true
+    }
+
+    // 如果有错误，设置错误状态并聚焦到第一个错误字段
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors)
+      // 按顺序聚焦到第一个错误字段
+      if (errors.startDate) {
+        startDateRef.current?.focus()
+      } else if (errors.endDate) {
+        endDateRef.current?.focus()
+      } else if (errors.title) {
+        titleRef.current?.focus()
+      } else if (errors.description) {
+        descriptionRef.current?.focus()
+      } else if (errors.publishNodes) {
+        publishNodesRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+        setIsPublishSelectorOpen(true)
+      }
+      return
+    }
+
     setIsSaving(true)
     try {
       const evaluationPayload = buildEvaluationCriteriaPayload(formData.id)
       const taskToSubmit: TeachingSupervisoryTask = {
         ...formData,
-        universityId: formData.universityId || task.universityId,
+        universityId: formData.universityId || initialTask.universityId,
         scoringType: formData.scoringType || "percentage",
+        // 只传递成员id和姓名
+        juryMembers: formData.juryMembers?.map((m) => ({ id: m.id, name: m.name })) as any,
+        collegeJuryMembers: formData.collegeJuryMembers?.map((m) => ({ id: m.id, name: m.name })) as any,
         ...(evaluationPayload ? { evaluationCriteria: evaluationPayload } : {}),
       }
 
@@ -332,9 +440,33 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
     }
   }
 
-  // 编辑模式：task.id 存在
-  // 新增模式：task.id 不存在
-  const isEditMode = !!task.id
+  // 编辑模式：initialTask.id 存在
+  // 新增模式：initialTask.id 不存在
+  const isEditMode = !!initialTask.id
+
+  // 数据加载中显示加载状态
+  if (isDataLoading) {
+    return (
+      <div className="flex-1 overflow-auto p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onBack}
+            className="gap-2 hover:text-white"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            返回
+          </Button>
+          <h2 className="text-xl font-bold text-foreground">编辑任务</h2>
+        </div>
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-primary mr-2" />
+          <span className="text-muted-foreground">加载中...</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex-1 overflow-auto p-6">
@@ -421,10 +553,15 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
                       开始日期 <span className="text-red-500">*</span>
                     </Label>
                     <Input
+                      ref={startDateRef}
                       id="startDate"
                       type="date"
-                      value={formData.startDate.split("T")[0]}
-                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                      value={formData.startDate?.split("T")[0] || ""}
+                      onChange={(e) => {
+                        setFormData({ ...formData, startDate: e.target.value })
+                        if (formErrors.startDate) setFormErrors((prev) => ({ ...prev, startDate: false }))
+                      }}
+                      className={cn(formErrors.startDate && "border-red-500 focus:ring-red-500")}
                     />
                   </div>
                   <div className="space-y-2">
@@ -432,10 +569,15 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
                       结束日期 <span className="text-red-500">*</span>
                     </Label>
                     <Input
+                      ref={endDateRef}
                       id="endDate"
                       type="date"
-                      value={formData.endDate.split("T")[0]}
-                      onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                      value={formData.endDate?.split("T")[0] || ""}
+                      onChange={(e) => {
+                        setFormData({ ...formData, endDate: e.target.value })
+                        if (formErrors.endDate) setFormErrors((prev) => ({ ...prev, endDate: false }))
+                      }}
+                      className={cn(formErrors.endDate && "border-red-500 focus:ring-red-500")}
                     />
                   </div>
                 </div>
@@ -446,14 +588,16 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
                   </Label>
                   <div className="relative">
                     <Input
+                      ref={titleRef}
                       id="title"
                       value={formData.title}
                       maxLength={50}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setFormData({ ...formData, title: e.target.value.slice(0, 50) })
-                      }
+                        if (formErrors.title) setFormErrors((prev) => ({ ...prev, title: false }))
+                      }}
                       placeholder="例如：2025秋季学期教学档案检查"
-                      className="pr-16"
+                      className={cn("pr-16", formErrors.title && "border-red-500 focus:ring-red-500")}
                     />
                     <span className="absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
                       {(formData.title || "").length}/50
@@ -462,7 +606,7 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
                 </div>
               </div>
 
-              {/* Row 2: 评分类型 + 发布范围 */}
+              {/* Row 2: 评分类型 + 任务说明 */}
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label>评分类型</Label>
@@ -489,12 +633,37 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="description">
+                    任务说明 <span className="text-red-500">*</span>
+                  </Label>
+                  <ExpandableTextarea
+                    ref={descriptionRef}
+                    value={formData.description || ""}
+                    onChange={(value) => {
+                      setFormData({ ...formData, description: value })
+                      if (formErrors.description) setFormErrors((prev) => ({ ...prev, description: false }))
+                    }}
+                    placeholder="请输入任务说明（最多500字）"
+                    maxLength={500}
+                    rows={6}
+                    className={cn(formErrors.description && "border-red-500 focus:ring-red-500")}
+                  />
+                </div>
+              </div>
+
+              {/* Row 3: 发布范围 + 教师自评 */}
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
                   <Label htmlFor="publishNodes">
-                    发布范围
+                    发布范围 <span className="text-red-500">*</span>
                   </Label>
                   <div
+                    ref={publishNodesRef}
                     id="publishNodes"
-                    className="h-10 rounded-md bg-background px-3 flex items-center justify-between gap-2 border border-gray-300 cursor-pointer"
+                    className={cn(
+                      "h-10 rounded-md bg-background px-3 flex items-center justify-between gap-2 border cursor-pointer",
+                      formErrors.publishNodes ? "border-red-500" : "border-gray-300"
+                    )}
                     onClick={() => setIsPublishSelectorOpen(true)}
                   >
                     <div className="flex items-center flex-wrap gap-2 flex-1 overflow-hidden">
@@ -560,30 +729,175 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
                     </Button>
                   </div>
                 </div>
-              </div>
 
-              {/* Row 3: 任务说明 (50%宽度) */}
-              <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="description">
-                    任务说明 <span className="text-red-500">*</span>
-                  </Label>
-                  <div className="relative">
-                    <Textarea
-                      id="description"
-                      value={formData.description || ""}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder="请输入任务说明（最多500字）"
-                      maxLength={500}
-                      rows={8}
-                      className="resize-none pr-12 pb-8"
-                    />
-                    <span className="absolute bottom-2 right-3 text-xs text-muted-foreground">
-                      {(formData.description || "").length}/500
-                    </span>
+                  <Label>教师自评</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={formData.teacherSelfEvaluation === true ? "default" : "outline"}
+                      onClick={() => setFormData({ ...formData, teacherSelfEvaluation: true })}
+                      className="flex-1 h-10"
+                    >
+                      需要
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={formData.teacherSelfEvaluation === false ? "default" : "outline"}
+                      onClick={() => setFormData({ ...formData, teacherSelfEvaluation: false })}
+                      className="flex-1 h-10"
+                    >
+                      不需要
+                    </Button>
                   </div>
                 </div>
-                <div />
+              </div>
+
+              {/* Row 4: 专业评委 + 院校评委 */}
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label>专业评委</Label>
+                  <div
+                    className="min-h-10 rounded-md bg-background px-3 py-2 flex items-center gap-2 border border-gray-300 cursor-pointer"
+                    onClick={() => setIsMemberSelectorOpen(true)}
+                  >
+                    <div className="flex items-center flex-wrap gap-2 flex-1">
+                      {(formData.juryMembers || []).length > 0 ? (
+                        <>
+                          {/* 显示前3个成员标签 */}
+                          {(formData.juryMembers || []).slice(0, 3).map((member) => (
+                            <div
+                              key={member.id}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 border border-primary/30 rounded-md text-sm"
+                            >
+                              <span>{member.name}</span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setFormData({
+                                    ...formData,
+                                    juryMembers: (formData.juryMembers || []).filter((m) => m.id !== member.id),
+                                  })
+                                }}
+                                className="ml-1 text-muted-foreground hover:text-foreground"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                          {/* 第4个及以后显示"等X人" */}
+                          {(formData.juryMembers || []).length > 3 && (
+                            <div
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-primary/5 border border-primary/30 rounded-md text-sm"
+                            >
+                              <span className="whitespace-nowrap">等{(formData.juryMembers || []).length}人</span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setFormData({
+                                    ...formData,
+                                    juryMembers: [],
+                                  })
+                                }}
+                                className="ml-1 text-muted-foreground hover:text-foreground"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">点击右侧加号选择成员</span>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 p-0 flex-shrink-0 text-primary hover:text-white hover:bg-primary"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setIsMemberSelectorOpen(true)
+                      }}
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>院校评委</Label>
+                  <div
+                    className="min-h-10 rounded-md bg-background px-3 py-2 flex items-center gap-2 border border-gray-300 cursor-pointer"
+                    onClick={() => setIsCollegeMemberSelectorOpen(true)}
+                  >
+                    <div className="flex items-center flex-wrap gap-2 flex-1">
+                      {(formData.collegeJuryMembers || []).length > 0 ? (
+                        <>
+                          {/* 显示前3个成员标签 */}
+                          {(formData.collegeJuryMembers || []).slice(0, 3).map((member) => (
+                            <div
+                              key={member.id}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 border border-primary/30 rounded-md text-sm"
+                            >
+                              <span>{member.name}</span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setFormData({
+                                    ...formData,
+                                    collegeJuryMembers: (formData.collegeJuryMembers || []).filter((m) => m.id !== member.id),
+                                  })
+                                }}
+                                className="ml-1 text-muted-foreground hover:text-foreground"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                          {/* 第4个及以后显示"等X人" */}
+                          {(formData.collegeJuryMembers || []).length > 3 && (
+                            <div
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-primary/5 border border-primary/30 rounded-md text-sm"
+                            >
+                              <span className="whitespace-nowrap">等{(formData.collegeJuryMembers || []).length}人</span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setFormData({
+                                    ...formData,
+                                    collegeJuryMembers: [],
+                                  })
+                                }}
+                                className="ml-1 text-muted-foreground hover:text-foreground"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">点击右侧加号选择成员</span>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 p-0 flex-shrink-0 text-primary hover:text-white hover:bg-primary"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setIsCollegeMemberSelectorOpen(true)
+                      }}
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -606,13 +920,53 @@ export function TeachingTaskFormPage({ task, onBack, onSubmit, onAutoSave, isLoa
               ...formData,
               publishNodes,
             })
+            // 清除发布范围的错误状态
+            if (formErrors.publishNodes && publishNodes.length > 0) {
+              setFormErrors((prev) => ({ ...prev, publishNodes: false }))
+            }
           }}
           mode="multiple"
           title="选择发布范围"
           description="请选择需要接收任务的组织节点"
           initialSelectedIds={(formData.publishNodes || []).map((node) => String(node.nodeId))}
           rootType="university"
-          rootId={String(formData.universityId || task.universityId)}
+          rootId={String(formData.universityId || initialTask.universityId)}
+        />
+
+        <MemberSelector
+          open={isMemberSelectorOpen}
+          onOpenChange={setIsMemberSelectorOpen}
+          mode="multiple"
+          nodeType="university"
+          departmentId={String(formData.universityId || initialTask.universityId)}
+          title="选择专业评委成员"
+          description="请选择指定的专业评委成员"
+          initialSelectedMembers={formData.juryMembers || []}
+          onConfirm={(selected) => {
+            const members = Array.isArray(selected) ? selected : [selected]
+            setFormData({
+              ...formData,
+              juryMembers: members,
+            })
+          }}
+        />
+
+        <MemberSelector
+          open={isCollegeMemberSelectorOpen}
+          onOpenChange={setIsCollegeMemberSelectorOpen}
+          mode="multiple"
+          nodeType="university"
+          departmentId={String(formData.universityId || initialTask.universityId)}
+          title="选择院校评委成员"
+          description="请选择指定的院校评委成员"
+          initialSelectedMembers={formData.collegeJuryMembers || []}
+          onConfirm={(selected) => {
+            const members = Array.isArray(selected) ? selected : [selected]
+            setFormData({
+              ...formData,
+              collegeJuryMembers: members,
+            })
+          }}
         />
 
         {/* Evaluation Standards Section */}

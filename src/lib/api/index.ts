@@ -20,7 +20,7 @@ import {
 import { ConfigApi, type ThemeConfig } from "./config-api"
 import { PreferenceApi, type UserPreference } from "./preference-api"
 import { TeachingTaskApi } from "./teaching-task-api"
-import { CourseDetailApi, type CombinedCourseDetail, type MajorDetailData } from "./course-detail-api"
+import { CourseDetailApi, type CombinedCourseDetail, type MajorDetailData, type SaveCourseUnitRequest } from "./course-detail-api"
 import { OccupationApi, type OccupationBookData } from "./occupation-api"
 import { CourseGoalsApi, type CourseGoal } from "./course-goals-api"
 import { CoursePointsApi, type CoursePoint } from "./course-points-api"
@@ -87,6 +87,7 @@ export type {
   UserPreference,
   CombinedCourseDetail,
   MajorDetailData,
+  SaveCourseUnitRequest,
   OccupationBookData,
   CoursePoint,
   ProjectTeachGoalData,

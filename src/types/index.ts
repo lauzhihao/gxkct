@@ -42,7 +42,8 @@ export interface TaskMember {
 
 export interface TeachingSupervisoryTask {
   id?: Long
-  universityId: Long
+  taskId?: Long // 专业任务统计接口返回的任务ID
+  universityId?: Long
   title: string // 任务标题
   description?: string // 任务说明
   startDate: string // 开始日期
@@ -54,6 +55,11 @@ export interface TeachingSupervisoryTask {
   updatedAt?: string
   archived?: boolean
   publishNodes?: PublishNode[] // 发布范围：选定的组织节点
+  teacherSelfEvaluation?: boolean // 教师自评：true=需要，false=不需要
+  juryType?: "major_admin" | "designated_member" // 专业评委类型：专业管理员/指定成员
+  juryMembers?: TaskMember[] // 指定成员列表（当 juryType 为 designated_member 时使用）
+  collegeJuryType?: "college_admin" | "designated_member" // 院校评委类型：院校管理员/指定成员
+  collegeJuryMembers?: TaskMember[] // 院校指定成员列表
   evaluationCriteria?: TaskEvaluationCriteria // 评价标准，任务接口可直接承载
   // 课程维度扩展信息（课程详情-教学督导使用）
   courseId?: Long
@@ -75,6 +81,13 @@ export interface TeachingSupervisoryTask {
   selfSubmittedAt?: string | null
   deptSubmittedAt?: string | null
   schoolSubmittedAt?: string | null
+  // 专业任务统计接口返回的字段
+  courseCount?: number // 课程总数
+  majorCount?: number // 专业总数（院系级别）
+  avgDeptScore?: number | null // 平均分
+  completedCount?: number // 已完成数
+  inProgressCount?: number // 进行中数
+  notStartedCount?: number // 未开始数
 }
 
 export interface PublishNode {

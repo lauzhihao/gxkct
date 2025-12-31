@@ -30,9 +30,10 @@ interface MajorCoursesProps {
   onAddCourse: () => void
   majorCourses?: Map<string, TreeNode[]>
   departmentId?: string
+  refreshKey?: number
 }
 
-export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, majorCourses, departmentId }: MajorCoursesProps) {
+export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, majorCourses, departmentId, refreshKey }: MajorCoursesProps) {
   const [courseSearchTerm, setCourseSearchTerm] = useState("")
   const { showMyCourses, setShowMyCourses } = useMajorCoursePreferences()
 
@@ -91,7 +92,7 @@ export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, maj
     }
 
     fetchCourses()
-  }, [node?.id])
+  }, [node?.id, refreshKey])
 
   // 获取课程ID
   const getCourseId = (course: any) => course.self?.value || course.id || ''
@@ -184,7 +185,7 @@ export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, maj
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-4 mb-[20px]">
           {filteredCourses.map((course: any) => (
             <button
               key={getCourseId(course)}

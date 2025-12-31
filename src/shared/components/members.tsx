@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
@@ -126,6 +126,7 @@ export function Members({ node }: MembersProps) {
   const [userSearchQuery, setUserSearchQuery] = useState("")
   const [users, setUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>("全部")
 
   useEffect(() => {
     if (!node) return
@@ -133,7 +134,10 @@ export function Members({ node }: MembersProps) {
     const loadUsers = async () => {
       setIsLoading(true)
       try {
-        if (node.type === "department") {
+        if (node.type === "university") {
+          const response = await api.tree.getUniversityUsers(node.id)
+          setUsers(response.data ?? [])
+        } else if (node.type === "department") {
           const response = await api.tree.getDepartmentUsers(node.id)
           setUsers(response.data ?? [])
         } else {
@@ -233,11 +237,26 @@ export function Members({ node }: MembersProps) {
     console.log("Password reset for user:", userId)
   }
 
-  const filteredUsers = users.filter(
-    (user) =>
+  // 从用户数据中提取唯一的角色列表
+  const uniqueRoles = useMemo(() => {
+    const roles = new Set(users.map((user) => user.auth))
+    return ["全部", ...Array.from(roles)]
+  }, [users])
+
+  // 当用户数据变化时，如果当前选中的角色不在列表中，重置为"全部"
+  useEffect(() => {
+    if (selectedRoleFilter !== "全部" && !uniqueRoles.includes(selectedRoleFilter)) {
+      setSelectedRoleFilter("全部")
+    }
+  }, [uniqueRoles, selectedRoleFilter])
+
+  const filteredUsers = users.filter((user) => {
+    const matchesSearch =
       user.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-      user.account.toLowerCase().includes(userSearchQuery.toLowerCase()),
-  )
+      user.account.toLowerCase().includes(userSearchQuery.toLowerCase())
+    const matchesRole = selectedRoleFilter === "全部" || user.auth === selectedRoleFilter
+    return matchesSearch && matchesRole
+  })
 
   // 分页相关状态
   const [currentPage, setCurrentPage] = useState(1)
@@ -318,17 +337,43 @@ export function Members({ node }: MembersProps) {
 
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-4">
-          <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="搜索姓名或账号..."
-              value={userSearchQuery}
-              onChange={(e) => {
-                setUserSearchQuery(e.target.value)
-                setCurrentPage(1)
-              }}
-              className="pl-9"
-            />
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="relative w-64 flex-shrink-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="搜索姓名或账号..."
+                value={userSearchQuery}
+                onChange={(e) => {
+                  setUserSearchQuery(e.target.value)
+                  setCurrentPage(1)
+                }}
+                className="pl-9"
+              />
+            </div>
+            {/* 角色快速筛选按钮组 */}
+            {node.type === "university" && uniqueRoles.length > 1 && (
+              <div className="flex items-center gap-1 flex-wrap">
+                {uniqueRoles.map((role) => (
+                  <Button
+                    key={role}
+                    size="sm"
+                    variant={selectedRoleFilter === role ? "default" : "outline"}
+                    onClick={() => {
+                      setSelectedRoleFilter(role)
+                      setCurrentPage(1)
+                    }}
+                    className={cn(
+                      "h-8 px-3 text-xs",
+                      selectedRoleFilter === role
+                        ? "bg-primary text-primary-foreground"
+                        : "hover:bg-primary hover:text-primary-foreground"
+                    )}
+                  >
+                    {role}
+                  </Button>
+                ))}
+              </div>
+            )}
           </div>
           <Button
             size="sm"
@@ -395,8 +440,17 @@ export function Members({ node }: MembersProps) {
             // 根据节点类型和角色显示对应的机构归属标签
             let affiliationTag = null
 
-            if (node.type === "university" || node.type === "department") {
-              // 学校级和院系级：不显示机构归属
+            if (node.type === "university") {
+              // 学校级：显示所属单位（使用与角色标签相同的样式）
+              if (user.belong) {
+                affiliationTag = (
+                  <span className="px-2 py-1 rounded bg-primary/20 border border-primary/30 text-xs font-medium text-primary whitespace-nowrap">
+                    {user.belong}
+                  </span>
+                )
+              }
+            } else if (node.type === "department") {
+              // 院系级：不显示机构归属
               affiliationTag = null
             } else {
               // 其他级别：根据角色显示机构归属
@@ -534,10 +588,6 @@ export function Members({ node }: MembersProps) {
             })
           )}
         </div>
-
-        {!isLoading && filteredUsers.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground">没有找到匹配的用户</div>
-        )}
 
         {/* 分页控件 */}
         {totalPages > 1 && (
