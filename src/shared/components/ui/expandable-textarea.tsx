@@ -1,13 +1,12 @@
 import * as React from 'react'
 import { cn } from '@/shared/utils/utils'
-import { Input } from './input'
 
 interface ExpandableTextareaProps {
   value: string
   onChange: (value: string) => void
   onBlur?: () => void
   onFocus?: () => void
-  onKeyDown?: (event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void
+  onKeyDown?: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void
   placeholder?: string
   maxLength?: number
   rows?: number
@@ -19,7 +18,7 @@ interface ExpandableTextareaProps {
 }
 
 export const ExpandableTextarea = React.forwardRef<
-  HTMLInputElement | HTMLTextAreaElement,
+  HTMLTextAreaElement,
   ExpandableTextareaProps
 >(
   (
@@ -62,56 +61,43 @@ export const ExpandableTextarea = React.forwardRef<
       }, 150)
     }
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newValue = e.target.value.slice(0, maxLength)
       onChange(newValue)
     }
 
-    const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
       onKeyDown?.(event)
     }
 
-    if (isExpanded) {
-      return (
-        <div className="relative w-full flex-1 min-w-0">
-          <textarea
-            ref={ref as React.Ref<HTMLTextAreaElement>}
-            placeholder={placeholder}
-            value={value}
-            onChange={handleChange}
-            onBlur={handleBlur}
-            onFocus={handleFocus}
-            onKeyDown={handleKeyDown}
-            maxLength={maxLength}
-            className={cn(
-              'w-full px-3 py-2 pb-8 border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[var(--naive-primary-light)] focus:animate-shadow-flash resize-none',
-              className,
-            )}
-            rows={rows}
-            autoFocus
-          />
-          {!hideCounter && (
-            <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
-              {value.length}/{maxLength}
-            </div>
-          )}
-        </div>
-      )
-    }
+    // 计算高度：收起时约40px（单行），展开时根据rows计算
+    const collapsedHeight = '40px'
+    const expandedHeight = `${rows * 24 + 32}px` // 每行约24px + padding
 
     return (
       <div className="relative w-full flex-1 min-w-0">
-        <Input
-          ref={ref as React.Ref<HTMLInputElement>}
+        <textarea
+          ref={ref}
           placeholder={placeholder}
           value={value}
           onChange={handleChange}
+          onBlur={handleBlur}
           onFocus={handleFocus}
           onKeyDown={handleKeyDown}
-          className={cn('cursor-text', className, 'pr-16')}
+          maxLength={maxLength}
+          className={cn(
+            'w-full px-3 py-2 border rounded-md bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[var(--naive-primary-light)] focus:animate-shadow-flash resize-none overflow-hidden transition-[height] duration-200 ease-in-out',
+            className,
+            isExpanded ? 'pb-8' : 'leading-6',
+          )}
+          style={{
+            height: isExpanded ? expandedHeight : collapsedHeight,
+          }}
+          rows={1}
+          autoFocus={autoFocus}
         />
-        {!hideCounter && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+        {!hideCounter && isExpanded && (
+          <div className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none">
             {value.length}/{maxLength}
           </div>
         )}

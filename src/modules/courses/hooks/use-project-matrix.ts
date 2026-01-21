@@ -59,7 +59,7 @@ export interface UseProjectMatrixResult {
   updateKsaSupport: (chapterId: string, coursePointId: string, taskId: string, ksaId: number, support: "strong" | "weak" | null) => void
 }
 
-export function useProjectMatrix(node: TreeNode): UseProjectMatrixResult {
+export function useProjectMatrix(node: TreeNode, majorId?: string | number): UseProjectMatrixResult {
   const [projectMatrixData, setProjectMatrixData] = useState<ProjectMatrixData | null>(null)
   const [chapterTaskObjectives, setChapterTaskObjectives] = useState<Record<string, any[]>>({})
   const [ksaData, setKsaData] = useState<Record<string, Record<string, "strong" | "weak">>>({})
@@ -73,13 +73,15 @@ export function useProjectMatrix(node: TreeNode): UseProjectMatrixResult {
   // 防止在StrictMode下重复调用API
   const hasLoadedRef = useRef(false)
   const prevNodeIdRef = useRef<string | null>(null)
+  const prevMajorIdRef = useRef<string | number | null>(null)
 
   // 加载数据
   useEffect(() => {
-    // 当node改变时，重置ref
-    if (prevNodeIdRef.current !== node.id) {
+    // 当node或majorId改变时，重置ref
+    if (prevNodeIdRef.current !== node.id || prevMajorIdRef.current !== majorId) {
       hasLoadedRef.current = false
       prevNodeIdRef.current = node.id
+      prevMajorIdRef.current = majorId ?? null
     }
 
     // 防止在StrictMode下重复调用
@@ -89,7 +91,7 @@ export function useProjectMatrix(node: TreeNode): UseProjectMatrixResult {
     hasLoadedRef.current = true
 
     loadProjectMatrixData()
-  }, [node.id])
+  }, [node.id, majorId])
 
   // 加载项目矩阵数据和KSA列表
   const loadProjectMatrixData = async () => {
@@ -104,8 +106,8 @@ export function useProjectMatrix(node: TreeNode): UseProjectMatrixResult {
         return
       }
 
-      // majorId 暂不可用，KSA列表相关功能可能需要后续调整
-      const majorIdValue: string | undefined = undefined
+      // 使用传入的 majorId
+      const majorIdValue = majorId ? String(majorId) : undefined
 
       // 获取项目矩阵数据（包含项目章节列表）
       const projectMatrixResponse = await projectMatrixApi.getProjectMatrixData(String(courseIdValue))

@@ -865,7 +865,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
 
       <Card className="p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <UnderlineTabsList className="grid grid-cols-4">
+          <UnderlineTabsList className="grid grid-cols-3">
             <UnderlineTabsTrigger value="basic">
               基本信息
             </UnderlineTabsTrigger>
@@ -874,9 +874,6 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
             </UnderlineTabsTrigger>
             <UnderlineTabsTrigger value="assessment">
               考核评价
-            </UnderlineTabsTrigger>
-            <UnderlineTabsTrigger value="chapters">
-              章节与项目
             </UnderlineTabsTrigger>
           </UnderlineTabsList>
 
@@ -1010,8 +1007,42 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
                   />
                 </div>
 
+                {/* 主要教材和参考文献放在一行 */}
+                <div className="space-y-2">
+                  <Label htmlFor="main-textbook">课程使用的主要教材</Label>
+                  <ExpandableTextarea
+                    value={mainTextbook}
+                    onChange={setMainTextbook}
+                    placeholder=""
+                    maxLength={500}
+                    rows={4}
+                  />
+                </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="reference-resources">建议阅读材料和参考文献</Label>
+                  <ExpandableTextarea
+                    value={referenceResources}
+                    onChange={setReferenceResources}
+                    placeholder=""
+                    maxLength={1000}
+                    rows={4}
+                  />
+                </div>
 
+                {/* 课程介绍 */}
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="introduction">课程介绍</Label>
+                  <ExpandableTextarea
+                    value={introduction}
+                    onChange={setIntroduction}
+                    placeholder="输入课程介绍"
+                    maxLength={1024}
+                    rows={10}
+                  />
+                </div>
+
+                {/* 授课班级、授课地点、学生人数、学分 */}
                 <div className="space-y-2 relative">
                   <Label htmlFor="teaching-class">授课班级</Label>
                   <div className="relative">
@@ -1069,41 +1100,6 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
                   />
                 </div>
 
-                {/* 主要教材和参考文献放在一行 */}
-                <div className="space-y-2">
-                  <Label htmlFor="main-textbook">课程使用的主要教材</Label>
-                  <ExpandableTextarea
-                    value={mainTextbook}
-                    onChange={setMainTextbook}
-                    placeholder=""
-                    maxLength={500}
-                    rows={4}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="reference-resources">建议阅读材料和参考文献</Label>
-                  <ExpandableTextarea
-                    value={referenceResources}
-                    onChange={setReferenceResources}
-                    placeholder=""
-                    maxLength={1000}
-                    rows={4}
-                  />
-                </div>
-
-                {/* 课程介绍和课程表放在最后一行 */}
-                <div className="space-y-2 col-span-2">
-                  <Label htmlFor="introduction">课程介绍</Label>
-                  <ExpandableTextarea
-                    value={introduction}
-                    onChange={setIntroduction}
-                    placeholder="输入课程介绍"
-                    maxLength={1024}
-                    rows={10}
-                  />
-                </div>
-
                 {/* 授课时间课程表 */}
                 <div className="space-y-2 col-span-2">
                   <Label>授课时间</Label>
@@ -1149,7 +1145,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
                                     value={row.period}
                                     onChange={(e) => updateScheduleRow(rowIndex, "period", e.target.value)}
                                     onBlur={() => setScheduleFieldsExpanded({ ...scheduleFieldsExpanded, [`${rowIndex}-period`]: false })}
-                                    className="w-full px-1 py-0.5 text-xs border border-input rounded bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                                    className="w-full px-1 py-0.5 text-xs border border-input rounded-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
                                     rows={3}
                                     autoFocus
                                   />
@@ -1159,7 +1155,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
                                     value={row.period}
                                     onFocus={() => setScheduleFieldsExpanded({ ...scheduleFieldsExpanded, [`${rowIndex}-period`]: true })}
                                     readOnly
-                                    className="cursor-text text-xs h-6 p-0.5 text-center"
+                                    className="cursor-text text-xs h-6 p-0.5 text-center rounded-sm"
                                   />
                                 )}
                               </TableCell>
@@ -1172,7 +1168,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
                                     value={row.sessions}
                                     onChange={(e) => updateScheduleRow(rowIndex, "sessions", e.target.value)}
                                     onBlur={() => setScheduleFieldsExpanded({ ...scheduleFieldsExpanded, [`${rowIndex}-sessions`]: false })}
-                                    className="w-full px-1 py-0.5 text-xs border border-input rounded bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                                    className="w-full px-1 py-0.5 text-xs border border-input rounded-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
                                     rows={3}
                                     autoFocus
                                   />
@@ -1182,7 +1178,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
                                     value={row.sessions}
                                     onFocus={() => setScheduleFieldsExpanded({ ...scheduleFieldsExpanded, [`${rowIndex}-sessions`]: true })}
                                     readOnly
-                                    className="cursor-text text-xs h-6 p-0.5 text-center"
+                                    className="cursor-text text-xs h-6 p-0.5 text-center rounded-sm"
                                   />
                                 )}
                               </TableCell>
@@ -1196,7 +1192,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
                                       value={row[day as keyof typeof row]}
                                       onChange={(e) => updateScheduleRow(rowIndex, day, e.target.value)}
                                       onBlur={() => setScheduleFieldsExpanded({ ...scheduleFieldsExpanded, [`${rowIndex}-${day}`]: false })}
-                                      className="w-full px-1 py-0.5 text-xs border border-input rounded bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                                      className="w-full px-1 py-0.5 text-xs border border-input rounded-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
                                       rows={3}
                                       autoFocus
                                     />
@@ -1206,7 +1202,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
                                       value={row[day as keyof typeof row]}
                                       onFocus={() => setScheduleFieldsExpanded({ ...scheduleFieldsExpanded, [`${rowIndex}-${day}`]: true })}
                                       readOnly
-                                      className="cursor-text text-xs h-6 p-0.5 text-center"
+                                      className="cursor-text text-xs h-6 p-0.5 text-center rounded-sm"
                                     />
                                   )}
                                 </TableCell>
@@ -1540,108 +1536,6 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
             </div>
           </TabsContent>
 
-          <TabsContent value="chapters" className="space-y-6 mt-6">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-sm bg-[var(--naive-primary)]" />
-                  <h3 className="text-base font-semibold text-foreground">章节项目管理</h3>
-                </div>
-                <Button size="sm" variant="outline" onClick={addChapter} className="gap-2 bg-transparent">
-                  <Plus className="w-4 h-4" />
-                  添加章节/项目
-                </Button>
-              </div>
-              <div className="border-t border-dashed border-border" />
-
-              <div className="rounded-lg border border-border overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-secondary/50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground border-r border-border">
-                        序号
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground border-r border-border">
-                        名称
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground border-r border-border">
-                        理论学时
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground border-r border-border">
-                        实践学时
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {chapters.map((chapter, index) => (
-                      <tr key={chapter.id} className="border-t border-border hover:bg-secondary/30">
-                        <td className="px-4 py-3 text-sm text-foreground border-r border-border">{index + 1}</td>
-                        <td className="px-4 py-3 border-r border-border">
-                          <Input
-                            placeholder="例如：第一章 数据结构基础"
-                            value={chapter.name}
-                            onChange={(e) => updateChapter(chapter.id, "name", e.target.value)}
-                            className="h-9"
-                          />
-                        </td>
-                        <td className="px-4 py-3 border-r border-border">
-                          <Input
-                            type="number"
-                            min="0"
-                            value={chapter.theoryHours}
-                            onChange={(e) =>
-                              updateChapter(chapter.id, "theoryHours", Number.parseInt(e.target.value) || 0)
-                            }
-                            className="h-9"
-                          />
-                        </td>
-                        <td className="px-4 py-3 border-r border-border">
-                          <Input
-                            type="number"
-                            min="0"
-                            value={chapter.practiceHours}
-                            onChange={(e) =>
-                              updateChapter(chapter.id, "practiceHours", Number.parseInt(e.target.value) || 0)
-                            }
-                            className="h-9"
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          {chapters.length > 1 && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => removeChapter(chapter.id)}
-                              className="gap-2 text-red-500 hover:text-red-600 hover:bg-red-50"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                              删除
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                    <tr className="border-t-2 border-primary/30 bg-primary/5">
-                      <td
-                        colSpan={2}
-                        className="px-4 py-3 text-sm font-semibold text-foreground border-r border-border"
-                      >
-                        统计：{chapterCount} 个章节，{projectCount} 个项目
-                      </td>
-                      <td className="px-4 py-3 text-sm font-semibold text-foreground border-r border-border">
-                        {totalTheoryHours} 学时
-                      </td>
-                      <td className="px-4 py-3 text-sm font-semibold text-foreground border-r border-border">
-                        {totalPracticeHours} 学时
-                      </td>
-                      <td className="px-4 py-3 text-sm font-semibold text-foreground">合计：{totalHours} 学时</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </TabsContent>
         </Tabs>
       </Card>
 

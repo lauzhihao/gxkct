@@ -8,6 +8,7 @@ import type { TreeNode } from "@/types"
 export interface CourseProjectMatrixProps {
   node: TreeNode
   onUpdate: (updates: Record<string, any>) => void
+  majorId?: string | number
 }
 
 // 其他组件Props可在此添加

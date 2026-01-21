@@ -157,6 +157,8 @@ interface HeaderProps {
   isTreeCollapsed?: boolean
   currentPath?: string
   selectedNodeName?: string | null
+  /** 树形结构数据（用于AI助手保存向导选择专业） */
+  treeData?: import("@/types").TreeNode | null
 }
 
 interface Notification {
@@ -199,7 +201,7 @@ const mockNotifications: Notification[] = [
   },
 ]
 
-export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNodeName }: HeaderProps) {
+export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNodeName, treeData }: HeaderProps) {
   const router = useRouter()
   const [courseDevDrawerOpen, setCourseDevDrawerOpen] = useState(false)
   const [currentTheme, setCurrentTheme] = useState<keyof typeof COLOR_THEMES>("vercelBlue")
@@ -428,6 +430,7 @@ export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNode
         open={courseDevDrawerOpen}
         onOpenChange={setCourseDevDrawerOpen}
         userName={userName}
+        treeData={treeData}
       />
     </header>
   )

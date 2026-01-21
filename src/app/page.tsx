@@ -238,6 +238,7 @@ export default function Page() {
           isTreeCollapsed={isTreeCollapsed}
           currentPath={pathname ?? undefined}
           selectedNodeName={selectedNode?.nodeName}
+          treeData={treeDataHook.treeData}
         />
 
         <div className="flex gap-3 relative w-full flex-1 min-h-0">

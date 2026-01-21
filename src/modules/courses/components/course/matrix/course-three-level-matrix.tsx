@@ -83,7 +83,7 @@ export function CourseThreeLevelMatrix({ node, onUpdateNode, treeData, majorId, 
         </TabsContent>
 
         <TabsContent value="projectMatrix" className="mt-2 pb-2.5">
-          <CourseProjectMatrix node={node} onUpdate={handleUpdateMetadata} />
+          <CourseProjectMatrix node={node} onUpdate={handleUpdateMetadata} majorId={majorId} />
         </TabsContent>
       </Tabs>
     </>

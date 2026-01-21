@@ -16,7 +16,7 @@ import { ProjectMatrixTable } from "./ProjectMatrixTable"
 import { TaskObjectivesDialog } from "../../../dialogs/task-objectives-dialog"
 import { KsaDialog } from "../../../dialogs/ksa-dialog"
 
-export function ProjectMatrixContainer({ node, onUpdate }: CourseProjectMatrixProps) {
+export function ProjectMatrixContainer({ node, onUpdate, majorId }: CourseProjectMatrixProps) {
   // 使用项目矩阵数据管理hook
   const {
     projectMatrixData,
@@ -33,8 +33,9 @@ export function ProjectMatrixContainer({ node, onUpdate }: CourseProjectMatrixPr
     setKsaListData,
     setIsEditingProjectMatrix,
     setIsSavingProjectMatrix,
+    loadProjectMatrixData,
     updateKsaSupport,
-  } = useProjectMatrix(node)
+  } = useProjectMatrix(node, majorId)
 
   // 使用任务目标管理hook
   const {
@@ -249,7 +250,7 @@ export function ProjectMatrixContainer({ node, onUpdate }: CourseProjectMatrixPr
         saveKsaSelection={saveKsaSelection}
         closeKsaDialog={closeKsaDialog}
         courseId={node.id}
-        majorId={undefined}
+        majorId={majorId}
       />
     </>
   )

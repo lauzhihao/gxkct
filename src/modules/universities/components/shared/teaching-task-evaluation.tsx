@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, Plus, Edit, Copy, Info, Archive, Play, Square, Search } from "lucide-react"
+import { ArrowLeft, Edit, Copy, Info, Archive, Play, Square, Search } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import {
   AlertDialog,
@@ -130,24 +130,6 @@ export function TeachingTaskEvaluation({ task: initialTask, onBack, onEdit, onCo
   const disableStop = !isInProgress || statusUpdating !== null
   const disableArchive = !canOperateWhenStopped || isArchiving
   const disableEdit = !canOperateWhenStopped
-
-  const getStatusLabel = (status: string) => {
-    const statusMap: Record<string, string> = {
-      not_started: "未开始",
-      in_progress: "进行中",
-      completed: "已结束",
-    }
-    return statusMap[status] || status
-  }
-
-  const getStatusColor = (status: string) => {
-    const colorMap: Record<string, string> = {
-      not_started: "bg-gray-100 text-gray-800 border-gray-300",
-      in_progress: "bg-blue-100 text-blue-800 border-blue-300",
-      completed: "bg-green-100 text-green-800 border-green-300",
-    }
-    return colorMap[status] || "bg-gray-100 text-gray-800 border-gray-300"
-  }
 
   // 系统指标标签映射
   const getSystemIndicatorLabel = (systemIndicator: string | undefined): string => {
