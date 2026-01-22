@@ -6,6 +6,7 @@ import type { Node } from "@xyflow/react"
 import { FlowNodeType } from "@/components/flow/utils/types"
 import { CanvasComponentType, type KsaItemData } from "@/components/canvas-elements/types"
 import type { HighlightState } from "./use-canvas-highlight"
+import type { FillProgress } from "@/types/ai-assistant"
 
 /**
  * FlowNodeType 到 CanvasComponentType 的映射（用于重做功能）
@@ -47,14 +48,8 @@ export interface UseProcessedNodesOptions {
   updatingPanelIds: Set<string>
   /** 是否正在重做 */
   isRegenerating: boolean
-  /** 课程矩阵填充进度信息 */
-  fillMatrixProgress?: string | null
-  /** 项目矩阵填充进度信息 */
-  fillProjectMatrixProgress?: string | null
-  /** 课点信息填充进度信息 */
-  fillCoursePointsProgress?: string | null
-  /** KSA填充进度信息 */
-  fillKsaProgress?: string | null
+  /** 填充进度信息（合并课程矩阵、项目矩阵、课点、KSA 四种进度） */
+  fillProgress?: FillProgress
   /** 节点删除回调 */
   onNodeDelete: (nodeId: string) => void
   /** 节点重做回调 */
@@ -128,10 +123,7 @@ export function useProcessedNodes({
   deletingNodeIds,
   updatingPanelIds,
   isRegenerating,
-  fillMatrixProgress,
-  fillProjectMatrixProgress,
-  fillCoursePointsProgress,
-  fillKsaProgress,
+  fillProgress = {},
   onNodeDelete,
   onNodeRegenerate,
   onCoursePointRowClick,
@@ -207,7 +199,7 @@ export function useProcessedNodes({
             onCoursePointClick: onCoursePointRowClick,
             onEdit: onProjectMatrixEdit,
             // 填充进度信息（仅在重做状态下显示）
-            progressMessage: isRegenerating ? fillProjectMatrixProgress : null,
+            progressMessage: isRegenerating ? fillProgress.projectMatrix : null,
             // 注入 KSA 卡片数据映射，用于通过 id 匹配获取完整 KSA 信息
             ksaItemsMap,
           },
@@ -235,7 +227,7 @@ export function useProcessedNodes({
             ...baseInjection,
             onEdit: onCourseMatrixEdit,
             // 填充进度信息（仅在重做状态下显示）
-            progressMessage: isRegenerating ? fillMatrixProgress : null,
+            progressMessage: isRegenerating ? fillProgress.matrix : null,
           },
         }
       }
@@ -265,12 +257,12 @@ export function useProcessedNodes({
         if (node.type === FlowNodeType.COURSE_POINT_PANEL) {
           panelData.onEdit = onCoursePointPanelEdit
           // 课点面板填充进度信息（在生成过程中显示）
-          panelData.progressMessage = isRegenerating ? fillCoursePointsProgress : null
+          panelData.progressMessage = isRegenerating ? fillProgress.coursePoints : null
         }
         if (node.type === FlowNodeType.KSA_PANEL) {
           panelData.onEdit = onKsaPanelEdit
           // KSA面板填充进度信息（在生成过程中显示）
-          panelData.progressMessage = isRegenerating ? fillKsaProgress : null
+          panelData.progressMessage = isRegenerating ? fillProgress.ksa : null
         }
         if (node.type === FlowNodeType.CHAPTER_PANEL) {
           panelData.onEdit = onChapterPanelEdit
@@ -315,10 +307,7 @@ export function useProcessedNodes({
     deletingNodeIds,
     updatingPanelIds,
     isRegenerating,
-    fillMatrixProgress,
-    fillProjectMatrixProgress,
-    fillCoursePointsProgress,
-    fillKsaProgress,
+    fillProgress,
     onNodeDelete,
     onNodeRegenerate,
     onCoursePointRowClick,

@@ -110,7 +110,7 @@ export const SourceDocumentNode = memo(function SourceDocumentNode({
       isDeleting={data.isDeleting}
       isRefreshing={data.isRefreshing}
       icon={<FileText className="h-4 w-4" />}
-      title={data.filename || "未命名文件"}
+      title="您输入的文件"
       headerColorClass="bg-orange-100"
       borderColorClass="border-orange-200"
       textColorClass="text-orange-700"
@@ -124,11 +124,9 @@ export const SourceDocumentNode = memo(function SourceDocumentNode({
       onRefresh={handleRefresh}
     >
       <div className="space-y-2 text-xs">
-        {/* 文件类型标签 */}
-        <div className="flex items-center gap-2">
-          <span className={`px-2 py-0.5 rounded border text-xs font-medium ${fileTypeColorClass}`}>
-            {fileTypeLabel}
-          </span>
+        {/* 文件名 */}
+        <div className="text-sm font-medium text-gray-800 truncate">
+          {data.filename || "未命名文件"}
         </div>
 
         {/* 创建时间 */}
@@ -146,6 +144,13 @@ export const SourceDocumentNode = memo(function SourceDocumentNode({
             <span>{data.createdBy}</span>
           </div>
         )}
+
+        {/* 文件类型标签 - 右下角 */}
+        <div className="flex justify-end">
+          <span className={`px-2 py-0.5 rounded border text-xs font-medium ${fileTypeColorClass}`}>
+            {fileTypeLabel}
+          </span>
+        </div>
       </div>
     </BaseFlowNode>
   )

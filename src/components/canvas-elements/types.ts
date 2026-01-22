@@ -123,6 +123,9 @@ export interface CourseInfoData {
       theoryHours?: number
       practiceHours?: number
     }>
+    // 已保存的课程信息（用于判断是新建还是更新）
+    courseId?: number           // 已保存的课程ID
+    majorId?: number            // 已保存的专业ID
   }
   children?: unknown[]
 }

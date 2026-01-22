@@ -308,11 +308,24 @@ export function useCanvasDrawers({
       if (!editDialog.nodeId) return
 
       const data = courseData as Record<string, unknown>
+      const newMetadata = data.metadata as CourseInfoData["metadata"]
+
+      // 从原有节点数据中获取 courseId 和 majorId（保存课程后写入的）
+      const originalNodeData = editDialog.nodeData as CourseInfoData | undefined
+      const originalCourseId = originalNodeData?.metadata?.courseId
+      const originalMajorId = originalNodeData?.metadata?.majorId
+
       // 将 AddCourseForm 的数据转换为 CourseInfoData 格式（匹配后端SSE格式）
+      // 同时保留原有的 courseId 和 majorId，避免编辑后丢失
       const courseInfoData: CourseInfoData = {
         name: (data.name as string) || "",
         type: "course",
-        metadata: data.metadata as CourseInfoData["metadata"],
+        metadata: {
+          ...newMetadata,
+          // 保留原有的课程ID和专业ID
+          courseId: originalCourseId,
+          majorId: originalMajorId,
+        },
         children: (data.children as CourseInfoData["children"]) || [],
       }
 
@@ -323,7 +336,7 @@ export function useCanvasDrawers({
         setEditDialog(prev => ({ ...prev, open: false }))
       }
     },
-    [onNodeDataUpdate, editDialog.nodeId]
+    [onNodeDataUpdate, editDialog.nodeId, editDialog.nodeData]
   )
 
   // 关闭编辑抽屉

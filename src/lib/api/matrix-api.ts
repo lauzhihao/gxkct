@@ -28,6 +28,24 @@ export interface CourseMatrixItem {
   practicePeriod?: string
 }
 
+// 课程矩阵章节项目信息
+export interface CourseMatrixProject {
+  id: number
+  uniqueCode?: string
+  courseUnitId: number
+  name: string
+  product?: string
+  theoryPeriod: string
+  practicePeriod: string
+  indexNo?: number | null
+}
+
+// 课程矩阵保存请求体（按章节组织）
+export interface CourseMatrixSavePayload {
+  project: CourseMatrixProject
+  data: CourseMatrixItem[]
+}
+
 // 课程矩阵API响应
 export interface CourseMatrixResponse {
   code: string
@@ -158,12 +176,12 @@ export class MatrixApi {
     }
   }
 
-  async updateCourseMatrix(courseId: string, matrix: CourseMatrixItem[]): Promise<ApiResponse<CourseMatrixItem[]>> {
+  async updateCourseMatrix(courseId: string, matrix: CourseMatrixSavePayload[]): Promise<ApiResponse<any>> {
     try {
-      const endpoint = `/api/matrix/coursematrix?courseId=${courseId}`
-      console.log("[updateCourseMatrix] 调用接口:", endpoint, "数据:", matrix)
+      const endpoint = `/api/matrix/updatecoursematrix`
+      console.log("[updateCourseMatrix] 调用接口:", endpoint, "courseId:", courseId, "章节数:", matrix.length)
 
-      const response = await this.http.put<CourseMatrixItem[]>(endpoint, matrix)
+      const response = await this.http.post<any>(endpoint, matrix)
 
       if (response.error) {
         console.error("[updateCourseMatrix] 接口调用失败:", response.error)
@@ -173,12 +191,10 @@ export class MatrixApi {
         }
       }
 
-      // response.data 已经是数组了（handleBackendResponse已经提取了后端响应中的data字段）
-      const updatedData = Array.isArray(response.data) ? response.data : matrix
-      console.log("[updateCourseMatrix] 接口调用成功，更新课程矩阵数据:", updatedData.length, "条")
+      console.log("[updateCourseMatrix] 接口调用成功")
 
       return {
-        data: updatedData,
+        data: response.data,
         error: null,
       }
     } catch (error) {

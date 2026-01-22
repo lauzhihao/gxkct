@@ -193,3 +193,9 @@ export const STORAGE_KEYS = {
   TREE_DATA: "education-tree-data",
   CURRENT_SCHOOL: "education-current-school",
 } as const
+
+// ============================================================================
+// AI 助手相关类型
+// ============================================================================
+
+export * from "./ai-assistant"

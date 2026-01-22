@@ -691,6 +691,7 @@ export function useCanvasElements() {
 
   // 删除元素及其右侧（下游）相连的节点
   // 只沿着 source → target 方向删除，不删除左侧（上游）节点
+  // 同时清理 specialComponents 中对应的数据
   const removeElementWithConnected = useCallback((id: string) => {
     // 先计算要删除的节点ID（使用当前 edges 状态）
     const connectedIds = new Set<string>([id])
@@ -715,11 +716,44 @@ export function useCanvasElements() {
       }
     }
 
+    // 收集要删除的元素信息，用于清理 specialComponents
+    // 包括元素类型和项目矩阵的 chapter_id（用于构建 specialComponents 的 key）
+    const elementsToRemove = elements.filter(el => idsToRemove.has(el.id))
+    const specialComponentKeysToRemove: string[] = []
+    for (const el of elementsToRemove) {
+      // 项目矩阵使用 "${component}_${chapter_id}" 作为 key
+      if (el.type === CanvasComponentType.PROJECT_MATRIX || el.type === CanvasComponentType.PROJECT_MATRIX_PANEL) {
+        const chapterId = (el.data as { chapter_id?: string }).chapter_id || 'default'
+        specialComponentKeysToRemove.push(`${el.type}_${chapterId}`)
+      } else {
+        // 其他组件直接使用类型作为 key
+        specialComponentKeysToRemove.push(el.type)
+      }
+      // 源文档卡片还需要清理 source_documents key
+      if (el.type === CanvasComponentType.SOURCE_DOCUMENT_CARD) {
+        specialComponentKeysToRemove.push('source_documents')
+      }
+    }
+
     // 批量更新状态
     setElements(prev => prev.filter(el => !idsToRemove.has(el.id)))
     setEdges(prev => prev.filter(edge =>
       !idsToRemove.has(edge.source) && !idsToRemove.has(edge.target)
     ))
+
+    // 清理 specialComponents 中对应的数据
+    if (specialComponentKeysToRemove.length > 0) {
+      setSpecialComponents(prev => {
+        const newState = { ...prev }
+        for (const key of specialComponentKeysToRemove) {
+          if (key in newState) {
+            delete newState[key]
+            console.log(`[Canvas] 已清理 specialComponents 中的数据: ${key}`)
+          }
+        }
+        return newState
+      })
+    }
 
     if (idsToRemove.has(selectedId || "")) {
       setSelectedId(null)

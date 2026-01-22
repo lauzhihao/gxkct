@@ -124,7 +124,7 @@ export function CanvasSourceDocumentEditor({
       // 更新文档的 ossKey 为新的上传路径，然后调用保存回调
       const updatedDocument: SourceDocumentCardData = {
         ...document,
-        ossKey: presignResponse.data.uploadPath,
+        ossKey: presignResponse.data.uploadPath || document.ossKey,
       }
       onSave(updatedDocument)
       toast.success("保存成功")

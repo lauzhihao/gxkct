@@ -15,8 +15,15 @@ export interface CanvasPresignRequest {
  */
 export interface CanvasPresignResponse {
   uploadUrl: string
-  uploadPath: string
+  /** OSS 文件路径（用于画布上传） */
+  uploadPath?: string
+  /** 上传请求头（用于画布上传） */
   uploadHeaders?: Record<string, string>
+  /** OSS 文件键名（用于文件上传） */
+  ossKey?: string
+  /** 上传请求头（用于文件上传） */
+  headers?: Record<string, string>
+  /** 签名过期时间（秒） */
   expiresIn?: number
 }
 

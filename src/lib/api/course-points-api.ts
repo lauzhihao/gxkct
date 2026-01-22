@@ -61,7 +61,58 @@ export class CoursePointsApi {
   }
 
   /**
-   * 创建课点
+   * 批量保存课点
+   * @param majorId 专业ID
+   * @param courseId 课程ID
+   * @param points 课点列表
+   */
+  async saveCoursePoints(
+    majorId: string,
+    courseId: string,
+    points: Array<{ id: number; title: string; description: string }>
+  ): Promise<ApiResponse<any>> {
+    try {
+      console.log(`[CoursePointsApi] 批量保存课点，majorId: ${majorId}, courseId: ${courseId}, 数量: ${points.length}`)
+
+      const response = await this.storage.postToApi<any>(
+        `/api/major/v2.0/savepoints`,
+        {
+          majorId,
+          courseId,
+          points,
+          upload: false,
+        }
+      )
+
+      if (response.error) {
+        console.error("[CoursePointsApi] 批量保存课点API失败:", response.error)
+        return {
+          data: null,
+          error: response.error || "批量保存课点失败",
+          status: response.status,
+        }
+      }
+
+      console.log("[CoursePointsApi] 课点批量保存成功", response.data)
+
+      return {
+        data: response.data,
+        error: null,
+        status: 200,
+      }
+    } catch (error) {
+      console.error("[CoursePointsApi] 批量保存课点异常:", error)
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "批量保存课点异常",
+        status: 500,
+      }
+    }
+  }
+
+  /**
+   * 创建课点（单个）
+   * @deprecated 请使用 saveCoursePoints 批量保存
    * @param data 课点数据
    */
   async createCoursePoint(

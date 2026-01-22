@@ -21,10 +21,12 @@ import { SearchableSelect } from "@/shared/components/ui/searchable-select"
 import { toast } from "sonner"
 import { cn } from "@/shared/utils/utils"
 import type { TreeNode } from "@/types"
-import type { CourseInfoData, CanvasElementData, ObjectiveCardData } from "./canvas-elements/types"
+import type { CourseInfoData, CanvasElementData, ObjectiveCardData, CoursePointCardData, ChapterCardData, CourseMatrixData } from "./canvas-elements/types"
 import { CanvasComponentType } from "./canvas-elements/types"
 import { CourseDetailApi, type SaveCourseUnitRequest } from "@/lib/api/course-detail-api"
-import { api } from "@/lib/api"
+import { api, type CourseGoal } from "@/lib/api"
+import { buildApiUrl } from "@/lib/api/config"
+import { getStoredAuthToken } from "@/lib/api/auth-config"
 
 /**
  * 支撑强度类型
@@ -49,6 +51,8 @@ export interface CanvasSaveWizardProps {
   treeData: TreeNode | null
   /** 保存成功回调 */
   onSaveSuccess?: (majorId: string, courseId: string) => void
+  /** 更新课程信息回调（用于保存后更新画布中的 courseId） */
+  onUpdateCourseInfo?: (updates: { courseId?: number; majorId?: number }) => void
 }
 
 /**
@@ -99,6 +103,7 @@ export function CanvasSaveWizard({
   canvasOssKey,
   treeData,
   onSaveSuccess,
+  onUpdateCourseInfo,
 }: CanvasSaveWizardProps) {
   // 选中的路径状态
   const [selectedPath, setSelectedPath] = useState<SelectedPath>({
@@ -134,9 +139,93 @@ export function CanvasSaveWizard({
       .sort((a, b) => a.index - b.index)
   }, [canvasElements])
 
-  // 对话框关闭时重置状态（包括下拉框选择状态）
+  // 从画布元素中获取课点列表
+  const coursePoints = useMemo(() => {
+    return canvasElements
+      .filter(el => el.type === CanvasComponentType.COURSE_POINT_CARD)
+      .map(el => el.data as CoursePointCardData)
+      .sort((a, b) => a.index - b.index)
+  }, [canvasElements])
+
+  // 从画布元素中获取章节列表
+  const chapters = useMemo(() => {
+    return canvasElements
+      .filter(el => el.type === CanvasComponentType.CHAPTER_CARD)
+      .map(el => el.data as ChapterCardData)
+      .sort((a, b) => a.index - b.index)
+  }, [canvasElements])
+
+  // 从画布元素中获取课程矩阵数据
+  const courseMatrixData = useMemo(() => {
+    const matrixElement = canvasElements.find(el => el.type === CanvasComponentType.COURSE_MATRIX)
+    return matrixElement?.data as CourseMatrixData | undefined
+  }, [canvasElements])
+
+  // 判断是否是更新模式（已有课程ID）
+  const isUpdateMode = Boolean(courseInfo?.metadata?.courseId)
+  const existingMajorId = courseInfo?.metadata?.majorId
+
+  // 根据 majorId 在树结构中反向查找学校/院系/专业路径
+  const findPathByMajorId = useCallback((majorId: number): SelectedPath | null => {
+    if (!treeData?.children || !majorId) return null
+
+    for (const university of treeData.children) {
+      if (university.nodeType !== "university" || !university.children) continue
+
+      for (const department of university.children) {
+        if (department.nodeType !== "department" || !department.children) continue
+
+        for (const major of department.children) {
+          if (major.nodeType !== "major") continue
+
+          // 从 nodeId 中提取数字ID进行比较
+          const majorNumericId = parseInt(extractNumericId(major.nodeId), 10)
+          if (majorNumericId === majorId) {
+            return {
+              universityId: university.nodeId,
+              universityName: university.nodeName,
+              departmentId: department.nodeId,
+              departmentName: department.nodeName,
+              majorId: major.nodeId,
+              majorName: major.nodeName,
+            }
+          }
+        }
+      }
+    }
+    return null
+  }, [treeData])
+
+  // 加载专业毕业要求（需要在 useEffect 之前定义）
+  const loadGraduationRequirements = useCallback(async (majorId: string) => {
+    setIsLoadingRequirements(true)
+    try {
+      const numericId = extractNumericId(majorId)
+      const response = await api.tree.getMajorDetail(numericId)
+
+      if (response.data?.requiresVOS && response.data.requiresVOS.length > 0) {
+        const requirements: GraduationRequirement[] = response.data.requiresVOS.map((req: any) => ({
+          id: String(req.id),
+          content: req.description || "",
+          indicators: req.children?.map((child: any) => child.description || "") || [],
+        }))
+        setGraduationRequirements(requirements)
+      } else {
+        setGraduationRequirements([])
+      }
+    } catch (error) {
+      console.error("[CanvasSaveWizard] 加载毕业要求失败:", error)
+      toast.error("加载毕业要求失败")
+      setGraduationRequirements([])
+    } finally {
+      setIsLoadingRequirements(false)
+    }
+  }, [])
+
+  // 对话框打开/关闭时的状态处理
   useEffect(() => {
     if (!open) {
+      // 关闭时重置状态
       setSaveSuccess(false)
       setGraduationRequirements([])
       setSupportMapping({})
@@ -151,8 +240,18 @@ export function CanvasSaveWizard({
         majorId: null,
         majorName: null,
       })
+    } else if (isUpdateMode && existingMajorId) {
+      // 更新模式：打开时根据 majorId 反向填充路径
+      const path = findPathByMajorId(existingMajorId)
+      if (path) {
+        setSelectedPath(path)
+        // 自动加载毕业要求
+        if (path.majorId) {
+          loadGraduationRequirements(path.majorId)
+        }
+      }
     }
-  }, [open])
+  }, [open, isUpdateMode, existingMajorId, findPathByMajorId, loadGraduationRequirements])
 
   // 检测毕业要求文本是否被截断
   useEffect(() => {
@@ -223,32 +322,6 @@ export function CanvasSaveWizard({
     }))
   }, [departments])
 
-  // 加载专业毕业要求
-  const loadGraduationRequirements = useCallback(async (majorId: string) => {
-    setIsLoadingRequirements(true)
-    try {
-      const numericId = extractNumericId(majorId)
-      const response = await api.tree.getMajorDetail(numericId)
-
-      if (response.data?.requiresVOS && response.data.requiresVOS.length > 0) {
-        const requirements: GraduationRequirement[] = response.data.requiresVOS.map((req: any) => ({
-          id: String(req.id),
-          content: req.description || "",
-          indicators: req.children?.map((child: any) => child.description || "") || [],
-        }))
-        setGraduationRequirements(requirements)
-      } else {
-        setGraduationRequirements([])
-      }
-    } catch (error) {
-      console.error("[CanvasSaveWizard] 加载毕业要求失败:", error)
-      toast.error("加载毕业要求失败")
-      setGraduationRequirements([])
-    } finally {
-      setIsLoadingRequirements(false)
-    }
-  }, [])
-
   // 处理专业选择变化 - 选择后自动加载毕业要求
   const handleMajorChange = useCallback((nodeId: string) => {
     const major = majors.find(m => m.nodeId === nodeId)
@@ -311,42 +384,64 @@ export function CanvasSaveWizard({
     setIsSaving(true)
 
     try {
-      // 构建保存请求数据
       const majorId = extractNumericId(selectedPath.majorId)
-
-      // 从courseInfo中提取课程数据
+      const majorIdNum = parseInt(majorId, 10)
       const metadata = courseInfo.metadata || {}
 
-      // 构建课程矩阵数据（教学目标与毕业要求指标点的关联，含支撑强度）
-      const courseMatrixVOS = objectives.map(obj => {
-        const indicatorSupports: Array<{ indicatorKey: string; supportStrength: SupportStrength }> = []
+      // 检查是否已有课程ID（更新模式）
+      const existingCourseId = metadata.courseId
+      const isUpdateMode = !!existingCourseId
 
-        // 遍历所有关联
-        Object.entries(supportMapping).forEach(([key, strength]) => {
-          if (key.startsWith(`${obj.id}-`)) {
-            // key 格式: objectiveId-reqId-indicatorIdx
-            const parts = key.split("-")
-            const reqId = parts[1]
-            const indicatorIdx = parts[2]
-            indicatorSupports.push({
-              indicatorKey: `${reqId}-${indicatorIdx}`,
-              supportStrength: strength,
-            })
-          }
+      let courseId: number
+
+      if (isUpdateMode) {
+        // 更新模式：使用已有的课程ID
+        courseId = existingCourseId
+        console.log("[CanvasSaveWizard] 更新模式, 使用已有courseId:", courseId)
+      } else {
+        // 创建模式：调用快速开课接口创建课程基础记录
+        const createCourseUrl = buildApiUrl("/api/v5/tree/course")
+        const headers: Record<string, string> = {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+        }
+        const authToken = getStoredAuthToken()
+        if (authToken) {
+          headers["authToken"] = authToken
+        }
+
+        const createResponse = await fetch(createCourseUrl, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            majorId: majorIdNum,
+            name: courseInfo.name?.trim() || "未命名课程",
+          }),
         })
 
-        return {
-          teachingObjectiveId: obj.id,
-          teachingObjectiveContent: obj.content,
-          teachingObjectiveIndex: obj.index,
-          indicatorSupports,
+        const createResult = await createResponse.json()
+        if (createResult.code !== "0" && createResult.code !== 0) {
+          throw new Error(createResult.msg || "创建课程失败")
         }
-      })
 
+        // 获取返回的课程ID
+        courseId = createResult.data?.id || createResult.data?.courseId
+        if (!courseId) {
+          throw new Error("创建课程成功但未返回课程ID")
+        }
+
+        console.log("[CanvasSaveWizard] 课程基础记录创建成功, courseId:", courseId)
+
+        // 更新画布中的课程ID
+        onUpdateCourseInfo?.({ courseId, majorId: majorIdNum })
+      }
+
+      // 2. 构建保存请求数据
+      // 注意：courseMatrixVOS 传空数组，课程矩阵数据通过步骤5的 api.matrix.updateCourseMatrix 保存
       const saveRequest: SaveCourseUnitRequest = {
         course: {
-          id: 0, // 新建课程，ID为0
-          majorId: parseInt(majorId, 10),
+          id: courseId,
+          majorId: majorIdNum,
           classId: 0, // 默认班级ID
           typeId: metadata.courseNatureId || 1, // 课程性质ID
           name: courseInfo.name || "未命名课程",
@@ -354,7 +449,7 @@ export function CanvasSaveWizard({
           criterion: null,
           theoryPeriod: metadata.theoryPeriod || 0,
           practicePeriod: metadata.practicePeriod || 0,
-          courseMatrixVOS,
+          courseMatrixVOS: [],
           position: null,
           // 扩展字段
           teachingClass: metadata.teachingClass,
@@ -387,13 +482,150 @@ export function CanvasSaveWizard({
         throw new Error(response.error)
       }
 
+      // 3. 保存教学目标数据
+      if (objectives.length > 0) {
+        const courseGoals: CourseGoal[] = objectives.map((obj) => ({
+          id: Date.now() + Math.random(), // 使用临时ID，与系统已有组件保持一致
+          description: obj.content,
+          children: null,
+        }))
+
+        try {
+          await api.courseGoals.updateCourseGoals(
+            String(courseId),
+            majorId,
+            courseGoals
+          )
+          console.log("[CanvasSaveWizard] 教学目标保存成功")
+        } catch (goalError) {
+          // 教学目标保存失败不阻断主流程，仅记录日志
+          console.error("[CanvasSaveWizard] 教学目标保存失败:", goalError)
+        }
+      }
+
+      // 4. 保存课点数据
+      if (coursePoints.length > 0) {
+        try {
+          // 构建课点数据列表
+          const points = coursePoints.map(point => ({
+            id: 0, // 新建课点id为0
+            title: point.name,
+            description: point.description || "",
+          }))
+
+          await api.coursePoints.saveCoursePoints(majorId, String(courseId), points)
+          console.log("[CanvasSaveWizard] 课点保存成功, 数量:", points.length)
+        } catch (pointError) {
+          // 课点保存失败不阻断主流程，仅记录日志
+          console.error("[CanvasSaveWizard] 课点保存失败:", pointError)
+        }
+      }
+
+      // 5. 保存课程矩阵数据（从画布 COURSE_MATRIX 组件获取完整数据）
+      if (courseMatrixData && courseMatrixData.rows && courseMatrixData.rows.length > 0) {
+        try {
+          // 构建后端需要的课程矩阵数据结构
+          const courseMatrixPayload = courseMatrixData.rows.map((row) => {
+            // 查找对应的章节卡片获取学时信息
+            const chapterCard = chapters.find(ch => ch.id === row.chapter_id)
+
+            // 构建 project 信息
+            const project = {
+              id: parseInt(row.chapter_id, 10) || 0,
+              uniqueCode: "",
+              courseUnitId: courseId,
+              name: row.chapter_name,
+              product: "",
+              theoryPeriod: chapterCard?.theory_hours?.toString() || "0",
+              practicePeriod: chapterCard?.practice_hours?.toString() || "0",
+              indexNo: row.chapter_index,
+            }
+
+            // 构建 data 数组：遍历支撑关系，展开为课点-毕业要求指标点的组合
+            const data: Array<{
+              id: number
+              courseUnitId: number
+              projectId: number
+              graduateRequireId: number
+              point: { id: number; title: string; description: string }
+              relate: { name: string; code: string; relate: number }
+              study: string
+              teach: string
+              product: string
+              week: string
+              period: string
+            }> = []
+
+            row.supports.forEach((support) => {
+              support.course_points.forEach((cp) => {
+                data.push({
+                  id: 0, // 新建时id为0
+                  courseUnitId: courseId,
+                  projectId: parseInt(row.chapter_id, 10) || 0,
+                  graduateRequireId: parseInt(support.objective_id, 10) || 0,
+                  point: {
+                    id: parseInt(cp.id, 10) || 0,
+                    title: cp.name,
+                    description: cp.description || "",
+                  },
+                  relate: {
+                    name: cp.level === "strong" ? "强支撑" : "弱支撑",
+                    code: cp.level === "strong" ? "primary" : "success",
+                    relate: cp.level === "strong" ? 0 : 1,
+                  },
+                  study: "",
+                  teach: "",
+                  product: "",
+                  week: "0",
+                  period: "0",
+                })
+              })
+            })
+
+            return { project, data }
+          })
+
+          await api.matrices.updateCourseMatrix(String(courseId), courseMatrixPayload as any)
+          console.log("[CanvasSaveWizard] 课程矩阵保存成功, 章节数量:", courseMatrixPayload.length)
+        } catch (matrixError) {
+          // 矩阵保存失败不阻断主流程，仅记录日志
+          console.error("[CanvasSaveWizard] 课程矩阵保存失败:", matrixError)
+        }
+      }
+
+      // 6. 保存项目矩阵数据（章节/项目信息）
+      if (chapters.length > 0) {
+        try {
+          // 将章节数据转换为项目格式
+          const projects = chapters.map((chapter, index) => ({
+            id: chapter.id,
+            name: chapter.name,
+            theoryPeriod: chapter.theory_hours?.toString() || "0",
+            practicePeriod: chapter.practice_hours?.toString() || "0",
+            courseUnitId: courseId,
+            indexNo: index + 1,
+          }))
+
+          await api.projectTeachGoal.updateProjectTeachGoal(String(courseId), {
+            projects,
+            goals: [], // 画布中暂无项目教学目标数据
+          })
+          console.log("[CanvasSaveWizard] 项目矩阵保存成功, 章节数量:", projects.length)
+        } catch (projectError) {
+          // 项目矩阵保存失败不阻断主流程，仅记录日志
+          console.error("[CanvasSaveWizard] 项目矩阵保存失败:", projectError)
+        }
+      }
+
       // 保存成功
       setSaveSuccess(true)
-      toast.success(`课程已成功保存到「${selectedPath.majorName}」专业`)
+      toast.success(isUpdateMode
+        ? `课程已成功更新`
+        : `课程已成功保存到「${selectedPath.majorName}」专业`
+      )
 
-      // 调用成功回调
-      const newCourseId = response.data?.id || response.data?.courseId || "0"
-      onSaveSuccess?.(majorId, String(newCourseId))
+      // 调用成功回调，使用快速开课接口返回的课程ID
+      onSaveSuccess?.(majorId, String(courseId))
 
       // 延迟关闭对话框，让用户看到成功状态
       setTimeout(() => {
@@ -406,7 +638,7 @@ export function CanvasSaveWizard({
     } finally {
       setIsSaving(false)
     }
-  }, [selectedPath, courseInfo, objectives, supportMapping, allObjectivesMapped, onSaveSuccess, onOpenChange])
+  }, [selectedPath, courseInfo, objectives, coursePoints, chapters, courseMatrixData, supportMapping, allObjectivesMapped, onSaveSuccess, onOpenChange, onUpdateCourseInfo])
 
   // 是否可以保存
   const canSave = Boolean(selectedPath.majorId && courseInfo?.name && allObjectivesMapped && totalIndicators > 0 && objectives.length > 0)
@@ -417,10 +649,13 @@ export function CanvasSaveWizard({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Save className="h-6 w-6 text-primary" />
-            保存课程到专业
+            {isUpdateMode ? "更新课程" : "保存课程到专业"}
           </DialogTitle>
           <DialogDescription className="text-base">
-            选择课程归属的专业，并建立教学目标与毕业要求指标点的关联关系
+            {isUpdateMode
+              ? "更新课程数据和教学目标与毕业要求指标点的关联关系"
+              : "选择课程归属的专业，并建立教学目标与毕业要求指标点的关联关系"
+            }
           </DialogDescription>
         </DialogHeader>
 
@@ -431,9 +666,14 @@ export function CanvasSaveWizard({
               <CheckCircle2 className="h-10 w-10 text-green-600" />
             </div>
             <div className="text-center">
-              <p className="text-xl font-medium text-foreground">保存成功</p>
+              <p className="text-xl font-medium text-foreground">
+                {isUpdateMode ? "更新成功" : "保存成功"}
+              </p>
               <p className="text-base text-muted-foreground mt-2">
-                课程已成功保存到「{selectedPath.majorName}」专业
+                {isUpdateMode
+                  ? "课程数据已成功更新"
+                  : `课程已成功保存到「${selectedPath.majorName}」专业`
+                }
               </p>
             </div>
           </div>
@@ -450,6 +690,7 @@ export function CanvasSaveWizard({
                 <SearchableSelect
                   value={selectedPath.universityId || ""}
                   onValueChange={handleUniversityChange}
+                  disabled={isUpdateMode}
                   placeholder="请选择学校"
                   searchPlaceholder="搜索学校..."
                   emptyText={universities.length === 0 ? "暂无可选学校" : "无匹配结果"}
@@ -469,7 +710,7 @@ export function CanvasSaveWizard({
                 <SearchableSelect
                   value={selectedPath.departmentId || ""}
                   onValueChange={handleDepartmentChange}
-                  disabled={!selectedPath.universityId}
+                  disabled={isUpdateMode || !selectedPath.universityId}
                   placeholder={selectedPath.universityId ? "请选择院系" : "请先选择学校"}
                   searchPlaceholder="搜索院系..."
                   emptyText={
@@ -493,7 +734,7 @@ export function CanvasSaveWizard({
                 <SearchableSelect
                   value={selectedPath.majorId || ""}
                   onValueChange={handleMajorChange}
-                  disabled={!selectedPath.departmentId}
+                  disabled={isUpdateMode || !selectedPath.departmentId}
                   placeholder={selectedPath.departmentId ? "请选择专业" : "请先选择院系"}
                   searchPlaceholder="搜索专业..."
                   emptyText={
@@ -722,12 +963,12 @@ export function CanvasSaveWizard({
                 {isSaving ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    保存中...
+                    {isUpdateMode ? "更新中..." : "保存中..."}
                   </>
                 ) : (
                   <>
                     <Save className="h-4 w-4" />
-                    保存课程
+                    {isUpdateMode ? "更新课程" : "保存课程"}
                   </>
                 )}
               </Button>

@@ -53,6 +53,8 @@ interface CanvasCourseReportPreviewProps {
   treeData?: TreeNode | null
   /** 保存成功回调 */
   onSaveSuccess?: (majorId: string, courseId: string) => void
+  /** 更新课程信息回调（用于保存后更新画布中的 courseId） */
+  onUpdateCourseInfo?: (updates: { courseId?: number; majorId?: number }) => void
 }
 
 /**
@@ -153,6 +155,7 @@ export function CanvasCourseReportPreview({
   canvasOssKey = null,
   treeData = null,
   onSaveSuccess,
+  onUpdateCourseInfo,
 }: CanvasCourseReportPreviewProps) {
   const { courseInfo, objectives, chapters, coursePoints, ksaItems, courseMatrix, projectMatrices } = data
   const metadata = courseInfo?.metadata
@@ -654,6 +657,7 @@ export function CanvasCourseReportPreview({
         canvasOssKey={canvasOssKey}
         treeData={treeData}
         onSaveSuccess={onSaveSuccess}
+        onUpdateCourseInfo={onUpdateCourseInfo}
       />
     </div>
   )

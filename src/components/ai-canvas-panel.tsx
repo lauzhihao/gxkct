@@ -28,6 +28,7 @@ import { CanvasDrawers } from "./canvas-drawers"
 import { CanvasConnectionMenu, type ConnectionMenuOption, type ConnectionMenuState } from "./canvas-drawers/canvas-connection-menu"
 import type { CanvasElementData, ProjectMatrixData, ChapterCardData, CoursePointCardData, KsaItemData, CourseMatrixData, ObjectiveCardData, SourceDocumentCardData } from "./canvas-elements/types"
 import type { TreeNode } from "@/types"
+import type { FillProgress } from "@/types/ai-assistant"
 import { CanvasComponentType } from "./canvas-elements/types"
 import type { CourseInfoData, CanvasComponentData } from "./canvas-elements/types"
 import { CourseInfoNode } from "./flow/nodes/course-info-node"
@@ -156,14 +157,8 @@ export interface AiCanvasPanelProps {
   onNodeRegenerate?: (nodeId: string, nodeType: CanvasComponentType, nodeName: string) => void
   // 是否正在重做（用于禁用所有重做按钮，同时画布进入全局loading状态）
   isRegenerating?: boolean
-  // 课程矩阵填充进度信息（显示在课程矩阵节点的 loading 下方）
-  fillMatrixProgress?: string | null
-  // 项目矩阵填充进度信息（显示在项目矩阵节点的 loading 下方）
-  fillProjectMatrixProgress?: string | null
-  // 课点信息填充进度信息（显示在课点面板节点的 loading 下方）
-  fillCoursePointsProgress?: string | null
-  // KSA填充进度信息（显示在KSA面板节点的 loading 下方）
-  fillKsaProgress?: string | null
+  // 填充进度信息（合并课程矩阵、项目矩阵、课点、KSA 四种进度）
+  fillProgress?: FillProgress
   // 画布元素数据（用于保存向导）
   canvasElements?: CanvasElementData[]
   // 画布内容的OSS Key
@@ -172,6 +167,8 @@ export interface AiCanvasPanelProps {
   treeData?: TreeNode | null
   // 保存成功回调
   onSaveSuccess?: (majorId: string, courseId: string) => void
+  // 更新课程信息回调（用于保存后更新画布中的 courseId）
+  onUpdateCourseInfo?: (updates: { courseId?: number; majorId?: number }) => void
 }
 
 /**
@@ -203,14 +200,12 @@ function AiCanvasPanelInner({
   showControls = true,
   onNodeRegenerate,
   isRegenerating = false,
-  fillMatrixProgress = null,
-  fillProjectMatrixProgress = null,
-  fillCoursePointsProgress = null,
-  fillKsaProgress = null,
+  fillProgress = {},
   canvasElements = [],
   canvasOssKey = null,
   treeData = null,
   onSaveSuccess,
+  onUpdateCourseInfo,
 }: AiCanvasPanelProps) {
   // 使用 React Flow 的状态管理
   const [flowNodes, setNodes, onNodesChange] = useNodesState(nodes)
@@ -622,10 +617,7 @@ function AiCanvasPanelInner({
     deletingNodeIds,
     updatingPanelIds,
     isRegenerating,
-    fillMatrixProgress,
-    fillProjectMatrixProgress,
-    fillCoursePointsProgress,
-    fillKsaProgress,
+    fillProgress,
     onNodeDelete: handleNodeDeleteClick,
     onNodeRegenerate,
     onCoursePointRowClick: handleCoursePointRowClick,
@@ -789,6 +781,7 @@ function AiCanvasPanelInner({
         canvasOssKey={canvasOssKey}
         treeData={treeData}
         onSaveSuccess={onSaveSuccess}
+        onUpdateCourseInfo={onUpdateCourseInfo}
       />
     </div>
   )

@@ -1,6 +1,6 @@
 import { TreeApi } from "./tree-api"
 import { UserApi, type User } from "./user-api"
-import { MatrixApi, type CourseMatrix, type ProjectMatrix, type MajorMatrixData, type CourseMatrixItem, type CourseMatrixResponse } from "./matrix-api"
+import { MatrixApi, type CourseMatrix, type ProjectMatrix, type MajorMatrixData, type CourseMatrixItem, type CourseMatrixResponse, type CourseMatrixSavePayload, type CourseMatrixProject } from "./matrix-api"
 import {
   ResourceApi,
   type ResourceFolder,
@@ -69,6 +69,8 @@ export type {
   ProjectMatrix,
   MajorMatrixData,
   CourseMatrixItem,
+  CourseMatrixSavePayload,
+  CourseMatrixProject,
   CourseMatrixResponse,
   ResourceFolder,
   ResourceObjectSummary,

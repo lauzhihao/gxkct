@@ -1,46 +1,30 @@
 "use client"
 
 import "./ai-assistant.css"
-import { useState, useEffect, useMemo, useRef } from "react"
-import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
-import { Send, Plus, ChevronDown, ChevronUp, Loader2, Copy, Check, FileText, X, ExternalLink, Square } from "lucide-react"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { Plus, Copy, Check, FileText } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/shared/components/ui/sheet"
 import { AiCanvasPanel } from "./ai-canvas-panel"
 import {
-  isCanvasEvent,
-  isStatusEvent,
-  isThinkingEvent,
-  isUIEvent,
-  isProgressEvent,
-  isModeEvent,
-  isErrorEvent,
-  isOpenAIChunk,
   CanvasAction,
   CanvasComponentType,
   CanvasEventMessage,
-  CanvasComponentData,
-  StatusEventMessage,
-  UIEventMessage,
   ProgressEventMessage,
-  ModeEventMessage,
-  ErrorEventMessage,
-  CourseInfoData,
-  CourseMatrixData,
   ObjectiveCardData,
   ChapterCardData,
-  ProjectMatrixData,
   CoursePointCardData,
   KsaItemData,
   RegenerateTarget,
+  CourseInfoData,
 } from "./canvas-elements"
 import { useCanvasElements } from "@/shared/hooks/use-canvas-elements"
 import { useCanvasPersistence } from "@/shared/hooks/use-canvas-persistence"
+import { useSSEStream } from "@/shared/hooks/use-sse-stream"
+import { useFileDrag } from "@/shared/hooks/use-file-drag"
 import { canvasApi } from "@/lib/api/canvas-api"
 import { toast } from "sonner"
 import { ScrollArea } from "@/shared/components/ui/scroll-area"
-import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -48,188 +32,28 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/shared/components/ui/breadcrumb"
-
-// localStorage存储key
-const STORAGE_KEY_SESSION_ID = "ai-assistant-session-id"
-const STORAGE_KEY_MESSAGES = "ai-assistant-messages"
-
-// 工具名称中文映射表
-const TOOL_NAME_MAP: Record<string, string> = {
-  web_search: "网络搜索",
-  generate_course_basic_info: "生成课程基本信息",
-  generate_course_matrix: "生成课程矩阵",
-  generate_project_matrix: "生成项目矩阵",
-  show_stage_options: "显示阶段选项",
-  analyze_document: "分析文档",
-  extract_course_info: "提取课程信息",
-}
-
-// 根据工具状态生成友好的显示文本
-function getToolStatusText(toolStatus: { node: string; event: string; tool?: string; args?: Record<string, unknown> }): string {
-  const { node, event, tool, args } = toolStatus
-
-  // agent节点
-  if (node === "agent") {
-    if (event === "start") return "正在思考..."
-    if (event === "end") return "思考完成"
-  }
-
-  // tools节点（工具执行容器）
-  if (node === "tools") {
-    if (event === "start") return "正在执行工具..."
-    if (event === "end") return "工具执行完成"
-  }
-
-  // tool节点（具体工具）
-  if (node === "tool" && tool) {
-    const toolName = TOOL_NAME_MAP[tool] || tool
-
-    if (event === "call") {
-      // 根据不同工具提取关键参数
-      if (tool === "web_search" && args?.query) {
-        const query = String(args.query)
-        const shortQuery = query.length > 30 ? query.slice(0, 30) + "..." : query
-        return `正在搜索：${shortQuery}`
-      }
-      if ((tool === "generate_course_basic_info" || tool === "generate_course_matrix") && args?.course_name) {
-        return `正在${toolName}：${args.course_name}`
-      }
-      return `正在调用 ${toolName}...`
-    }
-
-    if (event === "result") {
-      return `${toolName} 执行完成`
-    }
-  }
-
-  return "处理中..."
-}
-
-// 消息附件类型
-interface MessageAttachment {
-  name: string
-  url: string
-  ossKey: string
-  type: string
-  size: number
-}
-
-// 消息类型定义
-interface ChatMessage {
-  id: string
-  role: "user" | "assistant"
-  content: string
-  timestamp: number
-  isStreaming?: boolean
-  thinking?: string // AI思考过程
-  attachment?: MessageAttachment // 用户消息附件
-}
-
-// 附件文件类型定义
-interface AttachedFile {
-  id: string
-  name: string
-  type: string
-  size: number
-  file: File
-}
-
-// 支持的文件类型
-const SUPPORTED_FILE_TYPES = [
-  'text/plain',           // .txt
-  'text/markdown',        // .md
-  'text/csv',             // .csv
-  'application/json',     // .json
-  'application/pdf',      // .pdf
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',       // .xlsx
-]
-
-const SUPPORTED_EXTENSIONS = ['.txt', '.md', '.pdf', '.docx', '.xlsx', '.csv', '.json']
-
-// 默认欢迎消息
-const createWelcomeMessage = (): ChatMessage => ({
-  id: "welcome",
-  role: "assistant",
-  content: "你好，我是高校课程通的 AI 助手，可以帮助你快速分析课程结构、生成教学方案，或总结当前页面的信息。",
-  timestamp: Date.now(),
-})
-
-// 生成新的sessionId
-const generateSessionId = () => `session_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
-
-// 从localStorage读取会话数据
-const loadSessionFromStorage = (): { sessionId: string; messages: ChatMessage[] } => {
-  if (typeof window === "undefined") {
-    return { sessionId: generateSessionId(), messages: [createWelcomeMessage()] }
-  }
-
-  try {
-    const storedSessionId = localStorage.getItem(STORAGE_KEY_SESSION_ID)
-    const storedMessages = localStorage.getItem(STORAGE_KEY_MESSAGES)
-
-    if (storedSessionId && storedMessages) {
-      const messages = JSON.parse(storedMessages) as ChatMessage[]
-      // 过滤掉正在流式传输的消息
-      const validMessages = messages.filter(m => !m.isStreaming)
-      if (validMessages.length > 0) {
-        return { sessionId: storedSessionId, messages: validMessages }
-      }
-    }
-  } catch (error) {
-    console.error("读取会话历史失败", error)
-  }
-
-  // 没有有效数据时，创建新会话
-  const newSessionId = generateSessionId()
-  const newMessages = [createWelcomeMessage()]
-  saveSessionToStorage(newSessionId, newMessages)
-  return { sessionId: newSessionId, messages: newMessages }
-}
-
-// 保存会话数据到localStorage
-const saveSessionToStorage = (sessionId: string, messages: ChatMessage[]) => {
-  if (typeof window === "undefined") return
-
-  try {
-    localStorage.setItem(STORAGE_KEY_SESSION_ID, sessionId)
-    // 保存时过滤掉正在流式传输的消息
-    const messagesToSave = messages.filter(m => !m.isStreaming)
-    localStorage.setItem(STORAGE_KEY_MESSAGES, JSON.stringify(messagesToSave))
-  } catch (error) {
-    console.error("保存会话历史失败", error)
-  }
-}
-
-interface AiAssistantDrawerProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  selectedNodeName?: string | null
-  activeTabLabel?: string | null
-  userName?: string
-  /** 树形结构数据（用于保存向导选择专业） */
-  treeData?: import("@/types").TreeNode | null
-}
-
-// 计算相对时间显示
-function formatRelativeTime(timestamp: number): string {
-  const now = Date.now()
-  const diff = now - timestamp
-  const seconds = Math.floor(diff / 1000)
-  const minutes = Math.floor(seconds / 60)
-  const hours = Math.floor(minutes / 60)
-  const days = Math.floor(hours / 24)
-  const weeks = Math.floor(days / 7)
-  const months = Math.floor(days / 30)
-
-  if (seconds < 60) return "刚刚"
-  if (minutes < 60) return `${minutes}分钟前`
-  if (hours < 24) return `${hours}小时前`
-  if (days < 7) return `${days}天前`
-  if (weeks < 4) return `${weeks}周前`
-  if (months < 12) return `${months}月前`
-  return "更早前"
-}
+import type { ChatMessage, MessageAttachment, AiAssistantDrawerProps, FillProgress, FillProgressType } from "@/types/ai-assistant"
+import {
+  AI_API_CONFIG,
+  getAIRequestUrl,
+  buildAIRequest,
+  getToolStatusText,
+  type AIRequestPayload,
+} from "./ai-assistant/api-config"
+import {
+  createMessagePair,
+  createMessageCommitter,
+  canStartAIRequest,
+} from "./ai-assistant/message-utils"
+import {
+  createWelcomeMessage,
+  generateSessionId,
+  loadSessionFromStorage,
+  saveSessionToStorage,
+} from "./ai-assistant/session-utils"
+import { ChatMessageItem } from "./ai-assistant/chat-message-item"
+import { ChatInputArea } from "./ai-assistant/chat-input-area"
+import { createConnectionMenuHandler } from "./ai-assistant/connection-menu-handlers"
 
 export function AiAssistantDrawer({
   open,
@@ -241,10 +65,17 @@ export function AiAssistantDrawer({
 }: AiAssistantDrawerProps) {
   const [inputMessage, setInputMessage] = useState("")
   const [isInputExpanded, setIsInputExpanded] = useState(false)
-  // 文件拖拽相关状态
-  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
-  const [isDragging, setIsDragging] = useState(false)
-  const dragCounterRef = useRef(0) // 用于处理嵌套元素的拖拽事件
+
+  // 文件拖拽 Hook
+  const {
+    attachedFiles,
+    isDragging,
+    dragHandlers,
+    removeFile: handleRemoveFile,
+    clearFiles: clearAttachedFiles,
+  } = useFileDrag({
+    onError: (message) => toast.error(message),
+  })
 
   // 从localStorage初始化会话数据
   const [sessionId, setSessionId] = useState<string>("")
@@ -278,14 +109,13 @@ export function AiAssistantDrawer({
   const [regenerateTarget, setRegenerateTarget] = useState<RegenerateTarget | null>(null)
   const [isRegenerating, setIsRegenerating] = useState(false)
 
-  // 课程矩阵填充进度状态（显示在画布课程矩阵节点内）
-  const [fillMatrixProgress, setFillMatrixProgress] = useState<string | null>(null)
-  // 项目矩阵填充进度状态（显示在画布项目矩阵节点内）
-  const [fillProjectMatrixProgress, setFillProjectMatrixProgress] = useState<string | null>(null)
-  // 课点信息填充进度状态（显示在画布课点面板节点内）
-  const [fillCoursePointsProgress, setFillCoursePointsProgress] = useState<string | null>(null)
-  // KSA填充进度状态（显示在画布KSA面板节点内）
-  const [fillKsaProgress, setFillKsaProgress] = useState<string | null>(null)
+  // 填充进度状态（合并课程矩阵、项目矩阵、课点、KSA 四种进度）
+  const [fillProgress, setFillProgress] = useState<FillProgress>({})
+
+  // 更新特定类型的填充进度
+  const updateFillProgress = useCallback((type: FillProgressType, message: string | null) => {
+    setFillProgress(prev => ({ ...prev, [type]: message }))
+  }, [])
 
   // 画布元素管理
   const {
@@ -341,10 +171,11 @@ export function AiAssistantDrawer({
 
       if (localCanvasData && (localCanvasData.elements?.length > 0 || localCanvasData.edges?.length > 0)) {
         // 加载本地画布数据（包含选中状态）
+        // 类型断言：本地存储的数据结构与画布元素类型一致
         loadCanvasData(
-          localCanvasData.elements || [],
-          localCanvasData.edges || [],
-          localCanvasData.specialComponents,
+          (localCanvasData.elements || []) as Parameters<typeof loadCanvasData>[0],
+          (localCanvasData.edges || []) as Parameters<typeof loadCanvasData>[1],
+          localCanvasData.specialComponents as Parameters<typeof loadCanvasData>[2],
           localCanvasData.selectedIds
         )
         // 如果有画布内容，自动展开画布
@@ -370,9 +201,16 @@ export function AiAssistantDrawer({
     }
   }, [sessionId, canvasElements, canvasEdges, canvasSpecialComponents, canvasSelectedId, updateCanvasData])
 
+  // SSE 流式处理 Hook（提供统一的流处理能力）
+  const {
+    processStream,
+    resetController: resetSSEController,
+    abort: abortSSE,
+    getSignal: getSSESignal,
+  } = useSSEStream({})
+
   const streamingControllerRef = useRef<AbortController | null>(null)
   const scrollViewportRef = useRef<HTMLDivElement | null>(null)
-  const thinkingScrollRef = useRef<HTMLDivElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
   const getTimeGreeting = () => {
@@ -384,7 +222,7 @@ export function AiAssistantDrawer({
   const greetingForMessage = `${userName}老师：${getTimeGreeting()}。`
 
   // 创建新会话：重置消息列表并生成新session_id，保存到localStorage
-  const handleNewSession = () => {
+  const handleNewSession = useCallback(() => {
     streamingControllerRef.current?.abort()
     const newSessionId = generateSessionId()
     const newMessages = [createWelcomeMessage()]
@@ -416,85 +254,8 @@ export function AiAssistantDrawer({
     // 保存新会话到localStorage
     saveSessionToStorage(newSessionId, newMessages)
     // 清空附件文件
-    setAttachedFiles([])
-  }
-
-  // 检查文件是否为支持的类型
-  const isFileSupported = (file: File): boolean => {
-    // 检查MIME类型
-    if (SUPPORTED_FILE_TYPES.includes(file.type)) return true
-    // 检查文件扩展名（某些浏览器可能不提供正确的MIME类型）
-    const fileName = file.name.toLowerCase()
-    return SUPPORTED_EXTENSIONS.some(ext => fileName.endsWith(ext))
-  }
-
-  // 拖拽进入事件
-  const handleDragEnter = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    dragCounterRef.current++
-    if (e.dataTransfer.types.includes('Files')) {
-      setIsDragging(true)
-    }
-  }
-
-  // 拖拽悬停事件
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-  }
-
-  // 拖拽离开事件
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    dragCounterRef.current--
-    if (dragCounterRef.current === 0) {
-      setIsDragging(false)
-    }
-  }
-
-  // 拖拽释放事件
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragging(false)
-    dragCounterRef.current = 0
-
-    const files = Array.from(e.dataTransfer.files)
-    const supportedFiles = files.filter(isFileSupported)
-
-    if (supportedFiles.length === 0 && files.length > 0) {
-      toast.error('不支持的文件格式，仅支持 .md、.txt、.docx、.pdf、.xlsx、.csv、.json 文件')
-      return
-    }
-
-    // 只取第一个支持的文件
-    const firstFile = supportedFiles[0]
-    if (!firstFile) return
-
-    // 检查文件大小（限制10MB）
-    const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
-    if (firstFile.size > MAX_FILE_SIZE) {
-      toast.error('文件大小超过限制，最大支持 10MB')
-      return
-    }
-
-    const newAttachedFile: AttachedFile = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      name: firstFile.name,
-      type: firstFile.type,
-      size: firstFile.size,
-      file: firstFile,
-    }
-
-    setAttachedFiles([newAttachedFile])
-  }
-
-  // 移除附件文件
-  const handleRemoveFile = (fileId: string) => {
-    setAttachedFiles(prev => prev.filter(f => f.id !== fileId))
-  }
+    clearAttachedFiles()
+  }, [clearCanvas, clearCanvasPersistence, clearAttachedFiles])
 
   // 上传文件到OSS
   const uploadFileToOss = async (file: File): Promise<{ url: string; ossKey: string } | null> => {
@@ -589,13 +350,6 @@ export function AiAssistantDrawer({
     wasOpenRef.current = open
   }, [open, chatMessages, streamingMessageId, streamingText])
 
-  // 思考区域展开时自动滚动到底部
-  useEffect(() => {
-    if (isThinkingExpanded && thinkingScrollRef.current) {
-      thinkingScrollRef.current.scrollTop = thinkingScrollRef.current.scrollHeight
-    }
-  }, [isThinkingExpanded, streamingThinking])
-
   // 输入框展开/收起时平滑调整聊天区域滚动位置
   const prevInputExpandedRef = useRef(isInputExpanded)
   useEffect(() => {
@@ -627,19 +381,234 @@ export function AiAssistantDrawer({
   // 文件上传状态
   const [isUploadingFile, setIsUploadingFile] = useState(false)
 
+  /**
+   * 通用 SSE 请求执行函数
+   * 封装了所有 AI 填充请求的公共逻辑
+   */
+  interface SSERequestConfig {
+    userContent: string
+    messageSuffix: string
+    logPrefix: string
+    defaultCompleteMessage: string
+    cancelMessage: string
+    errorMessage: string
+    payload: Partial<Omit<AIRequestPayload, 'sessionId' | 'messages' | 'canvasOssKey'>>
+    onBeforeRequest?: () => Promise<void> | void
+    onComplete?: () => void
+    onProgress?: (progress: ProgressEventMessage) => void
+    skipInitCheck?: boolean
+  }
+
+  const executeSSERequest = useCallback(async (config: SSERequestConfig) => {
+    // 检查是否可以开始请求
+    if (!config.skipInitCheck) {
+      const checkResult = canStartAIRequest(isRegenerating, streamingMessageId, isInitialized, sessionId)
+      if (!checkResult.canStart) {
+        toast.error(checkResult.errorMessage)
+        return
+      }
+    }
+
+    console.log(`[${config.logPrefix}] 开始`)
+
+    // 设置加载状态
+    setIsRegenerating(true)
+
+    // 创建消息对
+    const { userMessage, assistantPlaceholder, aiMessageId } = createMessagePair(
+      config.userContent,
+      config.messageSuffix
+    )
+
+    // 更新消息列表
+    setChatMessages((prev) => [...prev, userMessage, assistantPlaceholder])
+    setStreamingMessageId(aiMessageId)
+    setStreamingText("")
+    setStreamingThinking("")
+    setIsThinkingExpanded(false)
+
+    // 重置 AbortController（使用 useSSEStream 提供的方法）
+    streamingControllerRef.current?.abort()
+    const controller = resetSSEController()
+    streamingControllerRef.current = controller
+
+    // 创建消息提交函数
+    const commitAssistantContent = createMessageCommitter(
+      aiMessageId,
+      sessionId,
+      setChatMessages,
+      saveSessionToStorage
+    )
+
+    // 用于追踪 progress 累积的 thinking 内容（因为 progress 需要追加到 thinking）
+    let progressThinking = ''
+
+    try {
+      // 执行请求前的准备操作
+      if (config.onBeforeRequest) {
+        await config.onBeforeRequest()
+      }
+
+      // 获取画布 OSS Key
+      const ossKey = await getCanvasOssKey()
+      if (!ossKey) {
+        throw new Error("画布上传失败")
+      }
+
+      // 构建请求负载
+      const payload: AIRequestPayload = {
+        sessionId,
+        canvasOssKey: ossKey,
+        messages: [{ role: 'user', content: config.userContent }],
+        ...config.payload,
+      }
+
+      // 发送请求
+      const response = await fetch(getAIRequestUrl(), buildAIRequest(payload, controller.signal))
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      // 使用 useSSEStream 的 processStream 处理响应
+      const result = await processStream(response, {
+        onCanvasEvent: (event) => {
+          handleCanvasEvent(event)
+        },
+        onThinkingChunk: (content) => {
+          // thinking 内容需要加上 progress 追加的部分
+          setStreamingThinking(progressThinking + content)
+        },
+        onErrorEvent: (error) => {
+          toast.error(error.message)
+        },
+        onProgressEvent: (progress) => {
+          // 将进度追加到思考区域
+          const progressLine = `[${progress.current}/${progress.total}] ${progress.message}\n`
+          progressThinking += progressLine
+          setStreamingThinking(progressThinking)
+          // 调用自定义进度回调
+          config.onProgress?.(progress)
+        },
+        onContentChunk: (content) => {
+          setStreamingText(content)
+        },
+        onAbort: () => {
+          console.log(`[${config.logPrefix}] 流式请求已被用户中止`)
+        },
+      })
+
+      // 完成
+      const finalContent = result.content.trim() || config.defaultCompleteMessage
+      const finalThinking = progressThinking + (result.thinking || '')
+      commitAssistantContent(finalContent, finalThinking || undefined)
+
+      if (streamingControllerRef.current === controller) {
+        streamingControllerRef.current = null
+      }
+      setStreamingMessageId(null)
+      setStreamingText('')
+      setIsRegenerating(false)
+
+      // 执行完成回调
+      config.onComplete?.()
+
+      console.log(`[${config.logPrefix}] 完成`)
+    } catch (error) {
+      // AbortError 已在 processStream 内部处理并抛出，这里需要捕获
+      if (error instanceof Error && error.name === 'AbortError') {
+        // 中止时不提交错误消息，保持当前状态
+        if (streamingControllerRef.current === controller) {
+          streamingControllerRef.current = null
+        }
+        setStreamingMessageId(null)
+        setStreamingText('')
+        setIsRegenerating(false)
+        return
+      }
+
+      const fallback = controller.signal.aborted
+        ? config.cancelMessage
+        : config.errorMessage
+      commitAssistantContent(fallback)
+
+      if (streamingControllerRef.current === controller) {
+        streamingControllerRef.current = null
+      }
+      setStreamingMessageId(null)
+      setStreamingText('')
+      setIsRegenerating(false)
+
+      console.error(`[${config.logPrefix}] 失败:`, error)
+    }
+  }, [isRegenerating, streamingMessageId, isInitialized, sessionId, getCanvasOssKey, handleCanvasEvent, processStream, resetSSEController])
+
+  // 处理章节项目面板自动填充请求
+  const handleFillChapterPanel = useCallback(async (targetPanelId?: string) => {
+    await executeSSERequest({
+      userContent: "请根据画布中的课程信息，自动填充章节项目列表",
+      messageSuffix: "fill-chapter-panel",
+      logPrefix: `填充章节项目${targetPanelId ? ` 目标面板: ${targetPanelId}` : ""}`,
+      defaultCompleteMessage: "章节项目已自动填充",
+      cancelMessage: "已取消填充操作。",
+      errorMessage: "章节项目填充失败，请稍后再试。",
+      payload: {
+        fill_chapter_panel: true,
+        ...(targetPanelId && { target_panel_id: targetPanelId }),
+      },
+      onBeforeRequest: () => {
+        // 清空章节面板子节点（填充前必须清空，否则原有内容会传到后台）
+        const chapterPanel = targetPanelId
+          ? canvasElements.find(el => el.id === targetPanelId)
+          : canvasElements.find(el => el.type === CanvasComponentType.CHAPTER_PANEL)
+        if (chapterPanel) {
+          console.log("[填充章节项目] 清空章节面板:", chapterPanel.id)
+          updateCanvasPanelChildren(chapterPanel.id, CanvasComponentType.CHAPTER_PANEL, CanvasComponentType.CHAPTER_CARD, [])
+        }
+      },
+      onComplete: () => {
+        // 如果有目标面板ID，选中该面板
+        if (targetPanelId) {
+          selectCanvasElement(targetPanelId)
+        }
+      },
+    })
+  }, [executeSSERequest, canvasElements, updateCanvasPanelChildren, selectCanvasElement])
+
+  // 处理教学目标面板自动填充请求
+  const handleFillObjectivePanel = useCallback(async (targetPanelId?: string) => {
+    await executeSSERequest({
+      userContent: "请根据画布中的课程信息，自动填充教学目标列表",
+      messageSuffix: "fill-objective-panel",
+      logPrefix: `填充教学目标${targetPanelId ? ` 目标面板: ${targetPanelId}` : ""}`,
+      defaultCompleteMessage: "教学目标已自动填充",
+      cancelMessage: "已取消填充操作。",
+      errorMessage: "教学目标填充失败，请稍后再试。",
+      payload: {
+        fill_objective_panel: true,
+        ...(targetPanelId && { target_panel_id: targetPanelId }),
+      },
+      onBeforeRequest: () => {
+        // 清空教学目标面板子节点（填充前必须清空，否则原有内容会传到后台）
+        const objectivePanel = targetPanelId
+          ? canvasElements.find(el => el.id === targetPanelId)
+          : canvasElements.find(el => el.type === CanvasComponentType.OBJECTIVE_PANEL)
+        if (objectivePanel) {
+          console.log("[填充教学目标] 清空教学目标面板:", objectivePanel.id)
+          updateCanvasPanelChildren(objectivePanel.id, CanvasComponentType.OBJECTIVE_PANEL, CanvasComponentType.OBJECTIVE_CARD, [])
+        }
+      },
+      onComplete: () => {
+        // 如果有目标面板ID，选中该面板
+        if (targetPanelId) {
+          selectCanvasElement(targetPanelId)
+        }
+      },
+    })
+  }, [executeSSERequest, canvasElements, updateCanvasPanelChildren, selectCanvasElement])
+
   // 处理画布组件重做请求
-  const handleRegenerate = async (nodeId: string, nodeType: CanvasComponentType, nodeName: string) => {
-    // 检查是否已在重做中或流式生成中
-    if (isRegenerating || streamingMessageId) {
-      toast.error("请等待当前操作完成")
-      return
-    }
-
-    if (!isInitialized || !sessionId) {
-      toast.error("会话未初始化")
-      return
-    }
-
+  const handleRegenerate = useCallback(async (nodeId: string, nodeType: CanvasComponentType, nodeName: string) => {
     // 章节面板重做时，使用专用填充函数
     if (nodeType === CanvasComponentType.CHAPTER_PANEL) {
       console.log("[重做] 章节面板使用专用填充函数:", nodeId)
@@ -654,1703 +623,192 @@ export function AiAssistantDrawer({
       return
     }
 
-    console.log("[重做] 开始重做组件:", nodeId, nodeType, nodeName)
-
-    // 设置重做状态
-    setIsRegenerating(true)
+    // 设置重做目标状态（在 executeSSERequest 之前）
     setRegenerateTarget({
       component_id: nodeId,
       component_type: nodeType,
     })
 
-    // 创建用户消息和AI响应占位
-    const timestamp = Date.now().toString()
-    const userMessageId = `${timestamp}-user`
-    const aiMessageId = `${timestamp}-regenerate`
-    const userContent = `请帮我重新设计${nodeName}`
-
-    // 创建用户消息
-    const userMessage: ChatMessage = {
-      id: userMessageId,
-      role: "user" as const,
-      content: userContent,
-      timestamp: Date.now(),
-    }
-
-    // 创建 AI 响应占位
-    const assistantPlaceholder: ChatMessage = {
-      id: aiMessageId,
-      role: "assistant" as const,
-      content: "",
-      timestamp: Date.now(),
-      isStreaming: true,
-    }
-
-    setChatMessages((prev) => [...prev, userMessage, assistantPlaceholder])
-    setStreamingMessageId(aiMessageId)
-    setStreamingText("")
-    setStreamingThinking("")
-    setIsThinkingExpanded(false)
-
-    streamingControllerRef.current?.abort()
-    const controller = new AbortController()
-    streamingControllerRef.current = controller
-
-    const commitAssistantContent = (content: string, thinking?: string) => {
-      setChatMessages((prev) => {
-        const updatedMessages = prev.map((message) =>
-          message.id === aiMessageId ? { ...message, content, thinking, isStreaming: false } : message
-        )
-        saveSessionToStorage(sessionId, updatedMessages)
-        return updatedMessages
-      })
-    }
-
-    const debugMode = process.env.NEXT_PUBLIC_AI_DEBUG === 'true'
-    const requestUrl = `/lang-chain/v1/chat/completions${debugMode ? '?debug=true' : ''}`
-
     try {
-      // 清空目标节点内容（重做前必须清空，否则原有内容会传到后台）
-      const PANEL_TO_CARD_TYPE: Record<string, CanvasComponentType> = {
-        [CanvasComponentType.OBJECTIVE_PANEL]: CanvasComponentType.OBJECTIVE_CARD,
-        [CanvasComponentType.CHAPTER_PANEL]: CanvasComponentType.CHAPTER_CARD,
-        [CanvasComponentType.COURSE_POINT_PANEL]: CanvasComponentType.COURSE_POINT_CARD,
-        [CanvasComponentType.KSA_PANEL]: CanvasComponentType.KSA_ITEM,
-      }
-      const childType = PANEL_TO_CARD_TYPE[nodeType]
-      if (childType) {
-        // Panel 类型：清空子节点
-        console.log("[重做] 清空Panel子节点:", nodeId, nodeType)
-        updateCanvasPanelChildren(nodeId, nodeType, childType, [])
-      } else if (nodeType === CanvasComponentType.COURSE_MATRIX) {
-        // 课程矩阵：清空 rows
-        console.log("[重做] 清空课程矩阵:", nodeId)
-        updateCanvasElementData(nodeId, { rows: [] })
-      } else if (nodeType === CanvasComponentType.PROJECT_MATRIX) {
-        // 项目矩阵：清空 rows
-        console.log("[重做] 清空项目矩阵:", nodeId)
-        updateCanvasElementData(nodeId, { rows: [] })
-      }
-
-      // 上传最新画布并获取 ossKey
-      const ossKey = await getCanvasOssKey()
-      if (!ossKey) {
-        throw new Error("画布上传失败")
-      }
-
-      const response = await fetch(requestUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'course-assistant',
-          stream: true,
-          session_id: sessionId,
-          canvas_oss_key: ossKey,
-          messages: [{ role: 'user', content: userContent }],
-          // 重做目标
+      await executeSSERequest({
+        userContent: `请帮我重新设计${nodeName}`,
+        messageSuffix: "regenerate",
+        logPrefix: "重做",
+        defaultCompleteMessage: "组件已重新生成",
+        cancelMessage: "已取消重做操作。",
+        errorMessage: "重做失败，请稍后再试。",
+        payload: {
           regenerate: {
             component_id: nodeId,
             component_type: nodeType,
           },
-        }),
-        signal: controller.signal,
+        },
+        onBeforeRequest: () => {
+          // 清空目标节点内容（重做前必须清空，否则原有内容会传到后台）
+          const PANEL_TO_CARD_TYPE: Record<string, CanvasComponentType> = {
+            [CanvasComponentType.OBJECTIVE_PANEL]: CanvasComponentType.OBJECTIVE_CARD,
+            [CanvasComponentType.CHAPTER_PANEL]: CanvasComponentType.CHAPTER_CARD,
+            [CanvasComponentType.COURSE_POINT_PANEL]: CanvasComponentType.COURSE_POINT_CARD,
+            [CanvasComponentType.KSA_PANEL]: CanvasComponentType.KSA_ITEM,
+          }
+          const childType = PANEL_TO_CARD_TYPE[nodeType]
+          if (childType) {
+            console.log("[重做] 清空Panel子节点:", nodeId, nodeType)
+            updateCanvasPanelChildren(nodeId, nodeType, childType, [])
+          } else if (nodeType === CanvasComponentType.COURSE_MATRIX) {
+            console.log("[重做] 清空课程矩阵:", nodeId)
+            updateCanvasElementData(nodeId, { rows: [] })
+          } else if (nodeType === CanvasComponentType.PROJECT_MATRIX) {
+            console.log("[重做] 清空项目矩阵:", nodeId)
+            updateCanvasElementData(nodeId, { rows: [] })
+          }
+        },
+        onComplete: () => {
+          // 选中被更新的节点，使其自动获取焦点
+          selectCanvasElement(nodeId)
+        },
       })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const reader = response.body?.getReader()
-      if (!reader) {
-        throw new Error('无法获取响应流')
-      }
-
-      const decoder = new TextDecoder()
-      let accumulated = ''
-      let accumulatedThinking = ''
-      let buffer = ''
-
-      const processStream = async () => {
-        try {
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            if (controller.signal.aborted) break
-
-            buffer += decoder.decode(value, { stream: true })
-            const lines = buffer.split('\n')
-            buffer = lines.pop() || ''
-
-            for (const line of lines) {
-              const trimmedLine = line.trim()
-              if (!trimmedLine || !trimmedLine.startsWith('data:')) continue
-
-              const data = trimmedLine.slice(5).trim()
-              if (data === '[DONE]') continue
-
-              try {
-                const parsed = JSON.parse(data)
-
-                // 处理canvas事件 - 更新画布组件
-                if (isCanvasEvent(parsed)) {
-                  handleCanvasEvent(parsed as CanvasEventMessage)
-                  continue
-                }
-
-                // 处理thinking事件
-                if (isThinkingEvent(parsed)) {
-                  accumulatedThinking += parsed.content
-                  setStreamingThinking(accumulatedThinking)
-                  continue
-                }
-
-                // 处理error事件
-                if (isErrorEvent(parsed)) {
-                  const errorEvent = parsed as ErrorEventMessage
-                  toast.error(errorEvent.message)
-                  continue
-                }
-
-                // 处理标准OpenAI格式的内容
-                if (isOpenAIChunk(parsed)) {
-                  const content = parsed.choices?.[0]?.delta?.content
-                  if (content) {
-                    accumulated += content
-                    setStreamingText(accumulated)
-                  }
-                  continue
-                }
-              } catch (parseError) {
-                console.error('解析流式响应失败', parseError, data)
-              }
-            }
-          }
-        } catch (error) {
-          // 流被中止时静默返回（用户点击停止按钮）
-          if (error instanceof Error && error.name === 'AbortError') {
-            console.log('[重做] 流式请求已被用户中止')
-            return
-          }
-          throw error
-        } finally {
-          reader.releaseLock()
-        }
-
-        // 重做完成
-        const finalContent = accumulated.trim() || '组件已重新生成'
-        commitAssistantContent(finalContent, accumulatedThinking || undefined)
-        if (streamingControllerRef.current === controller) {
-          streamingControllerRef.current = null
-        }
-        setStreamingMessageId(null)
-        setStreamingText('')
-        // 清理重做状态
-        setRegenerateTarget(null)
-        setIsRegenerating(false)
-        // 选中被更新的节点，使其自动获取焦点
-        selectCanvasElement(nodeId)
-        console.log("[重做] 重做完成:", nodeId)
-      }
-
-      processStream()
-    } catch (error) {
-      const fallback = controller.signal.aborted
-        ? "已取消重做操作。"
-        : "重做失败，请稍后再试。"
-      commitAssistantContent(fallback)
-      if (streamingControllerRef.current === controller) {
-        streamingControllerRef.current = null
-      }
-      setStreamingMessageId(null)
-      setStreamingText('')
-      // 清理重做状态
+    } finally {
+      // 确保清理重做目标状态
       setRegenerateTarget(null)
-      setIsRegenerating(false)
-      console.error("[重做] 重做失败:", error)
     }
-  }
+  }, [executeSSERequest, handleFillChapterPanel, handleFillObjectivePanel, updateCanvasPanelChildren, updateCanvasElementData, selectCanvasElement])
 
   // 处理课程矩阵自动填充请求
-  const handleFillCourseMatrix = async () => {
-    // 检查是否已在重做中或流式生成中
-    if (isRegenerating || streamingMessageId) {
-      toast.error("请等待当前操作完成")
-      return
-    }
-
-    if (!isInitialized || !sessionId) {
-      toast.error("会话未初始化")
-      return
-    }
-
-    console.log("[填充课程矩阵] 开始自动填充")
-
-    // 设置重做状态（复用重做的loading效果）
-    setIsRegenerating(true)
-
-    // 创建用户消息和AI响应占位
-    const timestamp = Date.now().toString()
-    const userMessageId = `${timestamp}-user`
-    const aiMessageId = `${timestamp}-fill-matrix`
-    const userContent = "请根据画布中的教学目标、章节和课点信息，自动填充课程矩阵的支撑关系"
-
-    // 创建用户消息
-    const userMessage: ChatMessage = {
-      id: userMessageId,
-      role: "user" as const,
-      content: userContent,
-      timestamp: Date.now(),
-    }
-
-    // 创建 AI 响应占位
-    const assistantPlaceholder: ChatMessage = {
-      id: aiMessageId,
-      role: "assistant" as const,
-      content: "",
-      timestamp: Date.now(),
-      isStreaming: true,
-    }
-
-    setChatMessages((prev) => [...prev, userMessage, assistantPlaceholder])
-    setStreamingMessageId(aiMessageId)
-    setStreamingText("")
-    setStreamingThinking("")
-    setIsThinkingExpanded(false)
-
-    streamingControllerRef.current?.abort()
-    const controller = new AbortController()
-    streamingControllerRef.current = controller
-
-    const commitAssistantContent = (content: string, thinking?: string) => {
-      setChatMessages((prev) => {
-        const updatedMessages = prev.map((message) =>
-          message.id === aiMessageId ? { ...message, content, thinking, isStreaming: false } : message
-        )
-        saveSessionToStorage(sessionId, updatedMessages)
-        return updatedMessages
-      })
-    }
-
-    const debugMode = process.env.NEXT_PUBLIC_AI_DEBUG === 'true'
-    const requestUrl = `/lang-chain/v1/chat/completions${debugMode ? '?debug=true' : ''}`
-
-    try {
-      // 清空课程矩阵数据（填充前必须清空，否则原有内容会传到后台）
-      const courseMatrix = canvasElements.find(el => el.type === CanvasComponentType.COURSE_MATRIX)
-      if (courseMatrix) {
-        console.log("[填充课程矩阵] 清空课程矩阵:", courseMatrix.id)
-        updateCanvasElementData(courseMatrix.id, { rows: [] })
-      }
-
-      // 上传最新画布并获取 ossKey
-      const ossKey = await getCanvasOssKey()
-      if (!ossKey) {
-        throw new Error("画布上传失败")
-      }
-
-      const response = await fetch(requestUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'course-assistant',
-          stream: true,
-          session_id: sessionId,
-          canvas_oss_key: ossKey,
-          messages: [{ role: 'user', content: userContent }],
-          // 填充课程矩阵的标记
-          fill_course_matrix: true,
-        }),
-        signal: controller.signal,
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const reader = response.body?.getReader()
-      if (!reader) {
-        throw new Error('无法获取响应流')
-      }
-
-      const decoder = new TextDecoder()
-      let accumulated = ''
-      let accumulatedThinking = ''
-      let buffer = ''
-
-      const processStream = async () => {
-        try {
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            if (controller.signal.aborted) break
-
-            buffer += decoder.decode(value, { stream: true })
-            const lines = buffer.split('\n')
-            buffer = lines.pop() || ''
-
-            for (const line of lines) {
-              const trimmedLine = line.trim()
-              if (!trimmedLine || !trimmedLine.startsWith('data:')) continue
-
-              const data = trimmedLine.slice(5).trim()
-              if (data === '[DONE]') continue
-
-              try {
-                const parsed = JSON.parse(data)
-
-                // 处理canvas事件 - 更新画布组件
-                if (isCanvasEvent(parsed)) {
-                  handleCanvasEvent(parsed as CanvasEventMessage)
-                  continue
-                }
-
-                // 处理thinking事件
-                if (isThinkingEvent(parsed)) {
-                  accumulatedThinking += parsed.content
-                  setStreamingThinking(accumulatedThinking)
-                  continue
-                }
-
-                // 处理error事件
-                if (isErrorEvent(parsed)) {
-                  const errorEvent = parsed as ErrorEventMessage
-                  toast.error(errorEvent.message)
-                  continue
-                }
-
-                // 处理progress事件 - 显示在思考区域和画布矩阵内
-                if (isProgressEvent(parsed)) {
-                  const progressEvent = parsed as ProgressEventMessage
-                  // 将进度消息追加到思考区域
-                  const progressLine = `[${progressEvent.current}/${progressEvent.total}] ${progressEvent.message}\n`
-                  accumulatedThinking += progressLine
-                  setStreamingThinking(accumulatedThinking)
-                  // 同时更新画布矩阵内的进度显示
-                  setFillMatrixProgress(progressEvent.message)
-                  continue
-                }
-
-                // 处理标准OpenAI格式的内容
-                if (isOpenAIChunk(parsed)) {
-                  const content = parsed.choices?.[0]?.delta?.content
-                  if (content) {
-                    accumulated += content
-                    setStreamingText(accumulated)
-                  }
-                  continue
-                }
-              } catch (parseError) {
-                console.error('解析流式响应失败', parseError, data)
-              }
-            }
-          }
-        } catch (error) {
-          // 流被中止时静默返回（用户点击停止按钮）
-          if (error instanceof Error && error.name === 'AbortError') {
-            console.log('[填充课程矩阵] 流式请求已被用户中止')
-            return
-          }
-          throw error
-        } finally {
-          reader.releaseLock()
+  const handleFillCourseMatrix = useCallback(async () => {
+    await executeSSERequest({
+      userContent: "请根据画布中的教学目标、章节和课点信息，自动填充课程矩阵的支撑关系",
+      messageSuffix: "fill-matrix",
+      logPrefix: "填充课程矩阵",
+      defaultCompleteMessage: "课程矩阵已自动填充支撑关系",
+      cancelMessage: "已取消填充操作。",
+      errorMessage: "课程矩阵填充失败，请稍后再试。",
+      payload: { fill_course_matrix: true },
+      onBeforeRequest: () => {
+        // 清空课程矩阵数据（填充前必须清空，否则原有内容会传到后台）
+        const courseMatrix = canvasElements.find(el => el.type === CanvasComponentType.COURSE_MATRIX)
+        if (courseMatrix) {
+          console.log("[填充课程矩阵] 清空课程矩阵:", courseMatrix.id)
+          updateCanvasElementData(courseMatrix.id, { rows: [] })
         }
-
-        // 填充完成，清除进度
-        setFillMatrixProgress(null)
-        const finalContent = accumulated.trim() || '课程矩阵已自动填充支撑关系'
-        commitAssistantContent(finalContent, accumulatedThinking || undefined)
-        if (streamingControllerRef.current === controller) {
-          streamingControllerRef.current = null
-        }
-        setStreamingMessageId(null)
-        setStreamingText('')
-        setIsRegenerating(false)
-        console.log("[填充课程矩阵] 填充完成")
-      }
-
-      processStream()
-    } catch (error) {
-      const fallback = controller.signal.aborted
-        ? "已取消填充操作。"
-        : "课程矩阵填充失败，请稍后再试。"
-      commitAssistantContent(fallback)
-      if (streamingControllerRef.current === controller) {
-        streamingControllerRef.current = null
-      }
-      setStreamingMessageId(null)
-      setStreamingText('')
-      setFillMatrixProgress(null)
-      setIsRegenerating(false)
-      console.error("[填充课程矩阵] 填充失败:", error)
-    }
-  }
+      },
+      onProgress: (progress) => {
+        updateFillProgress('matrix', progress.message)
+      },
+      onComplete: () => {
+        updateFillProgress('matrix', null)
+      },
+    })
+    // 确保进度在任何情况下都被清除
+    updateFillProgress('matrix', null)
+  }, [executeSSERequest, canvasElements, updateCanvasElementData, updateFillProgress])
 
   // 处理项目矩阵自动填充请求
-  const handleFillProjectMatrix = async () => {
-    // 检查是否已在重做中或流式生成中
-    if (isRegenerating || streamingMessageId) {
-      toast.error("请等待当前操作完成")
-      return
-    }
-
-    if (!isInitialized || !sessionId) {
-      toast.error("会话未初始化")
-      return
-    }
-
-    console.log("[填充项目矩阵] 开始自动填充")
-
-    // 设置重做状态（复用重做的loading效果）
-    setIsRegenerating(true)
-
-    // 创建用户消息和AI响应占位
-    const timestamp = Date.now().toString()
-    const userMessageId = `${timestamp}-user`
-    const aiMessageId = `${timestamp}-fill-project-matrix`
-    const userContent = "请根据画布中的课程矩阵和章节信息，自动填充项目矩阵的任务目标和支撑关系"
-
-    // 创建用户消息
-    const userMessage: ChatMessage = {
-      id: userMessageId,
-      role: "user" as const,
-      content: userContent,
-      timestamp: Date.now(),
-    }
-
-    // 创建 AI 响应占位
-    const assistantPlaceholder: ChatMessage = {
-      id: aiMessageId,
-      role: "assistant" as const,
-      content: "",
-      timestamp: Date.now(),
-      isStreaming: true,
-    }
-
-    setChatMessages((prev) => [...prev, userMessage, assistantPlaceholder])
-    setStreamingMessageId(aiMessageId)
-    setStreamingText("")
-    setStreamingThinking("")
-    setIsThinkingExpanded(false)
-
-    streamingControllerRef.current?.abort()
-    const controller = new AbortController()
-    streamingControllerRef.current = controller
-
-    const commitAssistantContent = (content: string, thinking?: string) => {
-      setChatMessages((prev) => {
-        const updatedMessages = prev.map((message) =>
-          message.id === aiMessageId ? { ...message, content, thinking, isStreaming: false } : message
-        )
-        saveSessionToStorage(sessionId, updatedMessages)
-        return updatedMessages
-      })
-    }
-
-    const debugMode = process.env.NEXT_PUBLIC_AI_DEBUG === 'true'
-    const requestUrl = `/lang-chain/v1/chat/completions${debugMode ? '?debug=true' : ''}`
-
-    try {
-      // 上传最新画布并获取 ossKey
-      const ossKey = await getCanvasOssKey()
-      if (!ossKey) {
-        throw new Error("画布上传失败")
-      }
-
-      const response = await fetch(requestUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'course-assistant',
-          stream: true,
-          session_id: sessionId,
-          canvas_oss_key: ossKey,
-          messages: [{ role: 'user', content: userContent }],
-          // 填充项目矩阵的标记
-          fill_project_matrix: true,
-        }),
-        signal: controller.signal,
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const reader = response.body?.getReader()
-      if (!reader) {
-        throw new Error('无法获取响应流')
-      }
-
-      const decoder = new TextDecoder()
-      let accumulated = ''
-      let accumulatedThinking = ''
-      let buffer = ''
-
-      const processStream = async () => {
-        try {
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            if (controller.signal.aborted) break
-
-            buffer += decoder.decode(value, { stream: true })
-            const lines = buffer.split('\n')
-            buffer = lines.pop() || ''
-
-            for (const line of lines) {
-              const trimmedLine = line.trim()
-              if (!trimmedLine || !trimmedLine.startsWith('data:')) continue
-
-              const data = trimmedLine.slice(5).trim()
-              if (data === '[DONE]') continue
-
-              try {
-                const parsed = JSON.parse(data)
-
-                // 处理canvas事件 - 更新画布组件
-                if (isCanvasEvent(parsed)) {
-                  handleCanvasEvent(parsed as CanvasEventMessage)
-                  continue
-                }
-
-                // 处理thinking事件
-                if (isThinkingEvent(parsed)) {
-                  accumulatedThinking += parsed.content
-                  setStreamingThinking(accumulatedThinking)
-                  continue
-                }
-
-                // 处理error事件
-                if (isErrorEvent(parsed)) {
-                  const errorEvent = parsed as ErrorEventMessage
-                  toast.error(errorEvent.message)
-                  continue
-                }
-
-                // 处理progress事件 - 显示在思考区域和画布矩阵内
-                if (isProgressEvent(parsed)) {
-                  const progressEvent = parsed as ProgressEventMessage
-                  // 将进度消息追加到思考区域
-                  const progressLine = `[${progressEvent.current}/${progressEvent.total}] ${progressEvent.message}\n`
-                  accumulatedThinking += progressLine
-                  setStreamingThinking(accumulatedThinking)
-                  // 同时更新画布项目矩阵内的进度显示
-                  setFillProjectMatrixProgress(progressEvent.message)
-                  continue
-                }
-
-                // 处理标准OpenAI格式的内容
-                if (isOpenAIChunk(parsed)) {
-                  const content = parsed.choices?.[0]?.delta?.content
-                  if (content) {
-                    accumulated += content
-                    setStreamingText(accumulated)
-                  }
-                  continue
-                }
-              } catch (parseError) {
-                console.error('解析流式响应失败', parseError, data)
-              }
-            }
-          }
-        } catch (error) {
-          // 流被中止时静默返回（用户点击停止按钮）
-          if (error instanceof Error && error.name === 'AbortError') {
-            console.log('[填充项目矩阵] 流式请求已被用户中止')
-            return
-          }
-          throw error
-        } finally {
-          reader.releaseLock()
-        }
-
-        // 填充完成，清除进度
-        setFillProjectMatrixProgress(null)
-        const finalContent = accumulated.trim() || '项目矩阵已自动填充任务目标和支撑关系'
-        commitAssistantContent(finalContent, accumulatedThinking || undefined)
-        if (streamingControllerRef.current === controller) {
-          streamingControllerRef.current = null
-        }
-        setStreamingMessageId(null)
-        setStreamingText('')
-        setIsRegenerating(false)
-        console.log("[填充项目矩阵] 填充完成")
-      }
-
-      processStream()
-    } catch (error) {
-      const fallback = controller.signal.aborted
-        ? "已取消填充操作。"
-        : "项目矩阵填充失败，请稍后再试。"
-      commitAssistantContent(fallback)
-      if (streamingControllerRef.current === controller) {
-        streamingControllerRef.current = null
-      }
-      setStreamingMessageId(null)
-      setStreamingText('')
-      setFillProjectMatrixProgress(null)
-      setIsRegenerating(false)
-      console.error("[填充项目矩阵] 填充失败:", error)
-    }
-  }
-
-  // 处理章节项目面板自动填充请求
-  const handleFillChapterPanel = async (targetPanelId?: string) => {
-    // 检查是否已在重做中或流式生成中
-    if (isRegenerating || streamingMessageId) {
-      toast.error("请等待当前操作完成")
-      return
-    }
-
-    if (!isInitialized || !sessionId) {
-      toast.error("会话未初始化")
-      return
-    }
-
-    console.log("[填充章节项目] 开始自动填充", targetPanelId ? `目标面板: ${targetPanelId}` : "")
-
-    // 设置重做状态（复用重做的loading效果）
-    setIsRegenerating(true)
-
-    // 创建用户消息和AI响应占位
-    const timestamp = Date.now().toString()
-    const userMessageId = `${timestamp}-user`
-    const aiMessageId = `${timestamp}-fill-chapter-panel`
-    const userContent = "请根据画布中的课程信息，自动填充章节项目列表"
-
-    // 创建用户消息
-    const userMessage: ChatMessage = {
-      id: userMessageId,
-      role: "user" as const,
-      content: userContent,
-      timestamp: Date.now(),
-    }
-
-    // 创建 AI 响应占位
-    const assistantPlaceholder: ChatMessage = {
-      id: aiMessageId,
-      role: "assistant" as const,
-      content: "",
-      timestamp: Date.now(),
-      isStreaming: true,
-    }
-
-    setChatMessages((prev) => [...prev, userMessage, assistantPlaceholder])
-    setStreamingMessageId(aiMessageId)
-    setStreamingText("")
-    setStreamingThinking("")
-    setIsThinkingExpanded(false)
-
-    streamingControllerRef.current?.abort()
-    const controller = new AbortController()
-    streamingControllerRef.current = controller
-
-    const commitAssistantContent = (content: string, thinking?: string) => {
-      setChatMessages((prev) => {
-        const updatedMessages = prev.map((message) =>
-          message.id === aiMessageId ? { ...message, content, thinking, isStreaming: false } : message
-        )
-        saveSessionToStorage(sessionId, updatedMessages)
-        return updatedMessages
-      })
-    }
-
-    const debugMode = process.env.NEXT_PUBLIC_AI_DEBUG === 'true'
-    const requestUrl = `/lang-chain/v1/chat/completions${debugMode ? '?debug=true' : ''}`
-
-    try {
-      // 清空章节面板子节点（填充前必须清空，否则原有内容会传到后台）
-      const chapterPanel = targetPanelId
-        ? canvasElements.find(el => el.id === targetPanelId)
-        : canvasElements.find(el => el.type === CanvasComponentType.CHAPTER_PANEL)
-      if (chapterPanel) {
-        console.log("[填充章节项目] 清空章节面板:", chapterPanel.id)
-        updateCanvasPanelChildren(chapterPanel.id, CanvasComponentType.CHAPTER_PANEL, CanvasComponentType.CHAPTER_CARD, [])
-      }
-
-      // 上传最新画布并获取 ossKey
-      const ossKey = await getCanvasOssKey()
-      if (!ossKey) {
-        throw new Error("画布上传失败")
-      }
-
-      const response = await fetch(requestUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'course-assistant',
-          stream: true,
-          session_id: sessionId,
-          canvas_oss_key: ossKey,
-          messages: [{ role: 'user', content: userContent }],
-          // 填充章节项目面板的标记
-          fill_chapter_panel: true,
-          // 可选的目标面板ID
-          ...(targetPanelId && { target_panel_id: targetPanelId }),
-        }),
-        signal: controller.signal,
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const reader = response.body?.getReader()
-      if (!reader) {
-        throw new Error('无法获取响应流')
-      }
-
-      const decoder = new TextDecoder()
-      let accumulated = ''
-      let accumulatedThinking = ''
-      let buffer = ''
-
-      const processStream = async () => {
-        try {
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            if (controller.signal.aborted) break
-
-            buffer += decoder.decode(value, { stream: true })
-            const lines = buffer.split('\n')
-            buffer = lines.pop() || ''
-
-            for (const line of lines) {
-              const trimmedLine = line.trim()
-              if (!trimmedLine || !trimmedLine.startsWith('data:')) continue
-
-              const data = trimmedLine.slice(5).trim()
-              if (data === '[DONE]') continue
-
-              try {
-                const parsed = JSON.parse(data)
-
-                // 处理canvas事件 - 更新画布组件
-                if (isCanvasEvent(parsed)) {
-                  handleCanvasEvent(parsed as CanvasEventMessage)
-                  continue
-                }
-
-                // 处理thinking事件
-                if (isThinkingEvent(parsed)) {
-                  accumulatedThinking += parsed.content
-                  setStreamingThinking(accumulatedThinking)
-                  continue
-                }
-
-                // 处理error事件
-                if (isErrorEvent(parsed)) {
-                  const errorEvent = parsed as ErrorEventMessage
-                  toast.error(errorEvent.message)
-                  continue
-                }
-
-                // 处理标准OpenAI格式的内容
-                if (isOpenAIChunk(parsed)) {
-                  const content = parsed.choices?.[0]?.delta?.content
-                  if (content) {
-                    accumulated += content
-                    setStreamingText(accumulated)
-                  }
-                  continue
-                }
-              } catch (parseError) {
-                console.error('解析流式响应失败', parseError, data)
-              }
-            }
-          }
-        } catch (error) {
-          // 流被中止时静默返回（用户点击停止按钮）
-          if (error instanceof Error && error.name === 'AbortError') {
-            console.log('[填充章节] 流式请求已被用户中止')
-            return
-          }
-          throw error
-        } finally {
-          reader.releaseLock()
-        }
-
-        // 填充完成
-        const finalContent = accumulated.trim() || '章节项目已自动填充'
-        commitAssistantContent(finalContent, accumulatedThinking || undefined)
-        if (streamingControllerRef.current === controller) {
-          streamingControllerRef.current = null
-        }
-        setStreamingMessageId(null)
-        setStreamingText('')
-        setIsRegenerating(false)
-        // 如果有目标面板ID，选中该面板
-        if (targetPanelId) {
-          selectCanvasElement(targetPanelId)
-        }
-        console.log("[填充章节项目] 填充完成")
-      }
-
-      processStream()
-    } catch (error) {
-      const fallback = controller.signal.aborted
-        ? "已取消填充操作。"
-        : "章节项目填充失败，请稍后再试。"
-      commitAssistantContent(fallback)
-      if (streamingControllerRef.current === controller) {
-        streamingControllerRef.current = null
-      }
-      setStreamingMessageId(null)
-      setStreamingText('')
-      setIsRegenerating(false)
-      console.error("[填充章节项目] 填充失败:", error)
-    }
-  }
-
-  // 处理教学目标面板自动填充请求
-  const handleFillObjectivePanel = async (targetPanelId?: string) => {
-    // 检查是否已在重做中或流式生成中
-    if (isRegenerating || streamingMessageId) {
-      toast.error("请等待当前操作完成")
-      return
-    }
-
-    if (!isInitialized || !sessionId) {
-      toast.error("会话未初始化")
-      return
-    }
-
-    console.log("[填充教学目标] 开始自动填充", targetPanelId ? `目标面板: ${targetPanelId}` : "")
-
-    // 设置重做状态（复用重做的loading效果）
-    setIsRegenerating(true)
-
-    // 创建用户消息和AI响应占位
-    const timestamp = Date.now().toString()
-    const userMessageId = `${timestamp}-user`
-    const aiMessageId = `${timestamp}-fill-objective-panel`
-    const userContent = "请根据画布中的课程信息，自动填充教学目标列表"
-
-    // 创建用户消息
-    const userMessage: ChatMessage = {
-      id: userMessageId,
-      role: "user" as const,
-      content: userContent,
-      timestamp: Date.now(),
-    }
-
-    // 创建 AI 响应占位
-    const assistantPlaceholder: ChatMessage = {
-      id: aiMessageId,
-      role: "assistant" as const,
-      content: "",
-      timestamp: Date.now(),
-      isStreaming: true,
-    }
-
-    setChatMessages((prev) => [...prev, userMessage, assistantPlaceholder])
-    setStreamingMessageId(aiMessageId)
-    setStreamingText("")
-    setStreamingThinking("")
-    setIsThinkingExpanded(false)
-
-    streamingControllerRef.current?.abort()
-    const controller = new AbortController()
-    streamingControllerRef.current = controller
-
-    const commitAssistantContent = (content: string, thinking?: string) => {
-      setChatMessages((prev) => {
-        const updatedMessages = prev.map((message) =>
-          message.id === aiMessageId ? { ...message, content, thinking, isStreaming: false } : message
-        )
-        saveSessionToStorage(sessionId, updatedMessages)
-        return updatedMessages
-      })
-    }
-
-    const debugMode = process.env.NEXT_PUBLIC_AI_DEBUG === 'true'
-    const requestUrl = `/lang-chain/v1/chat/completions${debugMode ? '?debug=true' : ''}`
-
-    try {
-      // 清空教学目标面板子节点（填充前必须清空，否则原有内容会传到后台）
-      const objectivePanel = targetPanelId
-        ? canvasElements.find(el => el.id === targetPanelId)
-        : canvasElements.find(el => el.type === CanvasComponentType.OBJECTIVE_PANEL)
-      if (objectivePanel) {
-        console.log("[填充教学目标] 清空教学目标面板:", objectivePanel.id)
-        updateCanvasPanelChildren(objectivePanel.id, CanvasComponentType.OBJECTIVE_PANEL, CanvasComponentType.OBJECTIVE_CARD, [])
-      }
-
-      // 上传最新画布并获取 ossKey
-      const ossKey = await getCanvasOssKey()
-      if (!ossKey) {
-        throw new Error("画布上传失败")
-      }
-
-      const response = await fetch(requestUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'course-assistant',
-          stream: true,
-          session_id: sessionId,
-          canvas_oss_key: ossKey,
-          messages: [{ role: 'user', content: userContent }],
-          // 填充教学目标面板的标记
-          fill_objective_panel: true,
-          // 可选的目标面板ID
-          ...(targetPanelId && { target_panel_id: targetPanelId }),
-        }),
-        signal: controller.signal,
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const reader = response.body?.getReader()
-      if (!reader) {
-        throw new Error('无法获取响应流')
-      }
-
-      const decoder = new TextDecoder()
-      let accumulated = ''
-      let accumulatedThinking = ''
-      let buffer = ''
-
-      const processStream = async () => {
-        try {
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            if (controller.signal.aborted) break
-
-            buffer += decoder.decode(value, { stream: true })
-            const lines = buffer.split('\n')
-            buffer = lines.pop() || ''
-
-            for (const line of lines) {
-              const trimmedLine = line.trim()
-              if (!trimmedLine || !trimmedLine.startsWith('data:')) continue
-
-              const data = trimmedLine.slice(5).trim()
-              if (data === '[DONE]') continue
-
-              try {
-                const parsed = JSON.parse(data)
-
-                // 处理canvas事件 - 更新画布组件
-                if (isCanvasEvent(parsed)) {
-                  handleCanvasEvent(parsed as CanvasEventMessage)
-                  continue
-                }
-
-                // 处理thinking事件
-                if (isThinkingEvent(parsed)) {
-                  accumulatedThinking += parsed.content
-                  setStreamingThinking(accumulatedThinking)
-                  continue
-                }
-
-                // 处理error事件
-                if (isErrorEvent(parsed)) {
-                  const errorEvent = parsed as ErrorEventMessage
-                  toast.error(errorEvent.message)
-                  continue
-                }
-
-                // 处理标准OpenAI格式的内容
-                if (isOpenAIChunk(parsed)) {
-                  const content = parsed.choices?.[0]?.delta?.content
-                  if (content) {
-                    accumulated += content
-                    setStreamingText(accumulated)
-                  }
-                  continue
-                }
-              } catch (parseError) {
-                console.error('解析流式响应失败', parseError, data)
-              }
-            }
-          }
-        } catch (error) {
-          // 流被中止时静默返回（用户点击停止按钮）
-          if (error instanceof Error && error.name === 'AbortError') {
-            console.log('[填充教学目标] 流式请求已被用户中止')
-            return
-          }
-          throw error
-        } finally {
-          reader.releaseLock()
-        }
-
-        // 填充完成
-        const finalContent = accumulated.trim() || '教学目标已自动填充'
-        commitAssistantContent(finalContent, accumulatedThinking || undefined)
-        if (streamingControllerRef.current === controller) {
-          streamingControllerRef.current = null
-        }
-        setStreamingMessageId(null)
-        setStreamingText('')
-        setIsRegenerating(false)
-        // 如果有目标面板ID，选中该面板
-        if (targetPanelId) {
-          selectCanvasElement(targetPanelId)
-        }
-        console.log("[填充教学目标] 填充完成")
-      }
-
-      processStream()
-    } catch (error) {
-      const fallback = controller.signal.aborted
-        ? "已取消填充操作。"
-        : "教学目标填充失败，请稍后再试。"
-      commitAssistantContent(fallback)
-      if (streamingControllerRef.current === controller) {
-        streamingControllerRef.current = null
-      }
-      setStreamingMessageId(null)
-      setStreamingText('')
-      setIsRegenerating(false)
-      console.error("[填充教学目标] 填充失败:", error)
-    }
-  }
+  const handleFillProjectMatrix = useCallback(async () => {
+    await executeSSERequest({
+      userContent: "请根据画布中的课程矩阵和章节信息，自动填充项目矩阵的任务目标和支撑关系",
+      messageSuffix: "fill-project-matrix",
+      logPrefix: "填充项目矩阵",
+      defaultCompleteMessage: "项目矩阵已自动填充任务目标和支撑关系",
+      cancelMessage: "已取消填充操作。",
+      errorMessage: "项目矩阵填充失败，请稍后再试。",
+      payload: { fill_project_matrix: true },
+      onProgress: (progress) => {
+        updateFillProgress('projectMatrix', progress.message)
+      },
+      onComplete: () => {
+        updateFillProgress('projectMatrix', null)
+      },
+    })
+    updateFillProgress('projectMatrix', null)
+  }, [executeSSERequest, updateFillProgress])
 
   // 处理课程信息自动填充请求（从源文档生成课程基本信息）
-  const handleFillCourseInfo = async (courseInfoId: string) => {
+  const handleFillCourseInfo = useCallback(async (courseInfoId: string) => {
     if (!sessionId) {
       console.warn("[填充课程信息] 缺少sessionId")
       return
     }
 
-    console.log("[填充课程信息] 开始自动填充，课程信息ID:", courseInfoId)
-
-    // 设置重做状态（复用重做的loading效果）
-    setIsRegenerating(true)
-
-    // 创建用户消息和AI响应占位
-    const timestamp = Date.now().toString()
-    const userMessageId = `${timestamp}-user`
-    const aiMessageId = `${timestamp}-fill-course-info`
-    const userContent = "请根据上传的源文档，自动生成课程基本信息"
-
-    // 创建用户消息
-    const userMessage: ChatMessage = {
-      id: userMessageId,
-      role: "user" as const,
-      content: userContent,
-      timestamp: Date.now(),
-    }
-
-    // 创建 AI 响应占位
-    const assistantPlaceholder: ChatMessage = {
-      id: aiMessageId,
-      role: "assistant" as const,
-      content: "",
-      timestamp: Date.now(),
-      isStreaming: true,
-    }
-
-    setChatMessages((prev) => [...prev, userMessage, assistantPlaceholder])
-    setStreamingMessageId(aiMessageId)
-    setStreamingText("")
-    setStreamingThinking("")
-    setIsThinkingExpanded(false)
-
-    streamingControllerRef.current?.abort()
-    const controller = new AbortController()
-    streamingControllerRef.current = controller
-
-    const commitAssistantContent = (content: string, thinking?: string) => {
-      setChatMessages((prev) => {
-        const updatedMessages = prev.map((message) =>
-          message.id === aiMessageId ? { ...message, content, thinking, isStreaming: false } : message
-        )
-        saveSessionToStorage(sessionId, updatedMessages)
-        return updatedMessages
-      })
-    }
-
-    const debugMode = process.env.NEXT_PUBLIC_AI_DEBUG === 'true'
-    const requestUrl = `/lang-chain/v1/chat/completions${debugMode ? '?debug=true' : ''}`
-
-    try {
-      // 上传最新画布并获取 ossKey
-      const ossKey = await getCanvasOssKey()
-      if (!ossKey) {
-        throw new Error("画布上传失败")
-      }
-
-      const response = await fetch(requestUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'course-assistant',
-          stream: true,
-          session_id: sessionId,
-          canvas_oss_key: ossKey,
-          messages: [{ role: 'user', content: userContent }],
-          // 填充课程信息的标记
-          fill_course_info: true,
-          // 目标课程信息ID
-          target_course_info_id: courseInfoId,
-        }),
-        signal: controller.signal,
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const reader = response.body?.getReader()
-      if (!reader) {
-        throw new Error('无法获取响应流')
-      }
-
-      const decoder = new TextDecoder()
-      let accumulated = ''
-      let accumulatedThinking = ''
-      let buffer = ''
-
-      const processStream = async () => {
-        try {
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            if (controller.signal.aborted) break
-
-            buffer += decoder.decode(value, { stream: true })
-            const lines = buffer.split('\n')
-            buffer = lines.pop() || ''
-
-            for (const line of lines) {
-              const trimmedLine = line.trim()
-              if (!trimmedLine || !trimmedLine.startsWith('data:')) continue
-
-              const data = trimmedLine.slice(5).trim()
-              if (data === '[DONE]') continue
-
-              try {
-                const parsed = JSON.parse(data)
-
-                // 处理canvas事件 - 更新画布组件
-                if (isCanvasEvent(parsed)) {
-                  handleCanvasEvent(parsed as CanvasEventMessage)
-                  continue
-                }
-
-                // 处理thinking事件
-                if (isThinkingEvent(parsed)) {
-                  accumulatedThinking += parsed.content
-                  setStreamingThinking(accumulatedThinking)
-                  continue
-                }
-
-                // 处理error事件
-                if (isErrorEvent(parsed)) {
-                  const errorEvent = parsed as ErrorEventMessage
-                  toast.error(errorEvent.message)
-                  continue
-                }
-
-                // 处理标准OpenAI格式的内容
-                if (isOpenAIChunk(parsed)) {
-                  const content = parsed.choices?.[0]?.delta?.content
-                  if (content) {
-                    accumulated += content
-                    setStreamingText(accumulated)
-                  }
-                  continue
-                }
-              } catch (parseError) {
-                console.error('解析流式响应失败', parseError, data)
-              }
-            }
-          }
-        } catch (error) {
-          // 流被中止时静默返回（用户点击停止按钮）
-          if (error instanceof Error && error.name === 'AbortError') {
-            console.log('[填充源文档] 流式请求已被用户中止')
-            return
-          }
-          throw error
-        } finally {
-          reader.releaseLock()
-        }
-
-        // 填充完成
-        const finalContent = accumulated.trim() || '课程基本信息已自动填充'
-        commitAssistantContent(finalContent, accumulatedThinking || undefined)
-        if (streamingControllerRef.current === controller) {
-          streamingControllerRef.current = null
-        }
-        setStreamingMessageId(null)
-        setStreamingText('')
-        setIsRegenerating(false)
+    await executeSSERequest({
+      userContent: "请根据上传的源文档，自动生成课程基本信息",
+      messageSuffix: "fill-course-info",
+      logPrefix: `填充课程信息 课程信息ID: ${courseInfoId}`,
+      defaultCompleteMessage: "课程基本信息已自动填充",
+      cancelMessage: "已取消填充操作。",
+      errorMessage: "课程信息填充失败，请稍后再试。",
+      payload: {
+        fill_course_info: true,
+        target_course_info_id: courseInfoId,
+      },
+      skipInitCheck: true,
+      onComplete: () => {
         // 选中课程信息卡片
         selectCanvasElement(courseInfoId)
-        console.log("[填充课程信息] 填充完成")
-      }
-
-      processStream()
-    } catch (error) {
-      const fallback = controller.signal.aborted
-        ? "已取消填充操作。"
-        : "课程信息填充失败，请稍后再试。"
-      commitAssistantContent(fallback)
-      if (streamingControllerRef.current === controller) {
-        streamingControllerRef.current = null
-      }
-      setStreamingMessageId(null)
-      setStreamingText('')
-      setIsRegenerating(false)
-      console.error("[填充课程信息] 填充失败:", error)
-    }
-  }
+      },
+    })
+  }, [sessionId, executeSSERequest, selectCanvasElement])
 
   // 处理课点信息自动填充请求
-  const handleFillCoursePoints = async () => {
-    // 检查是否已在重做中或流式生成中
-    if (isRegenerating || streamingMessageId) {
-      toast.error("请等待当前操作完成")
-      return
-    }
-
-    if (!isInitialized || !sessionId) {
-      toast.error("会话未初始化")
-      return
-    }
-
-    console.log("[填充课点信息] 开始自动填充")
-
-    // 设置重做状态（复用重做的loading效果）
-    setIsRegenerating(true)
-
-    // 创建用户消息和AI响应占位
-    const timestamp = Date.now().toString()
-    const userMessageId = `${timestamp}-user`
-    const aiMessageId = `${timestamp}-fill-course-points`
-    const userContent = "请根据画布中的课程信息和教学目标，自动生成课点信息"
-
-    // 创建用户消息
-    const userMessage: ChatMessage = {
-      id: userMessageId,
-      role: "user" as const,
-      content: userContent,
-      timestamp: Date.now(),
-    }
-
-    // 创建 AI 响应占位
-    const assistantPlaceholder: ChatMessage = {
-      id: aiMessageId,
-      role: "assistant" as const,
-      content: "",
-      timestamp: Date.now(),
-      isStreaming: true,
-    }
-
-    setChatMessages((prev) => [...prev, userMessage, assistantPlaceholder])
-    setStreamingMessageId(aiMessageId)
-    setStreamingText("")
-    setStreamingThinking("")
-    setIsThinkingExpanded(false)
-
-    streamingControllerRef.current?.abort()
-    const controller = new AbortController()
-    streamingControllerRef.current = controller
-
-    const commitAssistantContent = (content: string, thinking?: string) => {
-      setChatMessages((prev) => {
-        const updatedMessages = prev.map((message) =>
-          message.id === aiMessageId ? { ...message, content, thinking, isStreaming: false } : message
-        )
-        saveSessionToStorage(sessionId, updatedMessages)
-        return updatedMessages
-      })
-    }
-
-    const debugMode = process.env.NEXT_PUBLIC_AI_DEBUG === 'true'
-    const requestUrl = `/lang-chain/v1/chat/completions${debugMode ? '?debug=true' : ''}`
-
-    try {
-      // 清空课点面板子节点（填充前必须清空，否则原有内容会传到后台）
-      const coursePointPanel = canvasElements.find(el => el.type === CanvasComponentType.COURSE_POINT_PANEL)
-      if (coursePointPanel) {
-        console.log("[填充课点信息] 清空课点面板:", coursePointPanel.id)
-        updateCanvasPanelChildren(coursePointPanel.id, CanvasComponentType.COURSE_POINT_PANEL, CanvasComponentType.COURSE_POINT_CARD, [])
-      }
-
-      // 上传最新画布并获取 ossKey
-      const ossKey = await getCanvasOssKey()
-      if (!ossKey) {
-        throw new Error("画布上传失败")
-      }
-
-      const response = await fetch(requestUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'course-assistant',
-          stream: true,
-          session_id: sessionId,
-          canvas_oss_key: ossKey,
-          messages: [{ role: 'user', content: userContent }],
-          // 填充课点信息的标记
-          fill_course_point_panel: true,
-        }),
-        signal: controller.signal,
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const reader = response.body?.getReader()
-      if (!reader) {
-        throw new Error('无法获取响应流')
-      }
-
-      const decoder = new TextDecoder()
-      let accumulated = ''
-      let accumulatedThinking = ''
-      let buffer = ''
-
-      const processStream = async () => {
-        try {
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            if (controller.signal.aborted) break
-
-            buffer += decoder.decode(value, { stream: true })
-            const lines = buffer.split('\n')
-            buffer = lines.pop() || ''
-
-            for (const line of lines) {
-              const trimmedLine = line.trim()
-              if (!trimmedLine || !trimmedLine.startsWith('data:')) continue
-
-              const data = trimmedLine.slice(5).trim()
-              if (data === '[DONE]') continue
-
-              try {
-                const parsed = JSON.parse(data)
-
-                // 处理canvas事件 - 更新画布组件
-                if (isCanvasEvent(parsed)) {
-                  handleCanvasEvent(parsed as CanvasEventMessage)
-                  continue
-                }
-
-                // 处理thinking事件
-                if (isThinkingEvent(parsed)) {
-                  accumulatedThinking += parsed.content
-                  setStreamingThinking(accumulatedThinking)
-                  continue
-                }
-
-                // 处理error事件
-                if (isErrorEvent(parsed)) {
-                  const errorEvent = parsed as ErrorEventMessage
-                  toast.error(errorEvent.message)
-                  continue
-                }
-
-                // 处理progress事件 - 显示在思考区域和画布课点面板内
-                if (isProgressEvent(parsed)) {
-                  const progressEvent = parsed as ProgressEventMessage
-                  // 将进度消息追加到思考区域
-                  const progressLine = `[${progressEvent.current}/${progressEvent.total}] ${progressEvent.message}\n`
-                  accumulatedThinking += progressLine
-                  setStreamingThinking(accumulatedThinking)
-                  // 同时更新画布课点面板内的进度显示
-                  setFillCoursePointsProgress(progressEvent.message)
-                  continue
-                }
-
-                // 处理标准OpenAI格式的内容
-                if (isOpenAIChunk(parsed)) {
-                  const content = parsed.choices?.[0]?.delta?.content
-                  if (content) {
-                    accumulated += content
-                    setStreamingText(accumulated)
-                  }
-                  continue
-                }
-              } catch (parseError) {
-                console.error('解析流式响应失败', parseError, data)
-              }
-            }
-          }
-        } catch (error) {
-          // 流被中止时静默返回（用户点击停止按钮）
-          if (error instanceof Error && error.name === 'AbortError') {
-            console.log('[填充课点] 流式请求已被用户中止')
-            return
-          }
-          throw error
-        } finally {
-          reader.releaseLock()
+  const handleFillCoursePoints = useCallback(async () => {
+    await executeSSERequest({
+      userContent: "请根据画布中的课程信息和教学目标，自动生成课点信息",
+      messageSuffix: "fill-course-points",
+      logPrefix: "填充课点信息",
+      defaultCompleteMessage: "课点信息已自动生成",
+      cancelMessage: "已取消填充操作。",
+      errorMessage: "课点信息生成失败，请稍后再试。",
+      payload: { fill_course_point_panel: true },
+      onBeforeRequest: () => {
+        // 清空课点面板子节点（填充前必须清空，否则原有内容会传到后台）
+        const coursePointPanel = canvasElements.find(el => el.type === CanvasComponentType.COURSE_POINT_PANEL)
+        if (coursePointPanel) {
+          console.log("[填充课点信息] 清空课点面板:", coursePointPanel.id)
+          updateCanvasPanelChildren(coursePointPanel.id, CanvasComponentType.COURSE_POINT_PANEL, CanvasComponentType.COURSE_POINT_CARD, [])
         }
-
-        // 填充完成，清除进度
-        setFillCoursePointsProgress(null)
-        const finalContent = accumulated.trim() || '课点信息已自动生成'
-        commitAssistantContent(finalContent, accumulatedThinking || undefined)
-        if (streamingControllerRef.current === controller) {
-          streamingControllerRef.current = null
-        }
-        setStreamingMessageId(null)
-        setStreamingText('')
-        setIsRegenerating(false)
-        console.log("[填充课点信息] 填充完成")
-      }
-
-      processStream()
-    } catch (error) {
-      const fallback = controller.signal.aborted
-        ? "已取消填充操作。"
-        : "课点信息生成失败，请稍后再试。"
-      commitAssistantContent(fallback)
-      if (streamingControllerRef.current === controller) {
-        streamingControllerRef.current = null
-      }
-      setStreamingMessageId(null)
-      setStreamingText('')
-      setFillCoursePointsProgress(null)
-      setIsRegenerating(false)
-      console.error("[填充课点信息] 填充失败:", error)
-    }
-  }
+      },
+      onProgress: (progress) => {
+        updateFillProgress('coursePoints', progress.message)
+      },
+      onComplete: () => {
+        updateFillProgress('coursePoints', null)
+      },
+    })
+    updateFillProgress('coursePoints', null)
+  }, [executeSSERequest, canvasElements, updateCanvasPanelChildren, updateFillProgress])
 
   // 处理KSA自动填充请求
-  const handleFillKsa = async () => {
-    // 检查是否已在重做中或流式生成中
-    if (isRegenerating || streamingMessageId) {
-      toast.error("请等待当前操作完成")
-      return
-    }
-
-    if (!isInitialized || !sessionId) {
-      toast.error("会话未初始化")
-      return
-    }
-
-    console.log("[填充KSA] 开始自动填充")
-
-    // 设置重做状态（复用重做的loading效果）
-    setIsRegenerating(true)
-
-    // 创建用户消息和AI响应占位
-    const timestamp = Date.now().toString()
-    const userMessageId = `${timestamp}-user`
-    const aiMessageId = `${timestamp}-fill-ksa`
-    const userContent = "请根据画布中的课程信息和课点信息，自动生成KSA（知识、技能、态度）三要素"
-
-    // 创建用户消息
-    const userMessage: ChatMessage = {
-      id: userMessageId,
-      role: "user" as const,
-      content: userContent,
-      timestamp: Date.now(),
-    }
-
-    // 创建 AI 响应占位
-    const assistantPlaceholder: ChatMessage = {
-      id: aiMessageId,
-      role: "assistant" as const,
-      content: "",
-      timestamp: Date.now(),
-      isStreaming: true,
-    }
-
-    setChatMessages((prev) => [...prev, userMessage, assistantPlaceholder])
-    setStreamingMessageId(aiMessageId)
-    setStreamingText("")
-    setStreamingThinking("")
-    setIsThinkingExpanded(false)
-
-    streamingControllerRef.current?.abort()
-    const controller = new AbortController()
-    streamingControllerRef.current = controller
-
-    const commitAssistantContent = (content: string, thinking?: string) => {
-      setChatMessages((prev) => {
-        const updatedMessages = prev.map((message) =>
-          message.id === aiMessageId ? { ...message, content, thinking, isStreaming: false } : message
-        )
-        saveSessionToStorage(sessionId, updatedMessages)
-        return updatedMessages
-      })
-    }
-
-    const debugMode = process.env.NEXT_PUBLIC_AI_DEBUG === 'true'
-    const requestUrl = `/lang-chain/v1/chat/completions${debugMode ? '?debug=true' : ''}`
-
-    try {
-      // 清空KSA面板子节点（填充前必须清空，否则原有内容会传到后台）
-      const ksaPanel = canvasElements.find(el => el.type === CanvasComponentType.KSA_PANEL)
-      if (ksaPanel) {
-        console.log("[填充KSA] 清空KSA面板:", ksaPanel.id)
-        updateCanvasPanelChildren(ksaPanel.id, CanvasComponentType.KSA_PANEL, CanvasComponentType.KSA_ITEM, [])
-      }
-
-      // 上传最新画布并获取 ossKey
-      const ossKey = await getCanvasOssKey()
-      if (!ossKey) {
-        throw new Error("画布上传失败")
-      }
-
-      const response = await fetch(requestUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'course-assistant',
-          stream: true,
-          session_id: sessionId,
-          canvas_oss_key: ossKey,
-          messages: [{ role: 'user', content: userContent }],
-          // 填充KSA的标记
-          fill_ksa_panel: true,
-        }),
-        signal: controller.signal,
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const reader = response.body?.getReader()
-      if (!reader) {
-        throw new Error('无法获取响应流')
-      }
-
-      const decoder = new TextDecoder()
-      let accumulated = ''
-      let accumulatedThinking = ''
-      let buffer = ''
-
-      const processStream = async () => {
-        try {
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            if (controller.signal.aborted) break
-
-            buffer += decoder.decode(value, { stream: true })
-            const lines = buffer.split('\n')
-            buffer = lines.pop() || ''
-
-            for (const line of lines) {
-              const trimmedLine = line.trim()
-              if (!trimmedLine || !trimmedLine.startsWith('data:')) continue
-
-              const data = trimmedLine.slice(5).trim()
-              if (data === '[DONE]') continue
-
-              try {
-                const parsed = JSON.parse(data)
-
-                // 处理canvas事件 - 更新画布组件
-                if (isCanvasEvent(parsed)) {
-                  handleCanvasEvent(parsed as CanvasEventMessage)
-                  continue
-                }
-
-                // 处理thinking事件
-                if (isThinkingEvent(parsed)) {
-                  accumulatedThinking += parsed.content
-                  setStreamingThinking(accumulatedThinking)
-                  continue
-                }
-
-                // 处理error事件
-                if (isErrorEvent(parsed)) {
-                  const errorEvent = parsed as ErrorEventMessage
-                  toast.error(errorEvent.message)
-                  continue
-                }
-
-                // 处理progress事件 - 显示在思考区域和画布KSA面板内
-                if (isProgressEvent(parsed)) {
-                  const progressEvent = parsed as ProgressEventMessage
-                  // 将进度消息追加到思考区域
-                  const progressLine = `[${progressEvent.current}/${progressEvent.total}] ${progressEvent.message}\n`
-                  accumulatedThinking += progressLine
-                  setStreamingThinking(accumulatedThinking)
-                  // 同时更新画布KSA面板内的进度显示
-                  setFillKsaProgress(progressEvent.message)
-                  continue
-                }
-
-                // 处理标准OpenAI格式的内容
-                if (isOpenAIChunk(parsed)) {
-                  const content = parsed.choices?.[0]?.delta?.content
-                  if (content) {
-                    accumulated += content
-                    setStreamingText(accumulated)
-                  }
-                  continue
-                }
-              } catch (parseError) {
-                console.error('解析流式响应失败', parseError, data)
-              }
-            }
-          }
-        } catch (error) {
-          // 流被中止时静默返回（用户点击停止按钮）
-          if (error instanceof Error && error.name === 'AbortError') {
-            console.log('[填充KSA] 流式请求已被用户中止')
-            return
-          }
-          throw error
-        } finally {
-          reader.releaseLock()
+  // 处理 KSA 面板自动填充请求
+  const handleFillKsa = useCallback(async () => {
+    await executeSSERequest({
+      userContent: "请根据画布中的课程信息和课点信息，自动生成KSA（知识、技能、态度）三要素",
+      messageSuffix: "fill-ksa",
+      logPrefix: "填充KSA",
+      defaultCompleteMessage: "KSA三要素已自动生成",
+      cancelMessage: "已取消填充操作。",
+      errorMessage: "KSA生成失败，请稍后再试。",
+      payload: { fill_ksa_panel: true },
+      onBeforeRequest: () => {
+        // 清空KSA面板子节点（填充前必须清空，否则原有内容会传到后台）
+        const ksaPanel = canvasElements.find(el => el.type === CanvasComponentType.KSA_PANEL)
+        if (ksaPanel) {
+          console.log("[填充KSA] 清空KSA面板:", ksaPanel.id)
+          updateCanvasPanelChildren(ksaPanel.id, CanvasComponentType.KSA_PANEL, CanvasComponentType.KSA_ITEM, [])
         }
-
-        // 填充完成，清除进度
-        setFillKsaProgress(null)
-        const finalContent = accumulated.trim() || 'KSA三要素已自动生成'
-        commitAssistantContent(finalContent, accumulatedThinking || undefined)
-        if (streamingControllerRef.current === controller) {
-          streamingControllerRef.current = null
-        }
-        setStreamingMessageId(null)
-        setStreamingText('')
-        setIsRegenerating(false)
-        console.log("[填充KSA] 填充完成")
-      }
-
-      processStream()
-    } catch (error) {
-      const fallback = controller.signal.aborted
-        ? "已取消填充操作。"
-        : "KSA生成失败，请稍后再试。"
-      commitAssistantContent(fallback)
-      if (streamingControllerRef.current === controller) {
-        streamingControllerRef.current = null
-      }
-      setStreamingMessageId(null)
-      setStreamingText('')
-      setFillKsaProgress(null)
-      setIsRegenerating(false)
-      console.error("[填充KSA] 填充失败:", error)
-    }
-  }
+      },
+      onProgress: (progress) => {
+        updateFillProgress('ksa', progress.message)
+      },
+      onComplete: () => {
+        updateFillProgress('ksa', null)
+      },
+    })
+    // 确保进度被清除（包括错误情况）
+    updateFillProgress('ksa', null)
+  }, [executeSSERequest, canvasElements, updateCanvasPanelChildren, updateFillProgress])
 
   // 停止生成处理函数
-  const handleStopGeneration = async () => {
+  const handleStopGeneration = useCallback(async () => {
     // 取消流式请求
     streamingControllerRef.current?.abort()
     streamingControllerRef.current = null
@@ -2389,7 +847,7 @@ export function AiAssistantDrawer({
     // 通知后端终止生成
     if (sessionId) {
       try {
-        await fetch('/lang-chain/v1/chat/cancel', {
+        await fetch(AI_API_CONFIG.CANCEL_PATH, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -2403,16 +861,15 @@ export function AiAssistantDrawer({
     }
 
     console.log("[停止生成] 用户手动停止了生成")
-  }
+  }, [streamingMessageId, streamingText, streamingThinking, sessionId])
 
-  const handleSendMessage = async () => {
+  // 处理发送聊天消息
+  const handleSendMessage = useCallback(async () => {
     if (!inputMessage.trim() || !isInitialized || !sessionId) {
       return
     }
 
     const trimmedContent = inputMessage.trim()
-    const timestamp = Date.now().toString()
-    const aiMessageId = `${timestamp}-ai`
 
     // 处理附件上传
     let attachment: MessageAttachment | undefined
@@ -2441,291 +898,156 @@ export function AiAssistantDrawer({
       }
     }
 
-    const userMessage: ChatMessage = {
-      id: timestamp,
-      role: "user" as const,
-      content: trimmedContent,
-      timestamp: Date.now(),
-      attachment,
-    }
-
-    const assistantPlaceholder: ChatMessage = {
-      id: aiMessageId,
-      role: "assistant" as const,
-      content: "",
-      timestamp: Date.now(),
-      isStreaming: true,
-    }
+    // 使用工具函数创建消息对
+    const { userMessage, assistantPlaceholder, aiMessageId } = createMessagePair(
+      trimmedContent,
+      "ai",
+      attachment
+    )
 
     setChatMessages((prev) => [...prev, userMessage, assistantPlaceholder])
     setInputMessage("")
-    setAttachedFiles([]) // 清空附件
-    // 发送消息后让输入框失去焦点，避免展开状态遮挡最新消息
+    clearAttachedFiles()
     textareaRef.current?.blur()
     setStreamingMessageId(aiMessageId)
     setStreamingText("")
     setStreamingThinking("")
     setIsThinkingExpanded(false)
 
+    // 重置 AbortController（使用 useSSEStream 提供的方法）
     streamingControllerRef.current?.abort()
-    const controller = new AbortController()
+    const controller = resetSSEController()
     streamingControllerRef.current = controller
 
-    const commitAssistantContent = (content: string, thinking?: string) => {
-      setChatMessages((prev) => {
-        const updatedMessages = prev.map((message) =>
-          message.id === aiMessageId ? { ...message, content, thinking, isStreaming: false } : message
-        )
-        // 保存消息历史到localStorage
-        saveSessionToStorage(sessionId, updatedMessages)
-        return updatedMessages
-      })
-    }
-
-    // OpenAI 标准接口（通过代理避免跨域）
-    // 从环境变量读取 debug 参数，添加到 URL 查询字符串
-    const debugMode = process.env.NEXT_PUBLIC_AI_DEBUG === 'true'
-    const requestUrl = `/lang-chain/v1/chat/completions${debugMode ? '?debug=true' : ''}`
+    // 使用工具函数创建消息提交器
+    const commitAssistantContent = createMessageCommitter(
+      aiMessageId,
+      sessionId,
+      setChatMessages,
+      saveSessionToStorage
+    )
 
     try {
-      // 获取画布 ossKey（如果有画布内容会先上传到阿里云 OSS）
       const ossKey = await getCanvasOssKey()
 
-      // 构建消息数组
+      // 构建消息数组（包含文件附件）
       const messages: Array<{ role: string; content: string; type?: string }> = []
-
-      // 如果有文件附件，先添加文件消息
       if (attachment) {
-        messages.push({
-          role: 'user',
-          content: attachment.ossKey,
-          type: 'file',
-        })
+        messages.push({ role: 'user', content: attachment.ossKey, type: 'file' })
+      }
+      messages.push({ role: 'user', content: trimmedContent })
+
+      // 构建请求负载
+      const payload: AIRequestPayload = {
+        sessionId,
+        canvasOssKey: ossKey || undefined,
+        messages,
       }
 
-      // 添加用户文本消息
-      messages.push({
-        role: 'user',
-        content: trimmedContent,
-      })
-
-      const response = await fetch(requestUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'course-assistant',
-          stream: true,
-          session_id: sessionId,
-          // 画布内容的阿里云 OSS Key（如果有画布内容）
-          canvas_oss_key: ossKey || undefined,
-          messages,
-        }),
-        signal: controller.signal,
-      })
+      const response = await fetch(getAIRequestUrl(), buildAIRequest(payload, controller.signal))
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const reader = response.body?.getReader()
-      if (!reader) {
-        throw new Error('无法获取响应流')
-      }
-
-      const decoder = new TextDecoder()
-      let accumulated = ''
-      let accumulatedThinking = ''
-      let buffer = ''
-
-      const processStream = async () => {
-        try {
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            if (controller.signal.aborted) break
-
-            buffer += decoder.decode(value, { stream: true })
-            const lines = buffer.split('\n')
-            // 保留最后一行（可能不完整）
-            buffer = lines.pop() || ''
-
-            for (const line of lines) {
-              const trimmedLine = line.trim()
-              if (!trimmedLine || !trimmedLine.startsWith('data:')) continue
-
-              const data = trimmedLine.slice(5).trim()
-              if (data === '[DONE]') continue
-
-              try {
-                const parsed = JSON.parse(data)
-
-                // 处理status事件
-                if (isStatusEvent(parsed)) {
-                  const statusEvent = parsed as StatusEventMessage
-                  setToolStatus({
-                    node: statusEvent.node,
-                    event: statusEvent.event,
-                    tool: statusEvent.tool,
-                    args: statusEvent.args,
-                  })
-                  // tools end时清除状态（而非agent end，因为agent end后可能还有tools执行）
-                  if (statusEvent.node === 'tools' && statusEvent.event === 'end') {
-                    // 延迟清除，让用户看到"工具执行完成"的状态
-                    setTimeout(() => setToolStatus(null), 1000)
-                  }
-                  continue
-                }
-
-                // 处理canvas事件 - 触发画布展开
-                if (isCanvasEvent(parsed)) {
-                  handleCanvasEvent(parsed as CanvasEventMessage)
-                  // canvas事件触发画布展开
-                  if (!hasTriggeredExpandRef.current) {
-                    hasTriggeredExpandRef.current = true
-                    setIsCanvasExpanded(true)
-                  }
-                  continue
-                }
-
-                // 处理thinking事件
-                if (isThinkingEvent(parsed)) {
-                  accumulatedThinking += parsed.content
-                  setStreamingThinking(accumulatedThinking)
-                  continue
-                }
-
-                // 处理ui事件
-                if (isUIEvent(parsed)) {
-                  const uiEvent = parsed as UIEventMessage
-                  // show_panel动作触发画布展开
-                  if (uiEvent.action === 'show_panel') {
-                    if (!hasTriggeredExpandRef.current) {
-                      hasTriggeredExpandRef.current = true
-                      setIsCanvasExpanded(true)
-                    }
-                  }
-                  // hide_panel动作可选择收起画布
-                  // TODO: 可根据需要扩展其他ui动作
-                  console.log('[UI事件]', uiEvent.action, uiEvent)
-                  continue
-                }
-
-                // 处理progress事件
-                if (isProgressEvent(parsed)) {
-                  const progressEvent = parsed as ProgressEventMessage
-                  setProgress({
-                    current: progressEvent.current,
-                    total: progressEvent.total,
-                    message: progressEvent.message,
-                    stage: progressEvent.stage,
-                  })
-                  // 完成时清除进度
-                  if (progressEvent.stage === 'complete') {
-                    setTimeout(() => setProgress(null), 2000)
-                  }
-                  continue
-                }
-
-                // 处理mode事件
-                if (isModeEvent(parsed)) {
-                  const modeEvent = parsed as ModeEventMessage
-                  setCurrentMode(modeEvent.mode)
-                  if (modeEvent.stage) {
-                    setBuildingStage(modeEvent.stage)
-                  }
-                  // 注意：mode事件本身不触发展开，后续的canvas/ui事件会触发
-                  // chat模式时收起画布
-                  if (modeEvent.mode === 'chat') {
-                    setIsCanvasExpanded(false)
-                    hasTriggeredExpandRef.current = false
-                  }
-                  continue
-                }
-
-                // 处理error事件
-                if (isErrorEvent(parsed)) {
-                  const errorEvent = parsed as ErrorEventMessage
-                  toast.error(errorEvent.message)
-                  continue
-                }
-
-                // 处理标准OpenAI格式的内容
-                if (isOpenAIChunk(parsed)) {
-                  const content = parsed.choices?.[0]?.delta?.content
-                  if (content) {
-                    accumulated += content
-                    setStreamingText(accumulated)
-                  }
-                  continue
-                }
-
-                // 兼容后端旧格式：{ reply: "...", canvas_update: {...}, stage: "..." }
-                // 这是后端问题，应由后端修复为标准格式，此处仅做临时兼容
-                const legacyFormat = parsed as {
-                  reply?: string
-                  canvas_update?: Record<string, unknown>
-                  stage?: string
-                }
-                if (legacyFormat.reply !== undefined || legacyFormat.canvas_update !== undefined) {
-                  console.warn('[SSE] 检测到后端旧格式响应，建议后端修复为标准格式:', parsed)
-
-                  // 处理 reply 字段作为消息内容
-                  if (legacyFormat.reply) {
-                    accumulated += legacyFormat.reply
-                    setStreamingText(accumulated)
-                  }
-
-                  // 处理 canvas_update 字段，转换为标准 canvas 事件
-                  if (legacyFormat.canvas_update) {
-                    for (const [componentKey, componentData] of Object.entries(legacyFormat.canvas_update)) {
-                      // 构造标准 canvas 事件
-                      const canvasEvent: CanvasEventMessage = {
-                        type: "canvas",
-                        action: "update" as CanvasAction,
-                        component: componentKey as CanvasComponentType,
-                        data: componentData as CanvasComponentData,
-                      }
-                      handleCanvasEvent(canvasEvent)
-
-                      // 触发画布展开
-                      if (!hasTriggeredExpandRef.current) {
-                        hasTriggeredExpandRef.current = true
-                        setIsCanvasExpanded(true)
-                      }
-                    }
-                  }
-                  continue
-                }
-              } catch (parseError) {
-                console.error('解析流式响应失败', parseError, data)
-              }
+      // 使用 useSSEStream 的 processStream 处理响应
+      const result = await processStream(response, {
+        onStatusEvent: (status) => {
+          setToolStatus({
+            node: status.node,
+            event: status.event,
+            tool: status.tool,
+            args: status.args,
+          })
+          // tools end 时清除状态
+          if (status.node === 'tools' && status.event === 'end') {
+            setTimeout(() => setToolStatus(null), 1000)
+          }
+        },
+        onCanvasEvent: (event) => {
+          handleCanvasEvent(event)
+          // canvas 事件触发画布展开
+          if (!hasTriggeredExpandRef.current) {
+            hasTriggeredExpandRef.current = true
+            setIsCanvasExpanded(true)
+          }
+        },
+        onThinkingChunk: (content) => {
+          setStreamingThinking(content)
+        },
+        onUIEvent: (event) => {
+          // show_panel 动作触发画布展开
+          if (event.action === 'show_panel') {
+            if (!hasTriggeredExpandRef.current) {
+              hasTriggeredExpandRef.current = true
+              setIsCanvasExpanded(true)
             }
           }
-        } catch (error) {
-          // 流被中止时静默返回（用户点击停止按钮）
-          if (error instanceof Error && error.name === 'AbortError') {
-            console.log('[聊天] 流式请求已被用户中止')
-            return
+          console.log('[UI事件]', event.action, event)
+        },
+        onProgressEvent: (progressEvent) => {
+          setProgress({
+            current: progressEvent.current,
+            total: progressEvent.total,
+            message: progressEvent.message,
+            stage: progressEvent.stage,
+          })
+          // 完成时清除进度
+          if (progressEvent.stage === 'complete') {
+            setTimeout(() => setProgress(null), 2000)
           }
-          throw error
-        } finally {
-          reader.releaseLock()
-        }
+        },
+        onModeEvent: (modeEvent) => {
+          setCurrentMode(modeEvent.mode)
+          if (modeEvent.stage) {
+            setBuildingStage(modeEvent.stage)
+          }
+          // chat 模式时收起画布
+          if (modeEvent.mode === 'chat') {
+            setIsCanvasExpanded(false)
+            hasTriggeredExpandRef.current = false
+          }
+        },
+        onErrorEvent: (error) => {
+          toast.error(error.message)
+        },
+        onContentChunk: (content) => {
+          setStreamingText(content)
+        },
+        onLegacyFormat: (legacy) => {
+          // 旧格式响应中的 canvas_update 触发画布展开
+          if (legacy.canvas_update) {
+            if (!hasTriggeredExpandRef.current) {
+              hasTriggeredExpandRef.current = true
+              setIsCanvasExpanded(true)
+            }
+          }
+        },
+        onAbort: () => {
+          console.log('[聊天] 流式请求已被用户中止')
+        },
+      })
 
-        const finalContent = accumulated.trim() || 'AI 暂无新的建议，请稍后再试。'
-        commitAssistantContent(finalContent, accumulatedThinking || undefined)
+      // 完成
+      const finalContent = result.content.trim() || 'AI 暂无新的建议，请稍后再试。'
+      commitAssistantContent(finalContent, result.thinking || undefined)
+      if (streamingControllerRef.current === controller) {
+        streamingControllerRef.current = null
+      }
+      setStreamingMessageId(null)
+      setStreamingText('')
+      // 不清空思考内容，保留显示"思考完毕"状态
+    } catch (error) {
+      // AbortError 已在 processStream 内部处理并抛出，这里需要捕获
+      if (error instanceof Error && error.name === 'AbortError') {
         if (streamingControllerRef.current === controller) {
           streamingControllerRef.current = null
         }
         setStreamingMessageId(null)
         setStreamingText('')
-        // 不清空思考内容，保留显示"思考完毕"状态
+        return
       }
 
-      processStream()
-    } catch (error) {
       const fallback = controller.signal.aborted
         ? "已取消本次 AI 响应。"
         : "抱歉，AI 服务暂时不可用，请稍后再试。"
@@ -2735,9 +1057,34 @@ export function AiAssistantDrawer({
       }
       setStreamingMessageId(null)
       setStreamingText('')
-      // 不清空思考内容，保留显示
     }
-  }
+  }, [inputMessage, isInitialized, sessionId, attachedFiles, uploadFileToOss, getCanvasOssKey, handleCanvasEvent, processStream, resetSSEController])
+
+  // 连接菜单处理器
+  const handleConnectionMenuSelect = useCallback(
+    createConnectionMenuHandler({
+      canvasElements,
+      handleCanvasEvent,
+      handleFillCourseMatrix,
+      handleFillProjectMatrix,
+      handleFillChapterPanel,
+      handleFillObjectivePanel,
+      handleFillCourseInfo,
+      handleFillCoursePoints,
+      handleFillKsa,
+    }),
+    [
+      canvasElements,
+      handleCanvasEvent,
+      handleFillCourseMatrix,
+      handleFillProjectMatrix,
+      handleFillChapterPanel,
+      handleFillObjectivePanel,
+      handleFillCourseInfo,
+      handleFillCoursePoints,
+      handleFillKsa,
+    ]
+  )
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -2751,10 +1098,7 @@ export function AiAssistantDrawer({
       >
         <div
           className="flex h-full min-h-0 relative"
-          onDragEnter={handleDragEnter}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
+          {...dragHandlers}
         >
           {/* 全局拖拽覆盖层 */}
           {isDragging && (
@@ -2869,199 +1213,44 @@ export function AiAssistantDrawer({
           <ScrollArea ref={scrollViewportRef} className="flex-1 min-h-0 w-full min-w-0 px-6 py-4 overflow-hidden">
             <div className="space-y-5 pr-2 w-full min-w-0 overflow-hidden">
               {chatMessages.map((message) => {
-                const isAssistant = message.role === "assistant"
-                const shouldStream = streamingMessageId === message.id
-                const shouldShowThinking = isAssistant && shouldStream
-                const displayContent =
-                  message.id === "welcome" && isAssistant
-                    ? message.content.replace("你好，", `${greetingForMessage} `)
-                    : message.content
-                const contentToRender = shouldStream ? streamingText || "AI 正在生成响应..." : displayContent
-                const timeDisplay = shouldStream ? "生成中" : formatRelativeTime(message.timestamp)
+                const isStreaming = streamingMessageId === message.id
+                const isLastAssistantMessage =
+                  message.role === "assistant" &&
+                  chatMessages.filter((m) => m.role === "assistant").pop()?.id === message.id
 
-                // 判断是否显示思考区域：当前消息是最后一条AI消息且有思考内容
-                const isLastAssistantMessage = isAssistant && chatMessages.filter(m => m.role === "assistant").pop()?.id === message.id
-                // 思考内容：流式传输时用临时状态，否则用消息中保存的内容
-                const thinkingContent = shouldStream ? streamingThinking : message.thinking
-                const showThinkingBlock = isLastAssistantMessage && thinkingContent
-
-                return isAssistant ? (
-                  <div key={message.id} className="space-y-2 text-left min-w-0 overflow-hidden">
-                    {shouldStream ? (
-                      <div className="text-xs ai-loading-text-gradient">简报 · 正在生成中</div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground">简报 · {timeDisplay}</div>
-                    )}
-                    {showThinkingBlock && (
-                      <div className="text-xs min-w-0 w-full overflow-hidden">
-                        <button
-                          type="button"
-                          onClick={() => setIsThinkingExpanded(!isThinkingExpanded)}
-                          className="flex items-center gap-2 text-primary/80 hover:text-primary transition-colors w-full text-left min-w-0 overflow-hidden"
-                        >
-                          {shouldStream ? (
-                            <span className="h-2 w-2 animate-pulse rounded-full bg-primary flex-shrink-0" />
-                          ) : (
-                            <span className="h-2 w-2 rounded-full bg-primary/50 flex-shrink-0" />
-                          )}
-                          <span className="flex-1 min-w-0 truncate">
-                            {shouldStream ? `AI 正在思考：${thinkingContent?.replace(/\n/g, ' ').slice(0, isCanvasExpanded ? 20 : 50)}...` : 'AI思考完毕：点击此处查看完整思考过程'}
-                          </span>
-                          {isThinkingExpanded ? (
-                            <ChevronUp className="h-3.5 w-3.5 flex-shrink-0" />
-                          ) : (
-                            <ChevronDown className="h-3.5 w-3.5 flex-shrink-0" />
-                          )}
-                        </button>
-                        {isThinkingExpanded && (
-                          <div
-                            ref={thinkingScrollRef}
-                            className="mt-2 pl-4 border-l-2 border-primary/30 text-muted-foreground/80 text-[11px] leading-relaxed max-h-32 min-w-0 max-w-full overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words"
-                          >
-                            {thinkingContent}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {shouldStream && !streamingText ? (
-                      <div className="py-4 grid place-items-center">
-                        <Loader2 className="h-6 w-6 animate-spin text-primary/60" />
-                      </div>
-                    ) : (
-                      <div className="border-t border-dashed border-border/60 pt-3 text-sm leading-relaxed prose-ai min-w-0 overflow-hidden">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {contentToRender}
-                        </ReactMarkdown>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div key={message.id} className="flex items-start justify-end text-right w-full min-w-0 overflow-hidden">
-                    <div className="space-y-2 max-w-[80%] min-w-0">
-                      <div className="text-xs text-muted-foreground">{userName}老师 · {formatRelativeTime(message.timestamp)}</div>
-                      {/* 文件附件卡片 */}
-                      {message.attachment && (
-                        <a
-                          href={message.attachment.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="ai-message-file-card flex items-center gap-3 px-4 py-3 rounded-xl border border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors group"
-                        >
-                          <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <FileText className="h-5 w-5 text-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0 text-left">
-                            <div className="text-sm font-medium text-foreground truncate" title={message.attachment.name}>
-                              {message.attachment.name}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {(message.attachment.size / 1024).toFixed(1)} KB
-                            </div>
-                          </div>
-                          <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
-                        </a>
-                      )}
-                      <div className="rounded-2xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm leading-relaxed shadow-sm text-left whitespace-pre-wrap">
-                        {message.content}
-                      </div>
-                    </div>
-                  </div>
+                return (
+                  <ChatMessageItem
+                    key={message.id}
+                    message={message}
+                    isStreaming={isStreaming}
+                    streamingText={streamingText}
+                    streamingThinking={streamingThinking}
+                    isThinkingExpanded={isThinkingExpanded}
+                    onThinkingToggle={() => setIsThinkingExpanded(!isThinkingExpanded)}
+                    greetingForMessage={greetingForMessage}
+                    userName={userName}
+                    isCanvasExpanded={isCanvasExpanded}
+                    isLastAssistantMessage={isLastAssistantMessage}
+                  />
                 )
               })}
             </div>
           </ScrollArea>
 
-          <div className={`border-t border-border/60 bg-background/80 flex-shrink-0 flex flex-col gap-3 ${isCanvasExpanded ? "p-5" : "p-6"}`}>
-                  <div className="relative">
-                    <div className="ai-assistant-border-wrapper">
-                      <div className="ai-assistant-border-surface">
-                      <ExpandableTextarea
-                        ref={textareaRef}
-                        value={inputMessage}
-                        onChange={(value) => setInputMessage(value)}
-                        onExpandedChange={setIsInputExpanded}
-                        placeholder="询问任何问题"
-                        className="ai-assistant-textarea bg-background/80 px-3 py-2 text-sm pr-16"
-                        rows={4}
-                        hideCounter
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
-                            event.preventDefault()
-                            // 生成中时不发送新消息
-                            if (!streamingMessageId && !isRegenerating) {
-                              handleSendMessage()
-                            }
-                          }
-                        }}
-                      />
-                      </div>
-                    </div>
-                    {/* 发送/停止按钮：生成中时显示停止按钮，否则显示发送按钮 */}
-                    {(streamingMessageId || isRegenerating) ? (
-                      <Button
-                        size="icon"
-                        variant="destructive"
-                        className="absolute right-3 h-7 w-7 rounded-full transition-[transform,top,bottom] duration-200 z-10"
-                        style={
-                          isInputExpanded
-                            ? { bottom: "12px", top: "auto", transform: "translateY(0)" }
-                            : { top: "50%", bottom: "auto", transform: "translateY(-50%)" }
-                        }
-                        onClick={handleStopGeneration}
-                        title="停止生成"
-                      >
-                        <Square className="h-3.5 w-3.5 fill-current" />
-                      </Button>
-                    ) : (
-                      <Button
-                        size="icon"
-                        className="absolute right-3 h-7 w-7 rounded-full transition-[transform,top,bottom] duration-200 z-10"
-                        style={
-                          isInputExpanded
-                            ? { bottom: "12px", top: "auto", transform: "translateY(0)" }
-                            : { top: "50%", bottom: "auto", transform: "translateY(-50%)" }
-                        }
-                        disabled={!inputMessage.trim() || isUploadingFile}
-                        onClick={handleSendMessage}
-                      >
-                        {isUploadingFile ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Send className="h-4 w-4" />
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 min-h-[20px]">
-                    {/* 文件标签区域 */}
-                    {attachedFiles.length > 0 && (
-                      <div className="flex items-center gap-1.5 flex-shrink-0 overflow-x-auto max-w-[60%]">
-                        {attachedFiles.map((file) => (
-                          <div
-                            key={file.id}
-                            className="ai-file-tag flex items-center gap-1.5 px-2 py-1 rounded-md bg-primary/10 border border-primary/20 text-xs group"
-                          >
-                            <FileText className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                            <span className="truncate max-w-[120px] text-foreground/80" title={file.name}>
-                              {file.name}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveFile(file.id)}
-                              className="flex-shrink-0 p-0.5 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
-                              title="移除文件"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <p className="text-xs text-muted-foreground truncate ml-auto">
-                      AI 可能会生成不准确的内容，请务必核对后再决定是否采纳。
-                    </p>
-                  </div>
-          </div>
+          <ChatInputArea
+            ref={textareaRef}
+            inputMessage={inputMessage}
+            onInputChange={setInputMessage}
+            isInputExpanded={isInputExpanded}
+            onExpandedChange={setIsInputExpanded}
+            isGenerating={!!(streamingMessageId || isRegenerating)}
+            isUploadingFile={isUploadingFile}
+            attachedFiles={attachedFiles}
+            onRemoveFile={handleRemoveFile}
+            onSend={handleSendMessage}
+            onStop={handleStopGeneration}
+            isCanvasExpanded={isCanvasExpanded}
+          />
           </div>
 
           {/* 展开时显示分割线和Canvas画布 */}
@@ -3134,232 +1323,34 @@ export function AiAssistantDrawer({
                       // 更新项目矩阵节点数据
                       updateCanvasElementData(nodeId, matrixData)
                     }}
-                    onConnectionMenuSelect={(option, _sourceNodeId, position) => {
-                      // 处理课程矩阵创建
-                      if (option === "courseMatrix") {
-                        // 从画布元素中获取教学目标和章节数据
-                        const objectiveCards = canvasElements
-                          .filter(el => el.type === CanvasComponentType.OBJECTIVE_CARD)
-                          .map(el => el.data as ObjectiveCardData)
-                          .sort((a, b) => a.index - b.index)
-
-                        const chapterCards = canvasElements
-                          .filter(el => el.type === CanvasComponentType.CHAPTER_CARD)
-                          .map(el => el.data as ChapterCardData)
-                          .sort((a, b) => a.index - b.index)
-
-                        // 构建课程矩阵数据
-                        const courseMatrixData: CourseMatrixData = {
-                          course_name: "",
-                          objectives: objectiveCards.map(obj => ({
-                            id: obj.id,
-                            index: obj.index,
-                            content: obj.content,
-                          })),
-                          rows: chapterCards.map(chapter => ({
-                            chapter_id: chapter.id,
-                            chapter_index: chapter.index,
-                            chapter_name: chapter.name,
-                            // 每个章节对应每个教学目标的支撑项，初始为空
-                            supports: objectiveCards.map(obj => ({
-                              objective_id: obj.id,
-                              objective_index: obj.index,
-                              course_points: [], // 单元格内容留空
-                            })),
-                          })),
-                        }
-
-                        // 创建课程矩阵
-                        handleCanvasEvent({
-                          type: "canvas",
-                          action: CanvasAction.SET,
-                          component: CanvasComponentType.COURSE_MATRIX,
-                          data: courseMatrixData,
-                        })
-
-                        // 自动填充课程矩阵支撑关系（延迟执行，确保矩阵已创建并上传）
-                        setTimeout(() => {
-                          handleFillCourseMatrix()
-                        }, 500)
-                        return
-                      }
-
-                      // 处理项目矩阵创建 - 根据章节数量创建多个项目矩阵
-                      if (option === "projectMatrix") {
-                        // 从画布元素中获取章节数据
-                        const chapterCards = canvasElements
-                          .filter(el => el.type === CanvasComponentType.CHAPTER_CARD)
-                          .map(el => el.data as ChapterCardData)
-                          .sort((a, b) => a.index - b.index)
-
-                        // 获取课程矩阵数据，用于筛选该章节已设置支撑关系的课点
-                        const courseMatrixElement = canvasElements.find(
-                          el => el.type === CanvasComponentType.COURSE_MATRIX
-                        )
-                        const courseMatrixData = courseMatrixElement?.data as CourseMatrixData | undefined
-
-                        // 为每个章节创建一个项目矩阵
-                        chapterCards.forEach(chapter => {
-                          // 从课程矩阵中找到该章节行，收集所有已设置的课点
-                          const chapterRow = courseMatrixData?.rows?.find(
-                            row => row.chapter_id === chapter.id
-                          )
-
-                          // 收集该章节所有教学目标单元格中已设置的课点（去重）
-                          const coursePointMap = new Map<string, { id: string; name: string; description?: string }>()
-                          if (chapterRow?.supports) {
-                            for (const support of chapterRow.supports) {
-                              if (support.course_points) {
-                                for (const cp of support.course_points) {
-                                  if (!coursePointMap.has(cp.id)) {
-                                    coursePointMap.set(cp.id, {
-                                      id: cp.id,
-                                      name: cp.name,
-                                      description: undefined, // 课程矩阵中没有描述字段
-                                    })
-                                  }
-                                }
-                              }
-                            }
-                          }
-
-                          // 如果该章节没有设置任何课点支撑，则跳过创建项目矩阵
-                          if (coursePointMap.size === 0) {
-                            return
-                          }
-
-                          const projectMatrixData: ProjectMatrixData = {
-                            chapter_id: chapter.id,
-                            chapter_index: chapter.index,
-                            chapter_name: chapter.name,
-                            task_objectives: [], // 任务目标留空
-                            rows: Array.from(coursePointMap.values()).map(cp => ({
-                              course_point_id: cp.id,
-                              course_point_name: cp.name,
-                              course_point_description: cp.description,
-                              objective_supports: [], // 支撑项留空
-                            })),
-                          }
-
-                          // 创建项目矩阵
-                          handleCanvasEvent({
-                            type: "canvas",
-                            action: CanvasAction.CREATE,
-                            component: CanvasComponentType.PROJECT_MATRIX,
-                            data: projectMatrixData,
-                          })
-                        })
-
-                        // 自动填充项目矩阵任务目标和支撑关系（延迟执行，确保矩阵已创建并上传）
-                        setTimeout(() => {
-                          handleFillProjectMatrix()
-                        }, 500)
-                        return
-                      }
-
-                      // 处理课程信息创建（从源文档卡片拖出）
-                      if (option === "courseInfo") {
-                        const courseInfoId = `course_info_${Date.now()}`
-                        // 创建空的课程信息卡片
-                        handleCanvasEvent({
-                          type: "canvas",
-                          action: CanvasAction.SET,
-                          component: CanvasComponentType.COURSE_INFO,
-                          data: {
-                            id: courseInfoId,
-                            name: "",
-                            metadata: {},
-                          },
-                        })
-                        // 调用AI填充课程基本信息
-                        setTimeout(() => {
-                          handleFillCourseInfo(courseInfoId)
-                        }, 500)
-                        return
-                      }
-
-                      // 处理开课报告创建
-                      if (option === "courseReport") {
-                        handleCanvasEvent({
-                          type: "canvas",
-                          action: CanvasAction.CREATE,
-                          component: CanvasComponentType.COURSE_REPORT,
-                          data: {
-                            id: `course-report-${Date.now()}`,
-                            name: "开课报告",
-                            status: "draft",
-                            createdAt: new Date().toLocaleDateString("zh-CN"),
-                          },
-                          position, // 传递菜单位置，用于手动创建时定位
-                        })
-                        return
-                      }
-
-                      // 菜单选项到面板类型的映射
-                      const optionToPanelType: Record<string, CanvasComponentType> = {
-                        objective: CanvasComponentType.OBJECTIVE_PANEL,
-                        coursePoint: CanvasComponentType.COURSE_POINT_PANEL,
-                        chapter: CanvasComponentType.CHAPTER_PANEL,
-                        ksa: CanvasComponentType.KSA_PANEL,
-                      }
-                      const panelType = optionToPanelType[option]
-                      if (panelType) {
-                        // 生成面板ID（用于后续填充子节点）
-                        const panelId = `${panelType}_${Date.now()}`
-
-                        // 创建面板
-                        handleCanvasEvent({
-                          type: "canvas",
-                          action: CanvasAction.CREATE,
-                          component: panelType,
-                          data: {
-                            id: panelId,
-                            title: option === "objective" ? "教学目标" : option === "coursePoint" ? "课点信息" : option === "chapter" ? "章节项目" : "KSA",
-                          },
-                        })
-
-                        // 教学目标面板：创建后自动发送AI请求填充
-                        if (option === "objective") {
-                          setTimeout(() => {
-                            handleFillObjectivePanel(panelId)
-                          }, 500)
-                        }
-
-                        // 章节项目面板：创建后自动发送AI请求填充
-                        if (option === "chapter") {
-                          setTimeout(() => {
-                            handleFillChapterPanel(panelId)
-                          }, 500)
-                        }
-
-                        // 课点信息面板：创建后自动发送AI请求填充
-                        if (option === "coursePoint") {
-                          // 延迟触发AI请求（确保面板已创建）
-                          setTimeout(() => {
-                            handleFillCoursePoints()
-                          }, 200)
-                        }
-
-                        // KSA面板：创建后自动发送AI请求填充
-                        if (option === "ksa") {
-                          // 延迟触发AI请求（确保面板已创建）
-                          setTimeout(() => {
-                            handleFillKsa()
-                          }, 200)
-                        }
-                      }
-                    }}
+                    onConnectionMenuSelect={handleConnectionMenuSelect}
                     onNodeRegenerate={handleRegenerate}
                     isRegenerating={isRegenerating}
-                    fillMatrixProgress={fillMatrixProgress}
-                    fillProjectMatrixProgress={fillProjectMatrixProgress}
-                    fillCoursePointsProgress={fillCoursePointsProgress}
-                    fillKsaProgress={fillKsaProgress}
+                    fillProgress={fillProgress}
                     canvasElements={canvasElements}
                     canvasOssKey={canvasOssKey}
                     treeData={treeData}
                     onSaveSuccess={(majorId, courseId) => {
                       console.log("[AI助手] 课程保存成功, majorId:", majorId, "courseId:", courseId)
+                    }}
+                    onUpdateCourseInfo={(updates) => {
+                      // 查找课程信息节点并更新其 metadata 中的 courseId 和 majorId
+                      const courseInfoElement = canvasElements.find(
+                        el => el.type === CanvasComponentType.COURSE_INFO
+                      )
+                      if (courseInfoElement) {
+                        const currentData = courseInfoElement.data as CourseInfoData
+                        const updatedMetadata = {
+                          ...currentData.metadata,
+                          courseId: updates.courseId,
+                          majorId: updates.majorId,
+                        }
+                        updateCanvasElementData(courseInfoElement.id, {
+                          ...currentData,
+                          metadata: updatedMetadata,
+                        })
+                        console.log("[AI助手] 更新课程信息, courseId:", updates.courseId, "majorId:", updates.majorId)
+                      }
                     }}
                   />
                 </div>

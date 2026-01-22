@@ -104,6 +104,7 @@ export interface CanvasDrawersProps {
   canvasOssKey?: string | null
   treeData?: TreeNode | null
   onSaveSuccess?: (majorId: string, courseId: string) => void
+  onUpdateCourseInfo?: (updates: { courseId?: number; majorId?: number }) => void
 }
 
 /**
@@ -152,6 +153,7 @@ export const CanvasDrawers = memo(function CanvasDrawers({
   canvasOssKey = null,
   treeData = null,
   onSaveSuccess,
+  onUpdateCourseInfo,
 }: CanvasDrawersProps) {
   // 获取课程信息数据
   const courseInfoData = editDialog.nodeData as CourseInfoData
@@ -398,6 +400,7 @@ export const CanvasDrawers = memo(function CanvasDrawers({
                 canvasOssKey={canvasOssKey}
                 treeData={treeData}
                 onSaveSuccess={onSaveSuccess}
+                onUpdateCourseInfo={onUpdateCourseInfo}
               />
             </div>
           )}
