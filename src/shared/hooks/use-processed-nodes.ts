@@ -166,21 +166,36 @@ export function useProcessedNodes({
       }
     }
 
-    return flowNodes.map((node) => {
+    const result = flowNodes.map((node) => {
       const isHighlighted = highlightState.highlightedIds.has(node.id)
-      const isDeleting = deletingNodeIds.has(node.id)
+      const isNodeDeleting = deletingNodeIds.has(node.id)
       const isUpdating = updatingPanelIds.has(node.id)
-      // 子节点跟随父面板的 loading 状态
-      const isParentUpdating = node.parentId ? updatingPanelIds.has(node.parentId) : false
-      // 显示 loading 遮罩：删除中、更新中、或父面板更新中
-      const showLoading = isDeleting || isUpdating || isParentUpdating
+      // 判断是否为子节点（有 parentId 表示是 Panel 内的子卡片）
+      const isChildNode = !!node.parentId
+
+      // 计算是否显示 loading 遮罩
+      // [MOD] 子节点不显示全局重做 loading，由父 Panel 的遮罩提供视觉反馈
+      const showLoading = isChildNode
+        ? (isNodeDeleting || isUpdating)
+        : (isNodeDeleting || isUpdating || isRegenerating)
+
+      // [MOD] 当父 Panel loading 时，禁用子节点的交互（pointer-events: none）
+      // 这样不需要给子节点渲染 loading 效果，避免 CPU 开销
+      const isParentPanelLoading = isChildNode && node.parentId &&
+        (updatingPanelIds.has(node.parentId) || deletingNodeIds.has(node.parentId) || isRegenerating)
+      // 子节点在父 Panel loading 时禁用交互
+      const childDisabledStyle = isParentPanelLoading
+        ? { pointerEvents: 'none' as const, opacity: 0.6 }
+        : undefined
 
       // 获取节点对应的画布组件类型（用于重做功能）
       const canvasComponentType = FLOW_TO_CANVAS_TYPE[node.type as FlowNodeType]
 
+      // [MOD] 分离删除状态和加载状态，修复更新时 Handle 消失导致连线丢失的问题
       const baseInjection = {
         highlighted: isHighlighted,
-        isDeleting: showLoading || isRegenerating, // 重做时所有节点进入 loading 状态
+        isDeleting: isNodeDeleting,  // 仅真正删除时为 true，用于隐藏 Handle
+        isLoading: showLoading,      // 显示遮罩（包含删除、更新、重做）
         onDelete: onNodeDelete,
         // 只有支持重做的节点类型才注入 onRefresh
         onRefresh: canvasComponentType && onNodeRegenerate
@@ -193,6 +208,7 @@ export function useProcessedNodes({
       if (node.type === FlowNodeType.PROJECT_MATRIX) {
         return {
           ...node,
+          ...(childDisabledStyle && { style: { ...node.style, ...childDisabledStyle } }),
           data: {
             ...node.data,
             ...baseInjection,
@@ -210,6 +226,7 @@ export function useProcessedNodes({
       if (node.type === FlowNodeType.COURSE_INFO) {
         return {
           ...node,
+          ...(childDisabledStyle && { style: { ...node.style, ...childDisabledStyle } }),
           data: {
             ...node.data,
             ...baseInjection,
@@ -222,6 +239,7 @@ export function useProcessedNodes({
       if (node.type === FlowNodeType.COURSE_MATRIX) {
         return {
           ...node,
+          ...(childDisabledStyle && { style: { ...node.style, ...childDisabledStyle } }),
           data: {
             ...node.data,
             ...baseInjection,
@@ -236,6 +254,7 @@ export function useProcessedNodes({
       if (node.type === FlowNodeType.COURSE_REPORT) {
         return {
           ...node,
+          ...(childDisabledStyle && { style: { ...node.style, ...childDisabledStyle } }),
           data: {
             ...node.data,
             ...baseInjection,
@@ -275,6 +294,7 @@ export function useProcessedNodes({
         }
         return {
           ...node,
+          ...(childDisabledStyle && { style: { ...node.style, ...childDisabledStyle } }),
           data: panelData,
         }
       }
@@ -283,6 +303,7 @@ export function useProcessedNodes({
       if (node.type === FlowNodeType.SOURCE_DOCUMENT) {
         return {
           ...node,
+          ...(childDisabledStyle && { style: { ...node.style, ...childDisabledStyle } }),
           data: {
             ...node.data,
             ...baseInjection,
@@ -295,12 +316,14 @@ export function useProcessedNodes({
       // 其他节点注入 highlighted 和 onDelete
       return {
         ...node,
+        ...(childDisabledStyle && { style: { ...node.style, ...childDisabledStyle } }),
         data: {
           ...node.data,
           ...baseInjection,
         },
       }
     })
+    return result
   }, [
     flowNodes,
     highlightState.highlightedIds,

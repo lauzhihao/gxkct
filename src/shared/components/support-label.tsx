@@ -56,7 +56,8 @@ export function SupportLabel({
       )}
     >
       <Star className={cn(iconSize, "flex-shrink-0", isStrong && "fill-current")} />
-      <span>{title}</span>
+      {/* 固定宽度截断，hover 时通过 Tooltip 显示完整内容 */}
+      <span className="max-w-[80px] truncate inline-block">{title}</span>
       {showRemoveButton && (
         <button
           onClick={onRemove}
@@ -79,10 +80,10 @@ export function SupportLabel({
         className="max-w-[300px]"
       >
         <div className={cn(
-          "flex items-start gap-1.5",
+          "flex items-center gap-1.5",
           isStrong ? "text-orange-700" : "text-green-700",
         )}>
-          <Star className={cn(tipsIconSize, "flex-shrink-0 mt-0.5", isStrong && "fill-current")} />
+          <Star className={cn(tipsIconSize, "flex-shrink-0", isStrong && "fill-current")} />
           <span className="leading-relaxed">{tooltipText}</span>
         </div>
       </TooltipContent>

@@ -5,7 +5,7 @@
  * 从画布节点数据汇总展示课程体系完整信息（只读模式，用于导出PDF）
  */
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { Button } from "@/shared/components/ui/button"
 import {
   FileText, Target, BookOpen, Layers, Brain, Wrench, Heart,
@@ -157,11 +157,31 @@ export function CanvasCourseReportPreview({
   onSaveSuccess,
   onUpdateCourseInfo,
 }: CanvasCourseReportPreviewProps) {
-  const { courseInfo, objectives, chapters, coursePoints, ksaItems, courseMatrix, projectMatrices } = data
+  const { objectives, chapters, coursePoints, ksaItems, courseMatrix, projectMatrices } = data
+
+  // 维护 courseInfo 的本地副本，保存成功后可就地更新 courseId/majorId，
+  // 避免因抽屉持有旧快照导致二次保存时重复创建课程
+  const [courseInfo, setCourseInfo] = useState(data.courseInfo)
   const metadata = courseInfo?.metadata
 
   // 保存向导状态
   const [isSaveWizardOpen, setIsSaveWizardOpen] = useState(false)
+
+  // 包装 onUpdateCourseInfo：同时更新本地 courseInfo 状态和外部画布数据
+  const handleUpdateCourseInfo = useCallback((updates: { courseId?: number; majorId?: number }) => {
+    setCourseInfo(prev => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        metadata: {
+          ...prev.metadata,
+          courseId: updates.courseId ?? prev.metadata?.courseId,
+          majorId: updates.majorId ?? prev.metadata?.majorId,
+        },
+      }
+    })
+    onUpdateCourseInfo?.(updates)
+  }, [onUpdateCourseInfo])
 
   // 计算章节学时统计
   const totalTheoryHours = chapters.reduce((sum, ch) => sum + (ch.theory_hours || 0), 0)
@@ -657,7 +677,7 @@ export function CanvasCourseReportPreview({
         canvasOssKey={canvasOssKey}
         treeData={treeData}
         onSaveSuccess={onSaveSuccess}
-        onUpdateCourseInfo={onUpdateCourseInfo}
+        onUpdateCourseInfo={handleUpdateCourseInfo}
       />
     </div>
   )

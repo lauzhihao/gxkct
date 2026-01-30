@@ -65,6 +65,7 @@ export { TreeApi, UserApi, MatrixApi, ResourceApi, ConfigApi, PreferenceApi, Tea
 // 导出类型
 export type {
   User,
+  CourseGoal,
   CourseMatrix,
   ProjectMatrix,
   MajorMatrixData,

@@ -14,6 +14,75 @@ const CANVAS_VERSION = "1.0"
 // 默认上传间隔（毫秒）
 const DEFAULT_UPLOAD_INTERVAL = 30000 // 30秒
 
+
+/**
+ * 比较两个画布数据是否在数据层面有变化
+ * 忽略 UI 层级变化：position, selected, size
+ * 检测数据层变化：元素增删、data内容、边增删、specialComponents
+ */
+function hasDataLayerChanges(
+  prev: {
+    elements: CanvasElementData[]
+    edges: CanvasEdgeData[]
+    specialComponents: Record<string, { type: CanvasComponentType; data: CanvasComponentData }>
+  } | null,
+  next: {
+    elements: CanvasElementData[]
+    edges: CanvasEdgeData[]
+    specialComponents: Record<string, { type: CanvasComponentType; data: CanvasComponentData }>
+  }
+): boolean {
+  // 首次有数据时视为变化
+  if (!prev) return next.elements.length > 0 || next.edges.length > 0
+
+  // 比较元素数量
+  if (prev.elements.length !== next.elements.length) return true
+
+  // 比较边数量
+  if (prev.edges.length !== next.edges.length) return true
+
+  // 比较 specialComponents 的 keys 数量
+  const prevKeys = Object.keys(prev.specialComponents)
+  const nextKeys = Object.keys(next.specialComponents)
+  if (prevKeys.length !== nextKeys.length) return true
+
+  // 比较每个元素的 id, type, data, parentId（忽略 position, selected, size）
+  for (const nextEl of next.elements) {
+    const prevEl = prev.elements.find(e => e.id === nextEl.id)
+    if (!prevEl) return true // 新增元素
+
+    if (prevEl.type !== nextEl.type) return true
+    if (prevEl.parentId !== nextEl.parentId) return true
+    // 深度比较 data
+    if (JSON.stringify(prevEl.data) !== JSON.stringify(nextEl.data)) return true
+  }
+
+  // 检查是否有被删除的元素
+  for (const prevEl of prev.elements) {
+    if (!next.elements.find(e => e.id === prevEl.id)) return true
+  }
+
+  // 比较边的内容
+  for (const nextEdge of next.edges) {
+    const prevEdge = prev.edges.find(e => e.id === nextEdge.id)
+    if (!prevEdge) return true // 新增边
+    if (prevEdge.source !== nextEdge.source || prevEdge.target !== nextEdge.target) return true
+  }
+
+  // 检查是否有被删除的边
+  for (const prevEdge of prev.edges) {
+    if (!next.edges.find(e => e.id === prevEdge.id)) return true
+  }
+
+  // 比较 specialComponents 的内容
+  for (const key of nextKeys) {
+    if (!prev.specialComponents[key]) return true
+    if (JSON.stringify(prev.specialComponents[key]) !== JSON.stringify(next.specialComponents[key])) return true
+  }
+
+  return false
+}
+
 export interface UseCanvasPersistenceOptions {
   sessionId: string
   // 上传间隔（毫秒）
@@ -223,12 +292,23 @@ export function useCanvasPersistence(options: UseCanvasPersistenceOptions) {
     specialComponents: Record<string, { type: CanvasComponentType; data: CanvasComponentData }>,
     selectedIds: string[] = []
   ) => {
-    canvasDataRef.current = { elements, edges, specialComponents, selectedIds }
+    const newData = { elements, edges, specialComponents, selectedIds }
+
+    // 检测是否是数据层变化（排除位置、选中状态等 UI 层级变化）
+    const isDataChange = hasDataLayerChanges(canvasDataRef.current, newData)
+
+    canvasDataRef.current = newData
     setState(prev => ({ ...prev, hasUnsavedChanges: true }))
 
     // 立即保存到本地
     saveToLocal()
-  }, [saveToLocal])
+
+    // [MOD] 如果是数据层变化，直接上传到 OSS（覆盖式上传，移除防抖逻辑）
+    if (isDataChange) {
+      console.log("[画布] 检测到数据层变化，直接上传到 OSS")
+      uploadToOss()
+    }
+  }, [saveToLocal, uploadToOss])
 
   /**
    * 手动触发上传
@@ -254,6 +334,22 @@ export function useCanvasPersistence(options: UseCanvasPersistenceOptions) {
 
     return state.ossKey
   }, [state.hasUnsavedChanges, state.ossKey, uploadToOss])
+
+  /**
+   * 强制上传最新画布数据并返回 ossKey
+   * 无论是否有未保存更改，都会执行上传（用于发送聊天消息前确保画布数据最新）
+   */
+  const forceUpload = useCallback(async (): Promise<string | null> => {
+    // 如果没有内容，返回 null
+    if (!canvasDataRef.current ||
+        (canvasDataRef.current.elements.length === 0 && canvasDataRef.current.edges.length === 0)) {
+      return null
+    }
+
+    // 无条件上传最新数据
+    console.log("[画布] 强制上传最新数据")
+    return uploadToOss()
+  }, [uploadToOss])
 
   /**
    * 从本地存储加载画布数据
@@ -331,6 +427,7 @@ export function useCanvasPersistence(options: UseCanvasPersistenceOptions) {
     }
   }, [autoUpload, sessionId, uploadInterval, state.hasUnsavedChanges, state.isUploading, uploadToOss])
 
+
   return {
     // 状态
     ossKey: state.ossKey,
@@ -341,6 +438,7 @@ export function useCanvasPersistence(options: UseCanvasPersistenceOptions) {
     updateCanvasData,
     triggerUpload,
     getOssKey,
+    forceUpload,
     saveToLocal,
     loadFromLocal,
     clearPersistence,

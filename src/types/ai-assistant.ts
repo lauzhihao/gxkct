@@ -13,6 +13,21 @@ export interface MessageAttachment {
   ossKey: string
   type: string
   size: number
+  /** [MOD] 关联的画布元素ID（用于点击选中画布元素） */
+  linkedElementId?: string
+}
+
+/**
+ * 关联画布元素信息
+ * [MOD] 用于聊天消息与画布元素联动
+ */
+export interface LinkedElementInfo {
+  /** 关联的画布元素ID */
+  elementId: string
+  /** 元素类型（如 course_info） */
+  elementType: string
+  /** 卡片显示标题（如 "课程信息"） */
+  title: string
 }
 
 /**
@@ -29,6 +44,8 @@ export interface ChatMessage {
   thinking?: string
   /** 用户消息附件 */
   attachment?: MessageAttachment
+  /** [MOD] 关联的画布元素（用于联动卡片） */
+  linkedElement?: LinkedElementInfo
 }
 
 /**

@@ -1,8 +1,8 @@
 "use client"
 
-import { useCallback, useState, useEffect } from "react"
+import { useCallback, useState, useEffect, useRef } from "react"
 import { Panel, useReactFlow, useOnViewportChange, type Viewport } from "@xyflow/react"
-import { Plus, Minus, Maximize } from "lucide-react"
+import { Plus, Minus, Maximize, Check } from "lucide-react"
 
 /**
  * 缩放步长（百分比）
@@ -10,10 +10,70 @@ import { Plus, Minus, Maximize } from "lucide-react"
 const ZOOM_STEP = 5
 
 /**
+ * 同步状态指示器组件
+ * 上传中：闪烁的绿点
+ * 刚完成：绿色对勾（持续1秒）
+ * 空闲：静态绿点
+ */
+function SyncStatusIndicator({ isUploading }: { isUploading: boolean }) {
+  // 追踪"刚完成上传"状态，显示对勾1秒后变回绿点
+  const [justCompleted, setJustCompleted] = useState(false)
+  const wasUploadingRef = useRef(false)
+
+  useEffect(() => {
+    // 检测 isUploading 从 true 变为 false（上传刚完成）
+    if (wasUploadingRef.current && !isUploading) {
+      setJustCompleted(true)
+      // 1秒后变回绿点
+      const timer = setTimeout(() => {
+        setJustCompleted(false)
+      }, 1000)
+      return () => clearTimeout(timer)
+    }
+    wasUploadingRef.current = isUploading
+  }, [isUploading])
+
+  if (isUploading) {
+    // 上传中：闪烁的绿点
+    return (
+      <div
+        className="w-3 h-3 rounded-full bg-green-500 canvas-sync-pulse"
+        title="正在同步..."
+      />
+    )
+  }
+
+  if (justCompleted) {
+    // 刚完成：绿色对勾
+    return (
+      <div
+        className="w-4 h-4 flex items-center justify-center text-green-500"
+        title="已同步"
+      >
+        <Check className="w-3.5 h-3.5" strokeWidth={3} />
+      </div>
+    )
+  }
+
+  // 空闲：静态绿点
+  return (
+    <div
+      className="w-3 h-3 rounded-full bg-green-500"
+      title="已同步"
+    />
+  )
+}
+
+export interface CustomZoomControlsProps {
+  /** 是否正在上传画布数据 */
+  isUploading?: boolean
+}
+
+/**
  * 自定义缩放控件组件
  * 提供缩放比例显示、放大/缩小按钮和适应视图功能
  */
-export function CustomZoomControls() {
+export function CustomZoomControls({ isUploading = false }: CustomZoomControlsProps) {
   const { fitView, getZoom, zoomTo } = useReactFlow()
   const [zoom, setZoom] = useState(1)
 
@@ -78,6 +138,11 @@ export function CustomZoomControls() {
       >
         <Maximize className="h-4 w-4 text-gray-600" />
       </button>
+      {/* 同步状态指示器 */}
+      <div className="w-px h-5 bg-gray-200 mx-1" />
+      <div className="px-1.5 flex items-center justify-center">
+        <SyncStatusIndicator isUploading={isUploading} />
+      </div>
     </Panel>
   )
 }

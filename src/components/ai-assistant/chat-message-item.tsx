@@ -6,11 +6,11 @@
  * 渲染单条聊天消息，支持助理消息和用户消息两种类型
  */
 
-import { useRef } from "react"
+import { useRef, useEffect, useMemo } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { ChevronDown, ChevronUp, Loader2, FileText, ExternalLink } from "lucide-react"
-import type { ChatMessage } from "@/types/ai-assistant"
+import { ChevronDown, ChevronUp, Loader2, FileText, LayoutGrid, MousePointerClick } from "lucide-react"
+import type { ChatMessage, LinkedElementInfo } from "@/types/ai-assistant"
 import { formatRelativeTime } from "@/shared/utils/date-utils"
 
 /**
@@ -37,6 +37,74 @@ export interface ChatMessageItemProps {
   isCanvasExpanded: boolean
   /** 是否是最后一条助理消息 */
   isLastAssistantMessage: boolean
+  /** [MOD] 点击关联卡片时选中画布元素的回调 */
+  onSelectCanvasElement?: (elementId: string) => void
+  /** [MOD] 画布元素加载状态 Map（elementId -> isLoading） */
+  elementLoadingStates?: Map<string, boolean>
+  /** [MOD] 已删除的画布元素ID集合 */
+  deletedElementIds?: Set<string>
+}
+
+/**
+ * 关联画布元素卡片组件
+ * [MOD] 用于在聊天区显示与画布元素联动的小卡片
+ */
+interface LinkedElementCardProps {
+  linkedElement: LinkedElementInfo
+  isLoading: boolean
+  isDeleted: boolean
+  onSelect: (elementId: string) => void
+}
+
+function LinkedElementCard({ linkedElement, isLoading, isDeleted, onSelect }: LinkedElementCardProps) {
+  // [MOD] 已删除状态：禁用点击，显示灰色样式
+  if (isDeleted) {
+    return (
+      <div className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg border border-muted/40 bg-muted/20 text-left opacity-60 cursor-not-allowed">
+        {/* 图标区域 */}
+        <div className="flex-shrink-0 w-8 h-8 rounded-md bg-muted/30 flex items-center justify-center">
+          <LayoutGrid className="h-4 w-4 text-muted-foreground" />
+        </div>
+        {/* 内容区域 */}
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-muted-foreground truncate line-through">
+            {linkedElement.title}
+          </div>
+          <div className="text-xs text-muted-foreground/70">
+            元素已删除
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(linkedElement.elementId)}
+      className="group flex items-center gap-3 w-full px-3 py-2.5 rounded-lg border border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/40 transition-all text-left"
+    >
+      {/* 图标区域 */}
+      <div className="flex-shrink-0 w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center">
+        {isLoading ? (
+          <Loader2 className="h-4 w-4 text-primary animate-spin" />
+        ) : (
+          <LayoutGrid className="h-4 w-4 text-primary" />
+        )}
+      </div>
+      {/* 内容区域 */}
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium text-foreground truncate">
+          {linkedElement.title}
+        </div>
+        <div className="text-xs text-muted-foreground">
+          {isLoading ? "生成中..." : "点击查看画布元素"}
+        </div>
+      </div>
+      {/* 右侧指示图标 */}
+      <MousePointerClick className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
+    </button>
+  )
 }
 
 /**
@@ -53,9 +121,36 @@ function AssistantMessage({
   isCanvasExpanded,
   isLastAssistantMessage,
   thinkingScrollRef,
+  onSelectCanvasElement,
+  elementLoadingStates,
+  deletedElementIds,
 }: ChatMessageItemProps & {
   thinkingScrollRef: React.RefObject<HTMLDivElement | null>
 }) {
+  // 思考内容：流式传输时用临时状态，否则用消息中保存的内容
+  const thinkingContent = isStreaming ? streamingThinking : message.thinking
+
+  // [MOD] 流式输出时自动滚动思考区域到底部，使用 interval 避免每个 chunk 触发 effect
+  useEffect(() => {
+    // 仅在流式输出且思考区域展开时启动 interval
+    if (!isStreaming || !isThinkingExpanded) return
+
+    const scrollToBottom = () => {
+      const scrollRef = thinkingScrollRef.current
+      if (scrollRef) {
+        scrollRef.scrollTop = scrollRef.scrollHeight
+      }
+    }
+
+    // 使用 requestAnimationFrame 确保 DOM 已更新后再滚动
+    requestAnimationFrame(scrollToBottom)
+
+    // 每 150ms 滚动一次
+    const intervalId = setInterval(scrollToBottom, 150)
+
+    return () => clearInterval(intervalId)
+  }, [isStreaming, isThinkingExpanded])
+
   // 显示内容处理
   const displayContent =
     message.id === "welcome"
@@ -63,16 +158,20 @@ function AssistantMessage({
       : message.content
   const contentToRender = isStreaming ? streamingText || "AI 正在生成响应..." : displayContent
   const timeDisplay = isStreaming ? "生成中" : formatRelativeTime(message.timestamp)
-
-  // 思考内容：流式传输时用临时状态，否则用消息中保存的内容
-  const thinkingContent = isStreaming ? streamingThinking : message.thinking
   const showThinkingBlock = isLastAssistantMessage && thinkingContent
+
+  // [MOD] 缓存思考预览文本，避免每次渲染都执行字符串操作
+  const thinkingPreviewLength = isCanvasExpanded ? 20 : 50
+  const thinkingPreview = useMemo(() => {
+    if (!isStreaming || !thinkingContent) return ""
+    return thinkingContent.replace(/\n/g, " ").slice(0, thinkingPreviewLength)
+  }, [isStreaming, thinkingContent, thinkingPreviewLength])
 
   return (
     <div className="space-y-2 text-left min-w-0 overflow-hidden">
       {/* 时间标签 */}
       {isStreaming ? (
-        <div className="text-xs ai-loading-text-gradient">简报 · 正在生成中</div>
+        <div className="text-xs ai-loading-text-gradient">简报 · 正在思考</div>
       ) : (
         <div className="text-xs text-muted-foreground">简报 · {timeDisplay}</div>
       )}
@@ -92,7 +191,7 @@ function AssistantMessage({
             )}
             <span className="flex-1 min-w-0 truncate">
               {isStreaming
-                ? `AI 正在思考：${thinkingContent?.replace(/\n/g, " ").slice(0, isCanvasExpanded ? 20 : 50)}...`
+                ? `AI 正在思考：${thinkingPreview}...`
                 : "AI思考完毕：点击此处查看完整思考过程"}
             </span>
             {isThinkingExpanded ? (
@@ -112,6 +211,16 @@ function AssistantMessage({
         </div>
       )}
 
+      {/* [MOD] 关联画布元素卡片 */}
+      {message.linkedElement && onSelectCanvasElement && (
+        <LinkedElementCard
+          linkedElement={message.linkedElement}
+          isLoading={elementLoadingStates?.get(message.linkedElement.elementId) ?? false}
+          isDeleted={deletedElementIds?.has(message.linkedElement.elementId) ?? false}
+          onSelect={onSelectCanvasElement}
+        />
+      )}
+
       {/* 消息内容 */}
       {isStreaming && !streamingText ? (
         <div className="py-4 grid place-items-center">
@@ -119,7 +228,12 @@ function AssistantMessage({
         </div>
       ) : (
         <div className="border-t border-dashed border-border/60 pt-3 text-sm leading-relaxed prose-ai min-w-0 overflow-hidden">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{contentToRender}</ReactMarkdown>
+          {/* [MOD] 流式输出时跳过 Markdown 解析，使用纯文本渲染以降低 CPU 开销 */}
+          {isStreaming ? (
+            <div className="whitespace-pre-wrap">{contentToRender}</div>
+          ) : (
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{contentToRender}</ReactMarkdown>
+          )}
         </div>
       )}
     </div>
@@ -132,7 +246,11 @@ function AssistantMessage({
 function UserMessage({
   message,
   userName,
-}: Pick<ChatMessageItemProps, "message" | "userName">) {
+  onSelectCanvasElement,
+}: Pick<ChatMessageItemProps, "message" | "userName" | "onSelectCanvasElement">) {
+  const attachment = message.attachment
+  const hasLinkedElement = attachment?.linkedElementId
+
   return (
     <div className="flex items-start justify-end text-right w-full min-w-0 overflow-hidden">
       <div className="space-y-2 max-w-[80%] min-w-0">
@@ -140,30 +258,42 @@ function UserMessage({
           {userName}老师 · {formatRelativeTime(message.timestamp)}
         </div>
 
-        {/* 文件附件卡片 */}
-        {message.attachment && (
-          <a
-            href={message.attachment.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ai-message-file-card flex items-center gap-3 px-4 py-3 rounded-xl border border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors group"
+        {/* 文件附件卡片 - [MOD] 点击选中画布元素，移除下载功能 */}
+        {attachment && (
+          <button
+            type="button"
+            onClick={() => hasLinkedElement && onSelectCanvasElement?.(attachment.linkedElementId!)}
+            disabled={!hasLinkedElement}
+            className={`ai-message-file-card flex items-center gap-3 px-4 py-3 rounded-xl border w-full text-left transition-all ${
+              hasLinkedElement
+                ? "border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/40 cursor-pointer group"
+                : "border-border/50 bg-muted/30 cursor-default"
+            }`}
           >
-            <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <FileText className="h-5 w-5 text-primary" />
+            <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
+              hasLinkedElement ? "bg-primary/10" : "bg-muted/50"
+            }`}>
+              {hasLinkedElement ? (
+                <FileText className="h-5 w-5 text-primary" />
+              ) : (
+                <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
+              )}
             </div>
             <div className="flex-1 min-w-0 text-left">
               <div
                 className="text-sm font-medium text-foreground truncate"
-                title={message.attachment.name}
+                title={attachment.name}
               >
-                {message.attachment.name}
+                {attachment.name}
               </div>
               <div className="text-xs text-muted-foreground">
-                {(message.attachment.size / 1024).toFixed(1)} KB
+                {hasLinkedElement ? "点击查看画布元素" : "处理中..."}
               </div>
             </div>
-            <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
-          </a>
+            {hasLinkedElement && (
+              <MousePointerClick className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
+            )}
+          </button>
         )}
 
         {/* 消息内容 */}
@@ -191,5 +321,5 @@ export function ChatMessageItem(props: ChatMessageItemProps) {
     )
   }
 
-  return <UserMessage message={props.message} userName={props.userName} />
+  return <UserMessage message={props.message} userName={props.userName} onSelectCanvasElement={props.onSelectCanvasElement} />
 }

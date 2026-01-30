@@ -14,8 +14,10 @@ export interface BaseFlowNodeProps {
   selected?: boolean
   // 是否高亮（联动高亮）
   highlighted?: boolean
-  // 是否正在删除（显示loading遮罩）
+  // 是否正在删除（隐藏 Handle，显示 loading 遮罩）
   isDeleting?: boolean
+  // 是否正在加载（仅显示 loading 遮罩，不隐藏 Handle）
+  isLoading?: boolean
   // 是否正在重做（禁用重做按钮并显示加载状态）
   isRefreshing?: boolean
   // 进度信息（显示在loading遮罩下方）
@@ -65,6 +67,7 @@ export const BaseFlowNode = memo(function BaseFlowNode({
   selected = false,
   highlighted = false,
   isDeleting = false,
+  isLoading = false,
   isRefreshing = false,
   progressMessage,
   icon,
@@ -109,6 +112,12 @@ export const BaseFlowNode = memo(function BaseFlowNode({
     onRefresh?.(id)
   }
 
+  // [MOD] 计算 Handle 是否处于禁用状态（loading 或 refreshing 时禁用，但不隐藏以保持连线稳定）
+  const isHandleDisabled = isLoading || isRefreshing
+  const disabledHandleClass = isHandleDisabled
+    ? "!opacity-40 !cursor-not-allowed !pointer-events-none"
+    : ""
+
   return (
     <div
       className={`
@@ -121,7 +130,8 @@ export const BaseFlowNode = memo(function BaseFlowNode({
       style={{ width }}
     >
       {/* 删除中/加载中遮罩 - 带动态波浪扫描效果 */}
-      {isDeleting && (
+      {/* [MOD] isLoading/isRefreshing 用于更新/重做时显示遮罩但不隐藏 Handle */}
+      {(isDeleting || isLoading || isRefreshing) && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center rounded-lg canvas-loading-overlay">
           {progressMessage && (
             <span className="text-sm text-white/90 canvas-loading-text">{progressMessage}</span>
@@ -129,8 +139,8 @@ export const BaseFlowNode = memo(function BaseFlowNode({
         </div>
       )}
 
-      {/* 顶部连接点 */}
-      {showTargetHandle && (
+      {/* 顶部连接点 - loading 时隐藏 */}
+      {showTargetHandle && !isDeleting && (
         <Handle
           id="top"
           type="target"
@@ -225,36 +235,47 @@ export const BaseFlowNode = memo(function BaseFlowNode({
       {/* 内容区域 */}
       <div className="p-3">{children}</div>
 
-      {/* 底部连接点 */}
-      {showSourceHandle && (
+      {/* 底部连接点 - 加号图标样式，颜色与卡片标题配色一致；删除时隐藏，loading 时禁用 */}
+      {showSourceHandle && !isDeleting && (
         <Handle
           id="bottom"
           type="source"
           position={Position.Bottom}
-          className="!w-3 !h-3 !bg-gray-400 !border-2 !border-white"
-        />
+          className={`
+            !w-6 !h-6 !border-2 !border-white !rounded-full !shadow-sm
+            ${isHandleDisabled ? "" : "hover:!shadow-md"} !transition-all
+            ${isHandleDisabled ? "!cursor-not-allowed" : "!cursor-pointer"}
+            ${handleColorClass} ${disabledHandleClass}
+          `}
+        >
+          <Plus
+            className="w-4 h-4 text-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+            strokeWidth={2.5}
+          />
+        </Handle>
       )}
 
-      {/* 左侧连接点 - 圆点样式，颜色与卡片标题配色一致 */}
-      {showLeftHandle && (
+      {/* 左侧连接点 - 圆点样式，颜色与卡片标题配色一致；删除时隐藏，loading 时禁用 */}
+      {showLeftHandle && !isDeleting && (
         <Handle
           id="left"
           type="target"
           position={Position.Left}
-          className={`!w-4 !h-4 !border-2 !border-white !rounded-full !shadow-sm ${handleColorClass}`}
+          className={`!w-4 !h-4 !border-2 !border-white !rounded-full !shadow-sm ${handleColorClass} ${disabledHandleClass}`}
         />
       )}
 
-      {/* 右侧连接点 - 加号图标样式，颜色与卡片标题配色一致 */}
-      {showRightHandle && (
+      {/* 右侧连接点 - 加号图标样式，颜色与卡片标题配色一致；删除时隐藏，loading 时禁用 */}
+      {showRightHandle && !isDeleting && (
         <Handle
           id="right"
           type="source"
           position={Position.Right}
           className={`
             !w-6 !h-6 !border-2 !border-white !rounded-full !shadow-sm
-            hover:!shadow-md !transition-all !cursor-pointer
-            ${handleColorClass}
+            ${isHandleDisabled ? "" : "hover:!shadow-md"} !transition-all
+            ${isHandleDisabled ? "!cursor-not-allowed" : "!cursor-pointer"}
+            ${handleColorClass} ${disabledHandleClass}
           `}
         >
           <Plus

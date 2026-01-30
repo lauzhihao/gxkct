@@ -12,8 +12,10 @@ export interface BasePanelNodeProps {
   id: string
   // 是否选中
   selected?: boolean
-  // 是否正在删除（显示loading遮罩）
+  // 是否正在删除（隐藏 Handle，显示 loading 遮罩）
   isDeleting?: boolean
+  // 是否正在加载（仅显示 loading 遮罩，不隐藏 Handle）
+  isLoading?: boolean
   // 是否正在重做（禁用重做按钮并显示加载状态）
   isRefreshing?: boolean
   // 头部图标
@@ -71,6 +73,7 @@ export const BasePanelNode = memo(function BasePanelNode({
   id,
   selected = false,
   isDeleting = false,
+  isLoading = false,
   isRefreshing = false,
   icon,
   title,
@@ -119,6 +122,12 @@ export const BasePanelNode = memo(function BasePanelNode({
     setDeleteConfirmOpen(false)
   }
 
+  // [MOD] 计算 Handle 是否处于禁用状态（loading 或 refreshing 时禁用，但不隐藏以保持连线稳定）
+  const isHandleDisabled = isLoading || isRefreshing
+  const disabledHandleClass = isHandleDisabled
+    ? "!opacity-40 !cursor-not-allowed !pointer-events-none"
+    : ""
+
   return (
     <div
       className={`
@@ -136,7 +145,8 @@ export const BasePanelNode = memo(function BasePanelNode({
       }}
     >
       {/* 删除中/加载中遮罩 - 带动态波浪扫描效果 */}
-      {isDeleting && (
+      {/* [MOD] isLoading/isRefreshing 用于更新/重做时显示遮罩但不隐藏 Handle */}
+      {(isDeleting || isLoading || isRefreshing) && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center rounded-lg canvas-loading-overlay">
           {progressMessage && (
             <span className="text-sm text-white/90 canvas-loading-text">{progressMessage}</span>
@@ -144,8 +154,8 @@ export const BasePanelNode = memo(function BasePanelNode({
         </div>
       )}
 
-      {/* 顶部连接点 */}
-      {showTargetHandle && (
+      {/* 顶部连接点 - loading 时隐藏 */}
+      {showTargetHandle && !isDeleting && (
         <Handle
           id="top"
           type="target"
@@ -241,8 +251,8 @@ export const BasePanelNode = memo(function BasePanelNode({
       {/* 子节点渲染区域 - React Flow 会自动在这里渲染子节点 */}
       {/* 注意：Group Node 的子节点由 React Flow 根据 parentId 自动渲染，无需手动处理 */}
 
-      {/* 空状态显示 - 当没有子节点时显示添加按钮，带弹性动画 */}
-      {childCount === 0 && onAdd && (
+      {/* 空状态显示 - 当没有子节点时显示添加按钮，带弹性动画；loading 时隐藏 */}
+      {childCount === 0 && onAdd && !isDeleting && (
         <div className="absolute inset-0 top-[41px] flex items-center justify-center pointer-events-none">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -270,36 +280,37 @@ export const BasePanelNode = memo(function BasePanelNode({
         </div>
       )}
 
-      {/* 底部连接点 */}
-      {showSourceHandle && (
+      {/* 底部连接点 - 删除时隐藏，loading 时禁用 */}
+      {showSourceHandle && !isDeleting && (
         <Handle
           id="bottom"
           type="source"
           position={Position.Bottom}
-          className="!w-3 !h-3 !bg-gray-400 !border-2 !border-white"
+          className={`!w-3 !h-3 !bg-gray-400 !border-2 !border-white ${disabledHandleClass}`}
         />
       )}
 
-      {/* 左侧连接点 - 圆点样式，颜色与卡片标题配色一致 */}
-      {showLeftHandle && (
+      {/* 左侧连接点 - 圆点样式，颜色与卡片标题配色一致；删除时隐藏，loading 时禁用 */}
+      {showLeftHandle && !isDeleting && (
         <Handle
           id="left"
           type="target"
           position={Position.Left}
-          className={`!w-4 !h-4 !border-2 !border-white !rounded-full !shadow-sm ${handleColorClass}`}
+          className={`!w-4 !h-4 !border-2 !border-white !rounded-full !shadow-sm ${handleColorClass} ${disabledHandleClass}`}
         />
       )}
 
-      {/* 右侧连接点 - 加号图标样式，颜色与卡片标题配色一致 */}
-      {showRightHandle && (
+      {/* 右侧连接点 - 加号图标样式，颜色与卡片标题配色一致；删除时隐藏，loading 时禁用 */}
+      {showRightHandle && !isDeleting && (
         <Handle
           id="right"
           type="source"
           position={Position.Right}
           className={`
             !w-6 !h-6 !border-2 !border-white !rounded-full !shadow-sm
-            hover:!shadow-md !transition-all !cursor-pointer
-            ${handleColorClass}
+            ${isHandleDisabled ? "" : "hover:!shadow-md"} !transition-all
+            ${isHandleDisabled ? "!cursor-not-allowed" : "!cursor-pointer"}
+            ${handleColorClass} ${disabledHandleClass}
           `}
         >
           <Plus
@@ -309,14 +320,19 @@ export const BasePanelNode = memo(function BasePanelNode({
         </Handle>
       )}
 
-      {/* 右侧扩展连接点 - 带加号图标，用于扩展矩阵等 */}
-      {showRightExpandHandle && (
+      {/* 右侧扩展连接点 - 带加号图标，用于扩展矩阵等；删除时隐藏，loading 时禁用 */}
+      {showRightExpandHandle && !isDeleting && (
         <Handle
           id="matrix"
           type="source"
           position={Position.Right}
           style={{ top: "30%" }}
-          className={`!w-6 !h-6 !border-2 !border-white !shadow-md hover:!shadow-lg !transition-all !cursor-pointer ${rightExpandColorClass || '!bg-gray-500'}`}
+          className={`
+            !w-6 !h-6 !border-2 !border-white !shadow-md
+            ${isHandleDisabled ? "" : "hover:!shadow-lg"} !transition-all
+            ${isHandleDisabled ? "!cursor-not-allowed" : "!cursor-pointer"}
+            ${rightExpandColorClass || '!bg-gray-500'} ${disabledHandleClass}
+          `}
         >
           <Plus className="w-3.5 h-3.5 text-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
         </Handle>

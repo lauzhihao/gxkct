@@ -44,6 +44,9 @@ import {
   createMessagePair,
   createMessageCommitter,
   canStartAIRequest,
+  createLinkedElementMessage,
+  ELEMENT_TYPE_TITLES,
+  getElementDisplayTitle,
 } from "./ai-assistant/message-utils"
 import {
   createWelcomeMessage,
@@ -93,6 +96,23 @@ export function AiAssistantDrawer({
   const [streamingThinking, setStreamingThinking] = useState("")
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
   const [isThinkingExpanded, setIsThinkingExpanded] = useState(false)
+
+  // [MOD] 流式输出时自动展开思考区域，完成后自动收起
+  const prevStreamingMessageIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    const wasStreaming = prevStreamingMessageIdRef.current !== null
+    const isStreaming = streamingMessageId !== null
+
+    if (!wasStreaming && isStreaming) {
+      // 开始流式输出时展开
+      setIsThinkingExpanded(true)
+    } else if (wasStreaming && !isStreaming) {
+      // 流式输出完成时收起
+      setIsThinkingExpanded(false)
+    }
+
+    prevStreamingMessageIdRef.current = streamingMessageId
+  }, [streamingMessageId])
   // 画布展开状态：收到第一条SSE时触发展开
   const [isCanvasExpanded, setIsCanvasExpanded] = useState(false)
   const hasTriggeredExpandRef = useRef(false) // 防止重复触发
@@ -112,6 +132,12 @@ export function AiAssistantDrawer({
   // 填充进度状态（合并课程矩阵、项目矩阵、课点、KSA 四种进度）
   const [fillProgress, setFillProgress] = useState<FillProgress>({})
 
+  // [MOD] 画布元素加载状态（用于聊天区关联卡片状态同步）
+  const [elementLoadingStates, setElementLoadingStates] = useState<Map<string, boolean>>(new Map())
+
+  // [MOD] 已删除的画布元素ID集合（用于禁用聊天区关联卡片）
+  const [deletedElementIds, setDeletedElementIds] = useState<Set<string>>(new Set())
+
   // 更新特定类型的填充进度
   const updateFillProgress = useCallback((type: FillProgressType, message: string | null) => {
     setFillProgress(prev => ({ ...prev, [type]: message }))
@@ -126,6 +152,7 @@ export function AiAssistantDrawer({
     removeElementWithConnected: removeCanvasElement,
     removeEdge: removeCanvasEdge,
     selectElement: selectCanvasElement,
+    setSelectedIdOnly,
     updateSelection: updateCanvasSelection,
     updateElementPosition: updateCanvasElementPosition,
     updateElementData: updateCanvasElementData,
@@ -133,9 +160,18 @@ export function AiAssistantDrawer({
     clearCanvas,
     loadCanvasData,
     handleCanvasEvent,
-    toFlowNodes,
+    flowNodes,
     toFlowEdges,
   } = useCanvasElements()
+
+  // [FIX] 使用 useCallback 创建稳定的回调引用，避免 useCanvasPersistence 内部依赖变化导致无限循环
+  const handleCanvasUploadSuccess = useCallback((ossKey: string) => {
+    console.log("[画布] 上传成功, ossKey:", ossKey)
+  }, [])
+
+  const handleCanvasUploadError = useCallback((error: Error) => {
+    console.error("[画布] 上传失败:", error)
+  }, [])
 
   // 画布持久化（自动保存到本地和阿里云 OSS）
   const {
@@ -144,22 +180,25 @@ export function AiAssistantDrawer({
     hasUnsavedChanges: hasCanvasUnsavedChanges,
     updateCanvasData,
     getOssKey: getCanvasOssKey,
+    forceUpload: forceCanvasUpload,
     loadFromLocal: loadCanvasFromLocal,
     clearPersistence: clearCanvasPersistence,
   } = useCanvasPersistence({
     sessionId,
     autoUpload: true,
     uploadInterval: 30000, // 30秒自动上传
-    onUploadSuccess: (ossKey) => {
-      console.log("[画布] 上传成功, ossKey:", ossKey)
-    },
-    onUploadError: (error) => {
-      console.error("[画布] 上传失败:", error)
-    },
+    onUploadSuccess: handleCanvasUploadSuccess,
+    onUploadError: handleCanvasUploadError,
   })
 
   // 记录已加载的sessionId，避免重复加载，同时用于防止加载前保存空数据
   const hasLoadedCanvasRef = useRef<string | null>(null)
+
+  // [MOD] 使用 ref 保存最新的 canvasElements，解决 SSE 回调中闭包捕获旧值的问题
+  const canvasElementsRef = useRef(canvasElements)
+  useEffect(() => {
+    canvasElementsRef.current = canvasElements
+  }, [canvasElements])
 
   // 抽屉打开时，从本地存储加载画布数据（必须在保存逻辑之前执行）
   useEffect(() => {
@@ -223,6 +262,9 @@ export function AiAssistantDrawer({
 
   // 创建新会话：重置消息列表并生成新session_id，保存到localStorage
   const handleNewSession = useCallback(() => {
+    // 保存旧的 sessionId，用于通知后端清除
+    const oldSessionId = sessionId
+
     streamingControllerRef.current?.abort()
     const newSessionId = generateSessionId()
     const newMessages = [createWelcomeMessage()]
@@ -255,7 +297,14 @@ export function AiAssistantDrawer({
     saveSessionToStorage(newSessionId, newMessages)
     // 清空附件文件
     clearAttachedFiles()
-  }, [clearCanvas, clearCanvasPersistence, clearAttachedFiles])
+
+    // 异步通知后端清除旧会话（不等待响应）
+    if (oldSessionId) {
+      fetch(`${AI_API_CONFIG.SESSION_BASE_PATH}/${oldSessionId}`, {
+        method: 'DELETE',
+      }).catch(() => {})
+    }
+  }, [sessionId, clearCanvas, clearCanvasPersistence, clearAttachedFiles])
 
   // 上传文件到OSS
   const uploadFileToOss = async (file: File): Promise<{ url: string; ossKey: string } | null> => {
@@ -316,41 +365,54 @@ export function AiAssistantDrawer({
   const prevMessageCountRef = useRef(chatMessages.length)
   const wasOpenRef = useRef(false)
 
+  // [MOD] 非流式时的滚动效果：仅在新消息到达或抽屉打开时触发
   useEffect(() => {
-    const viewport = scrollViewportRef.current
-    if (!viewport) return
-
     // 组件从关闭变为打开时，滚动到底部（仅当有历史消息时）
     const justOpened = open && !wasOpenRef.current && chatMessages.length > 1
-    // 只在消息数量增加或正在流式输出时滚动到底部
+    // 只在消息数量增加时滚动到底部
     const hasNewMessage = chatMessages.length > prevMessageCountRef.current
-    const isStreaming = streamingMessageId !== null
 
-    if (justOpened || hasNewMessage || isStreaming) {
-      // 流式生成刚开始时（Loader阶段），如果不是新消息触发的，则不滚动
-      // 但如果有新消息（如拖拽菜单发送指令），仍然需要滚动以显示用户消息
-      if (isStreaming && !streamingText && !hasNewMessage) {
-        // 即使不滚动，也要更新ref，保持状态一致
-        prevMessageCountRef.current = chatMessages.length
-        wasOpenRef.current = open
-        return
-      }
-      // 使用双重requestAnimationFrame确保在DOM完全更新后执行滚动
-      // 第一帧等待React渲染，第二帧确保DOM布局完成
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          // 流式生成时使用instant滚动，避免多个smooth滚动动画叠加导致视觉跳动
-          const behavior = isStreaming ? 'instant' : 'smooth'
-          viewport.scrollTo({ top: viewport.scrollHeight, behavior })
-        })
-      })
+    if (justOpened || hasNewMessage) {
+      // [FIX] 延迟执行滚动：
+      // - 打开抽屉时延迟 450ms 等待 Sheet 动画完成 + DOM 渲染
+      // - 新消息时延迟 50ms
+      // - 在 setTimeout 内部获取 ref，确保此时 DOM 已挂载
+      const delay = justOpened ? 450 : 50
+      setTimeout(() => {
+        const viewport = scrollViewportRef.current
+        if (viewport) {
+          viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' })
+        }
+      }, delay)
     }
 
     prevMessageCountRef.current = chatMessages.length
     wasOpenRef.current = open
-  }, [open, chatMessages, streamingMessageId, streamingText])
+  }, [open, chatMessages])
+
+  // 流式输出时的滚动效果
+  useEffect(() => {
+    if (!streamingMessageId) return
+
+    const viewport = scrollViewportRef.current
+    if (!viewport) return
+
+    // [MOD] ScrollArea Viewport 内部有一个 div 包装器，需要获取其 scrollHeight
+    const scrollToBottom = () => {
+      const innerContent = viewport.firstElementChild as HTMLElement | null
+      const scrollHeight = innerContent?.scrollHeight ?? viewport.scrollHeight
+      viewport.scrollTop = scrollHeight
+    }
+
+    scrollToBottom()
+
+    const intervalId = setInterval(scrollToBottom, 200)
+
+    return () => clearInterval(intervalId)
+  }, [streamingMessageId])
 
   // 输入框展开/收起时平滑调整聊天区域滚动位置
+  // [MOD] 移除 streamingText 依赖，流式输出时的滚动由上方的 interval effect 处理
   const prevInputExpandedRef = useRef(isInputExpanded)
   useEffect(() => {
     const viewport = scrollViewportRef.current
@@ -360,9 +422,8 @@ export function AiAssistantDrawer({
     const isNowExpanded = isInputExpanded
 
     if (wasExpanded !== isNowExpanded) {
-      // 流式生成刚开始时（Loader阶段），不滚动，保持用户消息可见
-      const isStreamingWithoutContent = streamingMessageId !== null && !streamingText
-      if (isStreamingWithoutContent) {
+      // 流式生成时不滚动，由流式滚动 effect 处理
+      if (streamingMessageId !== null) {
         prevInputExpandedRef.current = isInputExpanded
         return
       }
@@ -376,7 +437,7 @@ export function AiAssistantDrawer({
     }
 
     prevInputExpandedRef.current = isInputExpanded
-  }, [isInputExpanded, streamingMessageId, streamingText])
+  }, [isInputExpanded, streamingMessageId])
 
   // 文件上传状态
   const [isUploadingFile, setIsUploadingFile] = useState(false)
@@ -442,6 +503,10 @@ export function AiAssistantDrawer({
 
     // 用于追踪 progress 累积的 thinking 内容（因为 progress 需要追加到 thinking）
     let progressThinking = ''
+    // 用于追踪 SSE 错误消息
+    let sseErrorMessage = ''
+    // [MOD] 用于追踪已创建关联消息的元素ID，避免重复创建（移到 try 外以便 catch 可访问）
+    const linkedElementIds = new Set<string>()
 
     try {
       // 执行请求前的准备操作
@@ -449,8 +514,8 @@ export function AiAssistantDrawer({
         await config.onBeforeRequest()
       }
 
-      // 获取画布 OSS Key
-      const ossKey = await getCanvasOssKey()
+      // [MOD] 强制上传最新画布数据，确保后端获取到最新状态
+      const ossKey = await forceCanvasUpload()
       if (!ossKey) {
         throw new Error("画布上传失败")
       }
@@ -473,14 +538,88 @@ export function AiAssistantDrawer({
       // 使用 useSSEStream 的 processStream 处理响应
       const result = await processStream(response, {
         onCanvasEvent: (event) => {
+          // [MOD] 统一生成元素 ID（在 handleCanvasEvent 之前），确保聊天关联卡片与画布元素使用相同 ID
+          // 支持所有在 ELEMENT_TYPE_TITLES 中定义的元素类型
+          // [FIX] 始终修正 ID，因为后端返回的 ID 格式可能与画布不一致（如 panel_ksa vs ksa_panel）
+          if (
+            (event.action === 'create' || event.action === 'set') &&
+            event.component &&
+            ELEMENT_TYPE_TITLES[event.component] &&
+            event.data
+          ) {
+            // [MOD] 检查画布中是否已存在该类型的元素，如果存在则使用已有 ID（避免 ID 不匹配）
+            // [MOD] 使用 canvasElementsRef.current 获取最新的画布元素状态，解决闭包捕获旧值问题
+            const currentElements = canvasElementsRef.current
+            let existingElement: typeof currentElements[number] | undefined
+            if (event.component === CanvasComponentType.PROJECT_MATRIX) {
+              // 项目矩阵需要根据 chapter_id 匹配（支持多个实例）
+              const chapterId = (event.data as { chapter_id?: string }).chapter_id
+              existingElement = currentElements.find(el =>
+                el.type === event.component &&
+                (el.data as { chapter_id?: string }).chapter_id === chapterId
+              )
+            } else {
+              // 其他元素根据类型匹配（单例）
+              existingElement = currentElements.find(el => el.type === event.component)
+            }
+            // [FIX] 始终覆盖 ID，确保格式为 ${component}_${timestamp}，与画布创建逻辑一致
+            (event.data as { id?: string }).id = existingElement?.id || `${event.component}_${Date.now()}`
+          }
+
           handleCanvasEvent(event)
+
+          // [MOD] 检测创建画布元素时，同步插入聊天关联卡片（支持所有在 ELEMENT_TYPE_TITLES 中定义的类型）
+          if (
+            (event.action === 'create' || event.action === 'set') &&
+            event.component &&
+            ELEMENT_TYPE_TITLES[event.component] &&
+            event.data
+          ) {
+            const elementId = (event.data as { id: string }).id
+            // 避免重复创建关联消息
+            if (elementId && !linkedElementIds.has(elementId)) {
+              linkedElementIds.add(elementId)
+              // [MOD] 从 event.data 提取具体标题（O(1) 复杂度）
+              const displayTitle = getElementDisplayTitle(event.component, event.data)
+              // 创建关联消息
+              const linkedMessage = createLinkedElementMessage(elementId, event.component, displayTitle)
+              setChatMessages(prev => [...prev, linkedMessage])
+              // 设置元素 loading 状态
+              setElementLoadingStates(prev => new Map(prev).set(elementId, true))
+            }
+          }
+
+          // [MOD] 检测源文档事件，关联用户消息的附件与画布元素
+          if (event.action === CanvasAction.SET_SOURCE_DOCUMENTS && event.data) {
+            const sourceDocsData = event.data as { documents?: Array<{ id: string; ossKey: string; originalFileOssKey: string }> }
+            const documents = sourceDocsData.documents || []
+            if (documents.length > 0) {
+              // 根据 originalFileOssKey 匹配用户消息的附件，更新 linkedElementId
+              setChatMessages(prev => prev.map(msg => {
+                if (msg.role === 'user' && msg.attachment) {
+                  // 使用 originalFileOssKey 匹配用户上传时的 ossKey
+                  const matchedDoc = documents.find(doc => doc.originalFileOssKey === msg.attachment?.ossKey)
+                  if (matchedDoc && !msg.attachment.linkedElementId) {
+                    return {
+                      ...msg,
+                      attachment: { ...msg.attachment, linkedElementId: matchedDoc.id }
+                    }
+                  }
+                }
+                return msg
+              }))
+            }
+          }
         },
         onThinkingChunk: (content) => {
           // thinking 内容需要加上 progress 追加的部分
           setStreamingThinking(progressThinking + content)
         },
         onErrorEvent: (error) => {
-          toast.error(error.message)
+          // 保存错误信息，用于最终消息内容
+          sseErrorMessage = error.message || '服务出现异常，请稍后重试。'
+          // 将错误信息显示在聊天区域
+          setStreamingText(sseErrorMessage)
         },
         onProgressEvent: (progress) => {
           // 将进度追加到思考区域
@@ -498,8 +637,8 @@ export function AiAssistantDrawer({
         },
       })
 
-      // 完成
-      const finalContent = result.content.trim() || config.defaultCompleteMessage
+      // 完成：优先使用 SSE 错误消息，其次使用返回内容，最后使用默认完成消息
+      const finalContent = sseErrorMessage || result.content.trim() || config.defaultCompleteMessage
       const finalThinking = progressThinking + (result.thinking || '')
       commitAssistantContent(finalContent, finalThinking || undefined)
 
@@ -509,6 +648,15 @@ export function AiAssistantDrawer({
       setStreamingMessageId(null)
       setStreamingText('')
       setIsRegenerating(false)
+
+      // [MOD] 清除本次 SSE 创建的元素 loading 状态
+      if (linkedElementIds.size > 0) {
+        setElementLoadingStates(prev => {
+          const newMap = new Map(prev)
+          linkedElementIds.forEach(id => newMap.set(id, false))
+          return newMap
+        })
+      }
 
       // 执行完成回调
       config.onComplete?.()
@@ -524,6 +672,14 @@ export function AiAssistantDrawer({
         setStreamingMessageId(null)
         setStreamingText('')
         setIsRegenerating(false)
+        // [MOD] 中止时也清除 loading 状态
+        if (linkedElementIds.size > 0) {
+          setElementLoadingStates(prev => {
+            const newMap = new Map(prev)
+            linkedElementIds.forEach(id => newMap.set(id, false))
+            return newMap
+          })
+        }
         return
       }
 
@@ -538,6 +694,14 @@ export function AiAssistantDrawer({
       setStreamingMessageId(null)
       setStreamingText('')
       setIsRegenerating(false)
+      // [MOD] 错误时也清除 loading 状态
+      if (linkedElementIds.size > 0) {
+        setElementLoadingStates(prev => {
+          const newMap = new Map(prev)
+          linkedElementIds.forEach(id => newMap.set(id, false))
+          return newMap
+        })
+      }
 
       console.error(`[${config.logPrefix}] 失败:`, error)
     }
@@ -545,8 +709,17 @@ export function AiAssistantDrawer({
 
   // 处理章节项目面板自动填充请求
   const handleFillChapterPanel = useCallback(async (targetPanelId?: string) => {
+    // 判断面板是否有内容（子节点）
+    const chapterPanel = targetPanelId
+      ? canvasElements.find(el => el.id === targetPanelId)
+      : canvasElements.find(el => el.type === CanvasComponentType.CHAPTER_PANEL)
+    const hasContent = chapterPanel
+      ? canvasElements.some(el => el.parentId === chapterPanel.id)
+      : false
+    const promptPrefix = hasContent ? "请帮我重新完善" : "请帮我完善"
+
     await executeSSERequest({
-      userContent: "请根据画布中的课程信息，自动填充章节项目列表",
+      userContent: `${promptPrefix}${ELEMENT_TYPE_TITLES[CanvasComponentType.CHAPTER_PANEL]}的内容`,
       messageSuffix: "fill-chapter-panel",
       logPrefix: `填充章节项目${targetPanelId ? ` 目标面板: ${targetPanelId}` : ""}`,
       defaultCompleteMessage: "章节项目已自动填充",
@@ -558,9 +731,6 @@ export function AiAssistantDrawer({
       },
       onBeforeRequest: () => {
         // 清空章节面板子节点（填充前必须清空，否则原有内容会传到后台）
-        const chapterPanel = targetPanelId
-          ? canvasElements.find(el => el.id === targetPanelId)
-          : canvasElements.find(el => el.type === CanvasComponentType.CHAPTER_PANEL)
         if (chapterPanel) {
           console.log("[填充章节项目] 清空章节面板:", chapterPanel.id)
           updateCanvasPanelChildren(chapterPanel.id, CanvasComponentType.CHAPTER_PANEL, CanvasComponentType.CHAPTER_CARD, [])
@@ -577,8 +747,17 @@ export function AiAssistantDrawer({
 
   // 处理教学目标面板自动填充请求
   const handleFillObjectivePanel = useCallback(async (targetPanelId?: string) => {
+    // 判断面板是否有内容（子节点）
+    const objectivePanel = targetPanelId
+      ? canvasElements.find(el => el.id === targetPanelId)
+      : canvasElements.find(el => el.type === CanvasComponentType.OBJECTIVE_PANEL)
+    const hasContent = objectivePanel
+      ? canvasElements.some(el => el.parentId === objectivePanel.id)
+      : false
+    const promptPrefix = hasContent ? "请帮我重新完善" : "请帮我完善"
+
     await executeSSERequest({
-      userContent: "请根据画布中的课程信息，自动填充教学目标列表",
+      userContent: `${promptPrefix}${ELEMENT_TYPE_TITLES[CanvasComponentType.OBJECTIVE_PANEL]}的内容`,
       messageSuffix: "fill-objective-panel",
       logPrefix: `填充教学目标${targetPanelId ? ` 目标面板: ${targetPanelId}` : ""}`,
       defaultCompleteMessage: "教学目标已自动填充",
@@ -590,9 +769,6 @@ export function AiAssistantDrawer({
       },
       onBeforeRequest: () => {
         // 清空教学目标面板子节点（填充前必须清空，否则原有内容会传到后台）
-        const objectivePanel = targetPanelId
-          ? canvasElements.find(el => el.id === targetPanelId)
-          : canvasElements.find(el => el.type === CanvasComponentType.OBJECTIVE_PANEL)
         if (objectivePanel) {
           console.log("[填充教学目标] 清空教学目标面板:", objectivePanel.id)
           updateCanvasPanelChildren(objectivePanel.id, CanvasComponentType.OBJECTIVE_PANEL, CanvasComponentType.OBJECTIVE_CARD, [])
@@ -623,15 +799,46 @@ export function AiAssistantDrawer({
       return
     }
 
+    // [MOD] 课点信息面板重做时，使用专用填充函数（与新增课点组件使用同一接口）
+    if (nodeType === CanvasComponentType.COURSE_POINT_PANEL) {
+      console.log("[重做] 课点信息面板使用专用填充函数:", nodeId)
+      handleFillCoursePoints(nodeId)
+      return
+    }
+
+    // [MOD] KSA面板重做时，使用专用填充函数（与新增KSA组件使用同一接口）
+    if (nodeType === CanvasComponentType.KSA_PANEL) {
+      console.log("[重做] KSA面板使用专用填充函数:", nodeId)
+      handleFillKsa(nodeId)
+      return
+    }
+
+    // [MOD] 课程矩阵重做时，使用专用填充函数（与新增课程矩阵使用同一接口）
+    if (nodeType === CanvasComponentType.COURSE_MATRIX) {
+      console.log("[重做] 课程矩阵使用专用填充函数:", nodeId)
+      handleFillCourseMatrix(nodeId)
+      return
+    }
+
+    // [MOD] 项目矩阵重做时，使用专用填充函数（与新增项目矩阵使用同一接口）
+    if (nodeType === CanvasComponentType.PROJECT_MATRIX) {
+      console.log("[重做] 项目矩阵使用专用填充函数:", nodeId)
+      handleFillProjectMatrix(nodeId)
+      return
+    }
+
     // 设置重做目标状态（在 executeSSERequest 之前）
     setRegenerateTarget({
       component_id: nodeId,
       component_type: nodeType,
     })
 
+    // 获取组件中文名称（用于提示词模板）
+    const elementTypeName = ELEMENT_TYPE_TITLES[nodeType] || nodeType
+
     try {
       await executeSSERequest({
-        userContent: `请帮我重新设计${nodeName}`,
+        userContent: `请帮我重新完善${elementTypeName}的内容`,
         messageSuffix: "regenerate",
         logPrefix: "重做",
         defaultCompleteMessage: "组件已重新生成",
@@ -655,12 +862,6 @@ export function AiAssistantDrawer({
           if (childType) {
             console.log("[重做] 清空Panel子节点:", nodeId, nodeType)
             updateCanvasPanelChildren(nodeId, nodeType, childType, [])
-          } else if (nodeType === CanvasComponentType.COURSE_MATRIX) {
-            console.log("[重做] 清空课程矩阵:", nodeId)
-            updateCanvasElementData(nodeId, { rows: [] })
-          } else if (nodeType === CanvasComponentType.PROJECT_MATRIX) {
-            console.log("[重做] 清空项目矩阵:", nodeId)
-            updateCanvasElementData(nodeId, { rows: [] })
           }
         },
         onComplete: () => {
@@ -675,18 +876,29 @@ export function AiAssistantDrawer({
   }, [executeSSERequest, handleFillChapterPanel, handleFillObjectivePanel, updateCanvasPanelChildren, updateCanvasElementData, selectCanvasElement])
 
   // 处理课程矩阵自动填充请求
-  const handleFillCourseMatrix = useCallback(async () => {
+  // [MOD] 添加可选参数 targetMatrixId，支持重做时指定目标矩阵
+  const handleFillCourseMatrix = useCallback(async (targetMatrixId?: string) => {
+    // 判断课程矩阵是否有内容
+    const courseMatrix = targetMatrixId
+      ? canvasElements.find(el => el.id === targetMatrixId)
+      : canvasElements.find(el => el.type === CanvasComponentType.COURSE_MATRIX)
+    const matrixData = courseMatrix?.data as { rows?: unknown[] } | undefined
+    const hasContent = matrixData?.rows && matrixData.rows.length > 0
+    const promptPrefix = hasContent ? "请帮我重新完善" : "请帮我完善"
+
     await executeSSERequest({
-      userContent: "请根据画布中的教学目标、章节和课点信息，自动填充课程矩阵的支撑关系",
+      userContent: `${promptPrefix}${ELEMENT_TYPE_TITLES[CanvasComponentType.COURSE_MATRIX]}的内容`,
       messageSuffix: "fill-matrix",
-      logPrefix: "填充课程矩阵",
+      logPrefix: `填充课程矩阵${targetMatrixId ? ` 目标矩阵: ${targetMatrixId}` : ""}`,
       defaultCompleteMessage: "课程矩阵已自动填充支撑关系",
       cancelMessage: "已取消填充操作。",
       errorMessage: "课程矩阵填充失败，请稍后再试。",
-      payload: { fill_course_matrix: true },
+      payload: {
+        fill_course_matrix: true,
+        ...(targetMatrixId && { target_matrix_id: targetMatrixId }),
+      },
       onBeforeRequest: () => {
         // 清空课程矩阵数据（填充前必须清空，否则原有内容会传到后台）
-        const courseMatrix = canvasElements.find(el => el.type === CanvasComponentType.COURSE_MATRIX)
         if (courseMatrix) {
           console.log("[填充课程矩阵] 清空课程矩阵:", courseMatrix.id)
           updateCanvasElementData(courseMatrix.id, { rows: [] })
@@ -697,31 +909,58 @@ export function AiAssistantDrawer({
       },
       onComplete: () => {
         updateFillProgress('matrix', null)
+        // 如果有目标矩阵ID，选中该矩阵
+        if (targetMatrixId) {
+          selectCanvasElement(targetMatrixId)
+        }
       },
     })
     // 确保进度在任何情况下都被清除
     updateFillProgress('matrix', null)
-  }, [executeSSERequest, canvasElements, updateCanvasElementData, updateFillProgress])
+  }, [executeSSERequest, canvasElements, updateCanvasElementData, updateFillProgress, selectCanvasElement])
 
   // 处理项目矩阵自动填充请求
-  const handleFillProjectMatrix = useCallback(async () => {
+  // [MOD] 添加可选参数 targetMatrixId，支持重做时指定目标矩阵
+  const handleFillProjectMatrix = useCallback(async (targetMatrixId?: string) => {
+    // 判断项目矩阵是否有内容
+    const projectMatrix = targetMatrixId
+      ? canvasElements.find(el => el.id === targetMatrixId)
+      : canvasElements.find(el => el.type === CanvasComponentType.PROJECT_MATRIX)
+    const matrixData = projectMatrix?.data as { rows?: unknown[] } | undefined
+    const hasContent = matrixData?.rows && matrixData.rows.length > 0
+    const promptPrefix = hasContent ? "请帮我重新完善" : "请帮我完善"
+
     await executeSSERequest({
-      userContent: "请根据画布中的课程矩阵和章节信息，自动填充项目矩阵的任务目标和支撑关系",
+      userContent: `${promptPrefix}${ELEMENT_TYPE_TITLES[CanvasComponentType.PROJECT_MATRIX]}的内容`,
       messageSuffix: "fill-project-matrix",
-      logPrefix: "填充项目矩阵",
+      logPrefix: `填充项目矩阵${targetMatrixId ? ` 目标矩阵: ${targetMatrixId}` : ""}`,
       defaultCompleteMessage: "项目矩阵已自动填充任务目标和支撑关系",
       cancelMessage: "已取消填充操作。",
       errorMessage: "项目矩阵填充失败，请稍后再试。",
-      payload: { fill_project_matrix: true },
+      payload: {
+        fill_project_matrix: true,
+        ...(targetMatrixId && { target_matrix_id: targetMatrixId }),
+      },
+      onBeforeRequest: () => {
+        // 清空项目矩阵数据（填充前必须清空，否则原有内容会传到后台）
+        if (projectMatrix) {
+          console.log("[填充项目矩阵] 清空项目矩阵:", projectMatrix.id)
+          updateCanvasElementData(projectMatrix.id, { rows: [] })
+        }
+      },
       onProgress: (progress) => {
         updateFillProgress('projectMatrix', progress.message)
       },
       onComplete: () => {
         updateFillProgress('projectMatrix', null)
+        // 如果有目标矩阵ID，选中该矩阵
+        if (targetMatrixId) {
+          selectCanvasElement(targetMatrixId)
+        }
       },
     })
     updateFillProgress('projectMatrix', null)
-  }, [executeSSERequest, updateFillProgress])
+  }, [executeSSERequest, canvasElements, updateCanvasElementData, updateFillProgress, selectCanvasElement])
 
   // 处理课程信息自动填充请求（从源文档生成课程基本信息）
   const handleFillCourseInfo = useCallback(async (courseInfoId: string) => {
@@ -730,8 +969,14 @@ export function AiAssistantDrawer({
       return
     }
 
+    // 判断课程信息是否有内容
+    const courseInfo = canvasElements.find(el => el.id === courseInfoId || el.type === CanvasComponentType.COURSE_INFO)
+    const courseData = courseInfo?.data as { name?: string; metadata?: Record<string, unknown> } | undefined
+    const hasContent = !!(courseData?.name || (courseData?.metadata && Object.keys(courseData.metadata).length > 0))
+    const promptPrefix = hasContent ? "请帮我重新完善" : "请帮我完善"
+
     await executeSSERequest({
-      userContent: "请根据上传的源文档，自动生成课程基本信息",
+      userContent: `${promptPrefix}${ELEMENT_TYPE_TITLES[CanvasComponentType.COURSE_INFO]}的内容`,
       messageSuffix: "fill-course-info",
       logPrefix: `填充课程信息 课程信息ID: ${courseInfoId}`,
       defaultCompleteMessage: "课程基本信息已自动填充",
@@ -747,21 +992,33 @@ export function AiAssistantDrawer({
         selectCanvasElement(courseInfoId)
       },
     })
-  }, [sessionId, executeSSERequest, selectCanvasElement])
+  }, [sessionId, canvasElements, executeSSERequest, selectCanvasElement])
 
   // 处理课点信息自动填充请求
-  const handleFillCoursePoints = useCallback(async () => {
+  // [MOD] 添加可选参数 targetPanelId，支持重做时指定目标面板
+  const handleFillCoursePoints = useCallback(async (targetPanelId?: string) => {
+    // 判断课点面板是否有内容（子节点）
+    const coursePointPanel = targetPanelId
+      ? canvasElements.find(el => el.id === targetPanelId)
+      : canvasElements.find(el => el.type === CanvasComponentType.COURSE_POINT_PANEL)
+    const hasContent = coursePointPanel
+      ? canvasElements.some(el => el.parentId === coursePointPanel.id)
+      : false
+    const promptPrefix = hasContent ? "请帮我重新完善" : "请帮我完善"
+
     await executeSSERequest({
-      userContent: "请根据画布中的课程信息和教学目标，自动生成课点信息",
+      userContent: `${promptPrefix}${ELEMENT_TYPE_TITLES[CanvasComponentType.COURSE_POINT_PANEL]}的内容`,
       messageSuffix: "fill-course-points",
-      logPrefix: "填充课点信息",
+      logPrefix: `填充课点信息${targetPanelId ? ` 目标面板: ${targetPanelId}` : ""}`,
       defaultCompleteMessage: "课点信息已自动生成",
       cancelMessage: "已取消填充操作。",
       errorMessage: "课点信息生成失败，请稍后再试。",
-      payload: { fill_course_point_panel: true },
+      payload: {
+        fill_course_point_panel: true,
+        ...(targetPanelId && { target_panel_id: targetPanelId }),
+      },
       onBeforeRequest: () => {
         // 清空课点面板子节点（填充前必须清空，否则原有内容会传到后台）
-        const coursePointPanel = canvasElements.find(el => el.type === CanvasComponentType.COURSE_POINT_PANEL)
         if (coursePointPanel) {
           console.log("[填充课点信息] 清空课点面板:", coursePointPanel.id)
           updateCanvasPanelChildren(coursePointPanel.id, CanvasComponentType.COURSE_POINT_PANEL, CanvasComponentType.COURSE_POINT_CARD, [])
@@ -772,25 +1029,40 @@ export function AiAssistantDrawer({
       },
       onComplete: () => {
         updateFillProgress('coursePoints', null)
+        // 如果有目标面板ID，选中该面板
+        if (targetPanelId) {
+          selectCanvasElement(targetPanelId)
+        }
       },
     })
     updateFillProgress('coursePoints', null)
-  }, [executeSSERequest, canvasElements, updateCanvasPanelChildren, updateFillProgress])
+  }, [executeSSERequest, canvasElements, updateCanvasPanelChildren, updateFillProgress, selectCanvasElement])
 
-  // 处理KSA自动填充请求
   // 处理 KSA 面板自动填充请求
-  const handleFillKsa = useCallback(async () => {
+  // [MOD] 添加可选参数 targetPanelId，支持重做时指定目标面板
+  const handleFillKsa = useCallback(async (targetPanelId?: string) => {
+    // 判断 KSA 面板是否有内容（子节点）
+    const ksaPanel = targetPanelId
+      ? canvasElements.find(el => el.id === targetPanelId)
+      : canvasElements.find(el => el.type === CanvasComponentType.KSA_PANEL)
+    const hasContent = ksaPanel
+      ? canvasElements.some(el => el.parentId === ksaPanel.id)
+      : false
+    const promptPrefix = hasContent ? "请帮我重新完善" : "请帮我完善"
+
     await executeSSERequest({
-      userContent: "请根据画布中的课程信息和课点信息，自动生成KSA（知识、技能、态度）三要素",
+      userContent: `${promptPrefix}${ELEMENT_TYPE_TITLES[CanvasComponentType.KSA_PANEL]}的内容`,
       messageSuffix: "fill-ksa",
-      logPrefix: "填充KSA",
+      logPrefix: `填充KSA${targetPanelId ? ` 目标面板: ${targetPanelId}` : ""}`,
       defaultCompleteMessage: "KSA三要素已自动生成",
       cancelMessage: "已取消填充操作。",
       errorMessage: "KSA生成失败，请稍后再试。",
-      payload: { fill_ksa_panel: true },
+      payload: {
+        fill_ksa_panel: true,
+        ...(targetPanelId && { target_panel_id: targetPanelId }),
+      },
       onBeforeRequest: () => {
         // 清空KSA面板子节点（填充前必须清空，否则原有内容会传到后台）
-        const ksaPanel = canvasElements.find(el => el.type === CanvasComponentType.KSA_PANEL)
         if (ksaPanel) {
           console.log("[填充KSA] 清空KSA面板:", ksaPanel.id)
           updateCanvasPanelChildren(ksaPanel.id, CanvasComponentType.KSA_PANEL, CanvasComponentType.KSA_ITEM, [])
@@ -801,11 +1073,15 @@ export function AiAssistantDrawer({
       },
       onComplete: () => {
         updateFillProgress('ksa', null)
+        // 如果有目标面板ID，选中该面板
+        if (targetPanelId) {
+          selectCanvasElement(targetPanelId)
+        }
       },
     })
     // 确保进度被清除（包括错误情况）
     updateFillProgress('ksa', null)
-  }, [executeSSERequest, canvasElements, updateCanvasPanelChildren, updateFillProgress])
+  }, [executeSSERequest, canvasElements, updateCanvasPanelChildren, updateFillProgress, selectCanvasElement])
 
   // 停止生成处理函数
   const handleStopGeneration = useCallback(async () => {
@@ -927,8 +1203,14 @@ export function AiAssistantDrawer({
       saveSessionToStorage
     )
 
+    // 用于追踪 SSE 错误消息
+    let sseErrorMessage = ''
+    // [MOD] 用于追踪已创建关联消息的元素ID，避免重复创建（移到 try 外以便 catch 可访问）
+    const linkedElementIds = new Set<string>()
+
     try {
-      const ossKey = await getCanvasOssKey()
+      // [MOD] 强制上传最新画布数据，确保后端获取到最新状态
+      const ossKey = await forceCanvasUpload()
 
       // 构建消息数组（包含文件附件）
       const messages: Array<{ role: string; content: string; type?: string }> = []
@@ -965,11 +1247,82 @@ export function AiAssistantDrawer({
           }
         },
         onCanvasEvent: (event) => {
+          // [MOD] 统一生成元素 ID（在 handleCanvasEvent 之前），确保聊天关联卡片与画布元素使用相同 ID
+          // 支持所有在 ELEMENT_TYPE_TITLES 中定义的元素类型
+          // [FIX] 始终修正 ID，因为后端返回的 ID 格式可能与画布不一致（如 panel_ksa vs ksa_panel）
+          if (
+            (event.action === 'create' || event.action === 'set') &&
+            event.component &&
+            ELEMENT_TYPE_TITLES[event.component] &&
+            event.data
+          ) {
+            // [MOD] 检查画布中是否已存在该类型的元素，如果存在则使用已有 ID（避免 ID 不匹配）
+            // [MOD] 使用 canvasElementsRef.current 获取最新的画布元素状态，解决闭包捕获旧值问题
+            const currentElements = canvasElementsRef.current
+            let existingElement: typeof currentElements[number] | undefined
+            if (event.component === CanvasComponentType.PROJECT_MATRIX) {
+              // 项目矩阵需要根据 chapter_id 匹配（支持多个实例）
+              const chapterId = (event.data as { chapter_id?: string }).chapter_id
+              existingElement = currentElements.find(el =>
+                el.type === event.component &&
+                (el.data as { chapter_id?: string }).chapter_id === chapterId
+              )
+            } else {
+              // 其他元素根据类型匹配（单例）
+              existingElement = currentElements.find(el => el.type === event.component)
+            }
+            // [FIX] 始终覆盖 ID，确保格式为 ${component}_${timestamp}，与画布创建逻辑一致
+            (event.data as { id?: string }).id = existingElement?.id || `${event.component}_${Date.now()}`
+          }
+
           handleCanvasEvent(event)
           // canvas 事件触发画布展开
           if (!hasTriggeredExpandRef.current) {
             hasTriggeredExpandRef.current = true
             setIsCanvasExpanded(true)
+          }
+
+          // [MOD] 检测创建画布元素时，同步插入聊天关联卡片（支持所有在 ELEMENT_TYPE_TITLES 中定义的类型）
+          if (
+            (event.action === 'create' || event.action === 'set') &&
+            event.component &&
+            ELEMENT_TYPE_TITLES[event.component] &&
+            event.data
+          ) {
+            const elementId = (event.data as { id: string }).id
+            // 避免重复创建关联消息
+            if (elementId && !linkedElementIds.has(elementId)) {
+              linkedElementIds.add(elementId)
+              // [MOD] 从 event.data 提取具体标题（O(1) 复杂度）
+              const displayTitle = getElementDisplayTitle(event.component, event.data)
+              // 创建关联消息
+              const linkedMessage = createLinkedElementMessage(elementId, event.component, displayTitle)
+              setChatMessages(prev => [...prev, linkedMessage])
+              // 设置元素 loading 状态
+              setElementLoadingStates(prev => new Map(prev).set(elementId, true))
+            }
+          }
+
+          // [MOD] 检测源文档事件，关联用户消息的附件与画布元素
+          if (event.action === CanvasAction.SET_SOURCE_DOCUMENTS && event.data) {
+            const sourceDocsData = event.data as { documents?: Array<{ id: string; ossKey: string; originalFileOssKey: string }> }
+            const documents = sourceDocsData.documents || []
+            if (documents.length > 0) {
+              // 根据 originalFileOssKey 匹配用户消息的附件，更新 linkedElementId
+              setChatMessages(prev => prev.map(msg => {
+                if (msg.role === 'user' && msg.attachment) {
+                  // 使用 originalFileOssKey 匹配用户上传时的 ossKey
+                  const matchedDoc = documents.find(doc => doc.originalFileOssKey === msg.attachment?.ossKey)
+                  if (matchedDoc && !msg.attachment.linkedElementId) {
+                    return {
+                      ...msg,
+                      attachment: { ...msg.attachment, linkedElementId: matchedDoc.id }
+                    }
+                  }
+                }
+                return msg
+              }))
+            }
           }
         },
         onThinkingChunk: (content) => {
@@ -1009,7 +1362,10 @@ export function AiAssistantDrawer({
           }
         },
         onErrorEvent: (error) => {
-          toast.error(error.message)
+          // 保存错误信息，用于最终消息内容
+          sseErrorMessage = error.message || '服务出现异常，请稍后重试。'
+          // 将错误信息显示在聊天区域
+          setStreamingText(sseErrorMessage)
         },
         onContentChunk: (content) => {
           setStreamingText(content)
@@ -1028,14 +1384,24 @@ export function AiAssistantDrawer({
         },
       })
 
-      // 完成
-      const finalContent = result.content.trim() || 'AI 暂无新的建议，请稍后再试。'
+      // 完成：优先使用 SSE 错误消息，其次使用返回内容，最后使用默认消息
+      const finalContent = sseErrorMessage || result.content.trim() || 'AI 暂无新的建议，请稍后再试。'
       commitAssistantContent(finalContent, result.thinking || undefined)
       if (streamingControllerRef.current === controller) {
         streamingControllerRef.current = null
       }
       setStreamingMessageId(null)
       setStreamingText('')
+      // [MOD] SSE 完成后清除工具状态，避免动画持续导致 CPU 高
+      setToolStatus(null)
+      // [MOD] 清除本次 SSE 创建的元素 loading 状态
+      if (linkedElementIds.size > 0) {
+        setElementLoadingStates(prev => {
+          const newMap = new Map(prev)
+          linkedElementIds.forEach(id => newMap.set(id, false))
+          return newMap
+        })
+      }
       // 不清空思考内容，保留显示"思考完毕"状态
     } catch (error) {
       // AbortError 已在 processStream 内部处理并抛出，这里需要捕获
@@ -1045,6 +1411,15 @@ export function AiAssistantDrawer({
         }
         setStreamingMessageId(null)
         setStreamingText('')
+        setToolStatus(null)
+        // [MOD] 中止时也清除 loading 状态
+        if (linkedElementIds.size > 0) {
+          setElementLoadingStates(prev => {
+            const newMap = new Map(prev)
+            linkedElementIds.forEach(id => newMap.set(id, false))
+            return newMap
+          })
+        }
         return
       }
 
@@ -1057,6 +1432,15 @@ export function AiAssistantDrawer({
       }
       setStreamingMessageId(null)
       setStreamingText('')
+      setToolStatus(null)
+      // [MOD] 错误时也清除 loading 状态
+      if (linkedElementIds.size > 0) {
+        setElementLoadingStates(prev => {
+          const newMap = new Map(prev)
+          linkedElementIds.forEach(id => newMap.set(id, false))
+          return newMap
+        })
+      }
     }
   }, [inputMessage, isInitialized, sessionId, attachedFiles, uploadFileToOss, getCanvasOssKey, handleCanvasEvent, processStream, resetSSEController])
 
@@ -1090,7 +1474,7 @@ export function AiAssistantDrawer({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className={`ai-drawer-content p-0 bg-background/90 backdrop-blur-xl border-border/40 transition-[width] duration-500 ease-out ${
+        className={`ai-drawer-content p-0 bg-background border-border/40 transition-[width] duration-500 ease-out ${
           isCanvasExpanded
             ? "!w-screen !max-w-none"
             : "!w-[605px] sm:!w-[692px] lg:!w-[749px] xl:!w-[807px] 2xl:!w-[864px] sm:!max-w-none lg:!max-w-none 2xl:!max-w-none max-w-[90vw]"
@@ -1182,55 +1566,31 @@ export function AiAssistantDrawer({
             )}
           </SheetHeader>
 
-          {/* 进度条和状态显示 */}
-          {(progress || toolStatus) && (
-            <div className="px-6 py-3 border-b border-border/40 bg-muted/30">
-              {/* 工具调用状态 */}
-              {toolStatus && (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
-                  <span className="truncate">{getToolStatusText(toolStatus)}</span>
-                </div>
-              )}
-              {/* 进度条 */}
-              {progress && (
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">{progress.message}</span>
-                    <span className="text-primary font-medium">{progress.current}/{progress.total}</span>
-                  </div>
-                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary rounded-full transition-all duration-300"
-                      style={{ width: `${(progress.current / progress.total) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          <ScrollArea ref={scrollViewportRef} className="flex-1 min-h-0 w-full min-w-0 px-6 py-4 overflow-hidden">
-            <div className="space-y-5 pr-2 w-full min-w-0 overflow-hidden">
-              {chatMessages.map((message) => {
-                const isStreaming = streamingMessageId === message.id
+          {/* 聊天消息区域 */}
+          <ScrollArea ref={scrollViewportRef} className="flex-1 min-h-0 w-full min-w-0">
+            <div className={`space-y-6 ${isCanvasExpanded ? "px-4 py-4" : "px-6 py-4"}`}>
+              {chatMessages.map((message, index) => {
                 const isLastAssistantMessage =
                   message.role === "assistant" &&
-                  chatMessages.filter((m) => m.role === "assistant").pop()?.id === message.id
+                  index === chatMessages.length - 1
+                const isCurrentStreaming = message.id === streamingMessageId
 
                 return (
                   <ChatMessageItem
                     key={message.id}
                     message={message}
-                    isStreaming={isStreaming}
-                    streamingText={streamingText}
-                    streamingThinking={streamingThinking}
+                    isStreaming={isCurrentStreaming}
+                    streamingText={isCurrentStreaming ? streamingText : undefined}
+                    streamingThinking={isCurrentStreaming ? streamingThinking : undefined}
                     isThinkingExpanded={isThinkingExpanded}
                     onThinkingToggle={() => setIsThinkingExpanded(!isThinkingExpanded)}
                     greetingForMessage={greetingForMessage}
                     userName={userName}
                     isCanvasExpanded={isCanvasExpanded}
                     isLastAssistantMessage={isLastAssistantMessage}
+                    onSelectCanvasElement={selectCanvasElement}
+                    elementLoadingStates={elementLoadingStates}
+                    deletedElementIds={deletedElementIds}
                   />
                 )
               })}
@@ -1256,21 +1616,29 @@ export function AiAssistantDrawer({
           {/* 展开时显示分割线和Canvas画布 */}
           {isCanvasExpanded && (
             <>
-              {/* 垂直分割线 */}
-              <div className="ai-canvas-divider w-[2px] h-full flex-shrink-0" />
+              {/* 垂直分割线 - [MOD] 仅在流式输出时启用动画 */}
+              <div className={`ai-canvas-divider w-[2px] h-full flex-shrink-0 ${streamingMessageId ? 'ai-canvas-divider-active' : ''}`} />
               {/* 右侧Canvas画布区域 - 使用绝对定位确保有明确的宽高 */}
               <div className="flex-1 min-w-0 bg-background/50 relative">
                 <div className="absolute inset-0">
                   <AiCanvasPanel
                     className="w-full h-full"
-                    nodes={toFlowNodes()}
+                    nodes={flowNodes}
                     edges={toFlowEdges()}
-                    onNodeDelete={removeCanvasElement}
+                    onNodeDelete={(nodeId) => {
+                      // [MOD] 删除前将元素ID加入已删除集合，禁用聊天区关联卡片
+                      setDeletedElementIds(prev => new Set(prev).add(nodeId))
+                      removeCanvasElement(nodeId)
+                    }}
                     onEdgeDelete={removeCanvasEdge}
-                    onNodeClick={(nodeId) => selectCanvasElement(nodeId)}
                     onNodeDataUpdate={(nodeId, data) => updateCanvasElementData(nodeId, data)}
                     onNodePositionChange={(nodeId, position) => updateCanvasElementPosition(nodeId, position)}
-                    onSelectionChange={(selectedIds) => updateCanvasSelection(selectedIds)}
+                    onSelectionChange={(selectedIds) => {
+                      // [MOD] 用户点击画布节点时，仅更新 selectedId state，不触发 elements 变更
+                      // React Flow 已经处理了 UI 选中高亮，无需重新同步
+                      const newSelectedId = selectedIds.length === 1 ? selectedIds[0] : null
+                      setSelectedIdOnly(newSelectedId)
+                    }}
                     onCoursePointsUpdate={(panelId, coursePoints) => {
                       // 将课点数据转换为画布子节点格式并更新
                       updateCanvasPanelChildren(
@@ -1325,7 +1693,8 @@ export function AiAssistantDrawer({
                     }}
                     onConnectionMenuSelect={handleConnectionMenuSelect}
                     onNodeRegenerate={handleRegenerate}
-                    isRegenerating={isRegenerating}
+                    // [MOD] 画布展开时发送聊天请求锁定画布，防止用户操作导致数据不一致
+                    isRegenerating={isRegenerating || (isCanvasExpanded && streamingMessageId !== null)}
                     fillProgress={fillProgress}
                     canvasElements={canvasElements}
                     canvasOssKey={canvasOssKey}
@@ -1352,6 +1721,7 @@ export function AiAssistantDrawer({
                         console.log("[AI助手] 更新课程信息, courseId:", updates.courseId, "majorId:", updates.majorId)
                       }
                     }}
+                    isUploading={isCanvasUploading}
                   />
                 </div>
               </div>

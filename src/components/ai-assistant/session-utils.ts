@@ -24,9 +24,10 @@ export function createWelcomeMessage(): ChatMessage {
 
 /**
  * 生成新的会话 ID
+ * 格式：毫秒时间戳 + 随机字符串
  */
 export function generateSessionId(): string {
-  return `session_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+  return `${Date.now()}${Math.random().toString(36).slice(2, 9)}`
 }
 
 /**
@@ -45,8 +46,18 @@ export function loadSessionFromStorage(): { sessionId: string; messages: ChatMes
       const messages = JSON.parse(storedMessages) as ChatMessage[]
       // 过滤掉正在流式传输的消息
       const validMessages = messages.filter(m => !m.isStreaming)
-      if (validMessages.length > 0) {
-        return { sessionId: storedSessionId, messages: validMessages }
+      // [MOD] 按 ID 去重，保留首次出现的消息（修复历史数据中可能存在的重复 ID 问题）
+      const seenIds = new Set<string>()
+      const uniqueMessages = validMessages.filter(m => {
+        if (seenIds.has(m.id)) {
+          console.warn("[会话加载] 检测到重复消息ID，已过滤:", m.id)
+          return false
+        }
+        seenIds.add(m.id)
+        return true
+      })
+      if (uniqueMessages.length > 0) {
+        return { sessionId: storedSessionId, messages: uniqueMessages }
       }
     }
   } catch (error) {

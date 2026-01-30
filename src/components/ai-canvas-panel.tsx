@@ -11,8 +11,10 @@ import {
   type Node,
   type Edge,
   type Connection,
+  type NodeChange,
   type NodeMouseHandler,
   type OnConnectEnd,
+  type OnSelectionChangeParams,
   BackgroundVariant,
   ConnectionMode,
   ReactFlowProvider,
@@ -49,22 +51,26 @@ import { SourceDocumentNode } from "./flow/nodes/source-document-node"
 import { SupportEdge } from "./flow/edges/support-edge"
 import { RainbowConnectionLine } from "./flow/edges/rainbow-connection-line"
 
+// 模块级常量：避免每次渲染创建新引用导致 useMemo 失效
+const EMPTY_FILL_PROGRESS: FillProgress = {}
+const EMPTY_CANVAS_ELEMENTS: CanvasElementData[] = []
+
 /**
  * 计算节点的绝对位置
  * 对于子节点（带 parentId），其 position 是相对于父节点的相对坐标
  * 需要递归累加所有祖先节点的位置才能得到画布绝对坐标
  * @param node 目标节点
- * @param allNodes 所有节点列表
+ * @param nodeMap 节点ID到节点的Map（O(1)查找）
  * @returns 节点在画布中的绝对位置
  */
-function getAbsolutePosition(node: Node, allNodes: Node[]): { x: number; y: number } {
+function getAbsolutePosition(node: Node, nodeMap: Map<string, Node>): { x: number; y: number } {
   let absoluteX = node.position.x
   let absoluteY = node.position.y
 
-  // 如果有父节点，需要递归累加父节点位置
+  // 如果有父节点，需要递归累加父节点位置（使用 Map O(1) 查找）
   let currentParentId = node.parentId
   while (currentParentId) {
-    const parentNode = allNodes.find(n => n.id === currentParentId)
+    const parentNode = nodeMap.get(currentParentId)
     if (parentNode) {
       absoluteX += parentNode.position.x
       absoluteY += parentNode.position.y
@@ -169,6 +175,8 @@ export interface AiCanvasPanelProps {
   onSaveSuccess?: (majorId: string, courseId: string) => void
   // 更新课程信息回调（用于保存后更新画布中的 courseId）
   onUpdateCourseInfo?: (updates: { courseId?: number; majorId?: number }) => void
+  // 是否正在上传画布数据到OSS
+  isUploading?: boolean
 }
 
 /**
@@ -200,12 +208,13 @@ function AiCanvasPanelInner({
   showControls = true,
   onNodeRegenerate,
   isRegenerating = false,
-  fillProgress = {},
-  canvasElements = [],
+  fillProgress = EMPTY_FILL_PROGRESS,
+  canvasElements = EMPTY_CANVAS_ELEMENTS,
   canvasOssKey = null,
   treeData = null,
   onSaveSuccess,
   onUpdateCourseInfo,
+  isUploading = false,
 }: AiCanvasPanelProps) {
   // 使用 React Flow 的状态管理
   const [flowNodes, setNodes, onNodesChange] = useNodesState(nodes)
@@ -300,65 +309,105 @@ function AiCanvasPanelInner({
   // 记录上一次的节点 ID 集合，用于检测节点增删
   const prevNodeIdsRef = useRef<Set<string>>(new Set())
   const prevEdgeIdsRef = useRef<Set<string>>(new Set())
-  // 记录上一次的节点数据签名，用于检测数据变化
-  const prevNodeDataRef = useRef<Map<string, string>>(new Map())
+  // 记录上一次的节点数据引用，用于检测数据变化（引用比较替代 JSON.stringify）
+  const prevNodeDataRef = useRef<Map<string, unknown>>(new Map())
   // 记录上一次外部传入的选中节点 ID 集合，用于检测外部触发的选中变化（支持多选）
   const prevExternalSelectedIdsRef = useRef<Set<string>>(new Set())
 
-  // 同步外部 props 变化（节点增删或数据变化时同步，不覆盖拖动位置）
-  // 同时在新增节点时自动聚焦到新节点位置
+  // 同步外部 props 变化（节点增删、数据变化、选中状态变化）
+  // 合并为单个 effect 避免多次 setNodes 导致连续渲染
   useEffect(() => {
     const currentNodeIds = new Set(nodes.map(n => n.id))
     const prevNodeIds = prevNodeIdsRef.current
+
+    // 构建 nodeMap 用于 O(1) 查找（getAbsolutePosition 等使用）
+    const nodeMap = new Map<string, Node>(nodes.map(n => [n.id, n]))
 
     // 检测是否有节点增删
     const hasNodeChange = currentNodeIds.size !== prevNodeIds.size ||
       nodes.some(n => !prevNodeIds.has(n.id))
 
-    // 检测已有节点的数据是否变化（通过 JSON 序列化比较）
-    const currentNodeData = new Map<string, string>()
+    // 检测已有节点的数据是否变化（通过引用比较，避免 JSON.stringify 开销）
+    const currentNodeData = new Map<string, unknown>()
     let hasDataChange = false
     for (const node of nodes) {
-      const dataStr = JSON.stringify(node.data)
-      currentNodeData.set(node.id, dataStr)
-      // 只检查已存在节点的数据变化
-      if (prevNodeIds.has(node.id) && prevNodeDataRef.current.get(node.id) !== dataStr) {
+      currentNodeData.set(node.id, node.data)
+      // 只检查已存在节点的数据变化（引用不同即视为数据变化）
+      if (prevNodeIds.has(node.id) && prevNodeDataRef.current.get(node.id) !== node.data) {
         hasDataChange = true
       }
     }
 
-    if (hasNodeChange || hasDataChange) {
+    // 检测外部选中状态变化
+    const externalSelectedIds = new Set(nodes.filter(n => n.selected).map(n => n.id))
+    const prevExternalSelectedIds = prevExternalSelectedIdsRef.current
+    const newlySelectedIds = [...externalSelectedIds].filter(id => !prevExternalSelectedIds.has(id))
+    const hasSelectionChange = newlySelectedIds.length > 0
+
+    if (hasNodeChange || hasDataChange || hasSelectionChange) {
       // 找出新增的节点（不在 prevNodeIds 中的节点）
       const newNodes = nodes.filter(n => !prevNodeIds.has(n.id))
       // 判断是否为首次加载（prevNodeIds 为空表示首次加载）
       const isInitialLoad = prevNodeIds.size === 0
 
-      // 合并位置：保留已存在节点的当前位置，仅添加新节点
+      // 合并位置和选中状态：一次 setNodes 完成所有同步
       setNodes(prevFlowNodes => {
         const existingPositions = new Map(prevFlowNodes.map(n => [n.id, n.position]))
+
+        // 仅选中状态变化时，只更新选中状态
+        if (hasSelectionChange && !hasNodeChange && !hasDataChange) {
+          return prevFlowNodes.map(n => ({
+            ...n,
+            selected: externalSelectedIds.has(n.id),
+          }))
+        }
+
         return nodes.map(node => ({
           ...node,
           // 如果节点已存在，保留其当前位置；否则使用外部传入的位置
           position: existingPositions.get(node.id) || node.position,
           // 首次加载时保留外部传入的选中状态（从 localStorage 恢复），后续新增时选中新节点
           // 数据变化时不改变选中状态
-          selected: isInitialLoad ? node.selected : (hasDataChange && !hasNodeChange ? (prevFlowNodes.find(n => n.id === node.id)?.selected ?? false) : newNodes.some(n => n.id === node.id)),
+          // [MOD] 批量创建时只选中第一个新节点，而非选中所有新节点
+          // 外部选中变化时同步选中状态
+          selected: hasSelectionChange
+            ? externalSelectedIds.has(node.id)
+            : isInitialLoad
+              ? node.selected
+              : (hasDataChange && !hasNodeChange
+                ? (prevFlowNodes.find(n => n.id === node.id)?.selected ?? false)
+                : newNodes[0]?.id === node.id),
         }))
       })
       prevNodeIdsRef.current = currentNodeIds
       prevNodeDataRef.current = currentNodeData
+      prevExternalSelectedIdsRef.current = externalSelectedIds
 
-      // 视角聚焦逻辑（仅在节点增删时触发，数据变化不触发）
-      if (hasNodeChange) {
+      // 视角聚焦逻辑
+      if (hasSelectionChange && !hasNodeChange) {
+        // 外部选中变化：聚焦到最后一个新选中的节点
+        const lastNewlySelectedId = newlySelectedIds[newlySelectedIds.length - 1]
+        const targetNode = nodeMap.get(lastNewlySelectedId)
+        if (targetNode) {
+          const nodeWidth = targetNode.measured?.width || targetNode.width || 300
+          const nodeHeight = targetNode.measured?.height || targetNode.height || 200
+          const absolutePos = getAbsolutePosition(targetNode, nodeMap)
+          setTimeout(() => {
+            setCenter(
+              absolutePos.x + nodeWidth / 2,
+              absolutePos.y + nodeHeight / 2,
+              { zoom: getZoom(), duration: 100 }
+            )
+          }, 50)
+        }
+      } else if (hasNodeChange) {
         if (isInitialLoad && nodes.length > 0) {
           // 首次加载：优先聚焦选中节点，否则聚焦第一个节点
           const selectedNode = nodes.find(n => n.selected)
           const targetNode = selectedNode || nodes[0]
           const nodeWidth = targetNode.measured?.width || targetNode.width || 300
           const nodeHeight = targetNode.measured?.height || targetNode.height || 200
-          // 计算绝对位置（子节点的 position 是相对于父节点的相对坐标）
-          const absolutePos = getAbsolutePosition(targetNode, nodes)
-          // 延迟执行，确保节点已渲染
+          const absolutePos = getAbsolutePosition(targetNode, nodeMap)
           setTimeout(() => {
             setCenter(
               absolutePos.x + nodeWidth / 2,
@@ -371,9 +420,7 @@ function AiCanvasPanelInner({
           const lastNewNode = newNodes[newNodes.length - 1]
           const nodeWidth = lastNewNode.measured?.width || lastNewNode.width || 300
           const nodeHeight = lastNewNode.measured?.height || lastNewNode.height || 200
-          // 计算绝对位置（子节点的 position 是相对于父节点的相对坐标）
-          const absolutePos = getAbsolutePosition(lastNewNode, nodes)
-          // 延迟执行，确保节点已渲染
+          const absolutePos = getAbsolutePosition(lastNewNode, nodeMap)
           setTimeout(() => {
             setCenter(
               absolutePos.x + nodeWidth / 2,
@@ -383,6 +430,9 @@ function AiCanvasPanelInner({
           }, 50)
         }
       }
+    } else {
+      // 无节点/数据变化时也更新选中状态的 ref
+      prevExternalSelectedIdsRef.current = externalSelectedIds
     }
   }, [nodes, setNodes, setCenter, getZoom])
 
@@ -400,56 +450,6 @@ function AiCanvasPanelInner({
     }
   }, [edges, setEdges])
 
-  // 监听外部传入的节点选中状态变化，自动聚焦到被选中的节点
-  // 注意：不再通过 setNodes 同步选中状态，避免与 React Flow 的多选管理冲突导致无限循环
-  useEffect(() => {
-    // 获取外部传入的所有选中节点 ID（支持多选）
-    const externalSelectedIds = new Set(nodes.filter(n => n.selected).map(n => n.id))
-    const prevExternalSelectedIds = prevExternalSelectedIdsRef.current
-
-    // 检测是否有新的节点被外部选中（之前未选中，现在选中）
-    const newlySelectedIds = [...externalSelectedIds].filter(id => !prevExternalSelectedIds.has(id))
-
-    // 只有当有新节点被选中时才聚焦（聚焦到最后一个新选中的节点）
-    if (newlySelectedIds.length > 0) {
-      const lastNewlySelectedId = newlySelectedIds[newlySelectedIds.length - 1]
-      const targetNode = nodes.find(n => n.id === lastNewlySelectedId)
-      if (targetNode) {
-        const nodeWidth = targetNode.measured?.width || targetNode.width || 300
-        const nodeHeight = targetNode.measured?.height || targetNode.height || 200
-        // 计算绝对位置（子节点的 position 是相对于父节点的相对坐标）
-        const absolutePos = getAbsolutePosition(targetNode, nodes)
-        setTimeout(() => {
-          setCenter(
-            absolutePos.x + nodeWidth / 2,
-            absolutePos.y + nodeHeight / 2,
-            { zoom: getZoom(), duration: 100 }
-          )
-        }, 50)
-      }
-    }
-
-    prevExternalSelectedIdsRef.current = externalSelectedIds
-  }, [nodes, setCenter, getZoom])
-
-  // 记录上一次选中的节点 ID 集合（保留用于未来可能的多选同步）
-  const prevSelectedIdsRef = useRef<Set<string>>(new Set())
-
-  // [性能优化] 禁用 flowNodes 选中状态同步到外部
-  // 原因：外部已通过 onNodeClick 处理单击选中，此处同步会导致双向循环更新，造成明显延迟
-  // 影响：React Flow 的框选/多选操作不会同步到外部状态，如需支持多选需另行处理
-  // 原代码：
-  // useEffect(() => {
-  //   const currentSelectedIds = new Set(flowNodes.filter(n => n.selected).map(n => n.id))
-  //   const prevSelectedIds = prevSelectedIdsRef.current
-  //   const hasSelectionChange = currentSelectedIds.size !== prevSelectedIds.size ||
-  //     [...currentSelectedIds].some(id => !prevSelectedIds.has(id))
-  //   if (hasSelectionChange) {
-  //     prevSelectedIdsRef.current = currentSelectedIds
-  //     onSelectionChangeRef.current?.([...currentSelectedIds])
-  //   }
-  // }, [flowNodes])
-
   // 处理节点拖动结束，同步位置到外部状态
   const handleNodeDragStop = useCallback(
     (_event: React.MouseEvent, node: Node) => {
@@ -464,6 +464,33 @@ function AiCanvasPanelInner({
     sourceId: null,
     type: null,
   }), [])
+
+  // [MOD] 包装 onNodesChange，检测键盘删除（Delete/Backspace）触发的节点移除
+  // 解决键盘删除时 onNodesDelete 可能未触发导致聊天区卡片状态不同步的问题
+  const handleNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      onNodesChange(changes)
+
+      // 检测 remove 类型变更，同步调用 onNodeDelete 以更新聊天区关联卡片
+      for (const change of changes) {
+        if (change.type === 'remove') {
+          onNodeDelete?.(change.id)
+        }
+      }
+    },
+    [onNodesChange, onNodeDelete]
+  )
+
+  // [MOD] 处理 React Flow 内部选中状态变化，同步到父组件
+  // 用户点击节点时，React Flow 会立即更新 UI 选中高亮，此处将选中的节点 ID 通知父组件
+  // 父组件仅更新 selectedId state 用于持久化，不触发 elements 变更回环
+  const handleSelectionChange = useCallback(
+    ({ nodes: selectedNodes }: OnSelectionChangeParams) => {
+      const selectedIds = selectedNodes.map(n => n.id)
+      onSelectionChangeRef.current?.(selectedIds)
+    },
+    []
+  )
 
   // 处理节点删除按钮点击 - 先显示loading，再执行删除
   const handleNodeDeleteClick = useCallback(
@@ -567,26 +594,20 @@ function AiCanvasPanelInner({
     setConnectionMenu((prev) => ({ ...prev, visible: false }))
   }, [])
 
-  // 点击画布其他区域关闭菜单
+  // 用 ref 跟踪菜单可见状态，避免 effect 依赖 connectionMenu.visible 导致频繁 attach/detach
+  const connectionMenuVisibleRef = useRef(connectionMenu.visible)
+  connectionMenuVisibleRef.current = connectionMenu.visible
+
+  // 点击画布其他区域关闭菜单（监听器只注册一次）
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (connectionMenu.visible) {
+      if (connectionMenuVisibleRef.current) {
         closeMenu()
       }
     }
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [connectionMenu.visible, closeMenu])
-
-  // 处理节点删除
-  const handleNodesDelete = useCallback(
-    (deletedNodes: Node[]) => {
-      deletedNodes.forEach((node) => {
-        onNodeDelete?.(node.id)
-      })
-    },
-    [onNodeDelete]
-  )
+  }, [closeMenu])
 
   // 处理边删除
   const handleEdgesDelete = useCallback(
@@ -678,14 +699,14 @@ function AiCanvasPanelInner({
       <ReactFlow
         nodes={processedNodes}
         edges={flowEdges}
-        onNodesChange={onNodesChange}
+        onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={handleConnect}
         onConnectEnd={handleConnectEnd}
         onNodeClick={handleNodeClick}
         onNodeDragStop={handleNodeDragStop}
-        onNodesDelete={handleNodesDelete}
         onEdgesDelete={handleEdgesDelete}
+        onSelectionChange={handleSelectionChange}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
@@ -711,8 +732,8 @@ function AiCanvasPanelInner({
           patternClassName="canvas-dashed-pattern"
         />
 
-        {/* 自定义缩放控制栏 */}
-        {showControls && <CustomZoomControls />}
+        {/* 自定义缩放控制栏（含同步状态指示器） */}
+        {showControls && <CustomZoomControls isUploading={isUploading} />}
 
         {/* 小地图 */}
         {showMiniMap && (

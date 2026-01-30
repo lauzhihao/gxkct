@@ -13,18 +13,15 @@
   overflow: hidden;
 }
 
-.ai-assistant-border-wrapper::before,
-.ai-assistant-border-wrapper::after {
+/* [MOD] 使用 linear-gradient 替代 conic-gradient，避免 Chrome GPU 持续合成开销 */
+.ai-assistant-border-wrapper::before {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-}
-
-.ai-assistant-border-wrapper::before {
-  background: conic-gradient(
-    from 0deg,
+  background: linear-gradient(
+    135deg,
     #f79533,
     #f37055,
     #ef4e7b,
@@ -39,9 +36,13 @@
 }
 
 .ai-assistant-border-wrapper::after {
-  --ai-assistant-border-angle: 0deg;
-  background: conic-gradient(
-    from var(--ai-assistant-border-angle),
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    135deg,
     #f79533,
     #f37055,
     #ef4e7b,
@@ -51,6 +52,7 @@
     #07b39b,
     #f79533
   );
+  background-size: 200% 200%;
   opacity: 0;
   z-index: 1;
   transition: opacity 0.2s ease-in-out;
@@ -65,7 +67,6 @@
 
 .ai-assistant-border-wrapper:focus-within::after {
   opacity: 1;
-  animation: ai-assistant-border-spin 1.2s linear 0s infinite;
 }
 
 .ai-assistant-textarea {
@@ -88,20 +89,6 @@
   --tw-ring-width: 0px;
 }
 
-@property --ai-assistant-border-angle {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
-}
-
-@keyframes ai-assistant-border-spin {
-  0% {
-    --ai-assistant-border-angle: 0deg;
-  }
-  100% {
-    --ai-assistant-border-angle: 360deg;
-  }
-}
 
 /* ============ AI 助手头部分割线 ============ */
 
@@ -446,6 +433,7 @@
   overflow: hidden;
 }
 
+/* [MOD] 默认状态：静态彩虹渐变，无动画 */
 .ai-canvas-divider::before {
   content: "";
   position: absolute;
@@ -462,7 +450,12 @@
     #07b39b 95%,
     transparent 100%
   );
-  opacity: 0.6;
+  opacity: 0.5;
+  transition: opacity 0.3s ease-in-out;
+}
+
+/* [MOD] 仅在流式输出时启用动画 - 通过添加 ai-canvas-divider-active 类控制 */
+.ai-canvas-divider-active::before {
   animation: ai-divider-shimmer 3s ease-in-out infinite;
 }
 

@@ -14,6 +14,8 @@ export const AI_API_CONFIG = {
   CHAT_PATH: '/lang-chain/v1/chat/completions',
   /** 取消请求接口路径 */
   CANCEL_PATH: '/lang-chain/v1/chat/cancel',
+  /** 会话基础路径（用于 DELETE 清除会话） */
+  SESSION_BASE_PATH: '/lang-chain/v1/chat',
   /** 模型名称 */
   MODEL: 'course-assistant',
 } as const
