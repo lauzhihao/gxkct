@@ -36,6 +36,8 @@ export interface BasePanelNodeProps {
   width?: number
   // 节点高度（由 React Flow style 控制）
   height?: number
+  // 最大高度限制（超出时启用内部滚动）
+  maxHeight?: number
   // 是否显示顶部连接点（默认不显示）
   showTargetHandle?: boolean
   // 是否显示底部连接点（默认不显示）

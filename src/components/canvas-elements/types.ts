@@ -8,6 +8,8 @@ export interface ElementPosition {
 export interface ElementSize {
   width: number
   height: number
+  // 可选的最大高度限制，超出时面板内部启用滚动
+  maxHeight?: number
 }
 
 /**

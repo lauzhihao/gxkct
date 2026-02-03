@@ -60,6 +60,22 @@ export interface AttachedFile {
 }
 
 /**
+ * 初始画布数据
+ * 用于从外部（如课程详情页）传递预填充的画布数据
+ */
+export interface InitialCanvasData {
+  /** 画布元素列表 */
+  elements: import("@/components/canvas-elements/types").CanvasElementData[]
+  /** 元素之间的连线 */
+  edges: import("@/components/canvas-elements/types").CanvasEdgeData[]
+  /** 特殊组件数据（可选） */
+  specialComponents?: Record<string, {
+    type: import("@/components/canvas-elements/types").CanvasComponentType
+    data: import("@/components/canvas-elements/types").CanvasComponentData
+  }>
+}
+
+/**
  * AI 助手抽屉组件 Props
  */
 export interface AiAssistantDrawerProps {
@@ -70,6 +86,12 @@ export interface AiAssistantDrawerProps {
   userName?: string
   /** 树形结构数据（用于保存向导选择专业） */
   treeData?: TreeNode | null
+  /**
+   * 初始画布数据
+   * 当提供此属性时，将创建新会话并加载这些数据到画布
+   * 用于从课程详情页加载已有课程数据到画布
+   */
+  initialCanvasData?: InitialCanvasData | null
 }
 
 /**

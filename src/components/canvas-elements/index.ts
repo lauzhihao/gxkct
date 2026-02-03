@@ -51,6 +51,7 @@ export type {
   LayoutEventData,
   // 重做目标
   RegenerateTarget,
+  RegenerateTag,
   // SSE消息结构
   CanvasEventMessage,
   StatusEventMessage,

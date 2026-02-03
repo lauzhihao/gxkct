@@ -290,10 +290,10 @@ const CARD_GAP_Y = 10 // 垂直间距
 
 // Panel 网格布局配置（每种 Panel 的列数）
 const PANEL_GRID_COLUMNS: Partial<Record<CanvasComponentType, number>> = {
-  [CanvasComponentType.OBJECTIVE_PANEL]: 3,
-  [CanvasComponentType.COURSE_POINT_PANEL]: 3,
-  [CanvasComponentType.CHAPTER_PANEL]: 3,
-  [CanvasComponentType.KSA_PANEL]: 3,
+  [CanvasComponentType.OBJECTIVE_PANEL]: 5,
+  [CanvasComponentType.COURSE_POINT_PANEL]: 5,
+  [CanvasComponentType.CHAPTER_PANEL]: 5,
+  [CanvasComponentType.KSA_PANEL]: 5,
 }
 
 /**

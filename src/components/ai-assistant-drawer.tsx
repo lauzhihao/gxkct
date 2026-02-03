@@ -67,6 +67,7 @@ export function AiAssistantDrawer({
   activeTabLabel,
   userName = "用户",
   treeData = null,
+  initialCanvasData = null,
 }: AiAssistantDrawerProps) {
   const [inputMessage, setInputMessage] = useState("")
   const [isInputExpanded, setIsInputExpanded] = useState(false)
@@ -198,6 +199,9 @@ export function AiAssistantDrawer({
   // 记录已加载的sessionId，避免重复加载，同时用于防止加载前保存空数据
   const hasLoadedCanvasRef = useRef<string | null>(null)
 
+  // [MOD] 追踪初始画布数据是否已处理，避免重复加载
+  const initialCanvasDataProcessedRef = useRef<boolean>(false)
+
   // [MOD] 使用 ref 保存最新的 canvasElements，解决 SSE 回调中闭包捕获旧值的问题
   const canvasElementsRef = useRef(canvasElements)
   useEffect(() => {
@@ -232,6 +236,93 @@ export function AiAssistantDrawer({
       hasLoadedCanvasRef.current = sessionId
     }
   }, [open, sessionId, isInitialized, loadCanvasFromLocal, loadCanvasData])
+
+  // [MOD] 处理从外部传入的初始画布数据（如从课程详情页加载已有课程）
+  useEffect(() => {
+    // 条件：抽屉打开、有初始数据、尚未处理过
+    if (
+      open &&
+      initialCanvasData &&
+      initialCanvasData.elements.length > 0 &&
+      !initialCanvasDataProcessedRef.current
+    ) {
+      console.log("[AI助手] 检测到初始画布数据，创建新会话并加载")
+
+      // 标记为已处理，防止重复执行
+      initialCanvasDataProcessedRef.current = true
+
+      // 1. 生成新的会话ID
+      const newSessionId = generateSessionId()
+
+      // 2. 清空旧数据
+      streamingControllerRef.current?.abort()
+      clearCanvas()
+      clearCanvasPersistence()
+
+      // 3. 重置聊天消息为欢迎消息
+      const welcomeMessage = createWelcomeMessage()
+      // 添加一条系统提示消息，说明已加载课程数据
+      const loadedHintMessage: ChatMessage = {
+        id: `loaded_hint_${Date.now()}`,
+        role: "assistant",
+        content: "已加载课程数据到画布。您可以查看和编辑课程结构，或者告诉我您想要优化的内容。",
+        timestamp: Date.now(),
+      }
+      const newMessages = [welcomeMessage, loadedHintMessage]
+
+      // 4. 更新状态
+      setSessionId(newSessionId)
+      setChatMessages(newMessages)
+      setInputMessage("")
+      setStreamingMessageId(null)
+      setStreamingText("")
+      setStreamingThinking("")
+
+      // 5. 重置其他状态
+      setCurrentMode("chat")
+      setBuildingStage(null)
+      setProgress(null)
+      setToolStatus(null)
+      setRegenerateTarget(null)
+      setIsRegenerating(false)
+      setRegenerateTag(null)
+      setFillProgress({})
+      setDeletedElementIds(new Set())
+      setElementLoadingStates(new Map())
+
+      // 6. 加载画布数据
+      loadCanvasData(
+        initialCanvasData.elements,
+        initialCanvasData.edges,
+        initialCanvasData.specialComponents
+      )
+
+      // 7. 展开画布
+      setIsCanvasExpanded(true)
+      hasTriggeredExpandRef.current = true
+
+      // 8. 标记画布已加载（防止本地存储覆盖）
+      hasLoadedCanvasRef.current = newSessionId
+
+      // 9. 保存新会话到 localStorage
+      saveSessionToStorage(newSessionId, newMessages)
+
+      console.log("[AI助手] 初始画布数据加载完成，新会话ID:", newSessionId, "元素数:", initialCanvasData.elements.length)
+    }
+  }, [
+    open,
+    initialCanvasData,
+    clearCanvas,
+    clearCanvasPersistence,
+    loadCanvasData,
+  ])
+
+  // [MOD] 当抽屉关闭时，重置初始数据处理标记
+  useEffect(() => {
+    if (!open) {
+      initialCanvasDataProcessedRef.current = false
+    }
+  }, [open])
 
   // 监听画布数据变化，更新持久化数据
   // 重要：必须在画布加载完成后才能保存，否则会用空数据覆盖已保存的数据
