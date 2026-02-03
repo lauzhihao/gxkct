@@ -67,6 +67,14 @@ export enum CanvasComponentType {
 export interface CourseInfoData {
   name: string
   type?: string
+  // ============ 兼容前端表单的 snake_case 字段 ============
+  course_name?: string          // 兼容课程名称（表单用）
+  course_level?: string         // 兼容课程层次（表单用）
+  target_audience?: string      // 兼容授课对象（表单用）
+  total_theory_hours?: number   // 兼容理论学时（表单用）
+  total_practice_hours?: number // 兼容实践学时（表单用）
+  description?: string          // 兼容课程简介（表单用）
+  // ======================================================
   metadata?: {
     openingDate?: string
     courseType?: string           // 课程类型：必修/选修
@@ -128,6 +136,8 @@ export interface CourseInfoData {
     majorId?: number            // 已保存的专业ID
   }
   children?: unknown[]
+  // 索引签名，满足 @xyflow/react Node 泛型约束
+  [key: string]: unknown
 }
 
 /**
@@ -135,6 +145,8 @@ export interface CourseInfoData {
  */
 export interface PanelData {
   id: string
+  // 索引签名，满足 @xyflow/react Node 泛型约束
+  [key: string]: unknown
 }
 
 /**
@@ -144,6 +156,8 @@ export interface ObjectiveCardData {
   id: string
   index: number
   content: string
+  // 索引签名，满足 @xyflow/react Node 泛型约束
+  [key: string]: unknown
 }
 
 /**
@@ -154,6 +168,8 @@ export interface CoursePointCardData {
   index: number
   name: string
   description?: string
+  // 索引签名，满足 @xyflow/react Node 泛型约束
+  [key: string]: unknown
 }
 
 /**
@@ -165,6 +181,12 @@ export interface ChapterCardData {
   name: string
   theory_hours?: number
   practice_hours?: number
+  // ============ 画布节点扩展字段 ============
+  highlighted?: boolean       // 高亮状态
+  isDeleting?: boolean       // 删除中状态
+  onDelete?: (nodeId: string) => void  // 删除回调
+  // 索引签名，满足 @xyflow/react Node 泛型约束
+  [key: string]: unknown
 }
 
 /**
@@ -175,6 +197,8 @@ export interface KsaItemData {
   category: "K" | "S" | "A"
   index: number
   content: string
+  // 索引签名，满足 @xyflow/react Node 泛型约束
+  [key: string]: unknown
 }
 
 /**
@@ -213,6 +237,8 @@ export interface CourseMatrixData {
   course_name: string
   objectives: Array<{ id: string; index: number; content: string }>
   rows: CourseMatrixRow[]
+  // 索引签名，满足 @xyflow/react Node 泛型约束
+  [key: string]: unknown
 }
 
 /**
@@ -270,6 +296,8 @@ export interface ProjectMatrixData {
   chapter_name: string
   task_objectives: ProjectMatrixTaskObjective[]
   rows: ProjectMatrixRow[]
+  // 索引签名，满足 @xyflow/react Node 泛型约束
+  [key: string]: unknown
 }
 
 /**
@@ -299,6 +327,8 @@ export interface SourceDocumentCardData {
   createdAt: string
   createdBy?: string
   cdnHost?: string              // CDN 域名（用于拼接完整文件地址）
+  // 索引签名，满足 @xyflow/react Node 泛型约束
+  [key: string]: unknown
 }
 
 /**
@@ -307,6 +337,18 @@ export interface SourceDocumentCardData {
 export interface SourceDocumentsData {
   cdnHost?: string              // CDN 域名（用于拼接完整文件地址）
   documents: SourceDocument[]
+}
+
+/**
+ * 开课报告卡片数据（用于画布显示）
+ */
+export interface CourseReportCardData {
+  id: string
+  name: string
+  // 占位字段，后续扩展
+  status?: "draft" | "submitted" | "approved"
+  createdAt?: string
+  updatedAt?: string
 }
 
 // ============ 元素数据联合类型 ============
@@ -325,6 +367,7 @@ export type CanvasComponentData =
   | ProjectMatrixData
   | SourceDocumentCardData
   | SourceDocumentsData
+  | CourseReportCardData
   | Record<string, unknown>
 
 // ============ 画布元素状态 ============
@@ -393,6 +436,21 @@ export interface LayoutEventData {
 export interface RegenerateTarget {
   component_id: string           // 要重做的组件ID
   component_type: CanvasComponentType  // 组件类型
+}
+
+/**
+ * 重做标签状态
+ * 用于在聊天输入框上方显示的可删除标签
+ */
+export interface RegenerateTag {
+  component_id: string
+  component_type: CanvasComponentType
+  node_name: string
+  color_config: {
+    bg: string
+    border: string
+    text: string
+  }
 }
 
 // ============ SSE消息结构 ============

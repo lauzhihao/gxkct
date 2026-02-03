@@ -20,6 +20,7 @@ interface ResourceItem extends ResourceFolder {
 export interface ResourceObject {
   id: string
   name: string
+  displayName?: string
   type: "file"
   size: number
   mimeType: string
@@ -45,7 +46,9 @@ interface UseCourseResourcesResult {
   objects: ResourceObject[]
   objectsPagination: ResourcePagination | null
   isLoading: boolean
+  isObjectsLoading: boolean
   error: string | null
+  objectsError: string | null
   needInitialization: boolean
   isInitializing: boolean
   isRootLevel: boolean
@@ -66,7 +69,9 @@ export function useCourseResources(courseId?: string | null): UseCourseResources
   const [breadcrumbs, setBreadcrumbs] = useState<ResourceBreadcrumbNode[]>([ROOT_CRUMB])
   const [currentParentId, setCurrentParentId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isObjectsLoading, setIsObjectsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [objectsError, setObjectsError] = useState<string | null>(null)
   const [needInitialization, setNeedInitialization] = useState(false)
   const [isInitializing, setIsInitializing] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
@@ -206,7 +211,9 @@ export function useCourseResources(courseId?: string | null): UseCourseResources
       objects,
       objectsPagination,
       isLoading,
+      isObjectsLoading,
       error,
+      objectsError,
       needInitialization,
       isInitializing,
       isRootLevel: currentParentId === null,
@@ -226,7 +233,9 @@ export function useCourseResources(courseId?: string | null): UseCourseResources
       objects,
       objectsPagination,
       isLoading,
+      isObjectsLoading,
       error,
+      objectsError,
       needInitialization,
       isInitializing,
       searchTerm,

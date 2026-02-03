@@ -55,5 +55,29 @@ export interface SearchResult {
   matchLevel: number
 }
 
-// 专业元数据接口 (从全局types引用)
-export type { MajorMetadata } from "@/types"
+// 专业元数据接口 (定义在此处便于模块内部使用)
+export interface MajorMetadata {
+  majorLevel: string
+  majorClass: string
+  feature: string
+  careerLevel: string
+  demandType: string
+  demandArea: string
+  professionsVOS: Array<{
+    id: string
+    level: string
+    direction: {
+      category1: string
+      category2: string
+      category3: string
+      category4: string
+    }
+    tasks: string
+  }>
+  position: string
+  requiresVOS: Array<{
+    id: string
+    description: string
+    children: Array<{ id: string; description: string }>
+  }>
+}

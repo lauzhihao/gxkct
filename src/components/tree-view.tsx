@@ -42,7 +42,7 @@ import type { TreeNode } from "@/types"
 import { useTreeSearch } from "@/shared/hooks/use-tree-search"
 import { useDepartmentMajors } from "@/modules/departments/hooks/use-department-majors"
 
-function highlightText(text: string, searchTerm: string) {
+function highlightText(text: string, searchTerm: string): React.ReactNode {
   if (!searchTerm.trim()) {
     return text
   }
@@ -377,7 +377,7 @@ interface TreeViewProps {
   treeData: TreeNode | null
   onNodeSelect: (node: TreeNode | null) => void
   selectedNode: TreeNode | null
-  onAddSchool?: (newSchool: Omit<TreeNode, "id">) => void
+  onAddSchool?: (newSchool: Omit<TreeNode, "id" | "nodeId">) => void
   currentSchoolId?: string | null
   onSetCurrentSchool?: (schoolId: string) => void
   onUpdateNode?: (nodeId: string, updates: Partial<TreeNode>) => void

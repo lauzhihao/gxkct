@@ -126,6 +126,11 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
     setIsDataLoading(true)
 
     const fetchTaskData = async () => {
+      if (typeof initialTask.id !== "number" || typeof initialTask.universityId !== "number") {
+        setIsDataLoading(false)
+        return
+      }
+
       try {
         const response = await api.teachingTasks.getTask(initialTask.universityId, initialTask.id, {
           includeCriteria: true,

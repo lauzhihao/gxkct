@@ -10,13 +10,13 @@ import { api } from "@/lib/api"
 export interface UseCareerInfoResult {
   // 状态
   careerInfoList: CareerInfo[]
-  careerSearchMap: { [key: string]: string }
-  careerPopoverOpenMap: { [key: string]: boolean }
+  careerSearchMap: Record<string, string>
+  careerPopoverOpenMap: Record<string, boolean>
 
   // 更新方法
   setCareerInfoList: (value: CareerInfo[]) => void
-  setCareerSearchMap: (value: { [key: string]: string }) => void
-  setCareerPopoverOpenMap: (value: { [key: string]: boolean }) => void
+  setCareerSearchMap: React.Dispatch<React.SetStateAction<Record<string, string>>>
+  setCareerPopoverOpenMap: React.Dispatch<React.SetStateAction<Record<string, boolean>>>
 
   // 业务操作方法
   addCareerInfo: () => void

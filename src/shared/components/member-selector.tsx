@@ -10,7 +10,7 @@ import { Label } from "@/shared/components/ui/label"
 import { ScrollArea } from "@/shared/components/ui/scroll-area"
 import { Search, ChevronLeft, ChevronRight, X } from "lucide-react"
 import { cn } from "@/shared/utils/utils"
-import type { NodeType, TaskMember } from "@/types"
+import type { NodeType, TaskMember, Long } from "@/types"
 import { api } from "@/lib/api"
 
 // 获取角色标签样式
@@ -96,7 +96,14 @@ export function MemberSelector({
           } else {
             // 其他级别：调用通用成员接口
             const response = await api.users.getUsers(targetId)
-            setAllUsers(response.data ?? [])
+            // 类型转换：User[] -> TaskMember[]，添加缺失的 account 和 auth 属性
+            const users: TaskMember[] = (response.data ?? []).map((user) => ({
+              id: Number(user.id) as Long,
+              account: user.email || "",
+              name: user.name,
+              auth: user.role,
+            }))
+            setAllUsers(users)
           }
         } catch (error) {
           console.error("加载成员数据失败:", error)

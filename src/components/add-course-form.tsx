@@ -304,7 +304,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
             const supportResponse = await api.matrices.getCourseIndicatorSupports(realCourseId, realMajorId)
             console.log("课程支撑的指标点:", supportResponse.data)
 
-            if (supportResponse.data && supportResponse.data.length > 0) {
+            if (supportResponse.data && Array.isArray(supportResponse.data) && supportResponse.data.length > 0) {
               // 只显示该课程支撑的指标点
               const supportedIndicatorKeys = new Set(supportResponse.data)
               const filteredIndicators = allIndicators.filter((indicator) => {
@@ -341,12 +341,12 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
 
       try {
         const response = await api.matrices.getCourseTeachingObjectiveIndicators(realCourseId, realMajorId)
-        if (response.data) {
+        if (response.data && typeof response.data === 'object') {
           // 根据保存的关系数据，更新教学目标的supportedIndicators
           setTeachingObjectives((prevObjectives) =>
             prevObjectives.map((obj) => ({
               ...obj,
-              supportedIndicators: response.data[obj.id] || [],
+              supportedIndicators: (response.data as Record<string, string[]>)?.[obj.id] || [],
             }))
           )
         }
@@ -371,7 +371,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
       try {
         console.log(`[AddCourseForm] 加载课程目标，courseId: ${realCourseId}, majorId: ${realMajorId}`)
         const response = await api.courseGoals.getCourseGoals(realCourseId, realMajorId)
-        if (response.data) {
+        if (response.data && Array.isArray(response.data)) {
           console.log(`[AddCourseForm] 课程目标加载成功`, response.data)
           setCourseGoals(response.data)
 

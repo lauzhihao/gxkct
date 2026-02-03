@@ -17,7 +17,7 @@ export class HttpAdapter {
     return headers
   }
 
-  async get<T>(endpoint: string): Promise<ApiResponse<T>> {
+  async get<T>(endpoint: string): Promise<ApiResponse<T | null>> {
     try {
       const url = buildApiUrl(endpoint)
       const config = getApiConfig()
@@ -51,7 +51,7 @@ export class HttpAdapter {
     }
   }
 
-  async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+  async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T | null>> {
     try {
       const url = buildApiUrl(endpoint)
       const config = getApiConfig()
@@ -86,7 +86,7 @@ export class HttpAdapter {
     }
   }
 
-  async patch<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+  async patch<T>(endpoint: string, data?: any): Promise<ApiResponse<T | null>> {
     try {
       const url = buildApiUrl(endpoint)
       const config = getApiConfig()
@@ -121,7 +121,7 @@ export class HttpAdapter {
     }
   }
 
-  async put<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+  async put<T>(endpoint: string, data?: any): Promise<ApiResponse<T | null>> {
     try {
       const url = buildApiUrl(endpoint)
       const config = getApiConfig()
@@ -156,7 +156,7 @@ export class HttpAdapter {
     }
   }
 
-  async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
+  async delete<T>(endpoint: string): Promise<ApiResponse<T | null>> {
     try {
       const url = buildApiUrl(endpoint)
       const config = getApiConfig()

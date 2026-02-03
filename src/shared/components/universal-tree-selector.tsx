@@ -466,7 +466,10 @@ export function UniversalTreeSelector({
               <div className="text-center py-8 text-destructive">{error}</div>
             ) : filteredTree ? (
               mode === "single" ? (
-                <RadioGroup value={selectedIds[0] || ""} onValueChange={(val) => handleSelect(val)}>
+                <RadioGroup value={selectedIds[0] || ""} onValueChange={(val) => {
+                  const node = findNodeById(filteredTree, val)
+                  if (node) handleSelect(node)
+                }}>
                   {renderTree(filteredTree)}
                 </RadioGroup>
               ) : (

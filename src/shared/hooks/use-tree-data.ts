@@ -34,11 +34,12 @@ export function useTreeData(initialData: TreeNode | null) {
   }, [])
 
   const addNode = useCallback(
-    (parentId: string, newNode: Omit<TreeNode, "id">, type: string) => {
+    (parentId: string, newNode: Omit<TreeNode, "id" | "nodeId">, type: string) => {
       updateTree((data) => {
         const newId = generateNodeId(type)
         const nodeToAdd: TreeNode = {
           id: newId,
+          nodeId: newId,
           ...newNode,
         }
         addNodeToTree(data, parentId, nodeToAdd)
@@ -69,12 +70,13 @@ export function useTreeData(initialData: TreeNode | null) {
   )
 
   const addSchool = useCallback(
-    (newSchool: Omit<TreeNode, "id">) => {
+    (newSchool: Omit<TreeNode, "id" | "nodeId">) => {
       updateTree((data) => {
         if (!data.children) data.children = []
         const newId = generateNodeId("univ")
         data.children.push({
           id: newId,
+          nodeId: newId,
           ...newSchool,
         })
         return data
@@ -84,21 +86,21 @@ export function useTreeData(initialData: TreeNode | null) {
   )
 
   const addDepartment = useCallback(
-    (universityId: string, newDepartment: Omit<TreeNode, "id">) => {
+    (universityId: string, newDepartment: Omit<TreeNode, "id" | "nodeId">) => {
       addNode(universityId, newDepartment, "dept")
     },
     [addNode],
   )
 
   const addMajor = useCallback(
-    (departmentId: string, newMajor: Omit<TreeNode, "id">) => {
+    (departmentId: string, newMajor: Omit<TreeNode, "id" | "nodeId">) => {
       addNode(departmentId, newMajor, "major")
     },
     [addNode],
   )
 
   const addCourse = useCallback(
-    (majorId: string, newCourse: Omit<TreeNode, "id">) => {
+    (majorId: string, newCourse: Omit<TreeNode, "id" | "nodeId">) => {
       addNode(majorId, newCourse, "course")
     },
     [addNode],

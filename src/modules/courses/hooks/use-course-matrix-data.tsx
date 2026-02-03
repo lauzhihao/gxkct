@@ -466,7 +466,7 @@ export const useCourseMatrixData = ({ node, onUpdateNode, majorId }: UseCourseMa
     setDragOverIndex(null)
   }, [])
 
-  const handleDragOver = useCallback((event: DragEvent, index: number) => {
+  const handleDragOver = useCallback((event: React.DragEvent<Element>, index: number) => {
     event.preventDefault()
     setDragOverIndex(index)
   }, [])
@@ -476,7 +476,7 @@ export const useCourseMatrixData = ({ node, onUpdateNode, majorId }: UseCourseMa
   }, [])
 
   const handleDrop = useCallback(
-    (event: DragEvent, targetIndex: number) => {
+    (event: React.DragEvent<Element>, targetIndex: number) => {
       event.preventDefault()
       if (!draggedProjectId || !projectTeachGoalData) return
 

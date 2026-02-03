@@ -57,7 +57,7 @@ class MajorApiService {
   /**
    * 获取专业下的课程列表
    */
-  async getMajorCourses(majorId: string): Promise<ApiResponse<TreeNode[]>> {
+  async getMajorCourses(majorId: string): Promise<ApiResponse<TreeNode[] | null>> {
     return api.tree.getMajorCourses(majorId)
   }
 

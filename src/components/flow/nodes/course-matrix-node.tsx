@@ -28,38 +28,40 @@ export const CourseMatrixNode = memo(function CourseMatrixNode({
   id,
   data,
   selected,
-}: NodeProps<CourseMatrixNodeData>) {
-  const objectiveCount = data.objectives?.length || 0
-  const rowCount = data.rows?.length || 0
+}: NodeProps<any>) {
+  // [MOD] 使用类型断言确保 data 类型正确推导
+  const nodeData = data as CourseMatrixNodeData
+  const objectiveCount = nodeData.objectives?.length || 0
+  const rowCount = nodeData.rows?.length || 0
 
   // 处理删除按钮点击
   const handleDelete = useCallback(() => {
-    data.onDelete?.(id)
-  }, [data, id])
+    nodeData.onDelete?.(id)
+  }, [nodeData, id])
 
   // 处理重做按钮点击
   const handleRefresh = useCallback(() => {
-    data.onRefresh?.(id)
-  }, [data, id])
+    nodeData.onRefresh?.(id)
+  }, [nodeData, id])
 
   // 处理编辑按钮点击
   const handleEdit = useCallback(() => {
-    data.onEdit?.(id)
-  }, [data, id])
+    nodeData.onEdit?.(id)
+  }, [nodeData, id])
 
   return (
     <BaseFlowNode
       id={id}
       selected={selected}
-      highlighted={data.highlighted}
-      isDeleting={data.isDeleting}
-      isRefreshing={data.isRefreshing}
-      progressMessage={data.progressMessage}
+      highlighted={nodeData.highlighted}
+      isDeleting={nodeData.isDeleting}
+      isRefreshing={nodeData.isRefreshing}
+      progressMessage={nodeData.progressMessage}
       onDelete={handleDelete}
       onRefresh={handleRefresh}
       onEdit={handleEdit}
       icon={<Table className="h-6 w-6" />}
-      title={data.course_name ? `课程矩阵 - ${data.course_name}` : "课程矩阵"}
+      title={nodeData.course_name ? `课程矩阵 - ${nodeData.course_name}` : "课程矩阵"}
       headerColorClass="bg-indigo-100"
       borderColorClass="border-indigo-200"
       textColorClass="text-indigo-700"
@@ -69,13 +71,13 @@ export const CourseMatrixNode = memo(function CourseMatrixNode({
     >
       <div>
         {/* 矩阵表格 */}
-        {data.rows && data.rows.length > 0 && (
+        {nodeData.rows && nodeData.rows.length > 0 && (
           <div className="max-h-[480px] overflow-auto rounded border border-indigo-100" data-scrollable>
             <table className="w-full text-base">
               <thead className="bg-indigo-50 sticky top-0">
                 <tr>
                   <th className="px-4 py-3 text-left text-indigo-600 font-medium">章节</th>
-                  {data.objectives?.slice(0, 4).map((obj) => (
+                  {nodeData.objectives?.slice(0, 4).map((obj: { id: string; index: number; content: string }) => (
                     <th key={obj.id} className="px-4 py-3 text-center text-indigo-600 font-medium">
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -96,19 +98,19 @@ export const CourseMatrixNode = memo(function CourseMatrixNode({
                 </tr>
               </thead>
               <tbody>
-                {data.rows.slice(0, 5).map((row) => (
+                {nodeData.rows.slice(0, 5).map((row: { chapter_id: string; chapter_name: string; supports?: Array<{ objective_id: string; course_points?: Array<{ id?: string; name: string; description?: string; level: "strong" | "weak" }> }> }) => (
                   <tr key={row.chapter_id} className="border-t border-indigo-50">
                     <td className="px-4 py-3 text-gray-600 truncate max-w-[150px]">
                       {row.chapter_name}
                     </td>
-                    {data.objectives?.slice(0, 4).map((obj) => {
-                      const support = row.supports?.find(s => s.objective_id === obj.id)
+                    {nodeData.objectives?.slice(0, 4).map((obj: { id: string; index: number }) => {
+                      const support = row.supports?.find((s: { objective_id: string }) => s.objective_id === obj.id)
                       return (
                         <td key={obj.id} className="px-4 py-3">
-                          {support && support.course_points?.length > 0 ? (
+                          {support?.course_points && support.course_points.length > 0 ? (
                             <div className="flex flex-wrap gap-1 justify-center">
                               {/* 每个课点显示为小标签，使用统一的 SupportLabel 组件 */}
-                              {support.course_points.map((cp, idx) => (
+                              {support?.course_points.map((cp: { id?: string; name: string; description?: string; level: "strong" | "weak" }, idx: number) => (
                                 <SupportLabel
                                   key={cp.id || idx}
                                   title={cp.name}

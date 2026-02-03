@@ -1,4 +1,4 @@
-import { ApiStorage } from "./storage"
+import { StorageAdapter } from "./storage-adapter"
 import type { ApiResponse } from "./types"
 
 export interface CoursePoint {
@@ -15,9 +15,9 @@ export interface CoursePoint {
 }
 
 export class CoursePointsApi {
-  private storage: ApiStorage
+  private storage: StorageAdapter
 
-  constructor(storage: ApiStorage) {
+  constructor(storage: StorageAdapter) {
     this.storage = storage
   }
 
@@ -26,7 +26,7 @@ export class CoursePointsApi {
    * @param majorId 专业ID
    * @param courseId 课程ID
    */
-  async getCoursePoints(majorId: string, courseId: string): Promise<ApiResponse<CoursePoint[]>> {
+  async getCoursePoints(majorId: string, courseId: string): Promise<ApiResponse<CoursePoint[] | null>> {
     try {
       console.log(`[CoursePointsApi] 获取课点列表，majorId: ${majorId}, courseId: ${courseId}`)
 
@@ -117,7 +117,7 @@ export class CoursePointsApi {
    */
   async createCoursePoint(
     data: Partial<CoursePoint>
-  ): Promise<ApiResponse<CoursePoint>> {
+  ): Promise<ApiResponse<CoursePoint | null>> {
     try {
       console.log(`[CoursePointsApi] 创建课点`)
 
@@ -160,7 +160,7 @@ export class CoursePointsApi {
   async updateCoursePoint(
     coursePointId: number,
     data: Partial<CoursePoint>
-  ): Promise<ApiResponse<CoursePoint>> {
+  ): Promise<ApiResponse<CoursePoint | null>> {
     try {
       console.log(`[CoursePointsApi] 更新课点，coursePointId: ${coursePointId}`)
 

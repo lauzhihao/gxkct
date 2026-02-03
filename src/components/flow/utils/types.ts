@@ -65,6 +65,8 @@ export type CourseInfoNode = Node<CourseInfoData, FlowNodeType.COURSE_INFO>
 export type ObjectiveNode = Node<ObjectiveCardData, FlowNodeType.OBJECTIVE>
 export type CoursePointNode = Node<CoursePointCardData, FlowNodeType.COURSE_POINT>
 export type ChapterNode = Node<ChapterCardData, FlowNodeType.CHAPTER>
+// 导出 ChapterNodeData 类型别名（与 ChapterCardData 相同，供向后兼容）
+export type ChapterNodeData = ChapterCardData
 export type KsaNode = Node<KsaItemData, FlowNodeType.KSA>
 export type CourseMatrixNode = Node<CourseMatrixData, FlowNodeType.COURSE_MATRIX>
 export type ProjectMatrixNode = Node<ProjectMatrixData, FlowNodeType.PROJECT_MATRIX>
@@ -84,15 +86,16 @@ export type FlowNode =
 
 /**
  * 边附加数据
+ * 使用索引签名以满足 @xyflow/react 的 Edge 泛型约束
  */
-export interface FlowEdgeData {
+export type FlowEdgeData = {
   // 支撑强度
   strength?: "strong" | "weak"
   // 关系类型
   relationshipType?: "supports" | "depends" | "extends"
   // 标签
   label?: string
-}
+} & Record<string, unknown>
 
 /**
  * 自定义边类型
@@ -143,6 +146,15 @@ export const NODE_COLORS: Record<FlowNodeType, { bg: string; border: string; tex
   [FlowNodeType.COURSE_POINT_PANEL]: { bg: "bg-green-50/50", border: "border-green-300", text: "text-green-700" },
   [FlowNodeType.CHAPTER_PANEL]: { bg: "bg-purple-50/50", border: "border-purple-300", text: "text-purple-700" },
   [FlowNodeType.KSA_PANEL]: { bg: "bg-amber-50/50", border: "border-amber-300", text: "text-amber-700" },
+}
+
+/**
+ * 获取组件颜色配置（用于重做标签）- Tailwind 类名格式
+ * @param nodeType Flow节点类型
+ * @returns 颜色配置对象，包含 bg、border、text 对应的 Tailwind 类名
+ */
+export function getNodeColorConfig(nodeType: FlowNodeType): { bg: string; border: string; text: string } {
+  return NODE_COLORS[nodeType] || NODE_COLORS[FlowNodeType.COURSE_INFO]
 }
 
 /**

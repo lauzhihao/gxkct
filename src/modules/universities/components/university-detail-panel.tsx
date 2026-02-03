@@ -102,11 +102,11 @@ export function UniversityDetail({ node, onNodeSelect, onAddDepartment, onSetCur
               <Building2 className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">{node.nodeName}</h2>
-              {node.description && <p className="text-muted-foreground">{node.description}</p>}
+              <h2 className="text-2xl font-bold text-foreground mb-2">{node?.nodeName}</h2>
+              {node?.description && <p className="text-muted-foreground">{node.description}</p>}
             </div>
           </div>
-          {onSetCurrentSchool && (
+          {onSetCurrentSchool && node && (
             <Button
               size="sm"
               variant="ghost"
@@ -136,12 +136,12 @@ export function UniversityDetail({ node, onNodeSelect, onAddDepartment, onSetCur
           </TabsList>
 
           <TabsContent value="overview" className="mt-0">
-            <StatisticsCards
-              node={node}
-              onNodeSelect={onNodeSelect}
-              onToggleExpand={onToggleExpand}
-              currentUser={currentUser}
-              headerAction={
+            {node && (
+              <StatisticsCards
+                node={node}
+                onNodeSelect={onNodeSelect}
+                currentUser={currentUser}
+                headerAction={
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm" variant="ghost" className="gap-2 hover:bg-primary/10">
@@ -190,14 +190,15 @@ export function UniversityDetail({ node, onNodeSelect, onAddDepartment, onSetCur
                 </Dialog>
               }
             />
+            )}
           </TabsContent>
 
           <TabsContent value="members" className="space-y-6 p-6">
-            <Members node={node} />
+            {node && <Members node={node} />}
           </TabsContent>
 
           <TabsContent value="teaching-quality" className="mt-0">
-            <TeachingQuality node={node} />
+            {node && <TeachingQuality node={node} />}
           </TabsContent>
         </Tabs>
       </div>

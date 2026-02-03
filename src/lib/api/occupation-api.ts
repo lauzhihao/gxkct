@@ -21,7 +21,7 @@ export class OccupationApi {
    * @param code 职业代码，例如 "1-01-00-01"
    * @returns 职业信息，包含 desc（工作职责描述）
    */
-  async getOccupationBook(code: string): Promise<ApiResponse<OccupationBookData>> {
+  async getOccupationBook(code: string): Promise<ApiResponse<OccupationBookData | null>> {
     try {
       const response = await this.storage.getFromApi<OccupationBookData>(
         `/api/v3/material/occupationbook?code=${code}&lang=80101`

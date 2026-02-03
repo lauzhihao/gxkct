@@ -21,7 +21,7 @@ export class UserApi {
    * @param password 密码
    * @param lang 语言代码，默认80101
    */
-  async login(email: string, password: string, lang: number = 80101): Promise<ApiResponse<AuthResponse>> {
+  async login(email: string, password: string, lang: number = 80101): Promise<ApiResponse<AuthResponse | null>> {
     try {
       const response = await this.httpAdapter.post<AuthResponse>('/api/user/login', {
         email,
@@ -49,11 +49,11 @@ export class UserApi {
     }
   }
 
-  async getUsers(nodeId: string): Promise<ApiResponse<User[]>> {
+  async getUsers(nodeId: string): Promise<ApiResponse<User[] | null>> {
     return this.storage.get<User[]>(`users-${nodeId}`)
   }
 
-  async addUser(nodeId: string, user: User): Promise<ApiResponse<User>> {
+  async addUser(nodeId: string, user: User): Promise<ApiResponse<User | null>> {
     const response = await this.getUsers(nodeId)
     const users = response.data || []
     users.push(user)
@@ -61,7 +61,7 @@ export class UserApi {
     return { data: user, error: null, status: 200 }
   }
 
-  async updateUser(nodeId: string, userId: string, updates: Partial<User>): Promise<ApiResponse<User>> {
+  async updateUser(nodeId: string, userId: string, updates: Partial<User>): Promise<ApiResponse<User | null>> {
     const response = await this.getUsers(nodeId)
     if (response.error || !response.data) {
       return { data: null, error: response.error, status: response.status }
@@ -77,7 +77,7 @@ export class UserApi {
     return { data: updatedUser, error: null, status: 200 }
   }
 
-  async deleteUser(nodeId: string, userId: string): Promise<ApiResponse<boolean>> {
+  async deleteUser(nodeId: string, userId: string): Promise<ApiResponse<boolean | null>> {
     const response = await this.getUsers(nodeId)
     if (response.error || !response.data) {
       return { data: null, error: response.error, status: response.status }
@@ -88,7 +88,7 @@ export class UserApi {
     return { data: true, error: null, status: 200 }
   }
 
-  async updateUsers(nodeId: string, users: any[]): Promise<ApiResponse<any[]>> {
+  async updateUsers(nodeId: string, users: any[]): Promise<ApiResponse<any[] | null>> {
     try {
       await this.storage.set(`users-${nodeId}`, users)
       return { data: users, error: null, status: 200 }

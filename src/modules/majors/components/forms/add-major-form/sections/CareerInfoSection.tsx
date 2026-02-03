@@ -39,8 +39,8 @@ export function CareerInfoSection({ careerInfo, worksData }: CareerInfoSectionPr
   }
 
   const getCategory3Options = (category1Label: string, category2Label: string): WorkCategory[] => {
-    const category1 = worksData.find((item) => item.label === category1Label)
-    const category2 = category1?.children.find((item) => item.label === category2Label)
+    const category1 = worksData.find((item: WorkCategory) => item.label === category1Label)
+    const category2 = category1?.children.find((item: WorkCategory) => item.label === category2Label)
     return category2?.children || []
   }
 
@@ -49,9 +49,9 @@ export function CareerInfoSection({ careerInfo, worksData }: CareerInfoSectionPr
     category2Label: string,
     category3Label: string
   ): WorkCategory[] => {
-    const category1 = worksData.find((item) => item.label === category1Label)
-    const category2 = category1?.children.find((item) => item.label === category2Label)
-    const category3 = category2?.children.find((item) => item.label === category3Label)
+    const category1 = worksData.find((item: WorkCategory) => item.label === category1Label)
+    const category2 = category1?.children.find((item: WorkCategory) => item.label === category2Label)
+    const category3 = category2?.children.find((item: WorkCategory) => item.label === category3Label)
     return category3?.children || []
   }
 
@@ -71,10 +71,10 @@ export function CareerInfoSection({ careerInfo, worksData }: CareerInfoSectionPr
     const results: SearchResult[] = []
     const lowerSearch = searchText.toLowerCase()
 
-    worksData.forEach((cat1) => {
-      cat1.children?.forEach((cat2) => {
-        cat2.children?.forEach((cat3) => {
-          cat3.children?.forEach((cat4) => {
+    worksData.forEach((cat1: WorkCategory) => {
+      cat1.children?.forEach((cat2: WorkCategory) => {
+        cat2.children?.forEach((cat3: WorkCategory) => {
+          cat3.children?.forEach((cat4: WorkCategory) => {
             let matchLevel = 0
             let matchedText = ""
 

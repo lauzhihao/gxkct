@@ -1,28 +1,26 @@
 "use client"
 
 import { memo, useCallback } from "react"
-import { type NodeProps } from "@xyflow/react"
+import { type Node, type NodeProps } from "@xyflow/react"
 import { FileText, Clock } from "lucide-react"
 import { BaseFlowNode } from "./base-flow-node"
+import { FlowNodeType } from "@/components/flow/utils/types"
 import type { ChapterCardData } from "@/components/canvas-elements/types"
 
 /**
- * 扩展的章节数据类型
+ * 章节节点类型定义
+ * 使用 ChapterCardData（含扩展字段 highlighted/isDeleting/onDelete）满足 @xyflow/react 的 Node 泛型约束
  */
-interface ChapterNodeData extends ChapterCardData {
-  highlighted?: boolean
-  isDeleting?: boolean
-  onDelete?: (nodeId: string) => void
-}
+export type ChapterNode = Node<ChapterCardData, FlowNodeType.CHAPTER>
 
 /**
  * 章节节点 - 支持高亮联动
  */
-export const ChapterNode = memo(function ChapterNode({
+export const ChapterNodeComponent = memo(function ChapterNodeComponent({
   id,
   data,
   selected,
-}: NodeProps<ChapterNodeData>) {
+}: NodeProps<ChapterNode>) {
   const totalHours = (data.theory_hours || 0) + (data.practice_hours || 0)
   const highlighted = data.highlighted ?? false
 
@@ -59,4 +57,5 @@ export const ChapterNode = memo(function ChapterNode({
   )
 })
 
-export default ChapterNode
+// 导出带类型的命名组件供 @xyflow/react 使用
+export { ChapterNodeComponent as ChapterNode }

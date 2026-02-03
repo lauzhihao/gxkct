@@ -86,7 +86,8 @@ function getAbsolutePosition(node: Node, nodeMap: Map<string, Node>): { x: numbe
 /**
  * 自定义节点类型注册
  */
-const nodeTypes = {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const nodeTypes: Record<string, any> = {
   [FlowNodeType.COURSE_INFO]: CourseInfoNode,
   [FlowNodeType.OBJECTIVE]: ObjectiveNode,
   [FlowNodeType.COURSE_POINT]: CoursePointNode,
@@ -107,7 +108,8 @@ const nodeTypes = {
 /**
  * 自定义边类型注册
  */
-const edgeTypes = {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const edgeTypes: Record<string, any> = {
   [FlowEdgeType.SUPPORT]: SupportEdge,
 }
 
@@ -656,7 +658,7 @@ function AiCanvasPanelInner({
       // 从节点中获取文档数据后调用 handleSourceDocumentRegenerate
       const node = flowNodes.find(n => n.id === nodeId)
       if (node) {
-        const docData = node.data as import("./canvas-elements/types").SourceDocumentCardData
+        const docData = node.data as unknown as import("./canvas-elements/types").SourceDocumentCardData
         handleSourceDocumentRegenerate(docData)
       }
     },

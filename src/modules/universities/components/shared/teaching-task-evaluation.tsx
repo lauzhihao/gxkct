@@ -64,6 +64,12 @@ export function TeachingTaskEvaluation({ task: initialTask, onBack, onEdit, onCo
     let cancelled = false
 
     const loadTaskData = async () => {
+      if (typeof initialTask.id !== "number" || typeof initialTask.universityId !== "number") {
+        setCriteria(null)
+        setIsLoading(false)
+        return
+      }
+
       try {
         const response = await api.teachingTasks.getTask(initialTask.universityId, initialTask.id, {
           includeCriteria: true,
@@ -576,18 +582,18 @@ export function TeachingTaskEvaluation({ task: initialTask, onBack, onEdit, onCo
             <div className="flex flex-wrap gap-2 p-1">
               {task.publishNodes
                 ?.filter((node) =>
-                  node.nodeName.toLowerCase().includes(publishNodesFilter.toLowerCase())
+                  node?.nodeName?.toLowerCase().includes(publishNodesFilter.toLowerCase())
                 )
                 .map((node, index) => (
                   <span
                     key={index}
                     className="inline-flex items-center px-2 py-1 bg-primary/10 border border-primary/30 rounded-md text-sm"
                   >
-                    {node.nodeName}
+                    {node?.nodeName || "未命名"}
                   </span>
                 ))}
               {task.publishNodes?.filter((node) =>
-                node.nodeName.toLowerCase().includes(publishNodesFilter.toLowerCase())
+                node?.nodeName?.toLowerCase().includes(publishNodesFilter.toLowerCase())
               ).length === 0 && (
                 <p className="text-sm text-muted-foreground py-4 w-full text-center">无匹配结果</p>
               )}

@@ -8,11 +8,11 @@ export interface ThemeConfig {
 export class ConfigApi {
   private storage = new StorageAdapter()
 
-  async getTheme(): Promise<ApiResponse<ThemeConfig>> {
+  async getTheme(): Promise<ApiResponse<ThemeConfig | null>> {
     return this.storage.get<ThemeConfig>("colorTheme")
   }
 
-  async setTheme(theme: string): Promise<ApiResponse<ThemeConfig>> {
+  async setTheme(theme: string): Promise<ApiResponse<ThemeConfig | null>> {
     return this.storage.set<ThemeConfig>("colorTheme", { colorTheme: theme })
   }
 }

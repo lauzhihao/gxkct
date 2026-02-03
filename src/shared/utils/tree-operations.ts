@@ -87,7 +87,11 @@ export function countNodesByType(node: TreeNode): Record<string, number> {
   const counts: Record<string, number> = {}
 
   function traverse(n: TreeNode) {
-    counts[n.type] = (counts[n.type] || 0) + 1
+    // [MOD] 添加 nodeType 检查，修复 TS2538 错误
+    const nodeType = n.nodeType
+    if (nodeType) {
+      counts[nodeType] = (counts[nodeType] || 0) + 1
+    }
     if (n.children) {
       n.children.forEach(traverse)
     }

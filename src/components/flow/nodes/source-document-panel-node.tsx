@@ -31,33 +31,36 @@ export const SourceDocumentPanelNode = memo(function SourceDocumentPanelNode({
   selected,
   width,
   height,
-}: NodeProps<SourceDocumentPanelNodeData>) {
+}: NodeProps<any>) {
+  // [MOD] 使用类型断言确保 data 类型正确推导
+  const nodeData = data as SourceDocumentPanelNodeData
+
   // 处理编辑按钮点击
   const handleEdit = useCallback((nodeId: string) => {
-    data.onEdit?.(nodeId)
-  }, [data])
+    nodeData.onEdit?.(nodeId)
+  }, [nodeData])
 
   // 处理删除按钮点击
   const handleDelete = useCallback((nodeId: string) => {
-    data.onDelete?.(nodeId)
-  }, [data])
+    nodeData.onDelete?.(nodeId)
+  }, [nodeData])
 
   // 处理重做按钮点击
   const handleRefresh = useCallback((nodeId: string) => {
-    data.onRefresh?.(nodeId)
-  }, [data])
+    nodeData.onRefresh?.(nodeId)
+  }, [nodeData])
 
   // 处理添加按钮点击
   const handleAdd = useCallback(() => {
-    data.onAdd?.("sourceDocumentPanel", id)
-  }, [data, id])
+    nodeData.onAdd?.("sourceDocumentPanel", id)
+  }, [nodeData, id])
 
   return (
     <BasePanelNode
       id={id}
       selected={selected}
-      isDeleting={data.isDeleting}
-      isRefreshing={data.isRefreshing}
+      isDeleting={nodeData.isDeleting}
+      isRefreshing={nodeData.isRefreshing}
       icon={<FileStack className="h-4 w-4" />}
       title="源文档"
       headerColorClass="bg-orange-100"
@@ -70,12 +73,12 @@ export const SourceDocumentPanelNode = memo(function SourceDocumentPanelNode({
       showLeftHandle={false}
       showRightHandle={false}
       showSourceHandle={true}
-      childCount={data.childCount}
+      childCount={nodeData.childCount}
       onAdd={handleAdd}
       onEdit={handleEdit}
       onDelete={handleDelete}
       onRefresh={handleRefresh}
-      progressMessage={data.progressMessage}
+      progressMessage={nodeData.progressMessage}
     />
   )
 })

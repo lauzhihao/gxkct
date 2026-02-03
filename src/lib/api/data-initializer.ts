@@ -50,11 +50,10 @@ function buildTreeDataFromColleges(): TreeNode {
   if (backendResponse.code !== "0" || !backendResponse.data) {
     console.error("[v0] colleges.json数据格式错误或code非0")
     return {
-      id: "root",
-      name: "根节点",
-      type: "university" as const,
+      nodeId: "root",
+      nodeName: "根节点",
+      nodeType: "university" as const,
       children: [],
-      metadata: {},
     }
   }
 
@@ -92,37 +91,26 @@ function buildTreeDataFromColleges(): TreeNode {
 
     // 将departments转换为子节点
     const deptNodes = departments.map((dept) => ({
-      id: String(dept.id),
-      name: dept.name,
-      type: "department" as const,
+      nodeId: String(dept.id),
+      nodeName: dept.name,
+      nodeType: "department" as const,
       children: [],
-      metadata: {
-        collegeId: dept.collegeId,
-        deptType: dept.type,
-      },
     }))
 
     // 创建大学/工作坊节点
     return {
-      id: String(college.id),
-      name: college.name,
-      type: "university" as const,
+      nodeId: String(college.id),
+      nodeName: college.name,
+      nodeType: "university" as const,
       children: deptNodes,
-      metadata: {
-        image: college.image,
-        collegeType: college.collegeType,
-        permissionId: item.permissionId,
-        relativeId: item.relativeId,
-      },
     }
   })
 
   return {
-    id: "root",
-    name: "根节点",
-    type: "university" as const,
+    nodeId: "root",
+    nodeName: "根节点",
+    nodeType: "university" as const,
     children: universities,
-    metadata: {},
   }
 }
 
@@ -132,9 +120,9 @@ function buildTreeDataFromColleges(): TreeNode {
  * 专业的metadata格式使用major-detail.json的格式
  */
 function buildTreeDataLegacy(): TreeNode {
-  const universities = (universitiesData as any[]).map((univ) => {
+  const universities = (universitiesData as unknown as any[]).map((univ) => {
     // 查找该大学/工作坊下的所有院系
-    const univDepartments = (departmentsData as any[])
+    const univDepartments = (departmentsData as unknown as any[])
       .filter((dept) => dept.universityId === univ.id)
       .map((dept) => {
         // 院系下的专业将通过API动态加载，这里不再预加载
@@ -147,17 +135,18 @@ function buildTreeDataLegacy(): TreeNode {
 
     // 直接使用大学/工作坊的完整数据，保留所有字段
     return {
-      ...univ,
+      nodeId: String(univ.id),
+      nodeName: univ.name,
+      nodeType: "university" as const,
       children: univDepartments,
     }
   })
 
   return {
-    id: "root",
-    name: "根节点",
-    type: "university" as const,
+    nodeId: "root",
+    nodeName: "根节点",
+    nodeType: "university" as const,
     children: universities,
-    metadata: {},
   }
 }
 
@@ -179,7 +168,7 @@ function buildTreeData(): TreeNode {
  * 初始化用户数据
  */
 function initializeUsers() {
-  const usersMap = usersData as Record<string, any[]>
+  const usersMap = usersData as unknown as Record<string, any[]>
 
   Object.entries(usersMap).forEach(([nodeId, users]) => {
     localStorage.setItem(`${STORAGE_PREFIX}users-${nodeId}`, JSON.stringify(users))
@@ -190,7 +179,7 @@ function initializeUsers() {
  * 初始化课程矩阵数据
  */
 function initializeCourseMatrices() {
-  const matricesMap = courseMatricesData as Record<string, any>
+  const matricesMap = courseMatricesData as unknown as Record<string, any>
 
   Object.entries(matricesMap).forEach(([courseId, matrixData]) => {
     localStorage.setItem(`${STORAGE_PREFIX}courseMatrix-${courseId}`, JSON.stringify(matrixData))
@@ -201,7 +190,7 @@ function initializeCourseMatrices() {
  * 初始化项目矩阵数据
  */
 function initializeProjectMatrices() {
-  const matricesMap = projectMatricesData as Record<string, any>
+  const matricesMap = projectMatricesData as unknown as Record<string, any>
 
   Object.entries(matricesMap).forEach(([courseId, matrixData]) => {
     localStorage.setItem(`${STORAGE_PREFIX}projectMatrix-${courseId}`, JSON.stringify(matrixData))
@@ -212,7 +201,7 @@ function initializeProjectMatrices() {
  * 初始化课程资源数据
  */
 function initializeCourseResources() {
-  const resourcesMap = courseResourcesData as Record<string, any>
+  const resourcesMap = courseResourcesData as unknown as Record<string, any>
   console.log("[v0] 初始化课程资源数据，数据键:", Object.keys(resourcesMap))
 
   Object.entries(resourcesMap).forEach(([courseId, resourceData]) => {
@@ -228,7 +217,7 @@ function initializeCourseResources() {
  * 初始化教学督导任务数据
  */
 function initializeTeachingTasks() {
-  const backendResponse = teachingTasksData as BackendResponse<TeachingSupervisoryTask[]>
+  const backendResponse = teachingTasksData as unknown as BackendResponse<TeachingSupervisoryTask[]>
 
   if (backendResponse.code !== "0" || !backendResponse.data) {
     console.warn("[v0] 教学督导任务数据格式错误或code非0")
@@ -239,10 +228,11 @@ function initializeTeachingTasks() {
   const tasksMap: Record<string, TeachingSupervisoryTask[]> = {}
 
   backendResponse.data.forEach((task) => {
-    if (!tasksMap[task.universityId]) {
-      tasksMap[task.universityId] = []
+    const universityId = task.universityId!
+    if (!tasksMap[universityId]) {
+      tasksMap[universityId] = []
     }
-    tasksMap[task.universityId].push(task)
+    tasksMap[universityId].push(task)
   })
 
   // 存储到localStorage

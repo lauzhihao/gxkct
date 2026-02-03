@@ -57,7 +57,7 @@ export function TaskObjectivesDialog({
 
     const updatedProjectMatrixData = {
       ...projectMatrixData,
-      projects: projectMatrixData.projects.map((projectItem: any) => {
+      projects: (projectMatrixData.projects || []).map((projectItem: any) => {
         if (projectItem.project.id === parseInt(selectedProjectForTasks)) {
           return {
             ...projectItem,
@@ -83,7 +83,7 @@ export function TaskObjectivesDialog({
 
     const updatedProjectMatrixData = {
       ...projectMatrixData,
-      projects: projectMatrixData.projects.map((projectItem: any) => {
+      projects: (projectMatrixData.projects || []).map((projectItem: any) => {
         if (projectItem.project.id === parseInt(selectedProjectForTasks)) {
           return {
             ...projectItem,
@@ -112,7 +112,7 @@ export function TaskObjectivesDialog({
 
     const updatedProjectMatrixData = {
       ...projectMatrixData,
-      projects: projectMatrixData.projects.map((projectItem: any) => {
+      projects: (projectMatrixData.projects || []).map((projectItem: any) => {
         if (projectItem.project.id === parseInt(selectedProjectForTasks)) {
           return {
             ...projectItem,

@@ -970,6 +970,11 @@
     postcss "^8.4.41"
     tailwindcss "4.1.18"
 
+"@types/crypto-js@^4.2.2":
+  version "4.2.2"
+  resolved "https://registry.npmmirror.com/@types/crypto-js/-/crypto-js-4.2.2.tgz"
+  integrity sha512-sDOLlVbHhXpAUAL0YHDUUwDZf3iN4Bwi4W6a0W0b+QcAezUbRtH4FVb+9J4h+XFPW7l/gQ9F8qC7P+Ec4k8QVQ==
+
 "@types/d3-array@^3.0.3":
   version "3.2.2"
   resolved "https://registry.npmmirror.com/@types/d3-array/-/d3-array-3.2.2.tgz"

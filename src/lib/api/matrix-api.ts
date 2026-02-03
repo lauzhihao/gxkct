@@ -144,7 +144,7 @@ export class MatrixApi {
   private storage = new StorageAdapter()
   private http = new HttpAdapter()
 
-  async getCourseMatrix(courseId: string): Promise<ApiResponse<CourseMatrixItem[]>> {
+  async getCourseMatrix(courseId: string): Promise<ApiResponse<CourseMatrixItem[] | null>> {
     try {
       const endpoint = `/api/matrix/coursematrix?courseId=${courseId}`
       console.log("[getCourseMatrix] 调用接口:", endpoint)
@@ -156,6 +156,7 @@ export class MatrixApi {
         return {
           data: null,
           error: response.error,
+          status: response.status ?? 500,
         }
       }
 
@@ -166,12 +167,14 @@ export class MatrixApi {
       return {
         data: courseMatrixData,
         error: null,
+        status: 200,
       }
     } catch (error) {
       console.error("[getCourseMatrix] 异常:", error)
       return {
         data: null,
         error: `获取课程矩阵失败: ${error instanceof Error ? error.message : String(error)}`,
+        status: 500,
       }
     }
   }
@@ -188,6 +191,7 @@ export class MatrixApi {
         return {
           data: null,
           error: response.error,
+          status: response.status ?? 500,
         }
       }
 
@@ -196,22 +200,34 @@ export class MatrixApi {
       return {
         data: response.data,
         error: null,
+        status: 200,
       }
     } catch (error) {
       console.error("[updateCourseMatrix] 异常:", error)
       return {
         data: null,
         error: `保存课程矩阵失败: ${error instanceof Error ? error.message : String(error)}`,
+        status: 500,
       }
     }
   }
 
   async getProjectMatrix(courseId: string): Promise<ApiResponse<ProjectMatrix>> {
-    return this.storage.get<ProjectMatrix>(`projectMatrix-${courseId}`)
+    const response = await this.storage.get<ProjectMatrix>(`projectMatrix-${courseId}`)
+    return {
+      data: response.data ?? null,
+      error: response.error,
+      status: response.status,
+    }
   }
 
   async updateProjectMatrix(courseId: string, matrix: ProjectMatrix): Promise<ApiResponse<ProjectMatrix>> {
-    return this.storage.set(`projectMatrix-${courseId}`, matrix)
+    const response = await this.storage.set(`projectMatrix-${courseId}`, matrix)
+    return {
+      data: response.data ?? null,
+      error: response.error,
+      status: response.status,
+    }
   }
 
   // 获取专业矩阵数据（课程与专业的关联矩阵）
@@ -234,11 +250,12 @@ export class MatrixApi {
         data.matrixSupportLevels = savedLevels.data
       }
 
-      return { data, error: null }
+      return { data, error: null, status: 200 }
     } catch (error) {
       return {
         data: null,
         error: `获取专业矩阵数据失败: ${error instanceof Error ? error.message : String(error)}`,
+        status: 500,
       }
     }
   }
@@ -259,11 +276,13 @@ export class MatrixApi {
           matrixSupportLevels,
         },
         error: null,
+        status: 200,
       }
     } catch (error) {
       return {
         data: null,
         error: `保存专业矩阵数据失败: ${error instanceof Error ? error.message : String(error)}`,
+        status: 500,
       }
     }
   }
@@ -280,11 +299,13 @@ export class MatrixApi {
           supports: response.data || {},
         },
         error: null,
+        status: 200,
       }
     } catch (error) {
       return {
         data: null,
         error: `获取指标点课程支撑关系失败: ${error instanceof Error ? error.message : String(error)}`,
+        status: 500,
       }
     }
   }
@@ -302,11 +323,13 @@ export class MatrixApi {
           supports,
         },
         error: null,
+        status: 200,
       }
     } catch (error) {
       return {
         data: null,
         error: `保存指标点课程支撑关系失败: ${error instanceof Error ? error.message : String(error)}`,
+        status: 500,
       }
     }
   }
@@ -326,11 +349,13 @@ export class MatrixApi {
           objectiveIndicatorMap,
         },
         error: null,
+        status: 200,
       }
     } catch (error) {
       return {
         data: null,
         error: `保存课程教学目标指标点关系失败: ${error instanceof Error ? error.message : String(error)}`,
+        status: 500,
       }
     }
   }
@@ -347,11 +372,13 @@ export class MatrixApi {
       return {
         data: response.data || {},
         error: null,
+        status: 200,
       }
     } catch (error) {
       return {
         data: null,
         error: `获取课程教学目标指标点关系失败: ${error instanceof Error ? error.message : String(error)}`,
+        status: 500,
       }
     }
   }
@@ -373,6 +400,7 @@ export class MatrixApi {
         return {
           data: [],
           error: null,
+          status: 200,
         }
       }
 
@@ -393,12 +421,14 @@ export class MatrixApi {
       return {
         data: supportedIndicators,
         error: null,
+        status: 200,
       }
     } catch (error) {
       console.error("[getCourseIndicatorSupports] 异常:", error)
       return {
         data: [],
         error: `获取课程支撑的指标点失败: ${error instanceof Error ? error.message : String(error)}`,
+        status: 500,
       }
     }
   }
@@ -416,6 +446,7 @@ export class MatrixApi {
         return {
           data: null,
           error: response.error,
+          status: response.status ?? 500,
         }
       }
 
@@ -423,12 +454,14 @@ export class MatrixApi {
       return {
         data: response.data,
         error: null,
+        status: 200,
       }
     } catch (error) {
       console.error("[getProjectMatrixData] 异常:", error)
       return {
         data: null,
         error: `获取项目矩阵数据失败: ${error instanceof Error ? error.message : String(error)}`,
+        status: 500,
       }
     }
   }
@@ -446,6 +479,7 @@ export class MatrixApi {
         return {
           data: null,
           error: response.error,
+          status: response.status ?? 500,
         }
       }
 
@@ -453,12 +487,14 @@ export class MatrixApi {
       return {
         data: response.data,
         error: null,
+        status: 200,
       }
     } catch (error) {
       console.error("[getKsaList] 异常:", error)
       return {
         data: null,
         error: `获取KSA列表失败: ${error instanceof Error ? error.message : String(error)}`,
+        status: 500,
       }
     }
   }
@@ -475,6 +511,7 @@ export class MatrixApi {
     return {
       data: { id: Date.now(), ...data },
       error: null,
+      status: 200,
     }
   }
 
@@ -488,6 +525,7 @@ export class MatrixApi {
     return {
       data: { id: ksaId, ...data },
       error: null,
+      status: 200,
     }
   }
 
@@ -497,6 +535,7 @@ export class MatrixApi {
     return {
       data: true,
       error: null,
+      status: 200,
     }
   }
 }

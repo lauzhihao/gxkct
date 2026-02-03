@@ -4,9 +4,9 @@ export interface DetailPanelProps {
   node: TreeNode | null
   treeData: TreeNode
   onNodeSelect: (node: TreeNode | null) => void
-  onAddDepartment?: (universityId: string, newDepartment: Omit<TreeNode, "id">) => void
-  onAddMajor?: (departmentId: string, newMajor: Omit<TreeNode, "id">) => void
-  onAddCourse?: (majorId: string, newCourse: Omit<TreeNode, "id">) => void
+  onAddDepartment?: (universityId: string, newDepartment: Omit<TreeNode, "id" | "nodeId">) => void
+  onAddMajor?: (departmentId: string, newMajor: Omit<TreeNode, "id" | "nodeId">) => void
+  onAddCourse?: (majorId: string, newCourse: Omit<TreeNode, "id" | "nodeId">) => void
   onUpdateNode?: (nodeId: string, updates: Partial<TreeNode>) => void
   onDeleteNode?: (nodeId: string) => void
   onSetCurrentSchool?: (schoolId: string) => void

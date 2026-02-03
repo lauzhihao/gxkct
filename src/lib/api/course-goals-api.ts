@@ -19,7 +19,7 @@ export class CourseGoalsApi {
    * @param courseId 课程ID
    * @param majorId 专业ID
    */
-  async getCourseGoals(courseId: string, majorId: string): Promise<ApiResponse<CourseGoal[]>> {
+  async getCourseGoals(courseId: string, majorId: string): Promise<ApiResponse<CourseGoal[] | null>> {
     try {
       console.log(`[CourseGoalsApi] 获取课程目标，courseId: ${courseId}, majorId: ${majorId}`)
 
@@ -59,7 +59,7 @@ export class CourseGoalsApi {
    * @param majorId 专业ID
    * @param goals 课程目标数据
    */
-  async updateCourseGoals(courseId: string, majorId: string, goals: CourseGoal[]): Promise<ApiResponse<CourseGoal[]>> {
+  async updateCourseGoals(courseId: string, majorId: string, goals: CourseGoal[]): Promise<ApiResponse<CourseGoal[] | null>> {
     try {
       console.log(`[CourseGoalsApi] 更新课程目标，courseId: ${courseId}, majorId: ${majorId}`)
 

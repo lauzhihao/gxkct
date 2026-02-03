@@ -26,9 +26,9 @@ export interface UseMajorFormStateResult {
   focusedRequirementId: string | null
   focusedIndicatorKey: string | null
 
-  // Refs
-  lastRequirementRef: React.RefObject<HTMLInputElement>
-  lastIndicatorRefs: React.MutableRefObject<{ [key: string]: HTMLInputElement | null }>
+  // Refs - 使用 | null 以匹配 useRef<T>(null) 的返回类型
+  lastRequirementRef: React.RefObject<HTMLTextAreaElement | null>
+  lastIndicatorRefs: React.MutableRefObject<Record<string, HTMLTextAreaElement | null>>
 
   // 更新方法
   setMajorCode: (value: string) => void
@@ -46,6 +46,12 @@ export interface UseMajorFormStateResult {
   setFocusedRequirementId: (value: string | null) => void
   setFocusedIndicatorKey: (value: string | null) => void
 }
+
+// 导出 Refs 类型供其他模块使用
+export type UseMajorFormStateResultRefs = Pick<
+  UseMajorFormStateResult,
+  "lastRequirementRef" | "lastIndicatorRefs"
+>
 
 export function useMajorFormState(initialData?: any): UseMajorFormStateResult {
   // 基础信息状态 - 直接访问 initialData 的属性
@@ -68,9 +74,9 @@ export function useMajorFormState(initialData?: any): UseMajorFormStateResult {
   const [focusedRequirementId, setFocusedRequirementId] = useState<string | null>(null)
   const [focusedIndicatorKey, setFocusedIndicatorKey] = useState<string | null>(null)
 
-  // Refs
-  const lastRequirementRef = useRef<HTMLInputElement>(null)
-  const lastIndicatorRefs = useRef<{ [key: string]: HTMLInputElement | null }>({})
+  // Refs - 使用 | null 以匹配 useRef<T>(null) 的返回类型
+  const lastRequirementRef = useRef<HTMLTextAreaElement | null>(null)
+  const lastIndicatorRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
 
   return {
     majorCode,

@@ -42,7 +42,7 @@ export interface UseKsaManagementResult {
   setEditingDescription: (value: string) => void
 
   // 业务操作方法
-  openKsaDialog: (cell: KsaCellData, currentSupport: Record<string, "strong" | "weak">) => void
+  openKsaDialog: (chapterId: string, coursePointId: string, taskId: string) => void
   closeKsaDialog: () => void
   toggleKsaSupport: (ksaId: number, currentLevel?: "strong" | "weak") => void
   saveKsaSelection: () => void
@@ -73,9 +73,10 @@ export function useKsaManagement(
   const [editingDescription, setEditingDescription] = useState("")
 
   // 打开KSA对话框
-  const openKsaDialog = (cell: KsaCellData, currentSupport: Record<string, "strong" | "weak">) => {
+  const openKsaDialog = (chapterId: string, coursePointId: string, taskId: string) => {
+    const cell: KsaCellData = { chapterId, coursePointId, taskId }
     setSelectedKsaCell(cell)
-    setSelectedKsaSupport({ ...currentSupport })
+    setSelectedKsaSupport({})
     setKsaDialogOpen(true)
     setKsaSearchK("")
     setKsaSearchS("")

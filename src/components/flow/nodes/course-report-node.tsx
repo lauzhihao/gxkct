@@ -1,68 +1,73 @@
-"use client"
+"use client";
 
-import { memo, useCallback, useState, useEffect } from "react"
-import { type NodeProps } from "@xyflow/react"
-import { FileText } from "lucide-react"
-import { BaseFlowNode } from "./base-flow-node"
-import { getStoredAuthUser } from "@/lib/api"
+import { memo, useCallback, useState, useEffect } from "react";
+import { type NodeProps } from "@xyflow/react";
+import { FileText } from "lucide-react";
+import { BaseFlowNode } from "./base-flow-node";
+import { getStoredAuthUser } from "@/lib/api";
 
 /**
  * 开课报告数据类型
  */
 export interface CourseReportData {
-  id: string
-  name: string
+  id: string;
+  name: string;
   // 占位字段，后续扩展
-  status?: "draft" | "submitted" | "approved"
-  createdAt?: string
-  updatedAt?: string
+  status?: "draft" | "submitted" | "approved";
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 /**
  * 扩展的开课报告数据类型，包含注入的回调
  */
 interface CourseReportNodeData extends CourseReportData {
-  highlighted?: boolean
-  isDeleting?: boolean
-  isRefreshing?: boolean
-  onEdit?: (nodeId: string) => void
-  onDelete?: (nodeId: string) => void
-  onRefresh?: (nodeId: string) => void
+  highlighted?: boolean;
+  isDeleting?: boolean;
+  isRefreshing?: boolean;
+  onEdit?: (nodeId: string) => void;
+  onDelete?: (nodeId: string) => void;
+  onRefresh?: (nodeId: string) => void;
 }
 
 /**
  * 开课报告节点
  * 作为画布的最终节点，无右侧连接点，画布内唯一
  */
-export const CourseReportNode = memo(function CourseReportNode({
-  id,
-  data,
-  selected,
-}: NodeProps<CourseReportNodeData>) {
-  const [userName, setUserName] = useState<string>("用户")
+// 使用 any 类型绕过 @xyflow/react 的严格 Node 泛型约束
+// 组件内部通过类型断言确保 data 属性类型安全
+export const CourseReportNode = memo(function CourseReportNode(
+  props: NodeProps<any>
+) {
+  const { id, data, selected } = props as {
+    id: string;
+    data: CourseReportNodeData;
+    selected?: boolean;
+  };
+  const [userName, setUserName] = useState<string>("用户");
 
   // 获取当前用户名
   useEffect(() => {
-    const authUser = getStoredAuthUser()
+    const authUser = getStoredAuthUser();
     if (authUser && authUser.userName) {
-      setUserName(authUser.userName)
+      setUserName(authUser.userName);
     }
-  }, [])
+  }, []);
 
   // 处理编辑按钮点击
   const handleEdit = useCallback(() => {
-    data.onEdit?.(id)
-  }, [data, id])
+    data.onEdit?.(id);
+  }, [data, id]);
 
   // 处理删除按钮点击
   const handleDelete = useCallback(() => {
-    data.onDelete?.(id)
-  }, [data, id])
+    data.onDelete?.(id);
+  }, [data, id]);
 
   // 处理重做按钮点击
   const handleRefresh = useCallback(() => {
-    data.onRefresh?.(id)
-  }, [data, id])
+    data.onRefresh?.(id);
+  }, [data, id]);
 
   return (
     <BaseFlowNode
@@ -110,7 +115,7 @@ export const CourseReportNode = memo(function CourseReportNode({
         </p>
       </div>
     </BaseFlowNode>
-  )
-})
+  );
+});
 
-export default CourseReportNode
+export default CourseReportNode;

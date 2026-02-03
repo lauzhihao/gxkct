@@ -44,8 +44,8 @@ export interface UseGraduationRequirementsResult {
 export function useGraduationRequirements(
   initialData: any,
   isEditMode: boolean,
-  lastRequirementRef: React.RefObject<HTMLInputElement>,
-  lastIndicatorRefs: React.MutableRefObject<{ [key: string]: HTMLInputElement | null }>
+  lastRequirementRef: React.RefObject<HTMLTextAreaElement | null>,
+  lastIndicatorRefs: React.MutableRefObject<{ [key: string]: HTMLTextAreaElement | null }>
 ): UseGraduationRequirementsResult {
   // 从 requiresVOS 或 graduationRequirements 加载毕业要求
   const loadGraduationRequirements = () => {
@@ -160,9 +160,9 @@ export function useGraduationRequirements(
     const { requirementId, indicatorIndex } = selectedIndicatorForCourse
     const key = `${requirementId}-${indicatorIndex}`
 
-    const coursesToSave = selectedCourses.map((item) => ({
-      courseId: item.course.id,
-      courseName: item.course.name,
+    const coursesToSave: IndicatorCourseSupport[] = selectedCourses.map((item) => ({
+      courseId: item.course.id || "",
+      courseName: item.course.name || "",
       supportLevel: item.supportLevel,
     }))
 

@@ -18,7 +18,7 @@ function extractNumericIdFromNodeId(nodeId: string): string {
 function addCompatibilityProps(node: TreeNode): TreeNode {
   const enhancedNode: TreeNode = {
     ...node,
-    id: extractNumericIdFromNodeId(node.nodeId),
+    id: extractNumericIdFromNodeId(node.nodeId ?? ""),
     name: node.nodeName,
     type: node.nodeType,
   }
@@ -90,7 +90,7 @@ export class TreeApi {
     }
   }
 
-  async updateTree(tree: TreeNode): Promise<ApiResponse<TreeNode>> {
+  async updateTree(tree: TreeNode): Promise<ApiResponse<TreeNode | null>> {
     return this.storage.set(this.treeKey, tree)
   }
 
@@ -280,7 +280,7 @@ export class TreeApi {
    * @param majorId 专业ID
    * @returns 课程节点数组
    */
-  async getMajorCourses(majorId: string): Promise<ApiResponse<TreeNode[]>> {
+  async getMajorCourses(majorId: string): Promise<ApiResponse<TreeNode[] | null>> {
     console.log(`[TreeApi] getMajorCourses(${majorId}) 开始加载课程列表`)
 
     try {
@@ -312,7 +312,7 @@ export class TreeApi {
    * @param universityId 学校ID（可带有前缀的字符串）
    * @returns 成员数组
    */
-  async getUniversityUsers(universityId: string): Promise<ApiResponse<UniversityMember[]>> {
+  async getUniversityUsers(universityId: string): Promise<ApiResponse<UniversityMember[] | null>> {
     const resolvedUniversityId = extractNumericIdFromNodeId(universityId)
     console.log(`[TreeApi] getUniversityUsers(${resolvedUniversityId}) 开始加载成员数据`)
 
@@ -340,7 +340,7 @@ export class TreeApi {
    * @param departmentId 院系ID（可带有前缀的字符串）
    * @returns 成员数组
    */
-  async getDepartmentUsers(departmentId: string): Promise<ApiResponse<DepartmentMember[]>> {
+  async getDepartmentUsers(departmentId: string): Promise<ApiResponse<DepartmentMember[] | null>> {
     const resolvedDepartmentId = extractNumericIdFromNodeId(departmentId)
     console.log(`[TreeApi] getDepartmentUsers(${resolvedDepartmentId}) 开始加载成员数据`)
 

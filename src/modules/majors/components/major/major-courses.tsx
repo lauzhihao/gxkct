@@ -117,7 +117,7 @@ export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, maj
     const courseName = getCourseName(course)
     const matchesSearch = !courseSearchTerm || courseName.toLowerCase().includes(courseSearchTerm.toLowerCase())
     const instructors = getInstructors(course)
-    const matchesMyCourses = !showMyCourses || instructors.includes(currentUser?.username || "")
+    const matchesMyCourses = !showMyCourses || instructors.includes((currentUser?.username) ?? "")
     return matchesSearch && matchesMyCourses
   })
 
@@ -234,7 +234,7 @@ export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, maj
               </div>
 
               <div className="absolute bottom-3 left-3 flex flex-wrap gap-1 max-w-[calc(100%-24px)]">
-                {getInstructors(course).map((instructor, idx) => (
+                {getInstructors(course).map((instructor: string, idx: number) => (
                   <div
                     key={idx}
                     className={cn(

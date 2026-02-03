@@ -8,11 +8,11 @@ export interface UserPreference {
 export class PreferenceApi {
   private storage = new StorageAdapter()
 
-  async getPreference(key: string): Promise<ApiResponse<UserPreference>> {
+  async getPreference(key: string): Promise<ApiResponse<UserPreference | null>> {
     return this.storage.get<UserPreference>(key)
   }
 
-  async setPreference(key: string, value: any): Promise<ApiResponse<UserPreference>> {
+  async setPreference(key: string, value: any): Promise<ApiResponse<UserPreference | null>> {
     return this.storage.set<UserPreference>(key, value)
   }
 }

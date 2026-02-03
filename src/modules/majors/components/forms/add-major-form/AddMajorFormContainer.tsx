@@ -6,7 +6,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import type { AddMajorFormProps } from "./types"
+import type { AddMajorFormProps, WorkCategory, WorksData } from "./types"
 import { useMajorFormState } from "@/modules/majors/hooks/use-major-form-state"
 import { useCareerInfo } from "@/modules/majors/hooks/use-career-info"
 import { useGraduationRequirements } from "@/modules/majors/hooks/use-graduation-requirements"
@@ -15,7 +15,6 @@ import { api } from "@/lib/api"
 import { TreeApi } from "@/lib/api/tree-api"
 import { majorApiService } from "@/modules/majors/api"
 import worksJsonData from "@/mock-data/works.json"
-import type { WorksData } from "./types"
 
 // 创建 TreeApi 实例
 const treeApiInstance = new TreeApi()
@@ -179,7 +178,7 @@ export function AddMajorFormContainer({
       const profession = []
 
       if (careerInfoItem.direction.category1) {
-        const cat1 = worksData.find((item) => item.label === careerInfoItem.direction.category1)
+        const cat1 = worksData.find((item: WorkCategory) => item.label === careerInfoItem.direction.category1)
         if (cat1) {
           profession.push({
             id: parseInt(cat1.value) || index * 1000 + 1,
@@ -189,7 +188,7 @@ export function AddMajorFormContainer({
           })
 
           if (careerInfoItem.direction.category2) {
-            const cat2 = cat1.children?.find((item) => item.label === careerInfoItem.direction.category2)
+            const cat2 = cat1.children?.find((item: WorkCategory) => item.label === careerInfoItem.direction.category2)
             if (cat2) {
               profession.push({
                 id: parseInt(cat2.value.replace(/-/g, "")) || index * 1000 + 2,
@@ -199,7 +198,7 @@ export function AddMajorFormContainer({
               })
 
               if (careerInfoItem.direction.category3) {
-                const cat3 = cat2.children?.find((item) => item.label === careerInfoItem.direction.category3)
+                const cat3 = cat2.children?.find((item: WorkCategory) => item.label === careerInfoItem.direction.category3)
                 if (cat3) {
                   profession.push({
                     id: parseInt(cat3.value.replace(/-/g, "")) || index * 1000 + 3,
@@ -209,7 +208,7 @@ export function AddMajorFormContainer({
                   })
 
                   if (careerInfoItem.direction.category4) {
-                    const cat4 = cat3.children?.find((item) => item.label === careerInfoItem.direction.category4)
+                    const cat4 = cat3.children?.find((item: WorkCategory) => item.label === careerInfoItem.direction.category4)
                     if (cat4) {
                       profession.push({
                         id: parseInt(cat4.value.replace(/-/g, "")) || index * 1000 + 4,

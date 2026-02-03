@@ -20,22 +20,22 @@ export const courseResourcesApi = {
     courseId: string,
     parentId?: string | null,
     options?: { includeEmpty?: boolean },
-  ): Promise<ApiResponse<ResourceFolder[]>> {
+  ): Promise<ApiResponse<ResourceFolder[] | null>> {
     return api.resources.getFolders(courseId, {
       parentId: parentId ?? undefined,
       includeEmpty: options?.includeEmpty,
     })
   },
 
-  initializeFolders(courseId: string): Promise<ApiResponse<InitializeFoldersResponse>> {
+  initializeFolders(courseId: string): Promise<ApiResponse<InitializeFoldersResponse | null>> {
     return api.resources.initializeCourseFolders(courseId)
   },
 
-  getObjects(courseId: string, params: ListResourceObjectsParams): Promise<ApiResponse<ResourceObjectsResponse>> {
+  getObjects(courseId: string, params: ListResourceObjectsParams): Promise<ApiResponse<ResourceObjectsResponse | null>> {
     return api.resources.getObjects(courseId, params)
   },
 
-  getObjectDetail(courseId: string, objectId: string): Promise<ApiResponse<ResourceObjectDetail>> {
+  getObjectDetail(courseId: string, objectId: string): Promise<ApiResponse<ResourceObjectDetail | null>> {
     return api.resources.getObjectDetail(courseId, objectId)
   },
 
@@ -43,22 +43,22 @@ export const courseResourcesApi = {
     return api.resources.deleteObject(courseId, objectId)
   },
 
-  batchDelete(courseId: string, objectIds: string[]): Promise<ApiResponse<{ deleted: number }>> {
+  batchDelete(courseId: string, objectIds: string[]): Promise<ApiResponse<{ deleted: number } | null>> {
     return api.resources.batchDelete(courseId, objectIds)
   },
 
-  batchAction(courseId: string, payload: ResourceBatchActionRequest): Promise<ApiResponse<ResourceBatchActionResult>> {
+  batchAction(courseId: string, payload: ResourceBatchActionRequest): Promise<ApiResponse<ResourceBatchActionResult | null>> {
     return api.resources.batchAction(courseId, payload)
   },
 
   createBatchDownload(
     courseId: string,
     objectIds: string[],
-  ): Promise<ApiResponse<{ taskId: string; status: string; downloadUrl: string | null }>> {
+  ): Promise<ApiResponse<{ taskId: string; status: string; downloadUrl: string | null } | null>> {
     return api.resources.createBatchDownload(courseId, objectIds)
   },
 
-  createFolder(courseId: string, parentId: string, payload: CreateFolderPayload): Promise<ApiResponse<ResourceFolder>> {
+  createFolder(courseId: string, parentId: string, payload: CreateFolderPayload): Promise<ApiResponse<ResourceFolder | null>> {
     return api.resources.createFolder(courseId, parentId, payload)
   },
 
@@ -66,7 +66,7 @@ export const courseResourcesApi = {
     courseId: string,
     parentId: string,
     payload: UploadSignatureRequest,
-  ): Promise<ApiResponse<UploadSignatureResponse>> {
+  ): Promise<ApiResponse<UploadSignatureResponse | null>> {
     return api.resources.createUploadSignature(courseId, parentId, payload)
   },
 
@@ -74,7 +74,7 @@ export const courseResourcesApi = {
     courseId: string,
     parentId: string,
     payload: ConfirmUploadRequest,
-  ): Promise<ApiResponse<ResourceObjectSummary>> {
+  ): Promise<ApiResponse<ResourceObjectSummary | null>> {
     return api.resources.confirmUpload(courseId, parentId, payload)
   },
 }

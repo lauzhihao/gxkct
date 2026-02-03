@@ -55,7 +55,7 @@ export function CourseSelector({ open, onOpenChange, majorId, majorName, departm
   }
 
   const filteredCourses = courses.filter((course) =>
-    course.name.toLowerCase().includes(searchTerm.toLowerCase())
+    course.name?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false
   )
 
   const totalPages = Math.ceil(filteredCourses.length / pageSize)
@@ -163,10 +163,10 @@ export function CourseSelector({ open, onOpenChange, majorId, majorName, departm
                       <div className="flex gap-2 flex-shrink-0">
                         <Button
                           size="sm"
-                          onClick={() => setSelectedSupport({ ...selectedSupport, [course.id]: "strong" })}
+                          onClick={() => course.id && setSelectedSupport({ ...selectedSupport, [course.id]: "strong" })}
                           className={cn(
                             "text-xs font-medium transition-all whitespace-nowrap",
-                            selectedSupport[course.id] === "strong"
+                            selectedSupport[course.id ?? ""] === "strong"
                               ? "bg-orange-500 text-white border-orange-500 hover:bg-orange-600"
                               : "bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200"
                           )}
@@ -175,10 +175,10 @@ export function CourseSelector({ open, onOpenChange, majorId, majorName, departm
                         </Button>
                         <Button
                           size="sm"
-                          onClick={() => setSelectedSupport({ ...selectedSupport, [course.id]: "weak" })}
+                          onClick={() => course.id && setSelectedSupport({ ...selectedSupport, [course.id]: "weak" })}
                           className={cn(
                             "text-xs font-medium transition-all whitespace-nowrap",
-                            selectedSupport[course.id] === "weak"
+                            selectedSupport[course.id ?? ""] === "weak"
                               ? "bg-green-500 text-white border-green-500 hover:bg-green-600"
                               : "bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200"
                           )}

@@ -71,11 +71,16 @@ function formatDate(dateStr?: string): string {
  * 源文档卡片节点
  * 显示用户上传的文件信息，支持编辑、删除、重做
  */
-export const SourceDocumentNode = memo(function SourceDocumentNode({
-  id,
-  data,
-  selected,
-}: NodeProps<SourceDocumentNodeData>) {
+// 使用 any 类型绕过 @xyflow/react 的严格 Node 泛型约束
+// 组件内部通过类型断言确保 data 属性类型安全
+export const SourceDocumentNode = memo(function SourceDocumentNode(
+  props: NodeProps<any>
+) {
+  const { id, data, selected } = props as {
+    id: string
+    data: SourceDocumentNodeData
+    selected?: boolean
+  }
   // 处理编辑按钮点击
   const handleEdit = useCallback(() => {
     data.onEdit?.(id)

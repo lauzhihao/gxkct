@@ -313,25 +313,28 @@ export function MajorDetail({
   }, [node?.id])
 
   const handleDeleteNode = (nodeId: string) => {
+    const currentNodeId = node.id ?? node.nodeId
     if (onDeleteNode) {
       onDeleteNode(nodeId)
     }
-    if (node?.id === nodeId && onNodeSelect) {
+    if (currentNodeId === nodeId && onNodeSelect) {
       onNodeSelect(null)
     }
     setIsDeleteDialogOpen(false)
   }
 
   const handleEditMajorFormSubmit = (majorData: any) => {
-    if (onUpdateNode) {
-      onUpdateNode(node.id, majorData)
+    const currentNodeId = node.id ?? node.nodeId
+    if (onUpdateNode && currentNodeId) {
+      onUpdateNode(currentNodeId, majorData)
       setIsEditingMajor(false)
     }
   }
 
   const handleAddCourseSubmit = (data: any) => {
-    if (onAddCourse) {
-      onAddCourse(node.id, data)
+    const currentNodeId = node.id ?? node.nodeId
+    if (onAddCourse && currentNodeId) {
+      onAddCourse(currentNodeId, data)
     }
     setIsAddingCourse(false)
   }
@@ -356,9 +359,11 @@ export function MajorDetail({
   }
 
   if (isAddingCourse) {
+    const currentNodeId = node.id ?? node.nodeId
+    if (!currentNodeId) return null
     return (
       <div className="h-full flex flex-col bg-gradient-to-br from-background via-background to-secondary/20">
-        <AddCourseForm majorId={node.id} onSubmit={handleAddCourseSubmit} onCancel={() => setIsAddingCourse(false)} />
+        <AddCourseForm majorId={currentNodeId} onSubmit={handleAddCourseSubmit} onCancel={() => setIsAddingCourse(false)} />
       </div>
     )
   }
@@ -483,7 +488,7 @@ export function MajorDetail({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={() => handleDeleteNode(node.id)} className="bg-red-500 hover:bg-red-600">
+            <AlertDialogAction onClick={() => handleDeleteNode(node.id ?? node.nodeId ?? "")} className="bg-red-500 hover:bg-red-600">
               确认删除
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -2,7 +2,7 @@ import type { TreeNode } from "@/types"
 import type { CourseGoal } from "@/lib/api/course-goals-api"
 import type { CoursePoint as ApiCoursePoint } from "@/lib/api/course-points-api"
 import type { ProjectTeachGoalData } from "@/lib/api/project-teach-goal-api"
-import type { ReactNode, DragEvent, Dispatch, SetStateAction } from "react"
+import type { ReactNode, Dispatch, SetStateAction } from "react"
 
 type Setter<T> = Dispatch<SetStateAction<T>>
 
@@ -52,9 +52,9 @@ export interface CourseMatrixContextValue {
   dragOverIndex: number | null
   handleDragStart: (projectId: string | number) => void
   handleDragEnd: () => void
-  handleDragOver: (event: DragEvent, index: number) => void
+  handleDragOver: (event: React.DragEvent<Element>, index: number) => void
   handleDragLeave: () => void
-  handleDrop: (event: DragEvent, index: number) => void
+  handleDrop: (event: React.DragEvent<Element>, index: number) => void
   isShowCoursePointsDialog: boolean
   setIsShowCoursePointsDialog: Setter<boolean>
   handleCoursePointsDialogOpenChange: (open: boolean) => void

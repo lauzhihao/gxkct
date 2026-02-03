@@ -6,6 +6,83 @@
 import { useState, useEffect, useRef } from "react"
 import type { TreeNode } from "@/types"
 import { projectMatrixApi } from "@/modules/courses/api/projectMatrixApi"
+import type { ProjectMatrixDataResponse } from "@/lib/api/matrix-api"
+
+/**
+ * 将 API 响应数据转换为本地使用的 ProjectMatrixData 类型
+ */
+function convertToProjectMatrixData(responseData: ProjectMatrixDataResponse["data"]): ProjectMatrixData {
+  if (!responseData) {
+    return {}
+  }
+
+  return {
+    projects: responseData.projects.map((p) => ({
+      project: {
+        id: String(p.project.id),
+        name: p.project.name,
+      },
+      goals: p.goals.map((g) => ({
+        id: String(g.id),
+        description: g.description,
+      })),
+    })),
+    data: responseData.data as ProjectMatrixData["data"],
+  }
+}
+
+export interface ProjectMatrixItemCourseMatrix {
+  id: string
+  projectId: string
+  point?: {
+    id: string
+    title: string
+    description?: string
+  }
+  study?: string
+  teach?: string
+  product?: string
+  week?: string
+  theoryPeriod?: string
+  practicePeriod?: string
+  relate?: {
+    relate: number
+  }
+}
+
+export interface ProjectMatrixItemProjectMatrix {
+  id: string
+  taskGoalId: string
+  ksa?: {
+    id: string
+    title: string
+    level: number
+    description?: string
+  }
+  relate?: {
+    relate: number
+  }
+}
+
+export interface ProjectMatrixItem {
+  courseMatrix: ProjectMatrixItemCourseMatrix
+  projectMatrices?: ProjectMatrixItemProjectMatrix[]
+}
+
+export interface ProjectMatrixProject {
+  id: string
+  name: string
+}
+
+export interface ProjectMatrixGoal {
+  id: string
+  description: string
+}
+
+export interface ProjectMatrixProjectItem {
+  project: ProjectMatrixProject
+  goals: ProjectMatrixGoal[]
+}
 
 export interface ProjectMatrixData {
   projectChapters?: Array<{
@@ -20,6 +97,8 @@ export interface ProjectMatrixData {
     id: string
     content: string
   }>
+  projects?: ProjectMatrixProjectItem[]
+  data?: ProjectMatrixItem[]
 }
 
 export interface KsaItem {
@@ -80,7 +159,7 @@ export function useProjectMatrix(node: TreeNode, majorId?: string | number): Use
     // 当node或majorId改变时，重置ref
     if (prevNodeIdRef.current !== node.id || prevMajorIdRef.current !== majorId) {
       hasLoadedRef.current = false
-      prevNodeIdRef.current = node.id
+      prevNodeIdRef.current = node.id ?? null
       prevMajorIdRef.current = majorId ?? null
     }
 
@@ -115,7 +194,8 @@ export function useProjectMatrix(node: TreeNode, majorId?: string | number): Use
         console.error("[useProjectMatrix] 获取项目矩阵数据失败:", projectMatrixResponse.error)
       } else if (projectMatrixResponse.data) {
         console.log("[useProjectMatrix] 项目矩阵数据加载成功:", projectMatrixResponse.data)
-        setProjectMatrixData(projectMatrixResponse.data)
+        const convertedData = convertToProjectMatrixData(projectMatrixResponse.data.data)
+        setProjectMatrixData(convertedData)
       }
 
       // 获取KSA列表数据

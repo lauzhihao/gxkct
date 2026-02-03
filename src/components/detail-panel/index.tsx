@@ -23,15 +23,27 @@ export function DetailPanel(props: DetailPanelProps) {
   }
 
   // Route to appropriate detail component based on node type
+  const currentUserValue = props.currentUser ?? null
+  const handleUpdate = () => {
+    if (node?.id) {
+      props.onUpdateNode?.(node.id, {})
+    }
+  }
+  const handleDeleteCourse = (_courseId: string) => {
+    if (node?.id) {
+      props.onDeleteNode?.(node.id)
+    }
+  }
   switch (node.nodeType) {
     case "university":
-      return <UniversityDetail {...props} currentUser={props.currentUser} />
+      return <UniversityDetail {...props} currentUser={currentUserValue} />
     case "department":
-      return <DepartmentDetail {...props} currentUser={props.currentUser} />
+      return <DepartmentDetail {...props} currentUser={currentUserValue} />
     case "major":
-      return <MajorDetail {...props} currentUser={props.currentUser} />
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return <MajorDetail {...(props as any)} currentUser={currentUserValue} onUpdate={handleUpdate} onDeleteCourse={handleDeleteCourse} />
     case "course":
-      return <CourseDetail {...props} currentUser={props.currentUser} />
+      return <CourseDetail {...props} currentUser={currentUserValue} />
     default:
       return (
         <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl p-6 flex items-center justify-center min-h-[500px]">

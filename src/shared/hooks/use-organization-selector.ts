@@ -61,7 +61,7 @@ export function useOrganizationSelector(
       const result: TreeNode[] = []
 
       const traverse = (node: TreeNode) => {
-        if (selectedIds.has(node.id)) {
+        if (node.id && selectedIds.has(node.id)) {
           result.push(node)
         }
         if (node.children) {

@@ -121,7 +121,7 @@ export class ResourceApi {
   getFolders(
     courseId: string,
     params?: { parentId?: string | null; includeEmpty?: boolean },
-  ): Promise<ApiResponse<ResourceFolder[]>> {
+  ): Promise<ApiResponse<ResourceFolder[] | null>> {
     const endpoint = `${this.getBasePath(courseId)}/resource-folders${this.buildQuery({
       parentId: params?.parentId ?? undefined,
       includeEmpty:
@@ -130,12 +130,12 @@ export class ResourceApi {
     return this.http.get<ResourceFolder[]>(endpoint)
   }
 
-  initializeCourseFolders(courseId: string): Promise<ApiResponse<InitializeFoldersResponse>> {
+  initializeCourseFolders(courseId: string): Promise<ApiResponse<InitializeFoldersResponse | null>> {
     const endpoint = `${this.getBasePath(courseId)}/resource-folders/init`
     return this.http.post<InitializeFoldersResponse>(endpoint)
   }
 
-  createFolder(courseId: string, parentId: string, payload: CreateFolderPayload): Promise<ApiResponse<ResourceFolder>> {
+  createFolder(courseId: string, parentId: string, payload: CreateFolderPayload): Promise<ApiResponse<ResourceFolder | null>> {
     const endpoint = `${this.getBasePath(courseId)}/resource-folders/${parentId}`
     return this.http.post<ResourceFolder>(endpoint, payload)
   }
@@ -144,7 +144,7 @@ export class ResourceApi {
     courseId: string,
     parentId: string,
     payload: UploadSignatureRequest,
-  ): Promise<ApiResponse<UploadSignatureResponse>> {
+  ): Promise<ApiResponse<UploadSignatureResponse | null>> {
     const endpoint = `${this.getBasePath(courseId)}/resource-folders/${parentId}/objects/presign`
     return this.http.post<UploadSignatureResponse>(endpoint, payload)
   }
@@ -153,7 +153,7 @@ export class ResourceApi {
     courseId: string,
     parentId: string,
     payload: ConfirmUploadRequest,
-  ): Promise<ApiResponse<ResourceObjectSummary>> {
+  ): Promise<ApiResponse<ResourceObjectSummary | null>> {
     const endpoint = `${this.getBasePath(courseId)}/resource-folders/${parentId}/objects/confirm`
     return this.http.post<ResourceObjectSummary>(endpoint, payload)
   }
@@ -161,7 +161,7 @@ export class ResourceApi {
   getObjects(
     courseId: string,
     params: ListResourceObjectsParams,
-  ): Promise<ApiResponse<ResourceObjectsResponse>> {
+  ): Promise<ApiResponse<ResourceObjectsResponse | null>> {
     const endpoint = `${this.getBasePath(courseId)}/resource-objects${this.buildQuery({
       folderId: params.folderId,
       keyword: params.keyword,
@@ -175,7 +175,7 @@ export class ResourceApi {
     return this.http.get<ResourceObjectsResponse>(endpoint)
   }
 
-  getObjectDetail(courseId: string, objectId: string): Promise<ApiResponse<ResourceObjectDetail>> {
+  getObjectDetail(courseId: string, objectId: string): Promise<ApiResponse<ResourceObjectDetail | null>> {
     const endpoint = `${this.getBasePath(courseId)}/resource-objects/${objectId}`
     return this.http.get<ResourceObjectDetail>(endpoint)
   }
@@ -185,7 +185,7 @@ export class ResourceApi {
     return this.http.delete<null>(endpoint)
   }
 
-  batchDelete(courseId: string, objectIds: string[]): Promise<ApiResponse<{ deleted: number }>> {
+  batchDelete(courseId: string, objectIds: string[]): Promise<ApiResponse<{ deleted: number } | null>> {
     const endpoint = `${this.getBasePath(courseId)}/resource-objects/batch-delete`
     return this.http.post<{ deleted: number }>(endpoint, { objectIds })
   }
@@ -193,7 +193,7 @@ export class ResourceApi {
   batchAction(
     courseId: string,
     payload: ResourceBatchActionRequest,
-  ): Promise<ApiResponse<ResourceBatchActionResult>> {
+  ): Promise<ApiResponse<ResourceBatchActionResult | null>> {
     const endpoint = `${this.getBasePath(courseId)}/resource-objects/batch-action`
     return this.http.post<ResourceBatchActionResult>(endpoint, payload)
   }
@@ -201,7 +201,7 @@ export class ResourceApi {
   createBatchDownload(
     courseId: string,
     objectIds: string[],
-  ): Promise<ApiResponse<{ taskId: string; status: string; downloadUrl: string | null }>> {
+  ): Promise<ApiResponse<{ taskId: string; status: string; downloadUrl: string | null } | null>> {
     const endpoint = `${this.getBasePath(courseId)}/resource-objects/batch-download`
     return this.http.post(endpoint, { objectIds })
   }

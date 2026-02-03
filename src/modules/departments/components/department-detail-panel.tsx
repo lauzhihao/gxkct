@@ -57,6 +57,7 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
   }
 
   const handleEditDepartment = () => {
+    if (!node) return
     setNewDeptName(node.nodeName)
     setNewDeptDesc(node.description || "")
     setNewDeptDirector("")
@@ -65,7 +66,7 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
   }
 
   const handleSaveDepartment = () => {
-    if (!newDeptName.trim() || !onUpdateNode) return
+    if (!newDeptName.trim() || !onUpdateNode || !node) return
 
     onUpdateNode(node.nodeId, {
       nodeName: newDeptName,
@@ -89,12 +90,12 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
   }
 
   const handleQuickCreateMajor = (data: { name: string; directors: any[] }) => {
-    if (onAddMajor) {
+    if (onAddMajor && node) {
       const departmentId = extractNumericId(node.nodeId).toString()
       onAddMajor(departmentId, {
         nodeName: data.name,
         nodeType: "major" as const,
-        children: [],
+        children: [] as import("@/types").TreeNode[],
         metadata: {
           directors: data.directors.map((d) => d.name),
           director: data.directors.map((d) => d.name).join("、"),
@@ -117,8 +118,8 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
               <GraduationCap className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">{node.nodeName}</h2>
-              {node.description && <p className="text-muted-foreground">{node.description}</p>}
+              <h2 className="text-2xl font-bold text-foreground mb-2">{node?.nodeName}</h2>
+              {node?.description && <p className="text-muted-foreground">{node.description}</p>}
             </div>
           </div>
           <div className="flex gap-2">
@@ -145,32 +146,34 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
           </TabsList>
 
           <TabsContent value="overview" className="mt-0">
-            <StatisticsCards
-              node={node}
-              onNodeSelect={onNodeSelect}
-              currentUser={currentUser}
-              initialMajorSearch={majorSearchFilter}
-              refreshKey={refreshMajorsKey}
-              headerAction={
-                <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setIsQuickCreateMajorOpen(true)}
-                className="gap-2 hover:bg-primary/10"
-              >
-                <Plus className="w-4 h-4 text-primary" />
-                <span className="text-primary font-medium">开设专业</span>
-              </Button>
-              }
-            />
+            {node && (
+              <StatisticsCards
+                node={node}
+                onNodeSelect={onNodeSelect}
+                currentUser={currentUser}
+                initialMajorSearch={majorSearchFilter}
+                refreshKey={refreshMajorsKey}
+                headerAction={
+                  <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setIsQuickCreateMajorOpen(true)}
+                  className="gap-2 hover:bg-primary/10"
+                >
+                  <Plus className="w-4 h-4 text-primary" />
+                  <span className="text-primary font-medium">开设专业</span>
+                </Button>
+                }
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="members" className="space-y-6 p-6">
-            <Members node={node} />
+            {node && <Members node={node} />}
           </TabsContent>
 
           <TabsContent value="teaching-quality" className="space-y-6 p-6">
-            <TeachingQualityStats node={node} nodeType="department" />
+            {node && <TeachingQualityStats node={node} nodeType="department" />}
           </TabsContent>
         </Tabs>
       </div>
@@ -222,12 +225,14 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
       </Dialog>
 
       {/* Quick Create Major Dialog */}
-      <QuickCreateMajorDialog
-        open={isQuickCreateMajorOpen}
-        onOpenChange={setIsQuickCreateMajorOpen}
-        onSubmit={handleQuickCreateMajor}
-        departmentId={extractNumericId(node.nodeId).toString()}
-      />
+      {node && (
+        <QuickCreateMajorDialog
+          open={isQuickCreateMajorOpen}
+          onOpenChange={setIsQuickCreateMajorOpen}
+          onSubmit={handleQuickCreateMajor}
+          departmentId={extractNumericId(node.nodeId).toString()}
+        />
+      )}
     </div>
   )
 }

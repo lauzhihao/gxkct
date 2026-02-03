@@ -6,7 +6,7 @@ export class StorageAdapter {
   private prefix = "education-api-"
   private httpAdapter = new HttpAdapter()
 
-  async get<T>(key: string): Promise<ApiResponse<T>> {
+  async get<T>(key: string): Promise<ApiResponse<T | null>> {
     try {
       const fullKey = this.prefix + key
       const data = localStorage.getItem(fullKey)
@@ -29,26 +29,26 @@ export class StorageAdapter {
   }
 
   // 通过HTTP调用远程API
-  async getFromApi<T>(endpoint: string): Promise<ApiResponse<T>> {
+  async getFromApi<T>(endpoint: string): Promise<ApiResponse<T | null>> {
     return this.httpAdapter.get<T>(endpoint)
   }
 
   // 通过HTTP调用远程API POST
-  async postToApi<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+  async postToApi<T>(endpoint: string, data?: any): Promise<ApiResponse<T | null>> {
     return this.httpAdapter.post<T>(endpoint, data)
   }
 
   // 通过HTTP调用远程API PUT
-  async putToApi<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+  async putToApi<T>(endpoint: string, data?: any): Promise<ApiResponse<T | null>> {
     return this.httpAdapter.put<T>(endpoint, data)
   }
 
   // 通过HTTP调用远程API DELETE
-  async deleteFromApi<T>(endpoint: string): Promise<ApiResponse<T>> {
+  async deleteFromApi<T>(endpoint: string): Promise<ApiResponse<T | null>> {
     return this.httpAdapter.delete<T>(endpoint)
   }
 
-  async set<T>(key: string, value: T): Promise<ApiResponse<T>> {
+  async set<T>(key: string, value: T): Promise<ApiResponse<T | null>> {
     try {
       localStorage.setItem(this.prefix + key, JSON.stringify(value))
       const backendResponse = createSuccessResponse(value)
@@ -59,7 +59,7 @@ export class StorageAdapter {
     }
   }
 
-  async delete(key: string): Promise<ApiResponse<boolean>> {
+  async delete(key: string): Promise<ApiResponse<boolean | null>> {
     try {
       localStorage.removeItem(this.prefix + key)
       const backendResponse = createSuccessResponse(true)
@@ -70,7 +70,7 @@ export class StorageAdapter {
     }
   }
 
-  async getAll<T>(pattern: string): Promise<ApiResponse<T[]>> {
+  async getAll<T>(pattern: string): Promise<ApiResponse<T[] | null>> {
     try {
       const keys = Object.keys(localStorage).filter((k) => k.startsWith(this.prefix + pattern))
       const items = keys

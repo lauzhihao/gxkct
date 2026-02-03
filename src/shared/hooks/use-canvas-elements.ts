@@ -1037,12 +1037,15 @@ export function useCanvasElements() {
   // 应用自动布局
   const applyLayout = useCallback((options?: LayoutEventData) => {
     // 将 elements 转换为 React Flow nodes
-    const nodes: Node[] = elements.map(el => ({
-      id: el.id,
-      type: COMPONENT_TO_NODE_TYPE[el.type] || FlowNodeType.COURSE_INFO,
-      position: el.position,
-      data: el.data,
-    }))
+    // 使用 Record<string, unknown> 作为 data 类型以满足 React Flow 泛型约束
+    const nodes: Node<Record<string, unknown>, FlowNodeType>[] = elements.map(el =>
+      ({
+        id: el.id,
+        type: COMPONENT_TO_NODE_TYPE[el.type] || FlowNodeType.COURSE_INFO,
+        position: el.position,
+        data: el.data as unknown as Record<string, unknown>,
+      })
+    )
 
     // 将 edges 转换为 React Flow edges
     const flowEdges: Edge[] = edges.map(e => ({
@@ -1073,7 +1076,8 @@ export function useCanvasElements() {
   // ============ React Flow 转换 ============
 
   // 转换为 React Flow 节点格式
-  const toFlowNodes = useCallback((): Node[] => {
+  // 使用 Record<string, unknown> 作为 data 类型以满足 React Flow 泛型约束
+  const toFlowNodes = useCallback((): Node<Record<string, unknown>, FlowNodeType>[] => {
     // 分离父节点和子节点，确保父节点在前
     const parentNodes = elements.filter(el => !el.parentId)
     const childNodes = elements.filter(el => el.parentId)
@@ -1087,7 +1091,7 @@ export function useCanvasElements() {
         id: el.id,
         type: nodeType,
         position: el.position,
-        data: el.data,
+        data: el.data as unknown as Record<string, unknown>,
         selected: el.selected,
         // Group Node 属性
         parentId: el.parentId,

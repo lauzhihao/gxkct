@@ -38,7 +38,7 @@ export function useTreeSearch() {
       if (response.data) {
         setSearchResults(response.data)
         // 缓存结果
-        setSearchCache((prev) => new Map(prev).set(keyword, response.data))
+        setSearchCache((prev) => new Map(prev).set(keyword, response.data || []))
       } else {
         setSearchResults([])
       }

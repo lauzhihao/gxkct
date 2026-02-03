@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useCallback } from "react"
-import { type NodeProps } from "@xyflow/react"
+import { type NodeProps, type Node } from "@xyflow/react"
 import { Brain, Wrench, Heart } from "lucide-react"
 import { BaseFlowNode } from "./base-flow-node"
 import type { KsaItemData } from "@/components/canvas-elements/types"
@@ -38,7 +38,14 @@ interface KsaNodeData extends KsaItemData {
   highlighted?: boolean
   isDeleting?: boolean
   onDelete?: (nodeId: string) => void
+  // 索引签名，满足 @xyflow/react Node 泛型约束
+  [key: string]: unknown
 }
+
+/**
+ * KSA 节点类型
+ */
+type KsaNodeType = Node<KsaNodeData, "ksa">
 
 /**
  * KSA 节点 - 支持高亮联动
@@ -47,7 +54,7 @@ export const KsaNode = memo(function KsaNode({
   id,
   data,
   selected,
-}: NodeProps<KsaNodeData>) {
+}: NodeProps<KsaNodeType>) {
   const config = KSA_CONFIG[data.category] || KSA_CONFIG.K
   const Icon = config.icon
   const highlighted = data.highlighted ?? false

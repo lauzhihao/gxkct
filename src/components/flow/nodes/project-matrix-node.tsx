@@ -1,15 +1,17 @@
 "use client"
 
 import { memo, useCallback } from "react"
-import { type NodeProps } from "@xyflow/react"
+import { type Node, type NodeProps } from "@xyflow/react"
 import { LayoutGrid, Star } from "lucide-react"
 import { BaseFlowNode } from "./base-flow-node"
 import type { ProjectMatrixData, ProjectMatrixKsaItem, KsaItemData } from "@/components/canvas-elements/types"
+import { FlowNodeType } from "@/components/flow/utils/types"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip"
 
 /**
  * 项目矩阵节点扩展数据类型
  * 包含高亮状态和点击回调
+ * 注意：ksaItemsMap 使用普通对象而非 Map，以满足 @xyflow/react 的 Record<string, unknown> 约束
  */
 export interface ProjectMatrixNodeData extends ProjectMatrixData {
   highlighted?: boolean
@@ -21,8 +23,16 @@ export interface ProjectMatrixNodeData extends ProjectMatrixData {
   onRefresh?: (nodeId: string) => void
   onEdit?: (nodeId: string) => void
   /** KSA 卡片数据映射（从 KSA 面板注入），用于通过 id 匹配获取完整信息 */
-  ksaItemsMap?: Map<string, KsaItemData>
+  ksaItemsMap?: Record<string, KsaItemData>
+  /** 允许额外的未知属性 */
+  [key: string]: unknown
 }
+
+/**
+ * 项目矩阵节点类型定义
+ * 使用索引签名满足 @xyflow/react 的 Node 泛型约束
+ */
+export type ProjectMatrixNode = Node<ProjectMatrixNodeData, FlowNodeType.PROJECT_MATRIX>
 
 /**
  * KSA支撑标签组件 - 带Tooltip展示完整描述
@@ -34,12 +44,12 @@ function KsaLabel({
   ksaItemsMap,
 }: {
   item: ProjectMatrixKsaItem
-  ksaItemsMap?: Map<string, KsaItemData>
+  ksaItemsMap?: Record<string, KsaItemData>
 }) {
   const isStrong = item.level === "strong"
 
   // 尝试从 ksaItemsMap 中获取完整的 KSA 数据（通过 id 匹配）
-  const fullKsaData = ksaItemsMap?.get(item.id)
+  const fullKsaData = ksaItemsMap?.[item.id]
 
   // 生成序号标签，如 K1, S2, A3
   // 优先级：item 自带 → ksaItemsMap 匹配 → 降级显示 name 或 id
@@ -82,11 +92,11 @@ function KsaLabel({
 /**
  * 项目矩阵节点 - 支持高亮联动和行点击事件
  */
-export const ProjectMatrixNode = memo(function ProjectMatrixNode({
+export const ProjectMatrixNodeComponent = memo(function ProjectMatrixNodeComponent({
   id,
   data,
   selected,
-}: NodeProps<ProjectMatrixNodeData>) {
+}: NodeProps<ProjectMatrixNode>) {
   const highlighted = data.highlighted ?? false
   const taskObjectives = data.task_objectives || []
 
@@ -254,4 +264,5 @@ export const ProjectMatrixNode = memo(function ProjectMatrixNode({
   )
 })
 
-export default ProjectMatrixNode
+// 导出带类型的命名组件供 @xyflow/react 使用
+export { ProjectMatrixNodeComponent as ProjectMatrixNode }

@@ -5,6 +5,7 @@ import {
   BaseEdge,
   EdgeLabelRenderer,
   getBezierPath,
+  type Edge,
   type EdgeProps,
 } from "@xyflow/react"
 import type { FlowEdgeData } from "../utils/types"
@@ -34,7 +35,7 @@ export const SupportEdge = memo(function SupportEdge({
   targetPosition,
   data,
   style = {},
-}: EdgeProps<FlowEdgeData>) {
+}: EdgeProps<Edge<FlowEdgeData>>) {
   // 计算边的路径（贝塞尔曲线）
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,

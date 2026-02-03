@@ -1,7 +1,7 @@
 "use client"
 
 import { File, ChevronRight, FolderOpen } from "lucide-react"
-import type { FileListProps } from "./types"
+import type { FileListItem, FileListProps } from "./types"
 
 export function FileList({ files, onFileClick }: FileListProps) {
   if (files.length === 0) {
@@ -15,7 +15,7 @@ export function FileList({ files, onFileClick }: FileListProps) {
 
   return (
     <div className="space-y-2">
-      {files.map((file, index) => (
+      {files.map((file: FileListItem, index: number) => (
         <button
           key={index}
           onClick={() => onFileClick(file)}

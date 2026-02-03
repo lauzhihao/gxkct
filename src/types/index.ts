@@ -157,6 +157,8 @@ export interface TreeNode {
   type?: NodeType
   // 兼容属性：节点描述信息
   description?: string
+  // 额外元数据（用于存储自定义信息，如展开状态等）
+  metadata?: Record<string, unknown>
 }
 
 // ============================================================================
@@ -169,9 +171,9 @@ export interface DetailPanelProps {
   onNodeSelect?: (node: TreeNode) => void
   onEdit?: (nodeId: string, updates: Partial<TreeNode>) => void
   onDelete?: (nodeId: string) => void
-  onAddDepartment?: (universityId: string, newDepartment: Omit<TreeNode, "id">) => void
-  onAddMajor?: (departmentId: string, newMajor: Omit<TreeNode, "id">) => void
-  onAddCourse?: (majorId: string, newCourse: Omit<TreeNode, "id">) => void
+  onAddDepartment?: (universityId: string, newDepartment: Omit<TreeNode, "id" | "nodeId">) => void
+  onAddMajor?: (departmentId: string, newMajor: Omit<TreeNode, "id" | "nodeId">) => void
+  onAddCourse?: (majorId: string, newCourse: Omit<TreeNode, "id" | "nodeId">) => void
   onUpdateNode?: (nodeId: string, updates: Partial<TreeNode>) => void
   onDeleteNode?: (nodeId: string) => void
 }
@@ -180,7 +182,7 @@ export interface TreeViewProps {
   treeData: TreeNode | null
   onNodeSelect: (node: TreeNode) => void
   selectedNode: TreeNode | null
-  onAddSchool: (newSchool: Omit<TreeNode, "id">) => void
+  onAddSchool: (newSchool: Omit<TreeNode, "id" | "nodeId">) => void
   currentSchoolId: string | null
   onSetCurrentSchool: (schoolId: string) => void
 }

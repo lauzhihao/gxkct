@@ -111,12 +111,10 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId }: CourseProjec
 
   // 打开全局KSA管理
   const handleOpenGlobalKsaDialog = () => {
-    setSelectedKsaCell({ chapterId: "global", coursePointId: "global", taskId: "global" })
-    setSelectedKsaSupport({})
     setKsaSearchK("")
     setKsaSearchS("")
     setKsaSearchA("")
-    setKsaDialogOpen(true)
+    openKsaDialog("global", "global", "global")
   }
 
   return (

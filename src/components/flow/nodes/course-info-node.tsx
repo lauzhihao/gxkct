@@ -69,24 +69,26 @@ export const CourseInfoNode = memo(function CourseInfoNode({
   id,
   data,
   selected,
-}: NodeProps<CourseInfoNodeData>) {
+}: NodeProps<any>) {
+  // [MOD] 使用类型断言确保 data 类型正确推导
+  const nodeData = data as CourseInfoNodeData
   // 处理编辑按钮点击
   const handleEdit = useCallback(() => {
-    data.onEdit?.(id)
-  }, [data, id])
+    nodeData.onEdit?.(id)
+  }, [nodeData, id])
 
   // 处理删除按钮点击
   const handleDelete = useCallback(() => {
-    data.onDelete?.(id)
-  }, [data, id])
+    nodeData.onDelete?.(id)
+  }, [nodeData, id])
 
   // 处理重做按钮点击
   const handleRefresh = useCallback(() => {
-    data.onRefresh?.(id)
-  }, [data, id])
+    nodeData.onRefresh?.(id)
+  }, [nodeData, id])
 
   // 从 metadata 中提取渲染所需字段
-  const metadata = data.metadata
+  const metadata = nodeData.metadata
   const theoryPeriod = metadata?.theoryPeriod ?? 0
   const practicePeriod = metadata?.practicePeriod ?? 0
 
@@ -114,11 +116,11 @@ export const CourseInfoNode = memo(function CourseInfoNode({
     <BaseFlowNode
       id={id}
       selected={selected}
-      highlighted={data.highlighted}
-      isDeleting={data.isDeleting}
-      isRefreshing={data.isRefreshing}
+      highlighted={nodeData.highlighted}
+      isDeleting={nodeData.isDeleting}
+      isRefreshing={nodeData.isRefreshing}
       icon={<BookOpen className="h-4 w-4" />}
-      title={data.name || "未命名课程"}
+      title={nodeData.name || "未命名课程"}
       headerColorClass="bg-sky-100"
       borderColorClass="border-sky-200"
       textColorClass="text-sky-700"
@@ -164,7 +166,7 @@ export const CourseInfoNode = memo(function CourseInfoNode({
           <InfoItem icon={Calendar} label="开课日期" value={formatDate(metadata?.openingDate)} />
           <InfoItem icon={Users} label="学生人数" value={metadata?.studentCount ? `${metadata.studentCount}人` : undefined} />
           <InfoItem icon={MapPin} label="授课地点" value={metadata?.teachingLocation} />
-          <InfoItem icon={Clock} label="授课时间" value={teachingTimeDisplay} />
+          <InfoItem icon={Clock} label="授课时间" value={teachingTimeDisplay ?? undefined} />
         </div>
 
         {/* 课程简介 */}

@@ -16,8 +16,10 @@ import {
   CoursePointCardData,
   KsaItemData,
   RegenerateTarget,
+  RegenerateTag,
   CourseInfoData,
 } from "./canvas-elements"
+import { getNodeColorConfig } from "./flow/utils/types"
 import { useCanvasElements } from "@/shared/hooks/use-canvas-elements"
 import { useCanvasPersistence } from "@/shared/hooks/use-canvas-persistence"
 import { useSSEStream } from "@/shared/hooks/use-sse-stream"
@@ -128,6 +130,8 @@ export function AiAssistantDrawer({
   // 重做功能状态
   const [regenerateTarget, setRegenerateTarget] = useState<RegenerateTarget | null>(null)
   const [isRegenerating, setIsRegenerating] = useState(false)
+  // 重做标签状态
+  const [regenerateTag, setRegenerateTag] = useState<RegenerateTag | null>(null)
 
   // 填充进度状态（合并课程矩阵、项目矩阵、课点、KSA 四种进度）
   const [fillProgress, setFillProgress] = useState<FillProgress>({})
@@ -292,6 +296,7 @@ export function AiAssistantDrawer({
     // 重置重做状态
     setRegenerateTarget(null)
     setIsRegenerating(false)
+    setRegenerateTag(null)
 
     // 保存新会话到localStorage
     saveSessionToStorage(newSessionId, newMessages)
@@ -783,97 +788,45 @@ export function AiAssistantDrawer({
     })
   }, [executeSSERequest, canvasElements, updateCanvasPanelChildren, selectCanvasElement])
 
+  // CanvasComponentType 到 FlowNodeType 的映射（用于获取颜色配置）
+  const CANVAS_TO_FLOW_TYPE: Record<CanvasComponentType, string> = {
+    [CanvasComponentType.SOURCE_DOCUMENT_PANEL]: "sourceDocumentPanel",
+    [CanvasComponentType.SOURCE_DOCUMENT_CARD]: "sourceDocument",
+    [CanvasComponentType.COURSE_INFO]: "courseInfo",
+    [CanvasComponentType.OBJECTIVE_PANEL]: "objectivePanel",
+    [CanvasComponentType.OBJECTIVE_CARD]: "objective",
+    [CanvasComponentType.COURSE_POINT_PANEL]: "coursePointPanel",
+    [CanvasComponentType.COURSE_POINT_CARD]: "coursePoint",
+    [CanvasComponentType.CHAPTER_PANEL]: "chapterPanel",
+    [CanvasComponentType.CHAPTER_CARD]: "chapter",
+    [CanvasComponentType.KSA_PANEL]: "ksaPanel",
+    [CanvasComponentType.KSA_ITEM]: "ksa",
+    [CanvasComponentType.COURSE_MATRIX]: "courseMatrix",
+    [CanvasComponentType.PROJECT_MATRIX_PANEL]: "projectMatrix",
+    [CanvasComponentType.PROJECT_MATRIX]: "projectMatrix",
+    [CanvasComponentType.COURSE_REPORT]: "courseReport",
+  }
+
   // 处理画布组件重做请求
   const handleRegenerate = useCallback(async (nodeId: string, nodeType: CanvasComponentType, nodeName: string) => {
-    // 章节面板重做时，使用专用填充函数
-    if (nodeType === CanvasComponentType.CHAPTER_PANEL) {
-      console.log("[重做] 章节面板使用专用填充函数:", nodeId)
-      handleFillChapterPanel(nodeId)
-      return
-    }
+    // 获取颜色配置
+    const flowNodeType = CANVAS_TO_FLOW_TYPE[nodeType] as Parameters<typeof getNodeColorConfig>[0]
+    const colorConfig = getNodeColorConfig(flowNodeType)
 
-    // 教学目标面板重做时，使用专用填充函数
-    if (nodeType === CanvasComponentType.OBJECTIVE_PANEL) {
-      console.log("[重做] 教学目标面板使用专用填充函数:", nodeId)
-      handleFillObjectivePanel(nodeId)
-      return
-    }
-
-    // [MOD] 课点信息面板重做时，使用专用填充函数（与新增课点组件使用同一接口）
-    if (nodeType === CanvasComponentType.COURSE_POINT_PANEL) {
-      console.log("[重做] 课点信息面板使用专用填充函数:", nodeId)
-      handleFillCoursePoints(nodeId)
-      return
-    }
-
-    // [MOD] KSA面板重做时，使用专用填充函数（与新增KSA组件使用同一接口）
-    if (nodeType === CanvasComponentType.KSA_PANEL) {
-      console.log("[重做] KSA面板使用专用填充函数:", nodeId)
-      handleFillKsa(nodeId)
-      return
-    }
-
-    // [MOD] 课程矩阵重做时，使用专用填充函数（与新增课程矩阵使用同一接口）
-    if (nodeType === CanvasComponentType.COURSE_MATRIX) {
-      console.log("[重做] 课程矩阵使用专用填充函数:", nodeId)
-      handleFillCourseMatrix(nodeId)
-      return
-    }
-
-    // [MOD] 项目矩阵重做时，使用专用填充函数（与新增项目矩阵使用同一接口）
-    if (nodeType === CanvasComponentType.PROJECT_MATRIX) {
-      console.log("[重做] 项目矩阵使用专用填充函数:", nodeId)
-      handleFillProjectMatrix(nodeId)
-      return
-    }
-
-    // 设置重做目标状态（在 executeSSERequest 之前）
-    setRegenerateTarget({
-      component_id: nodeId,
-      component_type: nodeType,
-    })
-
-    // 获取组件中文名称（用于提示词模板）
+    // 获取组件类型的中文名称
     const elementTypeName = ELEMENT_TYPE_TITLES[nodeType] || nodeType
 
-    try {
-      await executeSSERequest({
-        userContent: `请帮我重新完善${elementTypeName}的内容`,
-        messageSuffix: "regenerate",
-        logPrefix: "重做",
-        defaultCompleteMessage: "组件已重新生成",
-        cancelMessage: "已取消重做操作。",
-        errorMessage: "重做失败，请稍后再试。",
-        payload: {
-          regenerate: {
-            component_id: nodeId,
-            component_type: nodeType,
-          },
-        },
-        onBeforeRequest: () => {
-          // 清空目标节点内容（重做前必须清空，否则原有内容会传到后台）
-          const PANEL_TO_CARD_TYPE: Record<string, CanvasComponentType> = {
-            [CanvasComponentType.OBJECTIVE_PANEL]: CanvasComponentType.OBJECTIVE_CARD,
-            [CanvasComponentType.CHAPTER_PANEL]: CanvasComponentType.CHAPTER_CARD,
-            [CanvasComponentType.COURSE_POINT_PANEL]: CanvasComponentType.COURSE_POINT_CARD,
-            [CanvasComponentType.KSA_PANEL]: CanvasComponentType.KSA_ITEM,
-          }
-          const childType = PANEL_TO_CARD_TYPE[nodeType]
-          if (childType) {
-            console.log("[重做] 清空Panel子节点:", nodeId, nodeType)
-            updateCanvasPanelChildren(nodeId, nodeType, childType, [])
-          }
-        },
-        onComplete: () => {
-          // 选中被更新的节点，使其自动获取焦点
-          selectCanvasElement(nodeId)
-        },
-      })
-    } finally {
-      // 确保清理重做目标状态
-      setRegenerateTarget(null)
-    }
-  }, [executeSSERequest, handleFillChapterPanel, handleFillObjectivePanel, updateCanvasPanelChildren, updateCanvasElementData, selectCanvasElement])
+    // 设置重做标签，聚焦输入框
+    setRegenerateTag({
+      component_id: nodeId,
+      component_type: nodeType,
+      node_name: elementTypeName,
+      color_config: colorConfig,
+    })
+
+    // 聚焦输入框
+    textareaRef.current?.focus()
+  }, [])
 
   // 处理课程矩阵自动填充请求
   // [MOD] 添加可选参数 targetMatrixId，支持重做时指定目标矩阵
@@ -1117,6 +1070,7 @@ export function AiAssistantDrawer({
     setStreamingThinking('')
     setIsRegenerating(false)
     setRegenerateTarget(null)
+    setRegenerateTag(null)
     setToolStatus(null)
     setProgress(null)
 
@@ -1142,6 +1096,62 @@ export function AiAssistantDrawer({
   // 处理发送聊天消息
   const handleSendMessage = useCallback(async () => {
     if (!inputMessage.trim() || !isInitialized || !sessionId) {
+      return
+    }
+
+    // 检测是否有重做标签
+    if (regenerateTag) {
+      // 清空标签
+      setRegenerateTag(null)
+
+      // 设置重做目标
+      setRegenerateTarget({
+        component_id: regenerateTag.component_id,
+        component_type: regenerateTag.component_type,
+      })
+
+      // 聚焦输入框后失去焦点（防止重复发送）
+      textareaRef.current?.blur()
+
+      try {
+        await executeSSERequest({
+          userContent: inputMessage.trim(),
+          messageSuffix: "regenerate",
+          logPrefix: "重做",
+          defaultCompleteMessage: "组件已重新生成",
+          cancelMessage: "已取消重做操作。",
+          errorMessage: "重做失败，请稍后再试。",
+          payload: {
+            regenerate: {
+              component_id: regenerateTag.component_id,
+              component_type: regenerateTag.component_type,
+            },
+          },
+          onBeforeRequest: () => {
+            // 清空目标节点内容（重做前必须清空，否则原有内容会传到后台）
+            const PANEL_TO_CARD_TYPE: Record<string, CanvasComponentType> = {
+              [CanvasComponentType.OBJECTIVE_PANEL]: CanvasComponentType.OBJECTIVE_CARD,
+              [CanvasComponentType.CHAPTER_PANEL]: CanvasComponentType.CHAPTER_CARD,
+              [CanvasComponentType.COURSE_POINT_PANEL]: CanvasComponentType.COURSE_POINT_CARD,
+              [CanvasComponentType.KSA_PANEL]: CanvasComponentType.KSA_ITEM,
+            }
+            const childType = PANEL_TO_CARD_TYPE[regenerateTag.component_type]
+            if (childType) {
+              console.log("[重做] 清空Panel子节点:", regenerateTag.component_id, regenerateTag.component_type)
+              updateCanvasPanelChildren(regenerateTag.component_id, regenerateTag.component_type, childType, [])
+            }
+          },
+          onComplete: () => {
+            // 选中被更新的节点，使其自动获取焦点
+            selectCanvasElement(regenerateTag.component_id)
+          },
+        })
+      } finally {
+        // 清空输入框
+        setInputMessage("")
+        // 确保清理重做目标状态
+        setRegenerateTarget(null)
+      }
       return
     }
 
@@ -1442,7 +1452,7 @@ export function AiAssistantDrawer({
         })
       }
     }
-  }, [inputMessage, isInitialized, sessionId, attachedFiles, uploadFileToOss, getCanvasOssKey, handleCanvasEvent, processStream, resetSSEController])
+  }, [inputMessage, isInitialized, sessionId, regenerateTag, attachedFiles, uploadFileToOss, getCanvasOssKey, handleCanvasEvent, processStream, resetSSEController, updateCanvasPanelChildren, selectCanvasElement, executeSSERequest])
 
   // 连接菜单处理器
   const handleConnectionMenuSelect = useCallback(
@@ -1610,6 +1620,9 @@ export function AiAssistantDrawer({
             onSend={handleSendMessage}
             onStop={handleStopGeneration}
             isCanvasExpanded={isCanvasExpanded}
+            regenerateTag={regenerateTag}
+            onRemoveRegenerateTag={() => setRegenerateTag(null)}
+            placeholder={regenerateTag ? "请告诉我您需要哪些补充信息？" : undefined}
           />
           </div>
 
@@ -1629,6 +1642,8 @@ export function AiAssistantDrawer({
                       // [MOD] 删除前将元素ID加入已删除集合，禁用聊天区关联卡片
                       setDeletedElementIds(prev => new Set(prev).add(nodeId))
                       removeCanvasElement(nodeId)
+                      // 删除元素时清除重做标签
+                      setRegenerateTag(null)
                     }}
                     onEdgeDelete={removeCanvasEdge}
                     onNodeDataUpdate={(nodeId, data) => updateCanvasElementData(nodeId, data)}

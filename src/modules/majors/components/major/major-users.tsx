@@ -49,7 +49,7 @@ export function MajorUsers({ node }: MajorUsersProps) {
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
   const [userSearchQuery, setUserSearchQuery] = useState("")
   const [showAllUsers, setShowAllUsers] = useState(false)
-  const { users, persistUsers, isLoading } = useMajorUsers(node.id)
+  const { users, persistUsers, isLoading } = useMajorUsers(node.id ?? "")
 
   const handleSaveUser = async () => {
     if (!node || !newUserEmail || !newUserName) return

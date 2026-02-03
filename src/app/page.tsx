@@ -170,19 +170,19 @@ export default function Page() {
     return null
   }
 
-  const handleAddSchool = (newSchool: Omit<TreeNode, "nodeId">) => {
+  const handleAddSchool = (newSchool: Omit<TreeNode, "id" | "nodeId">) => {
     treeDataHook?.addSchool(newSchool)
   }
 
-  const handleAddDepartment = (universityId: string, newDepartment: Omit<TreeNode, "nodeId">) => {
+  const handleAddDepartment = (universityId: string, newDepartment: Omit<TreeNode, "id" | "nodeId">) => {
     treeDataHook?.addDepartment(universityId, newDepartment)
   }
 
-  const handleAddMajor = (departmentId: string, newMajor: Omit<TreeNode, "nodeId">) => {
+  const handleAddMajor = (departmentId: string, newMajor: Omit<TreeNode, "id" | "nodeId">) => {
     treeDataHook?.addMajor(departmentId, newMajor)
   }
 
-  const handleAddCourse = (majorId: string, newCourse: Omit<TreeNode, "nodeId">) => {
+  const handleAddCourse = (majorId: string, newCourse: Omit<TreeNode, "id" | "nodeId">) => {
     treeDataHook?.addCourse(majorId, newCourse)
   }
 

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Loader2, RefreshCw, FolderPlus, Copy, Scissors, Trash2, Search as SearchIcon } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
-import { Empty } from "@/shared/components/ui/empty"
+import { Empty, EmptyDescription, EmptyTitle } from "@/shared/components/ui/empty"
 import { Input } from "@/shared/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
 import { ResourceBreadcrumb } from "./ResourceBreadcrumb"
@@ -271,7 +271,12 @@ export function CourseResourcesContainer({ nodeId }: CourseResourcesContainerPro
     isCreatingFolder || Boolean(folderNameError) || newFolderName.trim().length === 0
 
   if (!nodeId) {
-    return <Empty title="暂无课程数据" description="请选择具体课程后查看课程资源。" />
+    return (
+      <Empty>
+        <EmptyTitle>暂无课程数据</EmptyTitle>
+        <EmptyDescription>请选择具体课程后查看课程资源。</EmptyDescription>
+      </Empty>
+    )
   }
 
   return (

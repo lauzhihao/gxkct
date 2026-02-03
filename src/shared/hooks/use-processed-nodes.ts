@@ -145,7 +145,7 @@ export function useProcessedNodes({
     const map = new Map<string, KsaItemData>()
     for (const node of flowNodes) {
       if (node.type === FlowNodeType.KSA && node.data) {
-        const ksaData = node.data as KsaItemData
+        const ksaData = node.data as unknown as KsaItemData
         map.set(ksaData.id, ksaData)
       }
     }

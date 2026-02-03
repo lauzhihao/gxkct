@@ -17,7 +17,7 @@ import { useCourseResources } from "@/modules/courses/hooks/use-course-resources
 import type { ResourceBreadcrumbNode } from "@/modules/courses/hooks/use-course-resources"
 import type { ResourceEntry } from "@/modules/courses/components/course/resources/types"
 import { Loader2, Search } from "lucide-react"
-import { Empty } from "@/shared/components/ui/empty"
+import { Empty, EmptyDescription } from "@/shared/components/ui/empty"
 import { cn } from "@/shared/utils/utils"
 
 export interface PickedResource {
@@ -87,10 +87,11 @@ export function CourseResourcePickerDialog({
         }
         const target = objects.find((obj) => obj.id === objectId)
         if (!target) return prev
+        const objectDisplayName = target.displayName || target.name
         const item: PickedResource = {
           id: target.id,
-          name: target.displayName,
-          path: breadcrumbPath(breadcrumbs, target.displayName),
+          name: objectDisplayName,
+          path: breadcrumbPath(breadcrumbs, objectDisplayName),
         }
         if (selectionMode === "single") {
           return new Map([[target.id, item]])
@@ -158,14 +159,12 @@ export function CourseResourcePickerDialog({
           </div>
 
           {isInitializationState ? (
-            <Empty
-              title="暂无课程资源"
-              description="请先在课程资源页初始化目录。"
-            />
+            <Empty title="暂无课程资源">
+              <EmptyDescription>请先在课程资源页初始化目录。</EmptyDescription>
+            </Empty>
           ) : isEmptyState ? (
-            <Empty
-              title="当前课程暂无可用资源"
-              description={
+            <Empty>
+              <EmptyDescription>
                 <button
                   type="button"
                   className="text-primary underline underline-offset-4"
@@ -173,8 +172,8 @@ export function CourseResourcePickerDialog({
                 >
                   可前往课程资源进行管理
                 </button>
-              }
-            />
+              </EmptyDescription>
+            </Empty>
           ) : (
             <div className="relative rounded-lg border border-border p-4">
               {(isLoading || isObjectsLoading) && (

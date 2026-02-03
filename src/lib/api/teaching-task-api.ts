@@ -39,7 +39,7 @@ export class TeachingTaskApi {
   async getTasks(
     universityId: Long,
     params?: ListTaskParams,
-  ): Promise<ApiResponse<TeachingSupervisoryTask[]>> {
+  ): Promise<ApiResponse<TeachingSupervisoryTask[] | null>> {
     const endpoint = this.appendQuery(this.getBasePath(universityId), params)
     return this.http.get<TeachingSupervisoryTask[]>(endpoint)
   }
@@ -48,7 +48,7 @@ export class TeachingTaskApi {
     universityId: Long,
     taskId: Long,
     params?: Pick<ListTaskParams, "includeCriteria">,
-  ): Promise<ApiResponse<TeachingSupervisoryTask>> {
+  ): Promise<ApiResponse<TeachingSupervisoryTask | null>> {
     let endpoint = `${this.getBasePath(universityId)}/${taskId}`
     if (params?.includeCriteria) {
       endpoint = `${endpoint}?includeCriteria=true`
@@ -59,7 +59,7 @@ export class TeachingTaskApi {
   async createTask(
     universityId: Long,
     payload: CreateTeachingTaskPayload,
-  ): Promise<ApiResponse<TeachingSupervisoryTask>> {
+  ): Promise<ApiResponse<TeachingSupervisoryTask | null>> {
     return this.http.post<TeachingSupervisoryTask>(this.getBasePath(universityId), payload)
   }
 
@@ -67,7 +67,7 @@ export class TeachingTaskApi {
     universityId: Long,
     taskId: Long,
     payload: UpdateTeachingTaskPayload,
-  ): Promise<ApiResponse<TeachingSupervisoryTask>> {
+  ): Promise<ApiResponse<TeachingSupervisoryTask | null>> {
     const endpoint = `${this.getBasePath(universityId)}/${taskId}`
     return this.http.put<TeachingSupervisoryTask>(endpoint, payload)
   }
@@ -76,7 +76,7 @@ export class TeachingTaskApi {
     universityId: Long,
     taskId: Long,
     status: TeachingStatus,
-  ): Promise<ApiResponse<TeachingSupervisoryTask>> {
+  ): Promise<ApiResponse<TeachingSupervisoryTask | null>> {
     const endpoint = `${this.getBasePath(universityId)}/${taskId}/status`
     return this.http.patch<TeachingSupervisoryTask>(endpoint, { status })
   }
@@ -85,7 +85,7 @@ export class TeachingTaskApi {
     universityId: Long,
     taskId: Long,
     archived = true,
-  ): Promise<ApiResponse<TeachingSupervisoryTask>> {
+  ): Promise<ApiResponse<TeachingSupervisoryTask | null>> {
     const endpoint = `${this.getBasePath(universityId)}/${taskId}/archive`
     return this.http.post<TeachingSupervisoryTask>(endpoint, { archived })
   }
@@ -94,7 +94,7 @@ export class TeachingTaskApi {
     universityId: Long,
     taskId: Long,
     titleSuffix?: string,
-  ): Promise<ApiResponse<TeachingSupervisoryTask>> {
+  ): Promise<ApiResponse<TeachingSupervisoryTask | null>> {
     const endpoint = `${this.getBasePath(universityId)}/${taskId}/copy`
     return this.http.post<TeachingSupervisoryTask>(endpoint, titleSuffix ? { titleSuffix } : undefined)
   }
@@ -102,12 +102,12 @@ export class TeachingTaskApi {
   async getTasksByStatus(
     universityId: Long,
     status: TeachingStatus,
-  ): Promise<ApiResponse<TeachingSupervisoryTask[]>> {
+  ): Promise<ApiResponse<TeachingSupervisoryTask[] | null>> {
     return this.getTasks(universityId, { status })
   }
 
   // 获取专业下的任务列表
-  async getTasksByMajor(majorId: Long): Promise<ApiResponse<TeachingSupervisoryTask[]>> {
+  async getTasksByMajor(majorId: Long): Promise<ApiResponse<TeachingSupervisoryTask[] | null>> {
     const endpoint = `/api/v5/task-evaluation/majors/${majorId}/tasks`
     return this.http.get<TeachingSupervisoryTask[]>(endpoint)
   }

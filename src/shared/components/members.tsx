@@ -46,7 +46,7 @@ interface MembersProps {
   node: TreeNode
 }
 
-interface User {
+interface MemberUser {
   id: number
   account: string
   name: string
@@ -65,8 +65,17 @@ interface User {
 }
 
 // 根据节点类型获取角色配置
-const getRoleConfig = (nodeType: NodeType) => {
-  const roleConfigs: Record<NodeType, { roles: string[]; defaultRole: string; labels: Record<string, string> }> = {
+const getRoleConfig = (
+  nodeType: NodeType
+): {
+  roles: string[]
+  defaultRole: string
+  labels: Record<string, string>
+} => {
+  const roleConfigs: Record<
+    NodeType,
+    { roles: string[]; defaultRole: string; labels: Record<string, string> }
+  > = {
     university: {
       roles: ["管理员"],
       defaultRole: "管理员",
@@ -113,7 +122,10 @@ const getRoleConfig = (nodeType: NodeType) => {
 }
 
 export function Members({ node }: MembersProps) {
-  const roleConfig = getRoleConfig(node.type)
+  // 使用兼容属性，确保 type 总是有值
+  const nodeType = node.type ?? node.nodeType
+  const nodeId = node.id ?? node.nodeId
+  const roleConfig = getRoleConfig(nodeType)
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false)
   const [userRolePopoverOpen, setUserRolePopoverOpen] = useState(false)
   const [newUserAccount, setNewUserAccount] = useState("")
@@ -124,7 +136,7 @@ export function Members({ node }: MembersProps) {
   const [newUserMajor, setNewUserMajor] = useState("")
   const [editingUserId, setEditingUserId] = useState<number | null>(null)
   const [userSearchQuery, setUserSearchQuery] = useState("")
-  const [users, setUsers] = useState<User[]>([])
+  const [users, setUsers] = useState<MemberUser[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>("全部")
 
@@ -134,15 +146,55 @@ export function Members({ node }: MembersProps) {
     const loadUsers = async () => {
       setIsLoading(true)
       try {
-        if (node.type === "university") {
-          const response = await api.tree.getUniversityUsers(node.id)
-          setUsers(response.data ?? [])
-        } else if (node.type === "department") {
-          const response = await api.tree.getDepartmentUsers(node.id)
-          setUsers(response.data ?? [])
+        if (nodeType === "university") {
+          const response = await api.tree.getUniversityUsers(nodeId)
+          // 数据类型转换：将 API 返回的 UniversityMember[] 转换为 MemberUser[]
+          const universityUsers: MemberUser[] = (response.data ?? []).map((user) => ({
+            ...user,
+            id: Number(user.id),
+            university: undefined,
+            department: undefined,
+            major: undefined,
+            courseCount: undefined,
+            courses: undefined,
+          }))
+          setUsers(universityUsers)
+        } else if (nodeType === "department") {
+          const response = await api.tree.getDepartmentUsers(nodeId)
+          // 数据类型转换：将 API 返回的 DepartmentMember[] 转换为 MemberUser[]
+          const deptUsers: MemberUser[] = (response.data ?? []).map((user) => ({
+            id: Number(user.id),
+            account: user.account ?? "",
+            name: user.name,
+            belong: user.belong ?? "",
+            relative: user.relative ?? 0,
+            auth: user.auth,
+            permission: user.permission ?? 0,
+            old: user.old ?? false,
+            disabled: user.disabled ?? false,
+            university: undefined,
+            department: undefined,
+            major: undefined,
+            courseCount: undefined,
+            courses: undefined,
+          }))
+          setUsers(deptUsers)
         } else {
-          const response = await api.users.getUsers(node.id)
-          setUsers(response.data ?? [])
+          // 其他节点类型使用本地存储的用户数据
+          const response = await api.users.getUsers(nodeId)
+          // 数据类型转换：user-api.ts 的 User -> MemberUser
+          const otherUsers: MemberUser[] = (response.data ?? []).map((user) => ({
+            id: Number(user.id),
+            account: "",
+            name: user.name,
+            belong: "",
+            relative: 0,
+            auth: user.role === "admin" ? "系统管理员" : user.role === "teacher" ? "主讲教师" : "教师",
+            permission: user.role === "admin" ? 1 : 0,
+            old: false,
+            disabled: false,
+          }))
+          setUsers(otherUsers)
         }
       } catch (error) {
         console.error("[Members] 加载成员失败:", error)
@@ -154,12 +206,12 @@ export function Members({ node }: MembersProps) {
 
     loadUsers()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [node.id, node.type])
+  }, [nodeId, nodeType])
 
   const handleSaveUser = async () => {
     if (!node || !newUserAccount || !newUserName) return
 
-    let updatedUsers
+    let updatedUsers: MemberUser[]
 
     if (editingUserId) {
       updatedUsers = users.map((user) =>
@@ -176,7 +228,7 @@ export function Members({ node }: MembersProps) {
           : user,
       )
     } else {
-      const newUser: User = {
+      const newUser: MemberUser = {
         id: Date.now(),
         account: newUserAccount,
         name: newUserName,
@@ -194,7 +246,7 @@ export function Members({ node }: MembersProps) {
     }
 
     setUsers(updatedUsers)
-    await api.users.updateUsers(node.id, updatedUsers)
+    await api.users.updateUsers(nodeId, updatedUsers)
 
     setIsAddUserDialogOpen(false)
     setNewUserAccount("")
@@ -211,10 +263,10 @@ export function Members({ node }: MembersProps) {
 
     const updatedUsers = users.map((user) => (user.id === userId ? { ...user, disabled: !user.disabled } : user))
     setUsers(updatedUsers)
-    await api.users.updateUsers(node.id, updatedUsers)
+    await api.users.updateUsers(nodeId, updatedUsers)
   }
 
-  const handleEditUser = (user: User) => {
+  const handleEditUser = (user: MemberUser) => {
     setEditingUserId(user.id)
     setNewUserAccount(user.account)
     setNewUserName(user.name)
@@ -230,10 +282,10 @@ export function Members({ node }: MembersProps) {
 
     const updatedUsers = users.filter((user) => user.id !== userId)
     setUsers(updatedUsers)
-    await api.users.updateUsers(node.id, updatedUsers)
+    await api.users.updateUsers(nodeId, updatedUsers)
   }
 
-  const handleResetPassword = (userId: string) => {
+  const handleResetPassword = (userId: number) => {
     console.log("Password reset for user:", userId)
   }
 
@@ -268,7 +320,7 @@ export function Members({ node }: MembersProps) {
 
   // 根据节点类型计算统计数据
   const getStatistics = () => {
-    if (node.type === "department") {
+    if (nodeType === "department") {
       // 院系级：统计系部管理员、专业管理员、任课教师
       return [
         {
@@ -289,8 +341,10 @@ export function Members({ node }: MembersProps) {
       ]
     } else {
       // 其他级别：使用原有逻辑
-      const adminCount = users.filter((u) => u.auth === roleConfig.roles[0]).length
-      const secondRoleCount = roleConfig.roles[1] ? users.filter((u) => u.auth === roleConfig.roles[1]).length : 0
+      const firstRole = roleConfig.roles[0] ?? roleConfig.defaultRole
+      const secondRole = roleConfig.roles[1]
+      const adminCount = users.filter((u) => u.auth === firstRole).length
+      const secondRoleCount = secondRole ? users.filter((u) => u.auth === secondRole).length : 0
 
       return [
         {
@@ -300,12 +354,12 @@ export function Members({ node }: MembersProps) {
         },
         {
           count: adminCount,
-          label: roleConfig.labels[roleConfig.roles[0]],
+          label: roleConfig.labels[firstRole] ?? roleConfig.defaultRole,
           color: "accent",
         },
         {
           count: secondRoleCount,
-          label: roleConfig.roles[1] ? roleConfig.labels[roleConfig.roles[1]] : "其他成员",
+          label: secondRole ? roleConfig.labels[secondRole] ?? secondRole : "其他成员",
           color: "chart-3",
         },
       ]
@@ -317,7 +371,7 @@ export function Members({ node }: MembersProps) {
   return (
     <div className="space-y-6">
       {/* 院系级显示统计卡片 */}
-      {node.type === "department" && (
+      {nodeType === "department" && (
         <div className="grid grid-cols-3 gap-4">
           {statistics.map((stat, index) => (
             <Card
@@ -351,7 +405,7 @@ export function Members({ node }: MembersProps) {
               />
             </div>
             {/* 角色快速筛选按钮组 */}
-            {node.type === "university" && uniqueRoles.length > 1 && (
+            {nodeType === "university" && uniqueRoles.length > 1 && (
               <div className="flex items-center gap-1 flex-wrap">
                 {uniqueRoles.map((role) => (
                   <Button
@@ -440,7 +494,7 @@ export function Members({ node }: MembersProps) {
             // 根据节点类型和角色显示对应的机构归属标签
             let affiliationTag = null
 
-            if (node.type === "university") {
+            if (nodeType === "university") {
               // 学校级：显示所属单位（使用与角色标签相同的样式）
               if (user.belong) {
                 affiliationTag = (
@@ -449,7 +503,7 @@ export function Members({ node }: MembersProps) {
                   </span>
                 )
               }
-            } else if (node.type === "department") {
+            } else if (nodeType === "department") {
               // 院系级：不显示机构归属
               affiliationTag = null
             } else {

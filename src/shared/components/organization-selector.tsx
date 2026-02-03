@@ -71,35 +71,39 @@ function OrganizationSelectorNode({
   majorCourses,
   loadedMajorsWithNoCourses,
 }: OrganizationSelectorNodeProps): ReactElement {
-  const Icon = getIcon(node.type)
+  const nodeType = node.type || "unknown"
+  const Icon = getIcon(nodeType)
 
   // 合并动态加载的子节点
   let actualChildren = node.children || []
-  if (node.type === "department" && departmentMajors?.has(node.id)) {
-    actualChildren = departmentMajors.get(node.id) || []
+  const nodeId = node.id
+  if (node.type === "department" && nodeId && departmentMajors?.has(nodeId)) {
+    actualChildren = departmentMajors.get(nodeId) || []
   }
-  if (node.type === "major" && majorCourses?.has(node.id)) {
-    actualChildren = majorCourses.get(node.id) || []
+  if (node.type === "major" && nodeId && majorCourses?.has(nodeId)) {
+    actualChildren = majorCourses.get(nodeId) || []
   }
 
   const hasChildren = node.type === "department"
     ? true
     : node.type === "major"
-      ? !loadedMajorsWithNoCourses?.has(node.id)
+      ? nodeId && !loadedMajorsWithNoCourses?.has(nodeId)
       : (actualChildren && actualChildren.length > 0)
 
-  const isExpanded = expandedNodes.has(node.id)
-  const checked = isSelected(node.id)
+  const isExpanded = nodeId ? expandedNodes.has(nodeId) : false
+  const checked = nodeId ? isSelected(nodeId) : false
   const indentPadding = level * 24
 
   const handleCheckChange = (e: React.MouseEvent) => {
     e.stopPropagation()
-    onToggleSelect(node.id)
+    if (nodeId) {
+      onToggleSelect(nodeId)
+    }
   }
 
   const handleClick = () => {
-    if (hasChildren) {
-      onToggleExpand(node.id)
+    if (hasChildren && nodeId) {
+      onToggleExpand(nodeId)
     }
   }
 
@@ -132,7 +136,7 @@ function OrganizationSelectorNode({
         >
           <Checkbox
             checked={checked}
-            onCheckedChange={() => onToggleSelect(node.id)}
+            onCheckedChange={() => nodeId && onToggleSelect(nodeId)}
             className="cursor-pointer"
           />
         </div>

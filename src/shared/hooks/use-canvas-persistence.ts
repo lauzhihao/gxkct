@@ -240,7 +240,7 @@ export function useCanvasPersistence(options: UseCanvasPersistenceOptions) {
       console.log("[画布] presign.data:", presignResponse.data)
 
       // 兼容后端返回的字段名
-      const responseData = presignResponse.data as Record<string, unknown>
+      const responseData = presignResponse.data as unknown as Record<string, unknown>
       const uploadUrl = (responseData.uploadUrl || responseData.upload_url || responseData.url) as string
       // 后端返回 uploadPath 作为 OSS 存储路径
       const ossKey = (responseData.ossKey || responseData.oss_key || responseData.uploadPath || responseData.key) as string

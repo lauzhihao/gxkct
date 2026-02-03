@@ -53,7 +53,7 @@ export function TeachingTaskForm({ universityId, onSubmit, initialData }: Teachi
     }
 
     onSubmit({
-      universityId,
+      universityId: Number(universityId) || 0,
       title: title.trim(),
       description: description.trim(),
       startDate,
@@ -144,7 +144,7 @@ export function TeachingTaskForm({ universityId, onSubmit, initialData }: Teachi
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label htmlFor="task-status">任务状态</Label>
-              <Select value={status} onValueChange={(value: any) => setStatus(value)}>
+              <Select value={status} onValueChange={(value: "not_started" | "in_progress" | "completed") => setStatus(value)}>
                 <SelectTrigger id="task-status">
                   <SelectValue />
                 </SelectTrigger>

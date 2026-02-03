@@ -91,6 +91,13 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
     chapterChildCount > 0 &&
     coursePointChildCount > 0
 
+  // 顺序检查规则：objectives → chapters → course_points → ksa
+  // 必须按照顺序创建，前置面板存在后才能创建下一个
+  const canCreateObjective = !hasObjectivePanel
+  const canCreateChapter = hasObjectivePanel && !hasChapterPanel
+  const canCreateCoursePoint = hasObjectivePanel && hasChapterPanel && !hasCoursePointPanel
+  const canCreateKsa = hasObjectivePanel && hasChapterPanel && hasCoursePointPanel && !hasKsaPanel
+
   return (
     <div
       className="absolute z-50 min-w-[160px] bg-popover text-popover-foreground rounded-lg border shadow-lg p-1 canvas-connection-menu"
@@ -188,60 +195,64 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
         </>
       ) : (
         <>
-          {/* 默认菜单 - 从课程信息卡片拖出时显示 */}
+          {/* 默认菜单 - 从课程信息卡片拖出时显示，按顺序检查规则控制 */}
           <button
             className={`group flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm canvas-menu-item ${
-              hasObjectivePanel
-                ? "text-muted-foreground/50 cursor-not-allowed"
-                : "hover:bg-accent hover:text-accent-foreground"
+              canCreateObjective
+                ? "hover:bg-accent hover:text-accent-foreground"
+                : "text-muted-foreground/50 cursor-not-allowed"
             }`}
-            onClick={() => !hasObjectivePanel && onMenuSelect("objective")}
-            disabled={hasObjectivePanel}
+            onClick={() => canCreateObjective && onMenuSelect("objective")}
+            disabled={!canCreateObjective}
+            title={!canCreateObjective && hasObjectivePanel ? "教学目标面板已存在" : !canCreateObjective ? "需要先创建教学目标面板" : ""}
           >
             <Plus className={`h-4 w-4 transition-opacity ${
-              hasObjectivePanel ? "opacity-30" : "opacity-0 group-hover:opacity-100"
+              canCreateObjective ? "opacity-0 group-hover:opacity-100" : "opacity-30"
             }`} />
             <span>教学目标</span>
           </button>
           <button
             className={`group flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm canvas-menu-item ${
-              hasCoursePointPanel
-                ? "text-muted-foreground/50 cursor-not-allowed"
-                : "hover:bg-accent hover:text-accent-foreground"
+              canCreateChapter
+                ? "hover:bg-accent hover:text-accent-foreground"
+                : "text-muted-foreground/50 cursor-not-allowed"
             }`}
-            onClick={() => !hasCoursePointPanel && onMenuSelect("coursePoint")}
-            disabled={hasCoursePointPanel}
+            onClick={() => canCreateChapter && onMenuSelect("chapter")}
+            disabled={!canCreateChapter}
+            title={!canCreateChapter && hasChapterPanel ? "章节项目面板已存在" : !canCreateChapter ? "需要先创建章节项目面板" : ""}
           >
             <Plus className={`h-4 w-4 transition-opacity ${
-              hasCoursePointPanel ? "opacity-30" : "opacity-0 group-hover:opacity-100"
-            }`} />
-            <span>课点信息</span>
-          </button>
-          <button
-            className={`group flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm canvas-menu-item ${
-              hasChapterPanel
-                ? "text-muted-foreground/50 cursor-not-allowed"
-                : "hover:bg-accent hover:text-accent-foreground"
-            }`}
-            onClick={() => !hasChapterPanel && onMenuSelect("chapter")}
-            disabled={hasChapterPanel}
-          >
-            <Plus className={`h-4 w-4 transition-opacity ${
-              hasChapterPanel ? "opacity-30" : "opacity-0 group-hover:opacity-100"
+              canCreateChapter ? "opacity-0 group-hover:opacity-100" : "opacity-30"
             }`} />
             <span>章节项目</span>
           </button>
           <button
             className={`group flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm canvas-menu-item ${
-              hasKsaPanel
-                ? "text-muted-foreground/50 cursor-not-allowed"
-                : "hover:bg-accent hover:text-accent-foreground"
+              canCreateCoursePoint
+                ? "hover:bg-accent hover:text-accent-foreground"
+                : "text-muted-foreground/50 cursor-not-allowed"
             }`}
-            onClick={() => !hasKsaPanel && onMenuSelect("ksa")}
-            disabled={hasKsaPanel}
+            onClick={() => canCreateCoursePoint && onMenuSelect("coursePoint")}
+            disabled={!canCreateCoursePoint}
+            title={!canCreateCoursePoint && hasCoursePointPanel ? "课点信息面板已存在" : !canCreateCoursePoint ? "需要先创建章节项目面板" : ""}
           >
             <Plus className={`h-4 w-4 transition-opacity ${
-              hasKsaPanel ? "opacity-30" : "opacity-0 group-hover:opacity-100"
+              canCreateCoursePoint ? "opacity-0 group-hover:opacity-100" : "opacity-30"
+            }`} />
+            <span>课点信息</span>
+          </button>
+          <button
+            className={`group flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm canvas-menu-item ${
+              canCreateKsa
+                ? "hover:bg-accent hover:text-accent-foreground"
+                : "text-muted-foreground/50 cursor-not-allowed"
+            }`}
+            onClick={() => canCreateKsa && onMenuSelect("ksa")}
+            disabled={!canCreateKsa}
+            title={!canCreateKsa && hasKsaPanel ? "KSA面板已存在" : !canCreateKsa ? "需要先创建课点信息面板" : ""}
+          >
+            <Plus className={`h-4 w-4 transition-opacity ${
+              canCreateKsa ? "opacity-0 group-hover:opacity-100" : "opacity-30"
             }`} />
             <span>KSA</span>
           </button>

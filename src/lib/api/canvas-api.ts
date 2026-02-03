@@ -52,7 +52,7 @@ export class CanvasApi {
    * 获取画布内容上传预签名 URL
    * GET /api/oss/presign?fileName=xxx&mimeType=application/json&size=xxx
    */
-  getPresignUrl(payload: CanvasPresignRequest): Promise<ApiResponse<CanvasPresignResponse>> {
+  getPresignUrl(payload: CanvasPresignRequest): Promise<ApiResponse<CanvasPresignResponse | null>> {
     const params = new URLSearchParams({
       fileName: payload.fileName,
       mimeType: payload.mimeType || "application/json",

@@ -10,7 +10,7 @@ import type { BackendResponse, ApiResponse } from "./types"
  */
 export function handleBackendResponse<T>(
   backendResponse: BackendResponse<T>,
-  showErrorToast: boolean = true
+  showErrorToast?: boolean
 ): ApiResponse<T> {
   const { code, message, data } = backendResponse
 
@@ -29,7 +29,7 @@ export function handleBackendResponse<T>(
   }
 
   return {
-    data: null,
+    data: null as T,
     error: message || "请求失败",
     status: parseInt(code) || 500,
   }

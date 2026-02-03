@@ -11,6 +11,7 @@ import { Send, Loader2, FileText, X, Square } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 import type { AttachedFile } from "@/types/ai-assistant"
+import type { RegenerateTag } from "@/components/canvas-elements"
 
 /**
  * 聊天输入区域 Props
@@ -38,6 +39,12 @@ export interface ChatInputAreaProps {
   onStop: () => void
   /** 画布是否展开（影响布局） */
   isCanvasExpanded: boolean
+  /** 重做标签状态 */
+  regenerateTag?: RegenerateTag | null
+  /** 移除重做标签回调 */
+  onRemoveRegenerateTag?: () => void
+  /** 自定义占位符文本 */
+  placeholder?: string
 }
 
 /**
@@ -57,6 +64,9 @@ export const ChatInputArea = forwardRef<HTMLTextAreaElement, ChatInputAreaProps>
       onSend,
       onStop,
       isCanvasExpanded,
+      regenerateTag,
+      onRemoveRegenerateTag,
+      placeholder,
     },
     ref
   ) {
@@ -71,6 +81,25 @@ export const ChatInputArea = forwardRef<HTMLTextAreaElement, ChatInputAreaProps>
           isCanvasExpanded ? "p-5" : "p-6"
         }`}
       >
+        {/* 重做标签区域 */}
+        {regenerateTag && (
+          <div
+            className={`flex items-center justify-between w-1/2 min-w-[200px] px-3 py-2 rounded-md ${regenerateTag.color_config.bg} ${regenerateTag.color_config.border} border`}
+          >
+            <span className={`text-sm truncate ${regenerateTag.color_config.text}`}>
+              请帮我重新设计{regenerateTag.node_name}
+            </span>
+            <button
+              type="button"
+              onClick={onRemoveRegenerateTag}
+              className={`flex-shrink-0 p-0.5 rounded hover:bg-black/5 ${regenerateTag.color_config.text} hover:text-opacity-80 transition-colors ml-2`}
+              title="移除标签"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+
         {/* 输入框区域 */}
         <div className="relative">
           <div className="ai-assistant-border-wrapper">
@@ -80,7 +109,7 @@ export const ChatInputArea = forwardRef<HTMLTextAreaElement, ChatInputAreaProps>
                 value={inputMessage}
                 onChange={onInputChange}
                 onExpandedChange={onExpandedChange}
-                placeholder="询问任何问题"
+                placeholder={placeholder || "询问任何问题"}
                 className="ai-assistant-textarea bg-background/80 px-3 py-2 text-sm pr-16"
                 rows={4}
                 hideCounter

@@ -40,3 +40,15 @@ export interface ResourceObjectListProps {
   onFolderClick: (folder: FolderData) => void
   isRootLevel?: boolean
 }
+
+export interface FileListItem {
+  id: string
+  name: string
+  size: string
+  date: string
+}
+
+export interface FileListProps {
+  files: FileListItem[]
+  onFileClick: (file: FileListItem) => void
+}
