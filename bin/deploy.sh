@@ -116,3 +116,6 @@ echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}部署完成！${NC}"
 echo -e "${GREEN}访问地址：http://$DOMAIN${NC}"
 echo -e "${GREEN}========================================${NC}"
+
+rm -rf *.zip
+rm -rf *.gz
