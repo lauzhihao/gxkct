@@ -164,12 +164,14 @@ export interface ObjectiveCardData {
 
 /**
  * 课点卡片数据
+ * 后端 SSE 返回格式: { id, index, name, description }
  */
 export interface CoursePointCardData {
   id: string
   index: number
-  name: string
-  description?: string
+  name: string              // 课点名称（用于显示）
+  description?: string      // 课点描述
+  content?: string          // 兼容旧格式
   // 索引签名，满足 @xyflow/react Node 泛型约束
   [key: string]: unknown
 }
@@ -432,15 +434,6 @@ export interface LayoutEventData {
 }
 
 /**
- * 重做目标数据
- * 用于指定需要重新生成的画布组件
- */
-export interface RegenerateTarget {
-  component_id: string           // 要重做的组件ID
-  component_type: CanvasComponentType  // 组件类型
-}
-
-/**
  * 重做标签状态
  * 用于在聊天输入框上方显示的可删除标签
  */
@@ -525,6 +518,19 @@ export interface ProgressEventMessage {
 }
 
 /**
+ * SSE processing事件消息结构（用于显示加载进度文案）
+ */
+export interface ProcessingEventMessage {
+  type: "processing"
+  stage: string
+  message: string
+  detail?: {
+    mode?: string
+    action?: string
+  }
+}
+
+/**
  * SSE mode事件消息结构
  */
 export interface ModeEventMessage {
@@ -540,6 +546,17 @@ export interface ModeEventMessage {
 export interface ErrorEventMessage {
   type: "error"
   message: string
+}
+
+/**
+ * 判断是否为processing事件
+ */
+export function isProcessingEvent(parsed: unknown): parsed is ProcessingEventMessage {
+  return (
+    typeof parsed === "object" &&
+    parsed !== null &&
+    (parsed as Record<string, unknown>).type === "processing"
+  )
 }
 
 /**

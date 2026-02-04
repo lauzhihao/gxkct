@@ -41,7 +41,7 @@ export const CoursePointNode = memo(function CoursePointNode({
       highlighted={highlighted}
       isDeleting={nodeData.isDeleting}
       icon={<Lightbulb className="h-4 w-4" />}
-      title={`课点 ${nodeData.index}: ${nodeData.name}`}
+      title={`课点${nodeData.index}`}
       headerColorClass="bg-green-100"
       borderColorClass="border-green-200"
       textColorClass="text-green-700"
@@ -49,8 +49,9 @@ export const CoursePointNode = memo(function CoursePointNode({
       showRightHandle={false}
       onDelete={handleDelete}
     >
-      {nodeData.description ? (
-        <p className="text-sm text-gray-600 line-clamp-2">{nodeData.description}</p>
+      {/* [MOD] 优先使用 name 字段，兼容旧的 content 字段 */}
+      {(nodeData.name || nodeData.content) ? (
+        <p className="text-sm text-gray-600 line-clamp-2">{nodeData.name || nodeData.content}</p>
       ) : (
         <p className="text-sm text-gray-400 italic">暂无描述</p>
       )}

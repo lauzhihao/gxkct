@@ -517,8 +517,8 @@ export function createCoursePointCard(
   const cardData: CoursePointCardData = {
     id: cardId,
     index: index + 1,
-    name: point.name || point.title || "",
-    description: point.description,
+    // 优先使用 content 字段，兼容旧数据使用 name/title
+    content: (point as { content?: string }).content || point.title || point.name || "",
   }
 
   return {
@@ -722,10 +722,54 @@ export function convertCourseToCanvasComplete(
     const cardSize = ELEMENT_SIZES[CanvasComponentType.COURSE_POINT_CARD]
     const panelSize = calculatePanelSize(coursePoints.length, panelColumns, cardSize)
 
-    const coursePointItems = coursePoints.map((point, idx) => ({
+    // 辅助函数：从标题中提取数字用于排序
+    const extractNumber = (text: string): number => {
+      const match = text.match(/\d+/)
+      return match ? parseInt(match[0], 10) : Infinity
+    }
+
+    // 辅助函数：解析课点标题，提取索引和内容
+    // 如果标题是 "课点9" 格式，提取 9 作为 index，content 为空
+    // 如果标题是 "课点9：xxx" 格式，提取 9 作为 index，xxx 作为 content
+    const parseCoursePointTitle = (point: { name?: string; title?: string; content?: string }) => {
+      const rawContent = point.content || ""
+      const rawTitle = point.title || point.name || ""
+      const match = rawTitle.match(/^课点(\d+)[：:.]?\s*(.*)$/)
+      if (match) {
+        return {
+          index: parseInt(match[1], 10),
+          content: rawContent || match[2] || "", // 优先使用 content 字段
+        }
+      }
+      // 不是 "课点X" 格式，尝试提取任何数字作为索引
+      const numMatch = rawTitle.match(/(\d+)/)
+      if (numMatch) {
+        return {
+          index: parseInt(numMatch[1], 10),
+          content: rawContent || rawTitle,
+        }
+      }
+      // 没有数字，使用原始标题或 content
+      return {
+        index: 0,
+        content: rawContent || rawTitle,
+      }
+    }
+
+    // 预处理：为每个课点解析标题并添加排序用的索引
+    const coursePointsWithParsed = coursePoints.map((point) => ({
+      ...point,
+      parsed: parseCoursePointTitle(point),
+    }))
+
+    // 按数字排序（自然排序）
+    const sortedCoursePoints = [...coursePointsWithParsed].sort((a, b) => {
+      return a.parsed.index - b.parsed.index
+    })
+
+    const coursePointItems = sortedCoursePoints.map((point, idx) => ({
       id: `course_point_${idx + 1}`,
-      name: point.name || point.title || "",
-      description: point.description,
+      content: point.parsed.content || point.parsed.name || `课点${point.parsed.index}`,
     }))
 
     const coursePointPanelElement: CanvasElementData = {
@@ -741,19 +785,18 @@ export function convertCourseToCanvasComplete(
     }
     elements.push(coursePointPanelElement)
 
-    // 创建子卡片
-    coursePoints.forEach((point, idx) => {
+    // 创建子卡片（使用解析后的数据）
+    sortedCoursePoints.forEach((point, sortedIdx) => {
       const cardData: CoursePointCardData = {
-        id: `course_point_${idx + 1}`,
-        index: idx + 1,
-        name: point.name || point.title || "",
-        description: point.description,
+        id: `course_point_${sortedIdx + 1}`,
+        index: point.parsed.index || sortedIdx + 1,
+        content: point.parsed.content || point.parsed.name,
       }
 
       elements.push({
-        id: `course_point_${idx + 1}`,
+        id: `course_point_${sortedIdx + 1}`,
         type: CanvasComponentType.COURSE_POINT_CARD,
-        position: calculateCardPosition(idx, panelColumns, cardSize),
+        position: calculateCardPosition(sortedIdx, panelColumns, cardSize),
         size: cardSize,
         selected: false,
         data: cardData,

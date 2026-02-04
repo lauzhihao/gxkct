@@ -16,6 +16,9 @@ interface CoursePointPanelNodeProps {
     childCount?: number
     onAdd?: () => void
     progressMessage?: string | null
+    // 展开/折叠相关
+    onExpand?: (nodeId: string) => void
+    onCollapse?: (nodeId: string) => void
   }
   selected?: boolean
 }

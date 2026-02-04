@@ -9,6 +9,7 @@ export {
   isThinkingEvent,
   isUIEvent,
   isProgressEvent,
+  isProcessingEvent,
   isModeEvent,
   isErrorEvent,
   isOpenAIChunk,
@@ -49,8 +50,7 @@ export type {
   CanvasEdgeData,
   ConnectEventData,
   LayoutEventData,
-  // 重做目标
-  RegenerateTarget,
+  // 重做标签
   RegenerateTag,
   // SSE消息结构
   CanvasEventMessage,
@@ -58,6 +58,7 @@ export type {
   ThinkingEventMessage,
   UIEventMessage,
   ProgressEventMessage,
+  ProcessingEventMessage,
   ModeEventMessage,
   ErrorEventMessage,
   SSEEventMessage,

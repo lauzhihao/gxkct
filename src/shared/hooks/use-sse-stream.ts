@@ -7,6 +7,7 @@ import {
   isThinkingEvent,
   isUIEvent,
   isProgressEvent,
+  isProcessingEvent,
   isModeEvent,
   isErrorEvent,
   isOpenAIChunk,
@@ -14,6 +15,7 @@ import {
   StatusEventMessage,
   UIEventMessage,
   ProgressEventMessage,
+  ProcessingEventMessage,
   ModeEventMessage,
   ErrorEventMessage,
   CanvasAction,
@@ -35,6 +37,8 @@ export interface SSEStreamOptions {
   onUIEvent?: (event: UIEventMessage) => void
   /** 处理进度事件 */
   onProgressEvent?: (progress: ProgressEventMessage) => void
+  /** 处理 processing 事件（加载进度文案） */
+  onProcessingEvent?: (event: ProcessingEventMessage) => void
   /** 处理模式切换事件 */
   onModeEvent?: (mode: ModeEventMessage) => void
   /** 处理错误事件 */
@@ -159,6 +163,12 @@ export function useSSEStream(options: SSEStreamOptions): SSEStreamResult {
       // 处理 progress 事件
       if (isProgressEvent(parsed)) {
         opts.onProgressEvent?.(parsed as ProgressEventMessage)
+        return
+      }
+
+      // 处理 processing 事件
+      if (isProcessingEvent(parsed)) {
+        opts.onProcessingEvent?.(parsed as ProcessingEventMessage)
         return
       }
 

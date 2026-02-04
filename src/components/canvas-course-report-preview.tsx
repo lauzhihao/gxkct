@@ -360,8 +360,8 @@ export function CanvasCourseReportPreview({
                             {point.index}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm font-medium">{point.name}</td>
-                        <td className="px-4 py-3 text-sm text-muted-foreground">{point.description || "-"}</td>
+                        <td className="px-4 py-3 text-sm font-medium">{point.content}</td>
+                        <td className="px-4 py-3 text-sm text-muted-foreground">{typeof point.description === 'string' ? point.description : "-"}</td>
                       </tr>
                     ))}
                   </tbody>

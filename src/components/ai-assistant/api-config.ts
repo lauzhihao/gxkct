@@ -4,7 +4,7 @@
  * 集中管理 API 相关的常量和请求构建函数
  */
 
-import type { RegenerateTarget } from "@/components/canvas-elements"
+// [MOD] 删除 RegenerateTarget 导入，重做功能改用 fill_xxx 实现
 
 /**
  * AI API 配置常量
@@ -87,8 +87,7 @@ export interface AIRequestPayload {
   sessionId: string
   canvasOssKey?: string
   messages: AIRequestMessage[]
-  // 可选的填充/重做标记
-  regenerate?: RegenerateTarget
+  // 可选的填充标记
   fill_course_matrix?: boolean
   fill_project_matrix?: boolean
   fill_chapter_panel?: boolean
@@ -118,11 +117,6 @@ export function buildAIRequest(
   // 添加画布 OSS Key
   if (payload.canvasOssKey) {
     body.canvas_oss_key = payload.canvasOssKey
-  }
-
-  // 添加重做目标
-  if (payload.regenerate) {
-    body.regenerate = payload.regenerate
   }
 
   // 添加各种填充标记

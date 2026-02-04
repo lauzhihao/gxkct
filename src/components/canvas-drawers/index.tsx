@@ -161,11 +161,14 @@ export const CanvasDrawers = memo(function CanvasDrawers({
   // 获取可用的课点列表（用于课程矩阵编辑器）
   const availableCoursePoints = flowNodes
     .filter(n => n.type === FlowNodeType.COURSE_POINT)
-    .map(n => ({
-      id: n.id,
-      name: (n.data as unknown as CoursePointCardData).name,
-      description: (n.data as unknown as CoursePointCardData).description,
-    }))
+    .map(n => {
+      const data = n.data as unknown as CoursePointCardData
+      return {
+        id: n.id,
+        name: data.content,
+        description: typeof data.description === 'string' ? data.description : undefined,
+      }
+    })
 
   // 获取可用的KSA列表（用于项目矩阵编辑器）
   const availableKsaItems = flowNodes

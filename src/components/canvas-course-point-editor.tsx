@@ -36,7 +36,7 @@ export function CanvasCoursePointEditor({
   const [localCoursePoints, setLocalCoursePoints] = useState<CoursePointCardData[]>(
     coursePoints.length > 0
       ? coursePoints
-      : [{ id: "1", index: 1, name: "", description: "" }]
+      : [{ id: "1", index: 1, content: "" }]
   )
   const [searchKeyword, setSearchKeyword] = useState("")
 
@@ -46,8 +46,8 @@ export function CanvasCoursePointEditor({
     const keyword = searchKeyword.toLowerCase()
     return localCoursePoints.filter(
       (cp) =>
-        cp.name.toLowerCase().includes(keyword) ||
-        (cp.description?.toLowerCase().includes(keyword) ?? false)
+        cp.content.toLowerCase().includes(keyword) ||
+        (typeof cp.description === 'string' && cp.description.toLowerCase().includes(keyword))
     )
   }, [localCoursePoints, searchKeyword])
 
@@ -61,8 +61,7 @@ export function CanvasCoursePointEditor({
     const newItem: CoursePointCardData = {
       id: generateId(),
       index: localCoursePoints.length + 1,
-      name: "",
-      description: "",
+      content: "",
     }
     setLocalCoursePoints((prev) => [...prev, newItem])
   }, [generateId, localCoursePoints.length])
@@ -86,13 +85,13 @@ export function CanvasCoursePointEditor({
 
   // 保存并关闭
   const handleSave = useCallback(() => {
-    // 过滤空名称，重新计算索引
+    // 过滤空内容，重新计算索引
     const validPoints = localCoursePoints
-      .filter((cp) => cp.name.trim())
+      .filter((cp) => cp.content.trim())
       .map((cp, idx) => ({
         ...cp,
-        name: cp.name.trim(),
-        description: cp.description?.trim() || "",
+        content: cp.content.trim(),
+        description: typeof cp.description === 'string' ? cp.description.trim() : undefined,
         index: idx + 1,
       }))
     onSave(validPoints)
@@ -169,8 +168,8 @@ export function CanvasCoursePointEditor({
                       <td className="px-4 py-3 w-[200px]">
                         <Input
                           type="text"
-                          value={coursePoint.name}
-                          onChange={(e) => handleUpdateField(coursePoint.id, "name", e.target.value)}
+                          value={coursePoint.content}
+                          onChange={(e) => handleUpdateField(coursePoint.id, "content", e.target.value)}
                           className="h-9"
                           placeholder="请输入课点名称"
                         />
@@ -178,7 +177,7 @@ export function CanvasCoursePointEditor({
                       <td className="px-4 py-3">
                         <Input
                           type="text"
-                          value={coursePoint.description || ""}
+                          value={typeof coursePoint.description === 'string' ? coursePoint.description : ""}
                           onChange={(e) => handleUpdateField(coursePoint.id, "description", e.target.value)}
                           className="h-9"
                           placeholder="请输入课点描述（可选）"

@@ -719,9 +719,12 @@ function AiCanvasPanelInner({
         maxZoom={2}
         deleteKeyCode={["Backspace", "Delete"]}
         multiSelectionKeyCode={["Control", "Meta"]}
-        panOnScroll
-        selectionOnDrag
-        panOnDrag={[1, 2]}
+        // 默认拖动模式：左键拖拽空白处平移视口，滚轮缩放
+        panOnScroll={false}
+        panOnDrag={true}
+        // 按住 Shift 键时才能框选，避免与拖拽平移冲突
+        selectionOnDrag={false}
+        selectionKeyCode="Shift"
         selectNodesOnDrag={false}
         proOptions={{ hideAttribution: true }}
       >
