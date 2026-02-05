@@ -738,7 +738,7 @@ function AiCanvasPanelInner({
         />
 
         {/* 自定义缩放控制栏（含同步状态指示器） */}
-        {showControls && <CustomZoomControls isUploading={isUploading} />}
+        {showControls && <CustomZoomControls isUploading={isUploading} isLoading={isRegenerating} />}
 
         {/* 小地图 */}
         {showMiniMap && (

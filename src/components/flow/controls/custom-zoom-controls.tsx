@@ -11,11 +11,11 @@ const ZOOM_STEP = 5
 
 /**
  * 同步状态指示器组件
- * 上传中：闪烁的绿点
+ * 上传中/加载中：闪烁的绿点
  * 刚完成：绿色对勾（持续1秒）
  * 空闲：静态绿点
  */
-function SyncStatusIndicator({ isUploading }: { isUploading: boolean }) {
+function SyncStatusIndicator({ isUploading, isLoading }: { isUploading: boolean; isLoading: boolean }) {
   // 追踪"刚完成上传"状态，显示对勾1秒后变回绿点
   const [justCompleted, setJustCompleted] = useState(false)
   const wasUploadingRef = useRef(false)
@@ -33,12 +33,12 @@ function SyncStatusIndicator({ isUploading }: { isUploading: boolean }) {
     wasUploadingRef.current = isUploading
   }, [isUploading])
 
-  if (isUploading) {
-    // 上传中：闪烁的绿点
+  // 上传中或加载中：闪烁的绿点
+  if (isUploading || isLoading) {
     return (
       <div
         className="w-3 h-3 rounded-full bg-green-500 canvas-sync-pulse"
-        title="正在同步..."
+        title={isLoading ? "正在加载..." : "正在同步..."}
       />
     )
   }
@@ -67,13 +67,15 @@ function SyncStatusIndicator({ isUploading }: { isUploading: boolean }) {
 export interface CustomZoomControlsProps {
   /** 是否正在上传画布数据 */
   isUploading?: boolean
+  /** 是否正在加载（画布loading状态） */
+  isLoading?: boolean
 }
 
 /**
  * 自定义缩放控件组件
  * 提供缩放比例显示、放大/缩小按钮和适应视图功能
  */
-export function CustomZoomControls({ isUploading = false }: CustomZoomControlsProps) {
+export function CustomZoomControls({ isUploading = false, isLoading = false }: CustomZoomControlsProps) {
   const { fitView, getZoom, zoomTo } = useReactFlow()
   const [zoom, setZoom] = useState(1)
 
@@ -141,7 +143,7 @@ export function CustomZoomControls({ isUploading = false }: CustomZoomControlsPr
       {/* 同步状态指示器 */}
       <div className="w-px h-5 bg-gray-200 mx-1" />
       <div className="px-1.5 flex items-center justify-center">
-        <SyncStatusIndicator isUploading={isUploading} />
+        <SyncStatusIndicator isUploading={isUploading} isLoading={isLoading} />
       </div>
     </Panel>
   )

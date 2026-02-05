@@ -7,6 +7,7 @@ import { BaseFlowNode } from "./base-flow-node"
 import type { ProjectMatrixData, ProjectMatrixKsaItem, KsaItemData } from "@/components/canvas-elements/types"
 import { FlowNodeType } from "@/components/flow/utils/types"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip"
+import { SupportLabel } from "@/shared/components/support-label"
 
 /**
  * 项目矩阵节点扩展数据类型
@@ -196,9 +197,15 @@ export const ProjectMatrixNodeComponent = memo(function ProjectMatrixNodeCompone
                   onClick={() => handleCoursePointClick(row.course_point_id)}
                   className="border-t border-slate-100 cursor-pointer canvas-table-row"
                 >
-                  {/* 课点名称 */}
-                  <td className="px-3 py-2 text-gray-700 border-r border-slate-200 whitespace-nowrap">
-                    {row.course_point_name}
+                  {/* 课点名称 - 使用 SupportLabel 标签渲染 */}
+                  <td className="px-3 py-2 text-gray-700 border-r border-slate-200">
+                    <SupportLabel
+                      title={row.course_point_name}
+                      desc={row.course_point_description}
+                      type="strong"
+                      size="sm"
+                      tipsPosition="right"
+                    />
                   </td>
                   {/* 任务目标交叉单元格 - 显示KSA支撑 */}
                   {taskObjectives.map((obj) => {

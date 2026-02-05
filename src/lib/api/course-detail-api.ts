@@ -291,32 +291,28 @@ export class CourseDetailApi {
 
   /**
    * 根据专业ID获取专业详情数据（包含毕业要求）
-   * Mock阶段：无论入参是什么，都从major-detail.json中读取数据
    */
   async getMajorDetail(majorId: string | number): Promise<ApiResponse<MajorDetailData>> {
     try {
       console.log(`[CourseDetailApi] 获取专业详情，majorId: ${majorId}`)
 
-      // 动态导入 major-detail.json 文件
-      const majorDetailModule = await import("@/mock-data/major-detail.json")
-      const majorDetailResponse = majorDetailModule.default
+      const response = await this.storage.getFromApi<MajorDetailData>(
+        `/api/major/v2.0/detail?majorid=${majorId}`
+      )
 
-      // 提取数据
-      const majorData = majorDetailResponse.data
-
-      if (!majorData) {
-        console.error("[CourseDetailApi] 专业数据不完整")
+      if (response.error || !response.data) {
+        console.error("[CourseDetailApi] 获取专业详情失败:", response.error)
         return {
           data: null,
-          error: "专业数据不完整",
-          status: 404,
+          error: response.error || "获取专业详情失败",
+          status: response.status,
         }
       }
 
-      console.log("[CourseDetailApi] 专业详情数据加载成功", majorData)
+      console.log("[CourseDetailApi] 专业详情数据加载成功", response.data)
 
       return {
-        data: majorData,
+        data: response.data,
         error: null,
         status: 200,
       }

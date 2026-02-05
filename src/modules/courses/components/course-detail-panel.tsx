@@ -27,8 +27,8 @@ import {
 } from "@/shared/components/ui/alert-dialog"
 import { CourseBasicInfo } from "@/modules/courses/components/course/course-basic-info"
 import { CourseGoals } from "@/modules/courses/components/course/course-goals"
-import { CourseTeachingObjectives } from "@/modules/courses/components/course/course-teaching-objectives"
 import { CoursePoints } from "@/modules/courses/components/course/course-points"
+import { CourseKsa } from "@/modules/courses/components/course/course-ksa"
 import { CourseChapters } from "@/modules/courses/components/course/course-chapters"
 import { CourseResources } from "@/modules/courses/components/course/resources/course-resources"
 import { CourseSupervision } from "@/modules/courses/components/course/supervision/course-supervision"
@@ -483,11 +483,11 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
                 )}
 
                 {courseDetailInfo.pointksa.points && courseDetailInfo.pointksa.points.length > 0 && (
-                  <CourseTeachingObjectives objectives={courseDetailInfo.pointksa.points} />
+                  <CoursePoints objectives={courseDetailInfo.pointksa.points} />
                 )}
 
                 {courseDetailInfo.pointksa.ksas && courseDetailInfo.pointksa.ksas.length > 0 && (
-                  <CoursePoints coursePoints={courseDetailInfo.pointksa.ksas} />
+                  <CourseKsa coursePoints={courseDetailInfo.pointksa.ksas} />
                 )}
 
                 {courseDetailInfo.course.courseMatrixVOS && courseDetailInfo.course.courseMatrixVOS.length > 0 && (

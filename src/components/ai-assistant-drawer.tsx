@@ -208,9 +208,11 @@ export function AiAssistantDrawer({
   }, [canvasElements])
 
   // 抽屉打开时，从本地存储加载画布数据（必须在保存逻辑之前执行）
+  // [MOD] 增加 !initialCanvasData 条件：当有外部初始数据时，跳过本地存储加载，避免数据合并
   useEffect(() => {
     // 仅在抽屉打开、sessionId有效、且尚未加载过该session的画布时执行
-    if (open && sessionId && isInitialized && hasLoadedCanvasRef.current !== sessionId) {
+    // 重要：如果有 initialCanvasData，说明是从课程详情页进入，应由另一个 useEffect 处理
+    if (open && sessionId && isInitialized && hasLoadedCanvasRef.current !== sessionId && !initialCanvasData) {
       console.log("[AI助手] 尝试从本地存储加载画布, sessionId:", sessionId)
       const localCanvasData = loadCanvasFromLocal()
       console.log("[AI助手] 本地存储数据:", localCanvasData ? `元素数=${localCanvasData.elements?.length || 0}, 边数=${localCanvasData.edges?.length || 0}` : "无数据")
@@ -234,7 +236,7 @@ export function AiAssistantDrawer({
       // 标记该 session 的画布已完成加载（无论有无数据）
       hasLoadedCanvasRef.current = sessionId
     }
-  }, [open, sessionId, isInitialized, loadCanvasFromLocal, loadCanvasData])
+  }, [open, sessionId, isInitialized, initialCanvasData, loadCanvasFromLocal, loadCanvasData])
 
   // [MOD] 处理从外部传入的初始画布数据（如从课程详情页加载已有课程）
   useEffect(() => {

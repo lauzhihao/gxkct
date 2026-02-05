@@ -1,5 +1,6 @@
 import { toast } from "sonner"
 import type { BackendResponse, ApiResponse } from "./types"
+import { clearAllAuthData } from "./auth-config"
 
 /**
  * 统一处理后端响应
@@ -20,6 +21,19 @@ export function handleBackendResponse<T>(
       data,
       error: null,
       status: 200,
+    }
+  }
+
+  // TOKEN 失效处理：code "20024" 表示 TOKEN 解析失败，强制跳转登录页
+  if (code === "20024") {
+    clearAllAuthData()
+    if (typeof window !== "undefined") {
+      window.location.href = "/login"
+    }
+    return {
+      data: null as T,
+      error: message || "TOKEN已失效，请重新登录",
+      status: 401,
     }
   }
 

@@ -17,13 +17,13 @@ function convertToProjectMatrixData(responseData: ProjectMatrixDataResponse["dat
   }
 
   return {
-    projects: responseData.projects.map((p) => ({
+    projects: (responseData.projects || []).map((p) => ({
       project: {
-        id: String(p.project.id),
-        name: p.project.name,
+        id: p.project?.id,  // 保持数字类型
+        name: p.project?.name,
       },
-      goals: p.goals.map((g) => ({
-        id: String(g.id),
+      goals: (p.goals || []).map((g) => ({
+        id: g.id,
         description: g.description,
       })),
     })),
@@ -70,12 +70,12 @@ export interface ProjectMatrixItem {
 }
 
 export interface ProjectMatrixProject {
-  id: string
+  id: string | number
   name: string
 }
 
 export interface ProjectMatrixGoal {
-  id: string
+  id: string | number
   description: string
 }
 
@@ -193,8 +193,15 @@ export function useProjectMatrix(node: TreeNode, majorId?: string | number): Use
       if (projectMatrixResponse.error) {
         console.error("[useProjectMatrix] 获取项目矩阵数据失败:", projectMatrixResponse.error)
       } else if (projectMatrixResponse.data) {
-        console.log("[useProjectMatrix] 项目矩阵数据加载成功:", projectMatrixResponse.data)
-        const convertedData = convertToProjectMatrixData(projectMatrixResponse.data.data)
+        console.log("[useProjectMatrix] 项目矩阵原始响应:", projectMatrixResponse.data)
+        const responseData = projectMatrixResponse.data
+        console.log("[useProjectMatrix] projects结构:", JSON.stringify(responseData.projects?.[0], null, 2))
+        console.log("[useProjectMatrix] data数组长度:", responseData.data?.length)
+        if (responseData.data?.length > 0) {
+          console.log("[useProjectMatrix] data[0]结构:", JSON.stringify(responseData.data[0], null, 2))
+        }
+        const convertedData = convertToProjectMatrixData(responseData)
+        console.log("[useProjectMatrix] 转换后的数据:", JSON.stringify(convertedData, null, 2))
         setProjectMatrixData(convertedData)
       }
 

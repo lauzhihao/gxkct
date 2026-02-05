@@ -8,8 +8,9 @@ export { CourseDetail } from "./course-detail-panel"
 // 课程基础展示组件
 export { CourseBasicInfo } from "./course/course-basic-info"
 export { CoursePoints } from "./course/course-points"
+export { CourseKsa } from "./course/course-ksa"
 export { CourseChapters } from "./course/course-chapters"
-export { CourseTeachingObjectives } from "./course/course-teaching-objectives"
+export { CourseGoals } from "./course/course-goals"
 
 // 矩阵相关组件
 export { CourseMajorMatrix } from "./course/matrix/course-major-matrix"

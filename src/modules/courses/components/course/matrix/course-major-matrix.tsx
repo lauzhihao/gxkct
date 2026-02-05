@@ -5,8 +5,9 @@ import { Button } from "@/shared/components/ui/button"
 import { BookMarked, Pencil, X, Loader2, Check } from "lucide-react"
 import { cn } from "@/shared/utils/utils"
 import { courseDetailApi } from "@/modules/courses/api/courseDetailApi"
-import { courseMatrixApi } from "@/modules/courses/api/courseMatrixApi"
+import { api } from "@/lib/api"
 import type { TreeNode } from "@/types"
+import type { MajorMatrixItemResponse } from "@/lib/api/matrix-api"
 
 interface CourseMajorMatrixProps {
   node: TreeNode
@@ -17,7 +18,7 @@ interface CourseMajorMatrixProps {
 
 export function CourseMajorMatrix({ node, majorNode, majorId, onUpdateNode }: CourseMajorMatrixProps) {
   const [isEditingMatrix, setIsEditingMatrix] = useState(false)
-  const [matrixSupportLevels, setMatrixSupportLevels] = useState<Record<string, string>>({})
+  const [matrixData, setMatrixData] = useState<MajorMatrixItemResponse[]>([])
   const [isSavingMatrix, setIsSavingMatrix] = useState(false)
   const [isLoadingMatrix, setIsLoadingMatrix] = useState(false)
   const [expandedReqs, setExpandedReqs] = useState<Set<number>>(new Set())
@@ -27,20 +28,30 @@ export function CourseMajorMatrix({ node, majorNode, majorId, onUpdateNode }: Co
   const [clampedIndicators, setClampedIndicators] = useState<Set<string>>(new Set())
   const indicatorRefsMap = useRef<Map<string, HTMLDivElement>>(new Map())
   const [majorDetailData, setMajorDetailData] = useState<any>(null)
+  // 派生值：专业详情加载完成即可渲染（matrixData 通过 Promise.all 同步加载）
+  const isDataReady = majorDetailData !== null
 
-  // 加载专业详情数据（包含毕业要求）
-  const loadMajorDetail = async () => {
-    if (!majorId) {
-      return
-    }
+  // 并行加载专业详情和矩阵数据，使用 Promise.all 避免竞态条件
+  const loadAllData = async () => {
+    if (!majorId || !node?.id) return
 
+    setIsLoadingMatrix(true)
     try {
-      const response = await courseDetailApi.getMajorDetail(majorId)
-      if (response.data) {
-        setMajorDetailData(response.data)
+      const [majorDetailResponse, matrixResponse] = await Promise.all([
+        courseDetailApi.getMajorDetail(majorId),
+        api.matrices.getMajorMatrix(String(node.id)),
+      ])
+
+      if (majorDetailResponse.data) {
+        setMajorDetailData(majorDetailResponse.data)
+      }
+      if (matrixResponse.data) {
+        setMatrixData(matrixResponse.data)
       }
     } catch (error) {
-      console.error("[CourseMajorMatrix] 加载专业详情失败:", error)
+      console.error("[CourseMajorMatrix] 加载数据失败:", error)
+    } finally {
+      setIsLoadingMatrix(false)
     }
   }
 
@@ -57,30 +68,30 @@ export function CourseMajorMatrix({ node, majorNode, majorId, onUpdateNode }: Co
     return []
   }
 
-  // 加载专业矩阵数据
-  const loadCourseMajorMatrixData = async () => {
-    if (!node?.id || !majorId) {
-      return
-    }
+  // 获取毕业要求下指标点的索引
+  const getIndicatorIndex = (reqId: number, graduateRequireId: number): number => {
+    const req = majorDetailData?.requiresVOS?.find((r: any) => r.id === reqId)
+    if (!req?.children) return -1
+    const index = req.children.findIndex((child: any) => child.id === graduateRequireId)
+    return index >= 0 ? index : -1
+  }
 
-    setIsLoadingMatrix(true)
-    try {
-      const response = await courseMatrixApi.getCourseMajorMatrix(node.id, String(majorId))
-      if (response.data?.matrixSupportLevels) {
-        setMatrixSupportLevels(response.data.matrixSupportLevels)
-      }
-    } catch (error) {
-      console.error("[CourseMajorMatrix] 加载专业矩阵数据失败:", error)
-    } finally {
-      setIsLoadingMatrix(false)
+  // 根据 graduateRequireId 获取支撑级别
+  const getSupportLevel = (reqId: number, indicatorIdx: number): string => {
+    const req = majorDetailData?.requiresVOS?.find((r: any) => r.id === reqId)
+    if (!req?.children?.[indicatorIdx]) {
+      return "未设置"
     }
+    const graduateRequireId = req.children[indicatorIdx].id
+    const matrixItem = matrixData.find(
+      (item) => item.graduateRequireId === graduateRequireId
+    )
+    if (!matrixItem) return "未设置"
+    return matrixItem.relate === 0 ? "强支撑" : "弱支撑"
   }
 
   useEffect(() => {
-    // 加载专业详情数据
-    loadMajorDetail()
-    // 从API加载最新的数据
-    loadCourseMajorMatrixData()
+    loadAllData()
   }, [node?.id, majorNode, majorId])
 
   useEffect(() => {
@@ -91,7 +102,7 @@ export function CourseMajorMatrix({ node, majorNode, majorId, onUpdateNode }: Co
     }, 10000)
 
     return () => clearInterval(autoSaveInterval)
-  }, [isEditingMatrix, matrixSupportLevels])
+  }, [isEditingMatrix, matrixData])
 
   // 检测毕业要求文本是否被截断
   useEffect(() => {
@@ -129,24 +140,58 @@ export function CourseMajorMatrix({ node, majorNode, majorId, onUpdateNode }: Co
     return () => clearTimeout(timer)
   }, [majorNode])
 
-  const handleSupportLevelChange = (reqId: number, indicatorIdx: number, value: string) => {
-    const key = `${reqId}-${indicatorIdx}`
-    setMatrixSupportLevels((prev) => ({
-      ...prev,
-      [key]: value,
-    }))
+  // 处理支撑级别变更（编辑模式），支持点击切换选中/取消选中
+  const handleSupportLevelChange = (reqId: number, indicatorIdx: number, value: number) => {
+    const req = majorDetailData?.requiresVOS?.find((r: any) => r.id === reqId)
+    if (!req?.children?.[indicatorIdx]) return
+
+    const graduateRequireId = req.children[indicatorIdx].id
+    const existingIndex = matrixData.findIndex((item) => item.graduateRequireId === graduateRequireId)
+
+    const newData = [...matrixData]
+    if (existingIndex >= 0) {
+      // 已存在该项
+      if (newData[existingIndex].relate === value) {
+        // 再次点击相同按钮，取消选中（删除该项）
+        newData.splice(existingIndex, 1)
+      } else {
+        // 点击不同按钮，切换支撑级别
+        newData[existingIndex] = {
+          ...newData[existingIndex],
+          relate: value,
+        }
+      }
+    } else {
+      // 添加新项
+      newData.push({
+        id: 0, // 新增时id为0，由后端生成
+        majorId: Number(majorId) || 0,
+        courseUnitId: Number(node.id) || 0,
+        courseUnitName: node.name || "",
+        graduateRequireId,
+        relate: value,
+      })
+    }
+    setMatrixData(newData)
   }
 
+  // 保存专业矩阵
   const handleSaveMatrix = async (isAutoSave = false) => {
     setIsSavingMatrix(true)
 
     try {
-      // 调用API保存数据
-      if (node?.id && majorId) {
-        await courseMatrixApi.updateCourseMajorMatrix(node.id, String(majorId), matrixSupportLevels)
-      }
+      // 构建保存数据，id为0表示新增，majorId和courseUnitId需要转为字符串
+      const saveData = matrixData.map((item) => ({
+        id: item.id > 0 ? item.id : 0,
+        majorId: String(item.majorId),
+        courseUnitId: String(item.courseUnitId),
+        courseUnitName: item.courseUnitName || "",
+        graduateRequireId: item.graduateRequireId,
+        relate: item.relate,
+      }))
 
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      await api.matrices.updateMajorMatrix(String(node.id), saveData)
+      console.log("[CourseMajorMatrix] 专业矩阵保存成功")
     } catch (error) {
       console.error("保存专业矩阵数据失败:", error)
     } finally {
@@ -158,9 +203,10 @@ export function CourseMajorMatrix({ node, majorNode, majorId, onUpdateNode }: Co
     }
   }
 
+  // 取消编辑
   const handleCancelMatrix = () => {
-    // 取消编辑时重新从API加载数据
-    loadCourseMajorMatrixData()
+    // 重新从API加载数据
+    loadAllData()
     setIsEditingMatrix(false)
   }
 
@@ -168,7 +214,7 @@ export function CourseMajorMatrix({ node, majorNode, majorId, onUpdateNode }: Co
 
   return (
     <div className="rounded-lg border border-border bg-white/40 backdrop-blur-md p-6 space-y-4">
-      {isLoadingMatrix ? (
+      {!isDataReady ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-6 h-6 animate-spin text-primary mr-2" />
           <span className="text-muted-foreground">加载中</span>
@@ -337,14 +383,14 @@ export function CourseMajorMatrix({ node, majorNode, majorId, onUpdateNode }: Co
                     const indicators = req.indicators || []
                     return indicators.map((_indicator: string, indicatorIdx: number) => {
                       const key = `${req.id}-${indicatorIdx}`
-                      const supportLevel = matrixSupportLevels[key] || "未设置"
+                      const supportLevel = getSupportLevel(req.id, indicatorIdx)
 
                       return (
                         <td key={key} className="p-3 text-center border-r border-border">
                           {isEditingMatrix ? (
                             <div className="flex items-center justify-center gap-2">
                               <button
-                                onClick={() => handleSupportLevelChange(req.id, indicatorIdx, "强支撑")}
+                                onClick={() => handleSupportLevelChange(req.id, indicatorIdx, 0)}
                                 className={cn(
                                   "px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer",
                                   "border hover:shadow-sm",
@@ -356,7 +402,7 @@ export function CourseMajorMatrix({ node, majorNode, majorId, onUpdateNode }: Co
                                 强支撑
                               </button>
                               <button
-                                onClick={() => handleSupportLevelChange(req.id, indicatorIdx, "弱支撑")}
+                                onClick={() => handleSupportLevelChange(req.id, indicatorIdx, 1)}
                                 className={cn(
                                   "px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer",
                                   "border hover:shadow-sm",

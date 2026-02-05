@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronDown, User, Palette, Bell } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
@@ -16,6 +16,7 @@ import { cn } from "@/shared/utils/utils"
 import { api, getStoredAuthUser, clearAllAuthData } from "@/lib/api"
 import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
 import { AiAssistantDrawer } from "./ai-assistant-drawer"
+import { useLoadingStore } from "@/shared/stores/loading-store"
 
 const COLOR_THEMES = {
   green: {
@@ -209,6 +210,11 @@ export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNode
   const [userName, setUserName] = useState<string>("用户")
   const { activeTabLabel } = useActivePageTracker()
 
+  // [MOD] 使用全局 loading 状态 (引用计数机制)
+  const isAiLoading = useLoadingStore((state) => state.isLoading)
+  const startLoading = useLoadingStore((state) => state.startLoading)
+  const stopLoading = useLoadingStore((state) => state.stopLoading)
+
   const unreadCount = notifications.filter((n) => !n.read).length
 
   // 处理退出登录
@@ -238,6 +244,20 @@ export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNode
     }
     loadTheme()
   }, [])
+
+  // [MOD] 点击 AI 按钮时触发全局 loading，打开 Drawer
+  const handleAiButtonClick = useCallback(() => {
+    if (isAiLoading) return
+    startLoading()
+    requestAnimationFrame(() => setCourseDevDrawerOpen(true))
+  }, [isAiLoading, startLoading])
+
+  // [MOD] Drawer 打开后清除全局 loading
+  useEffect(() => {
+    if (!courseDevDrawerOpen) return
+    const timer = setTimeout(() => stopLoading(), 1500)
+    return () => clearTimeout(timer)
+  }, [courseDevDrawerOpen, stopLoading])
 
   const applyTheme = async (themeKey: keyof typeof COLOR_THEMES) => {
     const theme = COLOR_THEMES[themeKey]
@@ -415,8 +435,9 @@ export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNode
           {/* 课程开发助手入口 */}
           <Button
             variant="ghost"
-            onClick={() => setCourseDevDrawerOpen(true)}
+            onClick={handleAiButtonClick}
             className="p-3 hover:bg-transparent group"
+            disabled={isAiLoading}
           >
             <img
               src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAE4AAAAqCAMAAAAqEZ1jAAAAAXNSR0IArs4c6QAAAAlwSFlzAAAhOAAAITgBRZYxYAAAAKJQTFRFAAAAenb/RpP/k2j/XXf7cXX6P5z7i2n8W3j7ZHP7jmn9VID7Qpf8jWn8Xnr6iWr8YHb7i2n8RJb9dWz8WXr8mWj9RpP8W3n8bW/8l2j+QJz9Q5f9ToT8fWv9ZW/8lWj9VID8YnX7Pp79QZr9pWb+RJT8m2f9k2j9SYz8jWn9hmr8UIT8fmv8VX78Xnn7d2z8ZHT7WHr7bm77Xnb7Z3D7YHH7RJOQRAAAACJ0Uk5TABAgICAwQEBAWF5gZXBwgICbn5+fo7+/vsLP39/f3urv73XwOA8AAAKfSURBVHja7dbJcuIwFIXhIzCxMTMNcdwMDoMZY4NxeP9X66srEckYQlPVvcvPBhZ8dVSIAvz03xNV/Luq4Xq9Hgo8nfDqjXq97hS1yXZNhXg2Z3o+f1KnLqx62y17Pp5smp+158EUaW6I52rkxLF3eoNpt1Ne+bR+Fd8U5Oc8Px6P5M0Evgq11ytpy0jgbk6e5cSxd2pb7yKOikpTouWyhbsNMsnpefZpOzsCI7c8brkM74/LqFSC7HkwVTu9lsB14ZJy745LlDdV5+3iQTXC7s9z3pNEggOh9s3woOFqJT2BmzUSLnMQEEeeh2+rkraiOrjZeL+XXEBwyp71Ybg+hWL+iltGt8ftKQI9QMzSlDxz9VofssIMdxitdJEvbo3jxqAGKXtt6N4OkpvgkmiFa50Ch1UU8zab/Ya4Br/IUnnewHCHg+FEh7/ExUIXdq+KG4N7z3hfzXDkaa5FmGpdMENrYWWjaoDrJtJLu4ajFFfbUduryN1ue4brb2KpjSvgvETe53R24U6Ggz+RYJnsCTMujmMJ9qELErkv9y7cyXAGtNCoI2Dqx9ymAl1bcYMLJ2NO5fZ2dmHLxiBGrJlxEAl7M1HkTFUzseeiWHOxYK+CrwLltRX3qTk7/4PbTXDdaBHLxytMdcllaaA56U1RSEyU56M0jotfYBLvynM091ni0GGtPO73nLkR7AaK6yqOKnG1g+wXrnqZz9nrw87bszdjjn/dDGffbgdX9YmT4HykaoLTp/UABGfyypx7a1yFNb0wpl7BddW8geSO5JU5TE63xhmOPb2uok8reN1Nrn4qjQNBlmfdvkB5beaoMgdP4LpFgbNuX3svtSwABoZ7WPOKa0Inxgl7DurMdfFXVV7savjK8WQ1/cz5+Q9e7A/jUZeiPQO0fwAAAABJRU5ErkJggg=="
@@ -428,7 +449,10 @@ export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNode
       </div>
       <AiAssistantDrawer
         open={courseDevDrawerOpen}
-        onOpenChange={setCourseDevDrawerOpen}
+        onOpenChange={(open) => {
+          setCourseDevDrawerOpen(open)
+          if (!open) stopLoading()
+        }}
         userName={userName}
         treeData={treeData}
       />

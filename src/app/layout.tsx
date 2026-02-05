@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 // import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { Toaster } from "@/shared/components/ui/toaster"
+import { GlobalLoadingCursor } from "@/shared/components/ui/global-loading-cursor"
 
 export const metadata: Metadata = {
   title: "高校课程通",
@@ -21,6 +22,7 @@ export default function RootLayout({
         {children}
         {/* <Analytics /> */}
         <Toaster />
+        <GlobalLoadingCursor />
       </body>
     </html>
   )

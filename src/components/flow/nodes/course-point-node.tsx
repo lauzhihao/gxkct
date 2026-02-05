@@ -49,9 +49,9 @@ export const CoursePointNode = memo(function CoursePointNode({
       showRightHandle={false}
       onDelete={handleDelete}
     >
-      {/* [MOD] 优先使用 name 字段，兼容旧的 content 字段 */}
-      {(nodeData.name || nodeData.content) ? (
-        <p className="text-sm text-gray-600 line-clamp-2">{nodeData.name || nodeData.content}</p>
+      {/* [MOD] 正文优先显示 description，兼容旧数据的 content/name 字段 */}
+      {(nodeData.description || nodeData.content || nodeData.name) ? (
+        <p className="text-sm text-gray-600 line-clamp-2">{nodeData.description || nodeData.content || nodeData.name}</p>
       ) : (
         <p className="text-sm text-gray-400 italic">暂无描述</p>
       )}

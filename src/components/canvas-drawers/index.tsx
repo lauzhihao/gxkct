@@ -165,7 +165,7 @@ export const CanvasDrawers = memo(function CanvasDrawers({
       const data = n.data as unknown as CoursePointCardData
       return {
         id: n.id,
-        name: data.content,
+        name: data.name || data.content || "",
         description: typeof data.description === 'string' ? data.description : undefined,
       }
     })

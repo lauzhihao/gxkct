@@ -36,7 +36,7 @@ export function CanvasCoursePointEditor({
   const [localCoursePoints, setLocalCoursePoints] = useState<CoursePointCardData[]>(
     coursePoints.length > 0
       ? coursePoints
-      : [{ id: "1", index: 1, content: "" }]
+      : [{ id: "1", index: 1, name: "", content: "" }]
   )
   const [searchKeyword, setSearchKeyword] = useState("")
 
@@ -46,7 +46,8 @@ export function CanvasCoursePointEditor({
     const keyword = searchKeyword.toLowerCase()
     return localCoursePoints.filter(
       (cp) =>
-        cp.content.toLowerCase().includes(keyword) ||
+        (cp.name || "").toLowerCase().includes(keyword) ||
+        (cp.content || "").toLowerCase().includes(keyword) ||
         (typeof cp.description === 'string' && cp.description.toLowerCase().includes(keyword))
     )
   }, [localCoursePoints, searchKeyword])
@@ -61,6 +62,7 @@ export function CanvasCoursePointEditor({
     const newItem: CoursePointCardData = {
       id: generateId(),
       index: localCoursePoints.length + 1,
+      name: "",
       content: "",
     }
     setLocalCoursePoints((prev) => [...prev, newItem])
@@ -87,10 +89,11 @@ export function CanvasCoursePointEditor({
   const handleSave = useCallback(() => {
     // 过滤空内容，重新计算索引
     const validPoints = localCoursePoints
-      .filter((cp) => cp.content.trim())
+      .filter((cp) => (cp.name || cp.content || "").trim())
       .map((cp, idx) => ({
         ...cp,
-        content: cp.content.trim(),
+        name: (cp.name || "").trim(),
+        content: (cp.content || "").trim(),
         description: typeof cp.description === 'string' ? cp.description.trim() : undefined,
         index: idx + 1,
       }))

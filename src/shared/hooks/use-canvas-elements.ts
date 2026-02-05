@@ -259,7 +259,7 @@ const LAYOUT_COLUMNS = {
 // 第1列：四个基础面板（教学目标、章节、课点、KSA）
 // 第2列：课程矩阵（与第1列面板保持约1327px间距）
 // 第3列：项目矩阵
-const COLUMN_X_POSITIONS = [-633, 640, 1967, 3350]
+const COLUMN_X_POSITIONS = [-633, 640, 2705, 4088]
 
 // 列间距配置（课程卡片-面板间距160，面板-矩阵间距200）
 const COLUMN_GAP = 100

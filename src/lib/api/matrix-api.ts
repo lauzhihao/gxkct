@@ -538,4 +538,89 @@ export class MatrixApi {
       status: 200,
     }
   }
+
+  // 获取专业矩阵数据
+  async getMajorMatrix(courseId: string): Promise<ApiResponse<MajorMatrixItemResponse[]>> {
+    try {
+      const endpoint = `/api/matrix/majormatrix?courseId=${courseId}`
+      console.log("[getMajorMatrix] 调用接口:", endpoint)
+
+      // 泛型用数组类型，因为 handleBackendResponse 已经提取了 data 字段
+      const response = await this.http.get<MajorMatrixItemResponse[]>(endpoint)
+
+      if (response.error) {
+        console.error("[getMajorMatrix] 接口调用失败:", response.error)
+        return {
+          data: [],
+          error: response.error,
+          status: response.status ?? 500,
+        }
+      }
+
+      console.log("[getMajorMatrix] 接口调用成功:", response.data?.length, "条")
+      return {
+        data: response.data || [],
+        error: null,
+        status: 200,
+      }
+    } catch (error) {
+      console.error("[getMajorMatrix] 异常:", error)
+      return {
+        data: [],
+        error: `获取专业矩阵失败: ${error instanceof Error ? error.message : String(error)}`,
+        status: 500,
+      }
+    }
+  }
+
+  // 保存专业矩阵数据
+  async updateMajorMatrix(courseId: string, data: MajorMatrixItemResponse[]): Promise<ApiResponse<any>> {
+    try {
+      const endpoint = `/api/matrix/updatemajormatrix`
+      console.log("[updateMajorMatrix] 调用接口:", endpoint, "数据条数:", data.length)
+
+      const response = await this.http.post<any>(endpoint, data)
+
+      if (response.error) {
+        console.error("[updateMajorMatrix] 接口调用失败:", response.error)
+        return {
+          data: null,
+          error: response.error,
+          status: response.status ?? 500,
+        }
+      }
+
+      console.log("[updateMajorMatrix] 接口调用成功")
+      return {
+        data: response.data,
+        error: null,
+        status: 200,
+      }
+    } catch (error) {
+      console.error("[updateMajorMatrix] 异常:", error)
+      return {
+        data: null,
+        error: `保存专业矩阵失败: ${error instanceof Error ? error.message : String(error)}`,
+        status: 500,
+      }
+    }
+  }
+}
+
+// 专业矩阵项响应接口
+export interface MajorMatrixItemResponse {
+  id: number
+  majorId: number
+  courseUnitId: number
+  courseUnitName: string
+  graduateRequireId: number
+  relate: number // 0=强支撑, 1=弱支撑
+}
+
+// 专业矩阵API响应
+export interface MajorMatrixResponse {
+  code: string
+  message: string
+  data: MajorMatrixItemResponse[]
+  success: boolean
 }
