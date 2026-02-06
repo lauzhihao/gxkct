@@ -1,6 +1,6 @@
 "use client"
 
-import { BookOpen, Briefcase, Award, ClipboardCheck } from "lucide-react"
+import { BookOpen, Briefcase, Award, ClipboardCheck, Loader2 } from "lucide-react"
 import { useEffect, useState, useRef, useMemo } from "react"
 import type { TreeNode } from "@/types"
 import { TreeApi } from "@/lib/api/tree-api"
@@ -78,6 +78,15 @@ export function MajorBasicInfo({ node }: MajorBasicInfoProps) {
     position: detailData?.position || "",
     requiresVOS: detailData?.requiresVOS || [],
   }
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+        <Loader2 className="w-8 h-8 animate-spin mb-3 text-primary" />
+        <p className="text-sm">Loading...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="rounded-lg border border-border bg-white/40 backdrop-blur-md p-6 space-y-6">
       {/* Basic Information Section */}

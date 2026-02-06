@@ -156,7 +156,6 @@ export function GraduationRequirementsSection({
                         placeholder="输入毕业要求内容（最多200字）"
                         maxLength={200}
                         rows={4}
-                        expandThreshold={50}
                       />
                     </div>
                     {graduationRequirements.length > 1 && (
@@ -189,79 +188,82 @@ export function GraduationRequirementsSection({
                       const coursesForIndicator = indicatorCourseSupports[supportKey] || []
 
                       return (
-                        <div key={indIndex} className="space-y-2">
-                          <div className="flex items-start gap-2">
-                            <span className="text-xs text-muted-foreground mt-2 font-mono w-8">
+                        <div key={indIndex} className="p-4 rounded-lg border border-border bg-card/50 space-y-3">
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-medium text-primary mt-2">
                               {reqIndex + 1}.{indIndex + 1}
-                            </span>
-                            <div className="relative flex-1">
-                              <ExpandableTextarea
-                                ref={
-                                  indIndex === requirement.indicators.length - 1
-                                    ? (el) => {
-                                        lastIndicatorRefs.current[requirement.id] = el
-                                      }
-                                    : null
-                                }
-                                value={indicator}
-                                onChange={(value) => updateIndicator(requirement.id, indIndex, value)}
-                                onFocus={() => setFocusedIndicatorKey(`${requirement.id}-${indIndex}`)}
-                                onBlur={() => setFocusedIndicatorKey(null)}
-                                placeholder="输入指标点内容"
-                                maxLength={200}
-                                rows={4}
-                                expandThreshold={50}
-                              />
                             </div>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => openCourseSelectorForIndicator(requirement.id, indIndex)}
-                              className="h-7 w-7 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                              title="设置课程支撑关系"
-                            >
-                              <Settings className="w-4 h-4" />
-                            </Button>
-                            {requirement.indicators.length > 1 && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => removeIndicator(requirement.id, indIndex)}
-                                className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
-                              >
-                                <X className="w-3 h-3" />
-                              </Button>
-                            )}
-                          </div>
-                          {coursesForIndicator.length > 0 && (
-                            <div className="ml-8 mt-3 grid grid-cols-5 gap-2">
-                              {coursesForIndicator.map((courseSupport) => (
-                                <div
-                                  key={courseSupport.courseId}
-                                  className="flex items-center gap-2 px-3 py-2 bg-white/50 rounded-lg border border-border text-xs group hover:shadow-md transition-shadow"
-                                  title={courseSupport.courseName}
-                                >
-                                  <span className="font-medium flex-1 truncate">{courseSupport.courseName}</span>
-                                  <span
-                                    className={`px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap flex-shrink-0 text-white ${
-                                      courseSupport.supportLevel === "strong" ? "bg-orange-500" : "bg-green-500"
-                                    }`}
-                                  >
-                                    {courseSupport.supportLevel === "strong" ? "强支撑" : "弱支撑"}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      removeIndicatorCourseSupport(requirement.id, indIndex, courseSupport.courseId)
+                            <div className="flex-1 space-y-3">
+                              <div className="flex items-start gap-2">
+                                <div className="relative flex-1">
+                                  <ExpandableTextarea
+                                    ref={
+                                      indIndex === requirement.indicators.length - 1
+                                        ? (el) => {
+                                            lastIndicatorRefs.current[requirement.id] = el
+                                          }
+                                        : null
                                     }
-                                    className="text-muted-foreground hover:text-red-500 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </button>
+                                    value={indicator}
+                                    onChange={(value) => updateIndicator(requirement.id, indIndex, value)}
+                                    onFocus={() => setFocusedIndicatorKey(`${requirement.id}-${indIndex}`)}
+                                    onBlur={() => setFocusedIndicatorKey(null)}
+                                    placeholder="输入指标点内容"
+                                    maxLength={200}
+                                    rows={4}
+                                  />
                                 </div>
-                              ))}
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => openCourseSelectorForIndicator(requirement.id, indIndex)}
+                                  className="h-7 w-7 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                  title="设置课程支撑关系"
+                                >
+                                  <Settings className="w-4 h-4" />
+                                </Button>
+                                {requirement.indicators.length > 1 && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => removeIndicator(requirement.id, indIndex)}
+                                    className="gap-2 text-red-500 hover:text-red-600 hover:bg-red-50"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                )}
+                              </div>
+                              {coursesForIndicator.length > 0 && (
+                                <div className="grid grid-cols-5 gap-2">
+                                  {coursesForIndicator.map((courseSupport) => (
+                                    <div
+                                      key={courseSupport.courseId}
+                                      className="flex items-center gap-2 px-3 py-2 bg-white/50 rounded-lg border border-border text-xs group hover:shadow-md transition-shadow"
+                                      title={courseSupport.courseName}
+                                    >
+                                      <span className="font-medium flex-1 truncate">{courseSupport.courseName}</span>
+                                      <span
+                                        className={`px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap flex-shrink-0 text-white ${
+                                          courseSupport.supportLevel === "strong" ? "bg-orange-500" : "bg-green-500"
+                                        }`}
+                                      >
+                                        {courseSupport.supportLevel === "strong" ? "强支撑" : "弱支撑"}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          removeIndicatorCourseSupport(requirement.id, indIndex, courseSupport.courseId)
+                                        }
+                                        className="text-muted-foreground hover:text-red-500 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                          )}
+                          </div>
                         </div>
                       )
                     })}
