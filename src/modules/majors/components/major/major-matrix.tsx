@@ -6,8 +6,6 @@ import { BookMarked, Pencil, X, Loader2, Check, Search } from "lucide-react"
 import { cn } from "@/shared/utils/utils"
 import type { TreeNode } from "@/types"
 import { TreeApi } from "@/lib/api/tree-api"
-import { buildApiUrl } from "@/lib/api/config"
-import { getStoredAuthToken } from "@/lib/api/auth-config"
 import { api } from "@/lib/api"
 import type { MajorMatrixItemResponse } from "@/lib/api/matrix-api"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip"
@@ -73,36 +71,29 @@ export function MajorMatrix({ node, onUpdateNode }: MajorMatrixProps) {
     const loadMajorData = async () => {
       setIsLoadingMatrix(true)
       try {
-        // 并行加载毕业要求和课程列表
-        const [majorDetailResponse, coursesData] = await Promise.all([
+        // 并行加载毕业要求和完整矩阵数据（含课程列表）
+        const [majorDetailResponse, matrixAllResponse] = await Promise.all([
           treeApiInstance.getMajorDetail(majorId),
-          fetchCourseList(majorId),
+          api.matrices.getMajorMatrixAll(majorId),
         ])
 
         if (majorDetailResponse.data?.requiresVOS) {
           setRequiresVOS(majorDetailResponse.data.requiresVOS)
         }
 
+        // 从批量接口结果中提取课程列表和矩阵映射
+        const groups = matrixAllResponse.data || []
+        const coursesData: CourseInfo[] = groups.map((g) => ({
+          courseId: String(g.courseId),
+          courseName: g.courseName,
+        }))
         setCourses(coursesData)
 
-        // 并行加载所有课程的矩阵数据
-        if (coursesData.length > 0) {
-          const matrixResults = await Promise.all(
-            coursesData.map(async (course) => {
-              try {
-                const res = await api.matrices.getMajorMatrix(course.courseId)
-                return { courseId: course.courseId, data: res.data || [] }
-              } catch {
-                return { courseId: course.courseId, data: [] }
-              }
-            })
-          )
-          const matrixMap: Record<string, MajorMatrixItemResponse[]> = {}
-          for (const item of matrixResults) {
-            matrixMap[item.courseId] = item.data
-          }
-          setCourseMatrixMap(matrixMap)
+        const matrixMap: Record<string, MajorMatrixItemResponse[]> = {}
+        for (const g of groups) {
+          matrixMap[String(g.courseId)] = g.matrixItems
         }
+        setCourseMatrixMap(matrixMap)
       } catch (error) {
         console.error("Failed to load major matrix data:", error)
       } finally {
@@ -112,42 +103,6 @@ export function MajorMatrix({ node, onUpdateNode }: MajorMatrixProps) {
 
     loadMajorData()
   }, [node.id])
-
-  // 获取课程列表
-  const fetchCourseList = async (majorId: string): Promise<CourseInfo[]> => {
-    try {
-      const url = buildApiUrl(`/api/v4/webpage/majorindex/courses?majorId=${majorId}&lang=80101`)
-      const headers: Record<string, string> = {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      }
-      const authToken = getStoredAuthToken()
-      if (authToken) {
-        headers['authToken'] = authToken
-      }
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers,
-      })
-
-      if (response.ok) {
-        const result = await response.json()
-        if (result.code === '0' && Array.isArray(result.data)) {
-          return result.data
-            .map((course: any) => ({
-              courseId: course.self?.value || '',
-              courseName: course.self?.label || '',
-            }))
-            .filter((item: CourseInfo) => item.courseId)
-        }
-      }
-      return []
-    } catch (error) {
-      console.error("Failed to fetch course list:", error)
-      return []
-    }
-  }
 
   // 获取毕业要求数据
   const getGraduationRequirements = () => {

@@ -14,6 +14,7 @@ import { useToast } from "@/shared/hooks/use-toast"
 import { api } from "@/lib/api"
 import { TreeApi } from "@/lib/api/tree-api"
 import { majorApiService } from "@/modules/majors/api"
+import type { IndicatorCourseSupport } from "@/modules/majors/types"
 import worksJsonData from "@/mock-data/works.json"
 
 // 创建 TreeApi 实例
@@ -61,6 +62,47 @@ export function AddMajorFormContainer({
     if (!isEditMode || !majorId || hasLoadedDetailRef.current) return
 
     hasLoadedDetailRef.current = true
+
+    // 从真实 API 加载完整矩阵数据，构建 indicatorCourseSupports
+    const loadIndicatorCourseSupportsFromApi = async (majorId: string, requiresVOS: any[]) => {
+      try {
+        const cleanMajorId = majorId.replace("major_", "")
+
+        // 1. 一次性获取该专业下所有课程的矩阵数据
+        const response = await api.matrices.getMajorMatrixAll(cleanMajorId)
+        const groups = response.data || []
+        if (groups.length === 0) return
+
+        // 2. 从 requiresVOS 构建 graduateRequireId -> supportKey 映射
+        const idToKeyMap: Record<number, string> = {}
+        requiresVOS.forEach((req: any) => {
+          req.children?.forEach((child: any, idx: number) => {
+            idToKeyMap[child.id] = `${String(req.id)}-${idx}`
+          })
+        })
+
+        // 3. 构建 indicatorCourseSupports
+        const supports: Record<string, IndicatorCourseSupport[]> = {}
+        for (const group of groups) {
+          for (const item of group.matrixItems) {
+            const supportKey = idToKeyMap[item.graduateRequireId]
+            if (!supportKey) continue
+            if (!supports[supportKey]) {
+              supports[supportKey] = []
+            }
+            supports[supportKey].push({
+              courseId: String(group.courseId),
+              courseName: group.courseName,
+              supportLevel: item.relate === 0 ? "strong" : "weak",
+            })
+          }
+        }
+
+        graduationReqs.setIndicatorCourseSupports(supports)
+      } catch (error) {
+        console.error("加载指标点课程支撑关系失败:", error)
+      }
+    }
 
     const loadMajorDetail = async () => {
       setIsLoadingDetail(true)
@@ -114,6 +156,9 @@ export function AddMajorFormContainer({
             }))
             graduationReqs.setGraduationRequirements(graduationRequirements)
           }
+
+          // 异步加载课程列表和矩阵数据，构建 indicatorCourseSupports
+          loadIndicatorCourseSupportsFromApi(majorId, detailData.requiresVOS || [])
         }
       } catch (error) {
         console.error("加载专业详情失败:", error)

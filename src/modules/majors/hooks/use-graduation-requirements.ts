@@ -6,7 +6,6 @@
 import { useState, useEffect, useRef } from "react"
 import type { GraduationRequirement, IndicatorCourseSupport } from "@/modules/majors/types"
 import type { TreeNode } from "@/types"
-import { api } from "@/lib/api"
 
 export interface UseGraduationRequirementsResult {
   // 状态
@@ -75,25 +74,6 @@ export function useGraduationRequirements(
   const [isCourseSelectorOpenRef, setIsCourseSelectorOpen] = useState(false)
 
   const indicatorCoursesSnapshotRef = useRef<Record<string, IndicatorCourseSupport[]>>({})
-
-  // 进入编辑模式时，加载指标点与课程的支撑关系
-  useEffect(() => {
-    // 使用 initialData.id 作为 majorId
-    const majorId = initialData?.id
-    if (isEditMode && majorId) {
-      const loadIndicatorCourseSupports = async () => {
-        try {
-          const response = await api.matrices.getMajorIndicatorCourseSupports(majorId)
-          if (response.data?.supports) {
-            setIndicatorCourseSupports(response.data.supports)
-          }
-        } catch (error) {
-          console.error("加载指标点课程支撑关系失败:", error)
-        }
-      }
-      loadIndicatorCourseSupports()
-    }
-  }, [isEditMode, initialData?.id])
 
   // 更新快照ref，不触发重新渲染
   useEffect(() => {

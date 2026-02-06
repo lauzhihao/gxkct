@@ -539,6 +539,39 @@ export class MatrixApi {
     }
   }
 
+  // 根据专业ID一次性获取所有课程的矩阵数据
+  async getMajorMatrixAll(majorId: string): Promise<ApiResponse<MajorMatrixCourseGroup[]>> {
+    try {
+      const endpoint = `/api/v5/matrix/majormatrix/${majorId}`
+      console.log("[getMajorMatrixAll] 调用接口:", endpoint)
+
+      const response = await this.http.get<MajorMatrixCourseGroup[]>(endpoint)
+
+      if (response.error) {
+        console.error("[getMajorMatrixAll] 接口调用失败:", response.error)
+        return {
+          data: [],
+          error: response.error,
+          status: response.status ?? 500,
+        }
+      }
+
+      console.log("[getMajorMatrixAll] 接口调用成功:", response.data?.length, "门课程")
+      return {
+        data: response.data || [],
+        error: null,
+        status: 200,
+      }
+    } catch (error) {
+      console.error("[getMajorMatrixAll] 异常:", error)
+      return {
+        data: [],
+        error: `获取专业完整矩阵失败: ${error instanceof Error ? error.message : String(error)}`,
+        status: 500,
+      }
+    }
+  }
+
   // 获取专业矩阵数据
   async getMajorMatrix(courseId: string): Promise<ApiResponse<MajorMatrixItemResponse[]>> {
     try {
@@ -623,4 +656,11 @@ export interface MajorMatrixResponse {
   message: string
   data: MajorMatrixItemResponse[]
   success: boolean
+}
+
+// 按课程分组的专业矩阵数据（v5 批量接口）
+export interface MajorMatrixCourseGroup {
+  courseId: number
+  courseName: string
+  matrixItems: MajorMatrixItemResponse[]
 }

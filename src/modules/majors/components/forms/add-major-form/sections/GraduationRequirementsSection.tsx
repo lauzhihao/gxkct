@@ -5,13 +5,13 @@
 
 "use client"
 
-import { useMemo } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { Label } from "@/shared/components/ui/label"
-import { Plus, Star, Trash2, Settings, X, FileSpreadsheet } from "lucide-react"
+import { Plus, Star, Trash2, Search, X, FileSpreadsheet } from "lucide-react"
 import { FileUpload } from "@/shared/components/ui/file-upload"
 import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
-import { CourseSelector } from "@/modules/majors/components/shared/course-selector"
+import { Popover, PopoverTrigger, PopoverContent } from "@/shared/components/ui/popover"
+import { SupportLabel } from "@/shared/components/support-label"
 import type { UseGraduationRequirementsResult } from "@/modules/majors/hooks/use-graduation-requirements"
 import type { UseMajorFormStateResult } from "@/modules/majors/hooks/use-major-form-state"
 import type { TreeNode } from "@/types"
@@ -47,8 +47,6 @@ export function GraduationRequirementsSection({
 }: GraduationRequirementsSectionProps) {
   const {
     graduationRequirements,
-    courseSelectorOpen,
-    selectedIndicatorForCourse,
     indicatorCourseSupports,
     addGraduationRequirement,
     updateGraduationRequirement,
@@ -56,10 +54,6 @@ export function GraduationRequirementsSection({
     addIndicator,
     updateIndicator,
     removeIndicator,
-    openCourseSelectorForIndicator,
-    setCourseSelectorOpen,
-    handleSaveCoursesForIndicator,
-    removeIndicatorCourseSupport,
   } = graduationReqs
 
   const {
@@ -74,7 +68,6 @@ export function GraduationRequirementsSection({
   } = formState
 
   return (
-    <>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -139,7 +132,7 @@ export function GraduationRequirementsSection({
 
         <div className="space-y-4">
           {graduationRequirements.map((requirement, reqIndex) => (
-            <div key={requirement.id} className="p-4 rounded-lg border border-border bg-card/50 space-y-3">
+            <div key={requirement.id} className={`py-4 space-y-3${reqIndex > 0 ? " border-t border-dashed border-border" : ""}`}>
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-medium text-primary mt-2">
                   {reqIndex + 1}
@@ -188,13 +181,13 @@ export function GraduationRequirementsSection({
                       const coursesForIndicator = indicatorCourseSupports[supportKey] || []
 
                       return (
-                        <div key={indIndex} className="p-4 rounded-lg border border-border bg-card/50 space-y-3">
+                        <div key={indIndex} className="py-3 space-y-3">
                           <div className="flex items-start gap-3">
                             <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-medium text-primary mt-2">
                               {reqIndex + 1}.{indIndex + 1}
                             </div>
                             <div className="flex-1 space-y-3">
-                              <div className="flex items-start gap-2">
+                              <div className="flex items-center gap-2">
                                 <div className="relative flex-1">
                                   <ExpandableTextarea
                                     ref={
@@ -213,15 +206,35 @@ export function GraduationRequirementsSection({
                                     rows={4}
                                   />
                                 </div>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => openCourseSelectorForIndicator(requirement.id, indIndex)}
-                                  className="h-7 w-7 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                                  title="设置课程支撑关系"
-                                >
-                                  <Settings className="w-4 h-4" />
-                                </Button>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 w-7 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                      title="查看课程支撑关系"
+                                    >
+                                      <Search className="w-4 h-4" />
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent align="start" className="w-auto max-w-[400px] p-3">
+                                    {coursesForIndicator.length > 0 ? (
+                                      <div className="flex flex-wrap gap-2">
+                                        {coursesForIndicator.map((courseSupport) => (
+                                          <SupportLabel
+                                            key={courseSupport.courseId}
+                                            title={courseSupport.courseName}
+                                            type={courseSupport.supportLevel}
+                                            size="sm"
+                                            tipsPosition="top"
+                                          />
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-muted-foreground">暂无课程支撑关系</p>
+                                    )}
+                                  </PopoverContent>
+                                </Popover>
                                 {requirement.indicators.length > 1 && (
                                   <Button
                                     size="sm"
@@ -233,35 +246,6 @@ export function GraduationRequirementsSection({
                                   </Button>
                                 )}
                               </div>
-                              {coursesForIndicator.length > 0 && (
-                                <div className="grid grid-cols-5 gap-2">
-                                  {coursesForIndicator.map((courseSupport) => (
-                                    <div
-                                      key={courseSupport.courseId}
-                                      className="flex items-center gap-2 px-3 py-2 bg-white/50 rounded-lg border border-border text-xs group hover:shadow-md transition-shadow"
-                                      title={courseSupport.courseName}
-                                    >
-                                      <span className="font-medium flex-1 truncate">{courseSupport.courseName}</span>
-                                      <span
-                                        className={`px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap flex-shrink-0 text-white ${
-                                          courseSupport.supportLevel === "strong" ? "bg-orange-500" : "bg-green-500"
-                                        }`}
-                                      >
-                                        {courseSupport.supportLevel === "strong" ? "强支撑" : "弱支撑"}
-                                      </span>
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          removeIndicatorCourseSupport(requirement.id, indIndex, courseSupport.courseId)
-                                        }
-                                        className="text-muted-foreground hover:text-red-500 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                      >
-                                        <X className="w-3 h-3" />
-                                      </button>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
                             </div>
                           </div>
                         </div>
@@ -274,42 +258,5 @@ export function GraduationRequirementsSection({
           ))}
         </div>
       </div>
-
-      {/* CourseSelector对话框 */}
-      {useMemo(
-        () => (
-          <CourseSelector
-            open={courseSelectorOpen}
-            onOpenChange={(open) => {
-              setCourseSelectorOpen(open)
-            }}
-            majorId={majorId || ""}
-            majorName={majorName}
-            departmentId={departmentId}
-            onSaveCourses={handleSaveCoursesForIndicator}
-            initialSupport={
-              selectedIndicatorForCourse
-                ? Object.fromEntries(
-                    (
-                      indicatorCourseSupports[
-                        `${selectedIndicatorForCourse.requirementId}-${selectedIndicatorForCourse.indicatorIndex}`
-                      ] || []
-                    ).map((item) => [item.courseId, item.supportLevel])
-                  )
-                : undefined
-            }
-          />
-        ),
-        [
-          selectedIndicatorForCourse,
-          courseSelectorOpen,
-          majorId,
-          majorName,
-          departmentId,
-          handleSaveCoursesForIndicator,
-          indicatorCourseSupports,
-        ]
-      )}
-    </>
   )
 }
