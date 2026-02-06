@@ -237,14 +237,48 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
   }
 
   // 打开 AI 助手并加载当前课程到画布
-  const handleOpenAiCanvas = useCallback(() => {
+  const handleOpenAiCanvas = useCallback(async () => {
     if (!courseDetailData) {
       console.warn("[CourseDetail] 课程数据未加载，无法打开AI画布")
       return
     }
 
-    // 使用转换工具将课程数据转换为画布格式（使用完整版本，包含子卡片）
-    const canvasData = convertCourseToCanvasComplete(courseDetailData, courseGoals)
+    const courseId = node?.id
+    if (!courseId) {
+      console.warn("[CourseDetail] 无法获取课程ID")
+      return
+    }
+
+    // 并行获取课程矩阵和项目矩阵数据
+    let matrixData: import("@/lib/utils/course-to-canvas").MatrixDataForCanvas | undefined
+    try {
+      const [courseMatrixRes, projectMatrixRes] = await Promise.all([
+        api.matrices.getCourseMatrix(String(courseId)),
+        api.matrices.getProjectMatrixData(String(courseId)),
+      ])
+
+      const courseMatrixItems = courseMatrixRes.data && Array.isArray(courseMatrixRes.data)
+        ? courseMatrixRes.data
+        : undefined
+      // handleBackendResponse 已解包外层 code/message/data，运行时 .data 即为内层对象
+      // TypeScript 类型 ProjectMatrixDataResponse 含外层包装，需 as any 绕过
+      const projectMatrixApiData = projectMatrixRes.data
+        ? (projectMatrixRes.data as any)
+        : undefined
+
+      if (courseMatrixItems || projectMatrixApiData) {
+        matrixData = { courseMatrixItems, projectMatrixApiData }
+        console.log("[CourseDetail] 矩阵数据加载成功:", {
+          courseMatrixCount: courseMatrixItems?.length || 0,
+          projectCount: (projectMatrixApiData as any)?.projects?.length || 0,
+        })
+      }
+    } catch (error) {
+      console.error("[CourseDetail] 加载矩阵数据失败，将继续不带矩阵数据:", error)
+    }
+
+    // 使用转换工具将课程数据转换为画布格式（使用完整版本，包含子卡片和矩阵）
+    const canvasData = convertCourseToCanvasComplete(courseDetailData, courseGoals, matrixData)
 
     console.log("[CourseDetail] 转换课程数据到画布格式:", {
       elementsCount: canvasData.elements.length,
@@ -254,7 +288,7 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
     // 设置初始画布数据并打开抽屉
     setAiInitialCanvasData(canvasData)
     setAiDrawerOpen(true)
-  }, [courseDetailData, courseGoals])
+  }, [courseDetailData, courseGoals, node?.id])
 
   // 获取课程所属的专业ID - 从已加载的课程详情中获取
   const getMajorId = (): string => {

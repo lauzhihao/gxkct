@@ -4,6 +4,7 @@
  */
 
 import type { CombinedCourseDetail } from "@/lib/api/course-detail-api"
+import type { CourseMatrixItem } from "@/lib/api/matrix-api"
 import {
   CanvasComponentType,
   type CanvasElementData,
@@ -15,6 +16,14 @@ import {
   type CoursePointCardData,
   type KsaItemData,
   type ElementPosition,
+  type CourseMatrixData,
+  type CourseMatrixRow,
+  type CourseMatrixCoursePoint,
+  type ProjectMatrixData,
+  type ProjectMatrixTaskObjective,
+  type ProjectMatrixRow,
+  type ProjectMatrixObjectiveSupport,
+  type ProjectMatrixKsaItem,
 } from "@/components/canvas-elements/types"
 import { generateEdgeId } from "@/components/flow/utils/layout"
 
@@ -572,6 +581,326 @@ export function createKsaItem(
   }
 }
 
+// ============ 矩阵数据转换 ============
+
+/**
+ * 项目矩阵 API 运行时数据结构
+ * 注意：handleBackendResponse 已解包外层 code/message/data，此处为内层数据
+ */
+export interface ProjectMatrixApiData {
+  courseId?: number
+  projects?: Array<{
+    project: {
+      id: number
+      uniqueCode?: string
+      courseUnitId?: number
+      name: string
+      product?: string
+      theoryPeriod?: string
+      practicePeriod?: string
+      indexNo?: number
+    }
+    goals: Array<{
+      id: number
+      projectId?: number
+      description: string
+      product?: string
+    }>
+  }>
+  ksas?: Array<{
+    id: number
+    majorId?: number
+    courseUnitId?: number
+    title: string
+    description: string
+    level: number
+  }>
+  relates?: Array<{
+    name: string
+    code: string
+    relate: number
+  }>
+  data?: Array<{
+    courseMatrix: {
+      id: string | number
+      projectId: string | number
+      point?: {
+        id: string | number
+        title: string
+        description?: string
+      }
+      study?: string
+      teach?: string
+      product?: string
+      week?: string
+      theoryPeriod?: string
+      practicePeriod?: string
+      relate?: { relate: number }
+    }
+    projectMatrices?: Array<{
+      id: string | number
+      taskGoalId: string | number
+      ksa?: {
+        id: string | number
+        title: string
+        level: number
+        description?: string
+      }
+      relate?: { relate: number }
+    }>
+  }>
+}
+
+/**
+ * 传入 convertCourseToCanvasComplete 的矩阵数据
+ */
+export interface MatrixDataForCanvas {
+  courseMatrixItems?: CourseMatrixItem[]
+  projectMatrixApiData?: ProjectMatrixApiData
+}
+
+/**
+ * 将课程矩阵 API 数据转换为画布 CourseMatrixData 格式
+ */
+function convertCourseMatrixToCanvasData(
+  courseMatrixItems: CourseMatrixItem[],
+  courseGoals: CourseGoalWithChildren[],
+  chapters: Array<{ id?: number; name?: string; chapterName?: string }>,
+  courseName: string,
+): CourseMatrixData {
+  // 从 courseGoals 提取教学目标，建立 graduateRequireId → objective 映射
+  const teachingObjectives: Array<{ id?: number; description?: string; content?: string }> = []
+  const objectiveIdMap = new Map<number, { id: string; index: number; content: string }>()
+  let objectiveIndex = 0
+
+  courseGoals.forEach((goal) => {
+    const children = goal.children || []
+    children.forEach((child) => {
+      objectiveIndex++
+      const objInfo = {
+        id: `objective_${objectiveIndex}`,
+        index: objectiveIndex,
+        content: child.description || child.content || "",
+      }
+      teachingObjectives.push(child)
+      // 映射 child ID
+      if (child.id) {
+        objectiveIdMap.set(child.id, objInfo)
+      }
+    })
+    // 映射 parent indicator ID -> 第一个 child（避免与 child ID 冲突）
+    if (goal.id && children.length > 0 && !objectiveIdMap.has(goal.id)) {
+      const firstChild = children[0]
+      if (firstChild?.id && objectiveIdMap.has(firstChild.id)) {
+        objectiveIdMap.set(goal.id, objectiveIdMap.get(firstChild.id)!)
+      }
+    }
+  })
+
+  // 构建 objectives 列
+  const objectives = teachingObjectives.map((obj, idx) => ({
+    id: `objective_${idx + 1}`,
+    index: idx + 1,
+    content: obj.description || obj.content || "",
+  }))
+
+  // 建立章节 ID → 序号映射
+  const chapterIdMap = new Map<number, { id: string; index: number; name: string }>()
+  chapters.forEach((chapter, idx) => {
+    if (chapter.id) {
+      chapterIdMap.set(chapter.id, {
+        id: `chapter_${idx + 1}`,
+        index: idx + 1,
+        name: chapter.name || chapter.chapterName || "",
+      })
+    }
+  })
+
+  // 按章节 projectId 分组 CourseMatrixItem
+  const chapterGroups = new Map<number, CourseMatrixItem[]>()
+  courseMatrixItems.forEach((item) => {
+    const group = chapterGroups.get(item.projectId) || []
+    group.push(item)
+    chapterGroups.set(item.projectId, group)
+  })
+
+  // 构建 rows（每行对应一个章节）
+  const rows: CourseMatrixRow[] = chapters.map((chapter, idx) => {
+    const chapterId = chapter.id || 0
+    const canvasChapter = chapterIdMap.get(chapterId) || {
+      id: `chapter_${idx + 1}`,
+      index: idx + 1,
+      name: chapter.name || chapter.chapterName || "",
+    }
+
+    const items = chapterGroups.get(chapterId) || []
+
+    // 按教学目标分组课点
+    const objectiveGroups = new Map<string, CourseMatrixCoursePoint[]>()
+    items.forEach((item) => {
+      const objInfo = objectiveIdMap.get(item.graduateRequireId)
+      if (objInfo) {
+        const points = objectiveGroups.get(objInfo.id) || []
+        points.push({
+          id: String(item.point.id),
+          name: item.point.title,
+          level: item.relate.relate === 0 ? "strong" : "weak",
+          description: item.point.description,
+        })
+        objectiveGroups.set(objInfo.id, points)
+      }
+    })
+
+    return {
+      chapter_id: canvasChapter.id,
+      chapter_index: canvasChapter.index,
+      chapter_name: canvasChapter.name,
+      supports: objectives.map((obj) => ({
+        objective_id: obj.id,
+        objective_index: obj.index,
+        course_points: objectiveGroups.get(obj.id) || [],
+      })),
+    }
+  })
+
+  return {
+    course_name: courseName,
+    objectives,
+    rows,
+  }
+}
+
+/**
+ * 将项目矩阵 API 数据转换为画布 ProjectMatrixData[] 格式
+ * 每个章节/项目生成一个 ProjectMatrixData
+ */
+function convertProjectMatrixToCanvasData(
+  apiData: ProjectMatrixApiData,
+  chapters: Array<{ id?: number; name?: string; chapterName?: string }>,
+): ProjectMatrixData[] {
+  if (!apiData?.projects || apiData.projects.length === 0) return []
+
+  const results: ProjectMatrixData[] = []
+
+  // 构建 KSA 查找表
+  const ksaMap = new Map<number, { title: string; description: string; level: number }>()
+  if (apiData.ksas) {
+    apiData.ksas.forEach((ksa) => {
+      ksaMap.set(ksa.id, { title: ksa.title, description: ksa.description, level: ksa.level })
+    })
+  }
+
+  // 构建章节名称映射（API project.id → 章节名称）
+  const chapterNameMap = new Map<number, string>()
+  chapters.forEach((ch) => {
+    if (ch.id) {
+      chapterNameMap.set(ch.id, ch.name || ch.chapterName || "")
+    }
+  })
+
+  apiData.projects.forEach((projectItem, projectIdx) => {
+    const project = projectItem.project
+    const goals = projectItem.goals || []
+
+    // task_objectives 来自 project 的 goals
+    const taskObjectives: ProjectMatrixTaskObjective[] = goals.map((goal, goalIdx) => ({
+      id: String(goal.id),
+      index: goalIdx + 1,
+      description: goal.description || "",
+    }))
+
+    // 从 apiData.data 中筛选属于该 project 的数据行
+    const projectDataItems = (apiData.data || []).filter((item) => {
+      const pid = item.courseMatrix?.projectId
+      return String(pid) === String(project.id)
+    })
+
+    // 按课点 ID 分组
+    const coursePointMap = new Map<string, {
+      point: { id: string; title: string; description?: string }
+      courseMatrix: typeof projectDataItems[0]["courseMatrix"]
+      projectMatrices: NonNullable<typeof projectDataItems[0]["projectMatrices"]>
+    }>()
+
+    projectDataItems.forEach((item) => {
+      const pointId = String(item.courseMatrix?.point?.id || item.courseMatrix?.id || "")
+      if (!pointId) return
+
+      if (!coursePointMap.has(pointId)) {
+        coursePointMap.set(pointId, {
+          point: {
+            id: pointId,
+            title: item.courseMatrix?.point?.title || "",
+            description: item.courseMatrix?.point?.description,
+          },
+          courseMatrix: item.courseMatrix,
+          projectMatrices: [],
+        })
+      }
+      if (item.projectMatrices) {
+        coursePointMap.get(pointId)!.projectMatrices.push(...item.projectMatrices)
+      }
+    })
+
+    // 构建 rows
+    const rows: ProjectMatrixRow[] = Array.from(coursePointMap.values()).map((data) => {
+      const objectiveSupports: ProjectMatrixObjectiveSupport[] = taskObjectives.map((obj) => {
+        // 查找属于该任务目标的 KSA 支撑
+        const matchingMatrices = data.projectMatrices.filter(
+          (pm) => String(pm.taskGoalId) === obj.id
+        )
+
+        const ksaItems: ProjectMatrixKsaItem[] = matchingMatrices
+          .filter((pm) => pm.ksa)
+          .map((pm) => {
+            const ksaInfo = ksaMap.get(Number(pm.ksa!.id))
+            const rawCategory = (ksaInfo?.title || pm.ksa!.title || "K").toUpperCase()
+            const category = (["K", "S", "A"].includes(rawCategory) ? rawCategory : "K") as "K" | "S" | "A"
+            return {
+              id: String(pm.ksa!.id),
+              name: pm.ksa!.title || "",
+              level: (pm.relate?.relate === 0 ? "strong" : "weak") as "strong" | "weak",
+              description: pm.ksa!.description || ksaInfo?.description || "",
+              category,
+              index: pm.ksa!.level || ksaInfo?.level || 1,
+            }
+          })
+
+        return {
+          task_objective_id: obj.id,
+          ksa_items: ksaItems,
+        }
+      })
+
+      return {
+        course_point_id: String(data.point.id),
+        course_point_name: data.point.title || "",
+        course_point_description: data.point.description,
+        objective_supports: objectiveSupports,
+        learning_method: data.courseMatrix?.study || undefined,
+        teaching_method: data.courseMatrix?.teach || undefined,
+        learning_output: data.courseMatrix?.product || undefined,
+        week: data.courseMatrix?.week ? Number(data.courseMatrix.week) : undefined,
+        theory_hours: data.courseMatrix?.theoryPeriod ? Number(data.courseMatrix.theoryPeriod) : undefined,
+        practice_hours: data.courseMatrix?.practicePeriod ? Number(data.courseMatrix.practicePeriod) : undefined,
+      }
+    })
+
+    // 章节名优先从 courseMatrixVOS 中匹配，否则使用 project.name
+    const chapterName = chapterNameMap.get(project.id) || project.name || ""
+
+    results.push({
+      chapter_id: `chapter_${projectIdx + 1}`,
+      chapter_index: project.indexNo || projectIdx + 1,
+      chapter_name: chapterName,
+      task_objectives: taskObjectives,
+      rows,
+    })
+  })
+
+  return results
+}
+
 // ============ 完整转换函数（包含所有子元素） ============
 
 /**
@@ -582,7 +911,8 @@ export function createKsaItem(
  */
 export function convertCourseToCanvasComplete(
   courseDetail: CombinedCourseDetail,
-  courseGoals?: CourseGoalWithChildren[]
+  courseGoals?: CourseGoalWithChildren[],
+  matrixData?: MatrixDataForCanvas
 ): CanvasData {
   const elements: CanvasElementData[] = []
   const edges: CanvasEdgeData[] = []
@@ -906,6 +1236,76 @@ export function convertCourseToCanvasComplete(
       target: ksaPanelElement.id,
       type: "support",
     })
+  }
+
+  // 6. 创建课程矩阵元素（从 API 数据转换）
+  // 复用第3步已声明的 chapters 变量
+  if (matrixData?.courseMatrixItems && matrixData.courseMatrixItems.length > 0 && courseGoals && courseGoals.length > 0) {
+    const courseMatrixCanvasData = convertCourseMatrixToCanvasData(
+      matrixData.courseMatrixItems,
+      courseGoals,
+      chapters,
+      courseDetail.courseNameData.name,
+    )
+
+    const courseMatrixElement: CanvasElementData = {
+      id: "course_matrix_loaded",
+      type: CanvasComponentType.COURSE_MATRIX,
+      position: {
+        x: COLUMN_X_POSITIONS[2],
+        y: START_Y,
+      },
+      size: ELEMENT_SIZES[CanvasComponentType.COURSE_MATRIX],
+      selected: false,
+      data: courseMatrixCanvasData,
+    }
+    elements.push(courseMatrixElement)
+
+    // 章节面板 → 课程矩阵 连线
+    const chapterPanelEl = elements.find((el) => el.id === "chapter_panel_loaded")
+    if (chapterPanelEl) {
+      edges.push({
+        id: generateEdgeId(chapterPanelEl.id, courseMatrixElement.id),
+        source: chapterPanelEl.id,
+        target: courseMatrixElement.id,
+        type: "support",
+      })
+    }
+
+    // 7. 创建项目矩阵元素（从 API 数据转换）
+    if (matrixData.projectMatrixApiData) {
+      const projectMatrixDataList = convertProjectMatrixToCanvasData(
+        matrixData.projectMatrixApiData,
+        chapters,
+      )
+
+      let projectMatrixY = START_Y
+      projectMatrixDataList.forEach((pmData, idx) => {
+        const pmId = `project_matrix_${idx + 1}`
+        const pmElement: CanvasElementData = {
+          id: pmId,
+          type: CanvasComponentType.PROJECT_MATRIX,
+          position: {
+            x: COLUMN_X_POSITIONS[3],
+            y: projectMatrixY,
+          },
+          size: ELEMENT_SIZES[CanvasComponentType.PROJECT_MATRIX],
+          selected: false,
+          data: pmData,
+        }
+        elements.push(pmElement)
+
+        // 课程矩阵 → 项目矩阵 连线
+        edges.push({
+          id: generateEdgeId(courseMatrixElement.id, pmId),
+          source: courseMatrixElement.id,
+          target: pmId,
+          type: "support",
+        })
+
+        projectMatrixY += (ELEMENT_SIZES[CanvasComponentType.PROJECT_MATRIX].height || 200) + ROW_GAP
+      })
+    }
   }
 
   return {
