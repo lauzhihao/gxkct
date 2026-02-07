@@ -17,6 +17,8 @@ import { api, getStoredAuthUser, clearAllAuthData } from "@/lib/api"
 import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
 import { AiAssistantDrawer } from "./ai-assistant-drawer"
 import { useLoadingStore } from "@/shared/stores/loading-store"
+import { useAiCanvasStore } from "@/shared/stores/ai-canvas-store"
+import type { InitialCanvasData } from "@/types/ai-assistant"
 
 const COLOR_THEMES = {
   green: {
@@ -208,12 +210,16 @@ export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNode
   const [currentTheme, setCurrentTheme] = useState<keyof typeof COLOR_THEMES>("vercelBlue")
   const [notifications, setNotifications] = useState<Notification[]>(mockNotifications)
   const [userName, setUserName] = useState<string>("用户")
+  const [aiInitialCanvasData, setAiInitialCanvasData] = useState<InitialCanvasData | null>(null)
   const { activeTabLabel } = useActivePageTracker()
 
   // [MOD] 使用全局 loading 状态 (引用计数机制)
   const isAiLoading = useLoadingStore((state) => state.isLoading)
   const startLoading = useLoadingStore((state) => state.startLoading)
   const stopLoading = useLoadingStore((state) => state.stopLoading)
+
+  // 课程详情页注册的画布数据准备回调
+  const prepareCanvasData = useAiCanvasStore((state) => state.prepareCanvasData)
 
   const unreadCount = notifications.filter((n) => !n.read).length
 
@@ -245,12 +251,22 @@ export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNode
     loadTheme()
   }, [])
 
-  // [MOD] 点击 AI 按钮时触发全局 loading，打开 Drawer
-  const handleAiButtonClick = useCallback(() => {
+  // [MOD] 点击 AI 按钮：课程页面时自动加载课程画布数据，否则打开空白 Drawer
+  const handleAiButtonClick = useCallback(async () => {
     if (isAiLoading) return
     startLoading()
+
+    if (prepareCanvasData) {
+      try {
+        const canvasData = await prepareCanvasData()
+        setAiInitialCanvasData(canvasData)
+      } catch (error) {
+        console.error("[Header] 准备课程画布数据失败:", error)
+      }
+    }
+
     requestAnimationFrame(() => setCourseDevDrawerOpen(true))
-  }, [isAiLoading, startLoading])
+  }, [isAiLoading, startLoading, prepareCanvasData])
 
   // [MOD] Drawer 打开后清除全局 loading
   useEffect(() => {
@@ -451,10 +467,14 @@ export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNode
         open={courseDevDrawerOpen}
         onOpenChange={(open) => {
           setCourseDevDrawerOpen(open)
-          if (!open) stopLoading()
+          if (!open) {
+            stopLoading()
+            setAiInitialCanvasData(null)
+          }
         }}
         userName={userName}
         treeData={treeData}
+        initialCanvasData={aiInitialCanvasData}
       />
     </header>
   )

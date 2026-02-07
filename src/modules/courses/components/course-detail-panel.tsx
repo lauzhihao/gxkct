@@ -1,9 +1,7 @@
 "use client"
 import { useState, useEffect, useCallback } from "react"
 import type { DetailPanelProps } from "@/components/detail-panel/types"
-import { AiAssistantDrawer } from "@/components/ai-assistant-drawer"
 import { convertCourseToCanvasComplete } from "@/lib/utils/course-to-canvas"
-import type { InitialCanvasData } from "@/types/ai-assistant"
 import { BookOpen, Calendar, Pencil, Trash2, User, Loader2 } from "lucide-react"
 import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
@@ -36,6 +34,7 @@ import { CourseThreeLevelMatrix } from "@/modules/courses/components/course/matr
 import { TeachingObjectivesEditor } from "@/modules/courses/components/shared/teaching-objectives-editor"
 import { getCourseCache } from "@/shared/utils/course-cache"
 import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
+import { useAiCanvasStore } from "@/shared/stores/ai-canvas-store"
 
 const COURSE_TABS = {
   info: "课程信息",
@@ -64,10 +63,7 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
     { value: "2025-fall", label: "2025年秋季学期" },
   ])
   const { setActivePage } = useActivePageTracker()
-
-  // AI 助手抽屉状态
-  const [aiDrawerOpen, setAiDrawerOpen] = useState(false)
-  const [aiInitialCanvasData, setAiInitialCanvasData] = useState<InitialCanvasData | null>(null)
+  const { registerPrepareCanvasData, unregisterPrepareCanvasData } = useAiCanvasStore()
 
   useEffect(() => {
     if (!node) return
@@ -236,59 +232,55 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
     setIsDeleteDialogOpen(false)
   }
 
-  // 打开 AI 助手并加载当前课程到画布
-  const handleOpenAiCanvas = useCallback(async () => {
-    if (!courseDetailData) {
-      console.warn("[CourseDetail] 课程数据未加载，无法打开AI画布")
+  // 注册画布数据准备回调到全局 store，供 Header AI 按钮调用
+  useEffect(() => {
+    if (!courseDetailData || !node?.id) {
+      unregisterPrepareCanvasData()
       return
     }
 
-    const courseId = node?.id
-    if (!courseId) {
-      console.warn("[CourseDetail] 无法获取课程ID")
-      return
-    }
+    const prepareCanvasData = async () => {
+      const courseId = node.id!
 
-    // 并行获取课程矩阵和项目矩阵数据
-    let matrixData: import("@/lib/utils/course-to-canvas").MatrixDataForCanvas | undefined
-    try {
-      const [courseMatrixRes, projectMatrixRes] = await Promise.all([
-        api.matrices.getCourseMatrix(String(courseId)),
-        api.matrices.getProjectMatrixData(String(courseId)),
-      ])
+      // 并行获取课程矩阵和项目矩阵数据
+      let matrixData: import("@/lib/utils/course-to-canvas").MatrixDataForCanvas | undefined
+      try {
+        const [courseMatrixRes, projectMatrixRes] = await Promise.all([
+          api.matrices.getCourseMatrix(String(courseId)),
+          api.matrices.getProjectMatrixData(String(courseId)),
+        ])
 
-      const courseMatrixItems = courseMatrixRes.data && Array.isArray(courseMatrixRes.data)
-        ? courseMatrixRes.data
-        : undefined
-      // handleBackendResponse 已解包外层 code/message/data，运行时 .data 即为内层对象
-      // TypeScript 类型 ProjectMatrixDataResponse 含外层包装，需 as any 绕过
-      const projectMatrixApiData = projectMatrixRes.data
-        ? (projectMatrixRes.data as any)
-        : undefined
+        const courseMatrixItems = courseMatrixRes.data && Array.isArray(courseMatrixRes.data)
+          ? courseMatrixRes.data
+          : undefined
+        const projectMatrixApiData = projectMatrixRes.data
+          ? (projectMatrixRes.data as any)
+          : undefined
 
-      if (courseMatrixItems || projectMatrixApiData) {
-        matrixData = { courseMatrixItems, projectMatrixApiData }
-        console.log("[CourseDetail] 矩阵数据加载成功:", {
-          courseMatrixCount: courseMatrixItems?.length || 0,
-          projectCount: (projectMatrixApiData as any)?.projects?.length || 0,
-        })
+        if (courseMatrixItems || projectMatrixApiData) {
+          matrixData = { courseMatrixItems, projectMatrixApiData }
+          console.log("[CourseDetail] 矩阵数据加载成功:", {
+            courseMatrixCount: courseMatrixItems?.length || 0,
+            projectCount: (projectMatrixApiData as any)?.projects?.length || 0,
+          })
+        }
+      } catch (error) {
+        console.error("[CourseDetail] 加载矩阵数据失败，将继续不带矩阵数据:", error)
       }
-    } catch (error) {
-      console.error("[CourseDetail] 加载矩阵数据失败，将继续不带矩阵数据:", error)
+
+      const canvasData = convertCourseToCanvasComplete(courseDetailData, courseGoals, matrixData)
+
+      console.log("[CourseDetail] 转换课程数据到画布格式:", {
+        elementsCount: canvasData.elements.length,
+        edgesCount: canvasData.edges.length,
+      })
+
+      return canvasData
     }
 
-    // 使用转换工具将课程数据转换为画布格式（使用完整版本，包含子卡片和矩阵）
-    const canvasData = convertCourseToCanvasComplete(courseDetailData, courseGoals, matrixData)
-
-    console.log("[CourseDetail] 转换课程数据到画布格式:", {
-      elementsCount: canvasData.elements.length,
-      edgesCount: canvasData.edges.length,
-    })
-
-    // 设置初始画布数据并打开抽屉
-    setAiInitialCanvasData(canvasData)
-    setAiDrawerOpen(true)
-  }, [courseDetailData, courseGoals, node?.id])
+    registerPrepareCanvasData(prepareCanvasData)
+    return () => unregisterPrepareCanvasData()
+  }, [courseDetailData, courseGoals, node?.id, registerPrepareCanvasData, unregisterPrepareCanvasData])
 
   // 获取课程所属的专业ID - 从已加载的课程详情中获取
   const getMajorId = (): string => {
@@ -439,20 +431,6 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
           </div>
           <div className="flex flex-col gap-2 absolute top-6 right-6">
             <div className="flex gap-2 justify-end">
-              {/* AI 优化按钮 */}
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={handleOpenAiCanvas}
-                className="gap-2 hover:bg-primary/10"
-                title="AI 优化课程"
-              >
-                <img
-                  src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAE4AAAAqCAMAAAAqEZ1jAAAAAXNSR0IArs4c6QAAAAlwSFlzAAAhOAAAITgBRZYxYAAAAKJQTFRFAAAAenb/RpP/k2j/XXf7cXX6P5z7i2n8W3j7ZHP7jmn9VID7Qpf8jWn8Xnr6iWr8YHb7i2n8RJb9dWz8WXr8mWj9RpP8W3n8bW/8l2j+QJz9Q5f9ToT8fWv9ZW/8lWj9VID8YnX7Pp79QZr9pWb+RJT8m2f9k2j9SYz8jWn9hmr8UIT8fmv8VX78Xnn7d2z8ZHT7WHr7bm77Xnb7Z3D7YHH7RJOQRAAAACJ0Uk5TABAgICAwQEBAWF5gZXBwgICbn5+fo7+/vsLP39/f3urv73XwOA8AAAKfSURBVHja7dbJcuIwFIXhIzCxMTMNcdwMDoMZY4NxeP9X66srEckYQlPVvcvPBhZ8dVSIAvz03xNV/Luq4Xq9Hgo8nfDqjXq97hS1yXZNhXg2Z3o+f1KnLqx62y17Pp5smp+158EUaW6I52rkxLF3eoNpt1Ne+bR+Fd8U5Oc8Px6P5M0Evgq11ytpy0jgbk6e5cSxd2pb7yKOikpTouWyhbsNMsnpefZpOzsCI7c8brkM74/LqFSC7HkwVTu9lsB14ZJy745LlDdV5+3iQTXC7s9z3pNEggOh9s3woOFqJT2BmzUSLnMQEEeeh2+rkraiOrjZeL+XXEBwyp71Ybg+hWL+iltGt8ftKQI9QMzSlDxz9VofssIMdxitdJEvbo3jxqAGKXtt6N4OkpvgkmiFa50Ch1UU8zab/Ya4Br/IUnnewHCHg+FEh7/ExUIXdq+KG4N7z3hfzXDkaa5FmGpdMENrYWWjaoDrJtJLu4ajFFfbUduryN1ue4brb2KpjSvgvETe53R24U6Ggz+RYJnsCTMujmMJ9qELErkv9y7cyXAGtNCoI2Dqx9ymAl1bcYMLJ2NO5fZ2dmHLxiBGrJlxEAl7M1HkTFUzseeiWHOxYK+CrwLltRX3qTk7/4PbTXDdaBHLxytMdcllaaA56U1RSEyU56M0jotfYBLvynM091ni0GGtPO73nLkR7AaK6yqOKnG1g+wXrnqZz9nrw87bszdjjn/dDGffbgdX9YmT4HykaoLTp/UABGfyypx7a1yFNb0wpl7BddW8geSO5JU5TE63xhmOPb2uok8reN1Nrn4qjQNBlmfdvkB5beaoMgdP4LpFgbNuX3svtSwABoZ7WPOKa0Inxgl7DurMdfFXVV7savjK8WQ1/cz5+Q9e7A/jUZeiPQO0fwAAAABJRU5ErkJggg=="
-                  alt="AI 优化"
-                  className="h-6 w-6 object-contain"
-                />
-              </Button>
               {onUpdateNode && (
                 <Button
                   size="sm"
@@ -560,21 +538,6 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* AI 助手抽屉 */}
-      <AiAssistantDrawer
-        open={aiDrawerOpen}
-        onOpenChange={(open) => {
-          setAiDrawerOpen(open)
-          // 关闭时清空初始数据，避免下次打开时重复加载
-          if (!open) {
-            setAiInitialCanvasData(null)
-          }
-        }}
-        userName={currentUser?.username}
-        treeData={treeData}
-        initialCanvasData={aiInitialCanvasData}
-      />
     </>
   )
 }
