@@ -20,6 +20,7 @@ import {
   CourseInfoData,
 } from "./canvas-elements"
 import { getNodeColorConfig } from "./flow/utils/types"
+import type { CanvasLayoutMode } from "./flow/utils/canvas-layout"
 import { useCanvasElements } from "@/shared/hooks/use-canvas-elements"
 import { useCanvasPersistence } from "@/shared/hooks/use-canvas-persistence"
 import { useSSEStream } from "@/shared/hooks/use-sse-stream"
@@ -87,6 +88,7 @@ export function AiAssistantDrawer({
   const [sessionId, setSessionId] = useState<string>("")
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [isInitialized, setIsInitialized] = useState(false)
+  const [layoutMode, setLayoutMode] = useState<CanvasLayoutMode>("horizontal")
 
   // 客户端初始化：从localStorage读取会话数据
   useEffect(() => {
@@ -166,7 +168,7 @@ export function AiAssistantDrawer({
     handleCanvasEvent,
     flowNodes,
     toFlowEdges,
-  } = useCanvasElements()
+  } = useCanvasElements(layoutMode)
 
   // [FIX] 使用 useCallback 创建稳定的回调引用，避免 useCanvasPersistence 内部依赖变化导致无限循环
   const handleCanvasUploadSuccess = useCallback((ossKey: string) => {
@@ -911,6 +913,7 @@ export function AiAssistantDrawer({
     [CanvasComponentType.CHAPTER_CARD]: "chapter",
     [CanvasComponentType.KSA_PANEL]: "ksaPanel",
     [CanvasComponentType.KSA_ITEM]: "ksa",
+    [CanvasComponentType.GRADUATION_SUPPORT]: "graduationSupportPanel",
     [CanvasComponentType.COURSE_MATRIX]: "courseMatrix",
     [CanvasComponentType.PROJECT_MATRIX_PANEL]: "projectMatrix",
     [CanvasComponentType.PROJECT_MATRIX]: "projectMatrix",
@@ -1849,6 +1852,8 @@ export function AiAssistantDrawer({
                       }
                     }}
                     isUploading={isCanvasUploading}
+                    layoutMode={layoutMode}
+                    onLayoutModeChange={setLayoutMode}
                   />
                 </div>
               </div>

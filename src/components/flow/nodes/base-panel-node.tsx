@@ -1,11 +1,12 @@
 "use client"
 
-import { memo, useState, type ReactNode } from "react"
-import { Handle, Position } from "@xyflow/react"
+import { memo, useEffect, useState, type ReactNode } from "react"
+import { Handle, Position, useUpdateNodeInternals } from "@xyflow/react"
 import { Plus, Pencil, RefreshCw, Trash2, Loader2 } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip"
 import { Popover, PopoverTrigger, PopoverContent } from "@/shared/components/ui/popover"
 import { Button } from "@/shared/components/ui/button"
+import { useCanvasLayoutMode } from "@/components/flow/utils/canvas-layout-context"
 
 export interface BasePanelNodeProps {
   // 节点ID
@@ -100,6 +101,17 @@ export const BasePanelNode = memo(function BasePanelNode({
   onDelete,
   progressMessage,
 }: BasePanelNodeProps) {
+  const updateNodeInternals = useUpdateNodeInternals()
+  const layoutMode = useCanvasLayoutMode()
+  const leftHandlePosition = layoutMode === "vertical" ? Position.Top : Position.Left
+  const rightHandlePosition = layoutMode === "vertical" ? Position.Bottom : Position.Right
+  const rightExpandHandleStyle = layoutMode === "vertical" ? { left: "30%" } : { top: "30%" }
+
+  useEffect(() => {
+    // 布局切换后强制刷新锚点，避免边路径使用旧的 Handle 缓存
+    updateNodeInternals(id)
+  }, [id, layoutMode, updateNodeInternals])
+
   // 删除确认对话框状态
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
@@ -297,7 +309,7 @@ export const BasePanelNode = memo(function BasePanelNode({
         <Handle
           id="left"
           type="target"
-          position={Position.Left}
+          position={leftHandlePosition}
           className={`!w-4 !h-4 !border-2 !border-white !rounded-full !shadow-sm ${handleColorClass} ${disabledHandleClass}`}
         />
       )}
@@ -307,7 +319,7 @@ export const BasePanelNode = memo(function BasePanelNode({
         <Handle
           id="right"
           type="source"
-          position={Position.Right}
+          position={rightHandlePosition}
           className={`
             !w-6 !h-6 !border-2 !border-white !rounded-full !shadow-sm
             ${isHandleDisabled ? "" : "hover:!shadow-md"} !transition-all
@@ -327,8 +339,8 @@ export const BasePanelNode = memo(function BasePanelNode({
         <Handle
           id="matrix"
           type="source"
-          position={Position.Right}
-          style={{ top: "30%" }}
+          position={rightHandlePosition}
+          style={rightExpandHandleStyle}
           className={`
             !w-6 !h-6 !border-2 !border-white !shadow-md
             ${isHandleDisabled ? "" : "hover:!shadow-lg"} !transition-all

@@ -3,6 +3,7 @@
 import { useCallback, useState, useEffect, useRef } from "react"
 import { Panel, useReactFlow, useOnViewportChange, type Viewport } from "@xyflow/react"
 import { Plus, Minus, Maximize, Check } from "lucide-react"
+import type { CanvasLayoutMode } from "@/components/flow/utils/canvas-layout"
 
 /**
  * 缩放步长（百分比）
@@ -69,13 +70,42 @@ export interface CustomZoomControlsProps {
   isUploading?: boolean
   /** 是否正在加载（画布loading状态） */
   isLoading?: boolean
+  /** 当前画布布局模式 */
+  layoutMode?: CanvasLayoutMode
+  /** 切换布局模式回调 */
+  onLayoutModeChange?: (mode: CanvasLayoutMode) => void
+}
+
+function HorizontalLayoutIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" aria-hidden="true">
+      <rect x="1.5" y="3" width="3.5" height="10" rx="1" fill="currentColor" opacity="0.9" />
+      <rect x="6.25" y="3" width="3.5" height="10" rx="1" fill="currentColor" opacity="0.7" />
+      <rect x="11" y="3" width="3.5" height="10" rx="1" fill="currentColor" opacity="0.5" />
+    </svg>
+  )
+}
+
+function VerticalLayoutIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" aria-hidden="true">
+      <rect x="3" y="1.5" width="10" height="3.5" rx="1" fill="currentColor" opacity="0.9" />
+      <rect x="3" y="6.25" width="10" height="3.5" rx="1" fill="currentColor" opacity="0.7" />
+      <rect x="3" y="11" width="10" height="3.5" rx="1" fill="currentColor" opacity="0.5" />
+    </svg>
+  )
 }
 
 /**
  * 自定义缩放控件组件
  * 提供缩放比例显示、放大/缩小按钮和适应视图功能
  */
-export function CustomZoomControls({ isUploading = false, isLoading = false }: CustomZoomControlsProps) {
+export function CustomZoomControls({
+  isUploading = false,
+  isLoading = false,
+  layoutMode = "horizontal",
+  onLayoutModeChange,
+}: CustomZoomControlsProps) {
   const { fitView, getZoom, zoomTo } = useReactFlow()
   const [zoom, setZoom] = useState(1)
 
@@ -145,6 +175,21 @@ export function CustomZoomControls({ isUploading = false, isLoading = false }: C
       <div className="px-1.5 flex items-center justify-center">
         <SyncStatusIndicator isUploading={isUploading} isLoading={isLoading} />
       </div>
+      <div className="w-px h-5 bg-gray-200 mx-1" />
+      <button
+        onClick={() => onLayoutModeChange?.("horizontal")}
+        className={`p-1.5 rounded canvas-zoom-btn ${layoutMode === "horizontal" ? "bg-gray-100" : ""}`}
+        title="水平布局"
+      >
+        <HorizontalLayoutIcon />
+      </button>
+      <button
+        onClick={() => onLayoutModeChange?.("vertical")}
+        className={`p-1.5 rounded canvas-zoom-btn ${layoutMode === "vertical" ? "bg-gray-100" : ""}`}
+        title="垂直布局"
+      >
+        <VerticalLayoutIcon />
+      </button>
     </Panel>
   )
 }

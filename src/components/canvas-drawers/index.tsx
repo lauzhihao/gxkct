@@ -13,6 +13,7 @@ import { CanvasCourseMatrixEditor } from "../canvas-course-matrix-editor"
 import { CanvasProjectMatrixEditor } from "../canvas-project-matrix-editor"
 import { CanvasCourseReportPreview } from "../canvas-course-report-preview"
 import { CanvasSourceDocumentEditor } from "../canvas-source-document-editor"
+import { CanvasGraduationSupportEditor } from "../canvas-graduation-support-editor"
 import type {
   CoursePointCardData,
   KsaItemData,
@@ -23,6 +24,7 @@ import type {
   CourseInfoData,
   CanvasElementData,
   SourceDocumentCardData,
+  GraduationSupportData,
 } from "../canvas-elements/types"
 import type { TreeNode } from "@/types"
 import type {
@@ -35,6 +37,7 @@ import type {
   ProjectMatrixDrawerState,
   CourseReportDrawerState,
   SourceDocumentDrawerState,
+  GraduationSupportDrawerState,
 } from "@/shared/hooks/use-canvas-drawers"
 import type { CourseReportPreviewData } from "../canvas-course-report-preview"
 
@@ -99,6 +102,12 @@ export interface CanvasDrawersProps {
   onSourceDocumentRegenerate: (document: SourceDocumentCardData) => void
   onSourceDocumentDrawerClose: () => void
 
+  // 专业矩阵编辑抽屉状态和处理函数
+  graduationSupportDrawer: GraduationSupportDrawerState
+  isSavingGraduationSupport: boolean
+  onGraduationSupportSave: (data: GraduationSupportData) => void
+  onGraduationSupportDrawerClose: () => void
+
   // 保存向导所需的数据
   canvasElements?: CanvasElementData[]
   canvasOssKey?: string | null
@@ -149,6 +158,10 @@ export const CanvasDrawers = memo(function CanvasDrawers({
   onSourceDocumentSave,
   onSourceDocumentRegenerate,
   onSourceDocumentDrawerClose,
+  graduationSupportDrawer,
+  isSavingGraduationSupport,
+  onGraduationSupportSave,
+  onGraduationSupportDrawerClose,
   canvasElements = [],
   canvasOssKey = null,
   treeData = null,
@@ -433,6 +446,32 @@ export const CanvasDrawers = memo(function CanvasDrawers({
               isRegenerating={isRegeneratingSourceDocument}
             />
           )}
+        </SheetContent>
+      </Sheet>
+
+      {/* 专业矩阵编辑抽屉 */}
+      <Sheet
+        open={graduationSupportDrawer.open}
+        onOpenChange={(open) => {
+          if (!open) {
+            onGraduationSupportDrawerClose()
+          }
+        }}
+      >
+        <SheetContent side="right" className="w-[800px] sm:max-w-[800px] p-0 flex flex-col">
+          <SheetHeader className="sr-only">
+            <SheetTitle>编辑专业矩阵</SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-hidden">
+            {graduationSupportDrawer.data && (
+              <CanvasGraduationSupportEditor
+                data={graduationSupportDrawer.data}
+                onSave={onGraduationSupportSave}
+                onClose={onGraduationSupportDrawerClose}
+                isSaving={isSavingGraduationSupport}
+              />
+            )}
+          </div>
         </SheetContent>
       </Sheet>
     </>

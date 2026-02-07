@@ -14,6 +14,7 @@ import type {
   CourseMatrixData,
   ProjectMatrixData,
   SourceDocumentCardData,
+  GraduationSupportData,
 } from "@/components/canvas-elements/types"
 import type { CourseReportPreviewData } from "@/components/canvas-course-report-preview"
 
@@ -98,6 +99,15 @@ export interface SourceDocumentDrawerState {
 }
 
 /**
+ * 专业矩阵编辑抽屉状态类型
+ */
+export interface GraduationSupportDrawerState {
+  open: boolean
+  panelId: string
+  data: GraduationSupportData | null
+}
+
+/**
  * useCanvasDrawers hook 参数
  */
 export interface UseCanvasDrawersOptions {
@@ -121,6 +131,8 @@ export interface UseCanvasDrawersOptions {
   onSourceDocumentUpdate?: (document: SourceDocumentCardData) => void
   /** 源文档重做回调（重新解析） */
   onSourceDocumentRegenerate?: (document: SourceDocumentCardData) => void
+  /** 专业矩阵（毕业要求支撑）更新回调 */
+  onGraduationSupportUpdate?: (panelId: string, data: GraduationSupportData) => void
 }
 
 /**
@@ -193,6 +205,13 @@ export interface UseCanvasDrawersReturn {
   handleSourceDocumentSave: (document: SourceDocumentCardData) => void
   handleSourceDocumentRegenerate: (document: SourceDocumentCardData) => void
   handleSourceDocumentDrawerClose: () => void
+
+  // 专业矩阵编辑处理函数
+  graduationSupportDrawer: GraduationSupportDrawerState
+  isSavingGraduationSupport: boolean
+  handleGraduationSupportPanelEdit: (panelId: string) => void
+  handleGraduationSupportSave: (data: GraduationSupportData) => void
+  handleGraduationSupportDrawerClose: () => void
 }
 
 /**
@@ -210,6 +229,7 @@ export function useCanvasDrawers({
   onProjectMatrixUpdate,
   onSourceDocumentUpdate,
   onSourceDocumentRegenerate,
+  onGraduationSupportUpdate,
 }: UseCanvasDrawersOptions): UseCanvasDrawersReturn {
   // 正在更新的面板ID集合（用于显示loading效果）
   const [updatingPanelIds, setUpdatingPanelIds] = useState<Set<string>>(new Set())
@@ -283,6 +303,14 @@ export function useCanvasDrawers({
   })
   const [isSavingSourceDocument, setIsSavingSourceDocument] = useState(false)
   const [isRegeneratingSourceDocument, setIsRegeneratingSourceDocument] = useState(false)
+
+  // 专业矩阵编辑抽屉状态
+  const [graduationSupportDrawer, setGraduationSupportDrawer] = useState<GraduationSupportDrawerState>({
+    open: false,
+    panelId: "",
+    data: null,
+  })
+  const [isSavingGraduationSupport, setIsSavingGraduationSupport] = useState(false)
 
   // ==================== 编辑弹窗处理函数 ====================
 
@@ -749,6 +777,57 @@ export function useCanvasDrawers({
     setIsRegeneratingSourceDocument(false)
   }, [])
 
+  // ==================== 专业矩阵编辑处理函数 ====================
+
+  // 处理专业矩阵面板编辑图标点击
+  const handleGraduationSupportPanelEdit = useCallback(
+    (panelId: string) => {
+      const node = flowNodes.find(n => n.id === panelId)
+      const nodeData = node ? (node.data as unknown as GraduationSupportData) : null
+
+      setGraduationSupportDrawer({
+        open: true,
+        panelId,
+        data: nodeData || { id: panelId },
+      })
+    },
+    [flowNodes]
+  )
+
+  // 处理专业矩阵编辑保存
+  const handleGraduationSupportSave = useCallback(
+    (data: GraduationSupportData) => {
+      if (!graduationSupportDrawer.panelId) return
+
+      const panelId = graduationSupportDrawer.panelId
+      setIsSavingGraduationSupport(true)
+      setUpdatingPanelIds(prev => new Set(prev).add(panelId))
+
+      // 直接更新节点数据，使面板组件重新渲染支撑标签
+      onNodeDataUpdate?.(panelId, data)
+
+      setGraduationSupportDrawer({ open: false, panelId: "", data: null })
+      setIsSavingGraduationSupport(false)
+
+      // 通知外部（用于持久化等）
+      onGraduationSupportUpdate?.(panelId, data)
+
+      setTimeout(() => {
+        setUpdatingPanelIds(prev => {
+          const next = new Set(prev)
+          next.delete(panelId)
+          return next
+        })
+      }, 300)
+    },
+    [graduationSupportDrawer.panelId, onNodeDataUpdate, onGraduationSupportUpdate]
+  )
+
+  // 关闭专业矩阵编辑抽屉
+  const handleGraduationSupportDrawerClose = useCallback(() => {
+    setGraduationSupportDrawer({ open: false, panelId: "", data: null })
+  }, [])
+
   return {
     // 状态
     editDialog,
@@ -816,5 +895,12 @@ export function useCanvasDrawers({
     handleSourceDocumentSave,
     handleSourceDocumentRegenerate,
     handleSourceDocumentDrawerClose,
+
+    // 专业矩阵编辑处理函数
+    graduationSupportDrawer,
+    isSavingGraduationSupport,
+    handleGraduationSupportPanelEdit,
+    handleGraduationSupportSave,
+    handleGraduationSupportDrawerClose,
   }
 }

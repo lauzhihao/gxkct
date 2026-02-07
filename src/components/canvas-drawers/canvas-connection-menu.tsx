@@ -8,7 +8,7 @@ import { FlowNodeType } from "../flow/utils/types"
 /**
  * 连接菜单选项类型
  */
-export type ConnectionMenuOption = "objective" | "coursePoint" | "chapter" | "ksa" | "courseMatrix" | "projectMatrix" | "courseReport" | "courseInfo"
+export type ConnectionMenuOption = "objective" | "coursePoint" | "chapter" | "ksa" | "courseMatrix" | "projectMatrix" | "courseReport" | "courseInfo" | "graduationSupport"
 
 /**
  * 连接菜单状态
@@ -51,7 +51,7 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
   const hasObjectivePanel = flowNodes.some(n => n.type === FlowNodeType.OBJECTIVE_PANEL)
   const hasCoursePointPanel = flowNodes.some(n => n.type === FlowNodeType.COURSE_POINT_PANEL)
   const hasChapterPanel = flowNodes.some(n => n.type === FlowNodeType.CHAPTER_PANEL)
-  const hasKsaPanel = flowNodes.some(n => n.type === FlowNodeType.KSA_PANEL)
+  const hasGraduationSupportPanel = flowNodes.some(n => n.type === FlowNodeType.GRADUATION_SUPPORT_PANEL)
   const hasCourseMatrix = flowNodes.some(n => n.type === FlowNodeType.COURSE_MATRIX)
   const hasCourseReport = flowNodes.some(n => n.type === FlowNodeType.COURSE_REPORT)
 
@@ -90,13 +90,6 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
     objectiveChildCount > 0 &&
     chapterChildCount > 0 &&
     coursePointChildCount > 0
-
-  // 顺序检查规则：objectives → chapters → course_points → ksa
-  // 必须按照顺序创建，前置面板存在后才能创建下一个
-  const canCreateObjective = !hasObjectivePanel
-  const canCreateChapter = hasObjectivePanel && !hasChapterPanel
-  const canCreateCoursePoint = hasObjectivePanel && hasChapterPanel && !hasCoursePointPanel
-  const canCreateKsa = hasObjectivePanel && hasChapterPanel && hasCoursePointPanel && !hasKsaPanel
 
   return (
     <div
@@ -152,6 +145,63 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
             <span>+ 项目矩阵</span>
           </button>
         </>
+      ) : sourceNodeType === FlowNodeType.GRADUATION_SUPPORT_PANEL ? (
+        <>
+          {/* 从专业矩阵拖出时只显示教学目标选项 */}
+          <button
+            className={`group flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm canvas-menu-item ${
+              hasObjectivePanel
+                ? "text-muted-foreground/50 cursor-not-allowed"
+                : "hover:bg-accent hover:text-accent-foreground"
+            }`}
+            onClick={() => !hasObjectivePanel && onMenuSelect("objective")}
+            disabled={hasObjectivePanel}
+            title={hasObjectivePanel ? "画布中已存在教学目标面板" : ""}
+          >
+            <Plus className={`h-4 w-4 transition-opacity ${
+              hasObjectivePanel ? "opacity-30" : "opacity-0 group-hover:opacity-100"
+            }`} />
+            <span>+ 教学目标</span>
+          </button>
+        </>
+      ) : sourceNodeType === FlowNodeType.OBJECTIVE_PANEL ? (
+        <>
+          {/* 从教学目标面板拖出时只显示章节项目选项 */}
+          <button
+            className={`group flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm canvas-menu-item ${
+              hasChapterPanel
+                ? "text-muted-foreground/50 cursor-not-allowed"
+                : "hover:bg-accent hover:text-accent-foreground"
+            }`}
+            onClick={() => !hasChapterPanel && onMenuSelect("chapter")}
+            disabled={hasChapterPanel}
+            title={hasChapterPanel ? "画布中已存在章节项目面板" : ""}
+          >
+            <Plus className={`h-4 w-4 transition-opacity ${
+              hasChapterPanel ? "opacity-30" : "opacity-0 group-hover:opacity-100"
+            }`} />
+            <span>+ 章节项目</span>
+          </button>
+        </>
+      ) : sourceNodeType === FlowNodeType.CHAPTER_PANEL ? (
+        <>
+          {/* 从章节项目面板拖出时只显示课点信息选项 */}
+          <button
+            className={`group flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm canvas-menu-item ${
+              hasCoursePointPanel
+                ? "text-muted-foreground/50 cursor-not-allowed"
+                : "hover:bg-accent hover:text-accent-foreground"
+            }`}
+            onClick={() => !hasCoursePointPanel && onMenuSelect("coursePoint")}
+            disabled={hasCoursePointPanel}
+            title={hasCoursePointPanel ? "画布中已存在课点信息面板" : ""}
+          >
+            <Plus className={`h-4 w-4 transition-opacity ${
+              hasCoursePointPanel ? "opacity-30" : "opacity-0 group-hover:opacity-100"
+            }`} />
+            <span>+ 课点信息</span>
+          </button>
+        </>
       ) : connectionMenu.sourceHandle === "matrix" ? (
         <>
           {/* 矩阵扩展菜单 - 从章节卡片的 matrix handle 拖出时显示 */}
@@ -195,66 +245,21 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
         </>
       ) : (
         <>
-          {/* 默认菜单 - 从课程信息卡片拖出时显示，按顺序检查规则控制 */}
+          {/* 默认菜单 - 从课程信息卡片拖出时仅显示专业矩阵 */}
           <button
             className={`group flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm canvas-menu-item ${
-              canCreateObjective
+              !hasGraduationSupportPanel
                 ? "hover:bg-accent hover:text-accent-foreground"
                 : "text-muted-foreground/50 cursor-not-allowed"
             }`}
-            onClick={() => canCreateObjective && onMenuSelect("objective")}
-            disabled={!canCreateObjective}
-            title={!canCreateObjective && hasObjectivePanel ? "教学目标面板已存在" : !canCreateObjective ? "需要先创建教学目标面板" : ""}
+            onClick={() => !hasGraduationSupportPanel && onMenuSelect("graduationSupport")}
+            disabled={hasGraduationSupportPanel}
+            title={hasGraduationSupportPanel ? "画布中已存在专业矩阵" : ""}
           >
             <Plus className={`h-4 w-4 transition-opacity ${
-              canCreateObjective ? "opacity-0 group-hover:opacity-100" : "opacity-30"
+              !hasGraduationSupportPanel ? "opacity-0 group-hover:opacity-100" : "opacity-30"
             }`} />
-            <span>教学目标</span>
-          </button>
-          <button
-            className={`group flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm canvas-menu-item ${
-              canCreateChapter
-                ? "hover:bg-accent hover:text-accent-foreground"
-                : "text-muted-foreground/50 cursor-not-allowed"
-            }`}
-            onClick={() => canCreateChapter && onMenuSelect("chapter")}
-            disabled={!canCreateChapter}
-            title={!canCreateChapter && hasChapterPanel ? "章节项目面板已存在" : !canCreateChapter ? "需要先创建章节项目面板" : ""}
-          >
-            <Plus className={`h-4 w-4 transition-opacity ${
-              canCreateChapter ? "opacity-0 group-hover:opacity-100" : "opacity-30"
-            }`} />
-            <span>章节项目</span>
-          </button>
-          <button
-            className={`group flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm canvas-menu-item ${
-              canCreateCoursePoint
-                ? "hover:bg-accent hover:text-accent-foreground"
-                : "text-muted-foreground/50 cursor-not-allowed"
-            }`}
-            onClick={() => canCreateCoursePoint && onMenuSelect("coursePoint")}
-            disabled={!canCreateCoursePoint}
-            title={!canCreateCoursePoint && hasCoursePointPanel ? "课点信息面板已存在" : !canCreateCoursePoint ? "需要先创建章节项目面板" : ""}
-          >
-            <Plus className={`h-4 w-4 transition-opacity ${
-              canCreateCoursePoint ? "opacity-0 group-hover:opacity-100" : "opacity-30"
-            }`} />
-            <span>课点信息</span>
-          </button>
-          <button
-            className={`group flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm canvas-menu-item ${
-              canCreateKsa
-                ? "hover:bg-accent hover:text-accent-foreground"
-                : "text-muted-foreground/50 cursor-not-allowed"
-            }`}
-            onClick={() => canCreateKsa && onMenuSelect("ksa")}
-            disabled={!canCreateKsa}
-            title={!canCreateKsa && hasKsaPanel ? "KSA面板已存在" : !canCreateKsa ? "需要先创建课点信息面板" : ""}
-          >
-            <Plus className={`h-4 w-4 transition-opacity ${
-              canCreateKsa ? "opacity-0 group-hover:opacity-100" : "opacity-30"
-            }`} />
-            <span>KSA</span>
+            <span>+ 专业矩阵</span>
           </button>
         </>
       )}

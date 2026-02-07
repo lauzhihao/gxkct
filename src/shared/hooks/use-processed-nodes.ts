@@ -17,6 +17,7 @@ const FLOW_TO_CANVAS_TYPE: Partial<Record<FlowNodeType, CanvasComponentType>> = 
   [FlowNodeType.COURSE_POINT_PANEL]: CanvasComponentType.COURSE_POINT_PANEL,
   [FlowNodeType.CHAPTER_PANEL]: CanvasComponentType.CHAPTER_PANEL,
   [FlowNodeType.KSA_PANEL]: CanvasComponentType.KSA_PANEL,
+  [FlowNodeType.GRADUATION_SUPPORT_PANEL]: CanvasComponentType.GRADUATION_SUPPORT,
   [FlowNodeType.COURSE_MATRIX]: CanvasComponentType.COURSE_MATRIX,
   [FlowNodeType.PROJECT_MATRIX]: CanvasComponentType.PROJECT_MATRIX,
   [FlowNodeType.COURSE_REPORT]: CanvasComponentType.COURSE_REPORT,
@@ -31,6 +32,7 @@ const PANEL_NODE_TYPES = [
   FlowNodeType.COURSE_POINT_PANEL,
   FlowNodeType.CHAPTER_PANEL,
   FlowNodeType.KSA_PANEL,
+  FlowNodeType.GRADUATION_SUPPORT_PANEL,
   FlowNodeType.SOURCE_DOCUMENT_PANEL,
 ]
 
@@ -74,6 +76,8 @@ export interface UseProcessedNodesOptions {
   onChapterPanelEdit: (panelId: string) => void
   /** 教学目标面板编辑回调 */
   onObjectivePanelEdit: (panelId: string) => void
+  /** 专业矩阵面板编辑回调 */
+  onGraduationSupportPanelEdit?: (panelId: string) => void
   /** 源文档面板编辑回调 */
   onSourceDocumentPanelEdit?: (panelId: string) => void
   /** 源文档卡片编辑回调 */
@@ -98,6 +102,8 @@ function getNodeDisplayName(node: Node): string {
       return "章节项目"
     case FlowNodeType.KSA_PANEL:
       return "KSA"
+    case FlowNodeType.GRADUATION_SUPPORT_PANEL:
+      return "专业矩阵"
     case FlowNodeType.COURSE_MATRIX:
       return "课程矩阵"
     case FlowNodeType.PROJECT_MATRIX:
@@ -136,6 +142,7 @@ export function useProcessedNodes({
   onKsaPanelEdit,
   onChapterPanelEdit,
   onObjectivePanelEdit,
+  onGraduationSupportPanelEdit,
   onSourceDocumentPanelEdit,
   onSourceDocumentEdit,
   onSourceDocumentRefresh,
@@ -289,6 +296,9 @@ export function useProcessedNodes({
         if (node.type === FlowNodeType.OBJECTIVE_PANEL) {
           panelData.onEdit = onObjectivePanelEdit
         }
+        if (node.type === FlowNodeType.GRADUATION_SUPPORT_PANEL) {
+          panelData.onEdit = onGraduationSupportPanelEdit
+        }
         if (node.type === FlowNodeType.SOURCE_DOCUMENT_PANEL) {
           panelData.onEdit = onSourceDocumentPanelEdit
         }
@@ -343,6 +353,7 @@ export function useProcessedNodes({
     onKsaPanelEdit,
     onChapterPanelEdit,
     onObjectivePanelEdit,
+    onGraduationSupportPanelEdit,
     onSourceDocumentPanelEdit,
     onSourceDocumentEdit,
     onSourceDocumentRefresh,

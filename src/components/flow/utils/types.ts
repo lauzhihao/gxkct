@@ -9,6 +9,7 @@ import type {
   ProjectMatrixData,
   PanelData,
   SourceDocumentCardData,
+  GraduationSupportData,
 } from "@/components/canvas-elements/types"
 
 /**
@@ -32,6 +33,7 @@ export enum FlowNodeType {
   COURSE_POINT_PANEL = "coursePointPanel",
   CHAPTER_PANEL = "chapterPanel",
   KSA_PANEL = "ksaPanel",
+  GRADUATION_SUPPORT_PANEL = "graduationSupportPanel",
 }
 
 /**
@@ -56,6 +58,7 @@ export type FlowNodeData =
   | ProjectMatrixData
   | PanelData
   | SourceDocumentCardData
+  | GraduationSupportData
 
 /**
  * 自定义节点类型定义
@@ -123,6 +126,7 @@ export const NODE_DEFAULT_SIZES: Record<FlowNodeType, { width: number; height: n
   [FlowNodeType.COURSE_POINT_PANEL]: { width: 320, height: 400 },
   [FlowNodeType.CHAPTER_PANEL]: { width: 320, height: 400 },
   [FlowNodeType.KSA_PANEL]: { width: 320, height: 400 },
+  [FlowNodeType.GRADUATION_SUPPORT_PANEL]: { width: 320, height: 200 },
 }
 
 /**
@@ -146,6 +150,7 @@ export const NODE_COLORS: Record<FlowNodeType, { bg: string; border: string; tex
   [FlowNodeType.COURSE_POINT_PANEL]: { bg: "bg-green-50/50", border: "border-green-300", text: "text-green-700" },
   [FlowNodeType.CHAPTER_PANEL]: { bg: "bg-purple-50/50", border: "border-purple-300", text: "text-purple-700" },
   [FlowNodeType.KSA_PANEL]: { bg: "bg-amber-50/50", border: "border-amber-300", text: "text-amber-700" },
+  [FlowNodeType.GRADUATION_SUPPORT_PANEL]: { bg: "bg-emerald-50/50", border: "border-emerald-300", text: "text-emerald-700" },
 }
 
 /**
@@ -226,5 +231,9 @@ export const NODE_HANDLE_CONFIG: Record<FlowNodeType, HandleConfig[]> = {
   [FlowNodeType.KSA_PANEL]: [
     { id: "top", position: "top" as Position, type: "target" },
     { id: "bottom", position: "bottom" as Position, type: "source" },
+  ],
+  [FlowNodeType.GRADUATION_SUPPORT_PANEL]: [
+    { id: "left", position: "left" as Position, type: "target" },
+    { id: "right", position: "right" as Position, type: "source" },
   ],
 }

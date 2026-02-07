@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo, useEffect } from "react"
 import type { Node, Edge } from "@xyflow/react"
 import {
   CanvasElementData,
@@ -17,6 +17,16 @@ import {
 import { ElementPosition } from "@/components/canvas-elements/types"
 import { FlowNodeType } from "@/components/flow/utils/types"
 import { applyDagreLayout, generateEdgeId } from "@/components/flow/utils/layout"
+import {
+  CANVAS_LAYOUT_POSITION_CONFIG,
+  HORIZONTAL_LAYOUT_GROUPS,
+  HORIZONTAL_LAYOUT_GROUP_GAP_PX,
+  HORIZONTAL_LAYOUT_ITEM_GAP_PX,
+  HORIZONTAL_COURSE_MATRIX_OFFSET_PX,
+  VERTICAL_LAYOUT_GROUPS,
+  VERTICAL_LAYOUT_GAP_PX,
+  type CanvasLayoutMode,
+} from "@/components/flow/utils/canvas-layout"
 
 // 默认元素尺寸配置
 // 注意：Card 高度需要匹配实际渲染高度（头部约37px + 内容区padding+文字 + 边框）
@@ -36,6 +46,7 @@ const DEFAULT_ELEMENT_SIZES: Record<CanvasComponentType, { width: number; height
   [CanvasComponentType.CHAPTER_CARD]: { width: 280, height: 130 },
   [CanvasComponentType.KSA_PANEL]: { width: 320, height: 200 },          // 75 + 110 + 10 = 195 → min 200
   [CanvasComponentType.KSA_ITEM]: { width: 260, height: 110 },           // 头部37 + 内容区p-3(24) + 文字2行(40) + 边距 ≈ 110
+  [CanvasComponentType.GRADUATION_SUPPORT]: { width: 580, height: 200 }, // 毕业要求支撑面板（5列布局，动态高度）
   [CanvasComponentType.COURSE_MATRIX]: { width: 1100, height: 680 },
   [CanvasComponentType.PROJECT_MATRIX_PANEL]: { width: 900, height: 200 },  // 最小高度，实际会动态计算
   [CanvasComponentType.PROJECT_MATRIX]: { width: 900, height: 200 },        // 最小高度，实际会动态计算
@@ -72,6 +83,55 @@ function calculateProjectMatrixHeight(data: unknown): number {
     Math.max(calculatedHeight, PROJECT_MATRIX_HEIGHT_CONFIG.MIN_HEIGHT),
     PROJECT_MATRIX_HEIGHT_CONFIG.MAX_HEIGHT
   )
+}
+
+// 专业矩阵动态尺寸计算配置
+const GRADUATION_SUPPORT_SIZE_CONFIG = {
+  NODE_WIDTH: 580,       // 节点宽度（适配5列布局）
+  HEADER_HEIGHT: 45,     // 头部标题栏高度
+  SCALE: 1.4,            // 标签区域缩放比例
+  LABEL_HEIGHT: 26,      // 单个标签高度（pre-scale）
+  GAP: 6,                // 标签间距 gap-1.5 = 6px（pre-scale）
+  PADDING: 8,            // 标签区域内边距 p-2 = 8px（pre-scale）
+  BOTTOM: 8,             // 底部边距
+  COLUMNS: 5,            // 列数
+  MIN_HEIGHT: 200,       // 最小高度
+}
+
+/**
+ * 根据专业矩阵数据计算节点动态尺寸
+ * 统计已设置支撑等级的指标点数量，按5列布局计算所需高度
+ * @param data 专业矩阵数据
+ * @returns { width, height }
+ */
+function calculateGraduationSupportSize(data: unknown): { width: number; height: number } {
+  const cfg = GRADUATION_SUPPORT_SIZE_CONFIG
+  const gsData = data as { requirements?: Array<{ indicators: Array<{ supportLevel?: string }> }> }
+
+  if (!gsData?.requirements) {
+    return { width: cfg.NODE_WIDTH, height: cfg.MIN_HEIGHT }
+  }
+
+  let count = 0
+  gsData.requirements.forEach(req => {
+    req.indicators.forEach(ind => {
+      if (ind.supportLevel) count++
+    })
+  })
+
+  if (count === 0) {
+    return { width: cfg.NODE_WIDTH, height: cfg.MIN_HEIGHT }
+  }
+
+  const rows = Math.ceil(count / cfg.COLUMNS)
+  const contentPreScale = cfg.PADDING + rows * cfg.LABEL_HEIGHT + (rows - 1) * cfg.GAP + cfg.PADDING
+  const contentScaled = contentPreScale * cfg.SCALE
+  const totalHeight = cfg.HEADER_HEIGHT + contentScaled + cfg.BOTTOM
+
+  return {
+    width: cfg.NODE_WIDTH,
+    height: Math.max(cfg.MIN_HEIGHT, Math.ceil(totalHeight)),
+  }
 }
 
 /**
@@ -180,6 +240,7 @@ const COMPONENT_TO_NODE_TYPE: Partial<Record<CanvasComponentType, FlowNodeType>>
   [CanvasComponentType.COURSE_POINT_PANEL]: FlowNodeType.COURSE_POINT_PANEL,
   [CanvasComponentType.CHAPTER_PANEL]: FlowNodeType.CHAPTER_PANEL,
   [CanvasComponentType.KSA_PANEL]: FlowNodeType.KSA_PANEL,
+  [CanvasComponentType.GRADUATION_SUPPORT]: FlowNodeType.GRADUATION_SUPPORT_PANEL,
 }
 
 // Panel 类型列表
@@ -189,6 +250,7 @@ const PANEL_TYPES: CanvasComponentType[] = [
   CanvasComponentType.COURSE_POINT_PANEL,
   CanvasComponentType.CHAPTER_PANEL,
   CanvasComponentType.KSA_PANEL,
+  CanvasComponentType.GRADUATION_SUPPORT,
 ]
 
 // Card 到 Panel 的映射
@@ -211,17 +273,15 @@ const PANEL_TO_CARD_MAP: Partial<Record<CanvasComponentType, CanvasComponentType
 
 // ============ 水平思维导图式布局配置 ============
 
-// 课程信息 → 四个基础面板（一对多，水平展开）
+// 课程信息 → 三个基础面板（一对多，水平展开）
 const COURSE_INFO_TO_PANELS: CanvasComponentType[] = [
-  CanvasComponentType.OBJECTIVE_PANEL,    // A - 教学目标
-  CanvasComponentType.CHAPTER_PANEL,      // B - 章节项目
-  CanvasComponentType.COURSE_POINT_PANEL, // C - 课点信息
+  CanvasComponentType.GRADUATION_SUPPORT, // A - 毕业要求支撑
   CanvasComponentType.KSA_PANEL,          // D - KSA三要素
 ]
 
 // 第1列面板的纵向排列顺序（从上到下：A/B/C/D）
 const BASIC_PANELS_ORDER: CanvasComponentType[] = [
-  CanvasComponentType.OBJECTIVE_PANEL,    // A - 教学目标
+  CanvasComponentType.GRADUATION_SUPPORT, // A - 毕业要求支撑
   CanvasComponentType.CHAPTER_PANEL,      // B - 章节项目
   CanvasComponentType.COURSE_POINT_PANEL, // C - 课点信息
   CanvasComponentType.KSA_PANEL,          // D - KSA三要素
@@ -238,6 +298,7 @@ const PANELS_TO_MATRIX: CanvasComponentType[] = [
 const SINGLETON_COMPONENT_TYPES: CanvasComponentType[] = [
   CanvasComponentType.SOURCE_DOCUMENT_PANEL, // 源文档面板
   CanvasComponentType.COURSE_INFO,        // 课程信息卡片
+  CanvasComponentType.GRADUATION_SUPPORT, // 毕业要求支撑面板
   CanvasComponentType.OBJECTIVE_PANEL,    // 教学目标面板
   CanvasComponentType.COURSE_POINT_PANEL, // 课点面板
   CanvasComponentType.CHAPTER_PANEL,      // 章节面板
@@ -246,43 +307,26 @@ const SINGLETON_COMPONENT_TYPES: CanvasComponentType[] = [
   CanvasComponentType.COURSE_REPORT,      // 开课报告
 ]
 
-// 水平布局层级列定义
-const LAYOUT_COLUMNS = {
-  COURSE_INFO: 0,      // 第0列：课程信息（源文档面板在其上方）
-  BASIC_PANELS: 1,     // 第1列：四个基础面板（A/B/C/D）
-  COURSE_MATRIX: 2,    // 第2列：课程矩阵
-  PROJECT_MATRIX: 3,   // 第3列：项目矩阵
-} as const
-
-// 各列起始 X 坐标（基于 docs/canvas.json 最佳布局）
-// 第0列：课程信息卡片（源文档面板在其上方）
-// 第1列：四个基础面板（教学目标、章节、课点、KSA）
-// 第2列：课程矩阵（与第1列面板保持约1327px间距）
-// 第3列：项目矩阵
-const COLUMN_X_POSITIONS = [-633, 640, 2705, 4088]
+// 各列起始 X 坐标（水平布局）
+const COLUMN_X_POSITIONS = [...CANVAS_LAYOUT_POSITION_CONFIG.horizontal.columnAxis]
+const VERTICAL_STACK_GROUPS = VERTICAL_LAYOUT_GROUPS
+const VERTICAL_STACK_GAP = VERTICAL_LAYOUT_GAP_PX
 
 // 列间距配置（课程卡片-面板间距160，面板-矩阵间距200）
 const COLUMN_GAP = 100
-
-// 组件类型到布局列的映射
-const COMPONENT_TO_COLUMN: Partial<Record<CanvasComponentType, number>> = {
-  [CanvasComponentType.SOURCE_DOCUMENT_PANEL]: LAYOUT_COLUMNS.COURSE_INFO, // 源文档面板与课程信息同列（在其上方）
-  [CanvasComponentType.COURSE_INFO]: LAYOUT_COLUMNS.COURSE_INFO,
-  [CanvasComponentType.OBJECTIVE_PANEL]: LAYOUT_COLUMNS.BASIC_PANELS,
-  [CanvasComponentType.CHAPTER_PANEL]: LAYOUT_COLUMNS.BASIC_PANELS,
-  [CanvasComponentType.COURSE_POINT_PANEL]: LAYOUT_COLUMNS.BASIC_PANELS,
-  [CanvasComponentType.KSA_PANEL]: LAYOUT_COLUMNS.BASIC_PANELS,
-  [CanvasComponentType.COURSE_MATRIX]: LAYOUT_COLUMNS.COURSE_MATRIX,
-  [CanvasComponentType.PROJECT_MATRIX]: LAYOUT_COLUMNS.PROJECT_MATRIX,
-  [CanvasComponentType.PROJECT_MATRIX_PANEL]: LAYOUT_COLUMNS.PROJECT_MATRIX,
-}
 
 // 元素间距
 const ELEMENT_GAP = 40
 // 同列内行间距（用于第1列的四个面板和第3列的项目矩阵）
 const ROW_GAP = 40
 // 起始 Y 坐标
-const START_Y = 60
+const START_X = CANVAS_LAYOUT_POSITION_CONFIG.vertical.startX
+const START_Y = CANVAS_LAYOUT_POSITION_CONFIG.horizontal.startY
+const VERTICAL_START_Y = CANVAS_LAYOUT_POSITION_CONFIG.vertical.startY
+const HORIZONTAL_STACK_GROUPS = HORIZONTAL_LAYOUT_GROUPS
+const HORIZONTAL_GROUP_GAP = HORIZONTAL_LAYOUT_GROUP_GAP_PX
+const HORIZONTAL_ITEM_GAP = HORIZONTAL_LAYOUT_ITEM_GAP_PX
+const HORIZONTAL_COURSE_MATRIX_OFFSET = HORIZONTAL_COURSE_MATRIX_OFFSET_PX
 // Panel 内子节点布局配置
 const PANEL_PADDING = { top: 75, left: 20, right: 20, bottom: 10 }
 const CARD_GAP_X = 15 // 水平间距
@@ -343,40 +387,36 @@ function calculatePanelSize(
   }
 }
 
-/**
- * 计算已存在基础面板的布局范围（用于垂直居中计算）
- * 只计算实际存在的面板，按到达顺序（elements 数组顺序）
- * @param elements 当前元素列表
- * @returns { startY, totalHeight, centerY } 起始Y、总高度、中心Y
- */
-function calculateBasicPanelsRange(elements: CanvasElementData[]): {
-  startY: number
-  totalHeight: number
-  centerY: number
-} {
-  // 筛选出已存在的基础面板（按到达顺序）
-  const existingPanels = elements.filter(el => BASIC_PANELS_ORDER.includes(el.type))
-
-  // 只计算已存在面板的总高度
-  let totalHeight = 0
-  for (let i = 0; i < existingPanels.length; i++) {
-    const panel = existingPanels[i]
-    const panelHeight = panel.size?.height || DEFAULT_ELEMENT_SIZES[panel.type]?.height || 200
-    totalHeight += panelHeight
-    if (i < existingPanels.length - 1) {
-      totalHeight += ROW_GAP
-    }
+function getElementWidthByType(
+  componentType: CanvasComponentType,
+  data?: CanvasComponentData,
+  size?: { width: number; height: number }
+): number {
+  if (componentType === CanvasComponentType.GRADUATION_SUPPORT) {
+    return calculateGraduationSupportSize(data).width
   }
 
-  // 如果没有面板，使用默认高度（单个面板）
-  if (totalHeight === 0) {
-    totalHeight = 200
+  if (componentType === CanvasComponentType.PROJECT_MATRIX || componentType === CanvasComponentType.PROJECT_MATRIX_PANEL) {
+    return size?.width || DEFAULT_ELEMENT_SIZES[CanvasComponentType.PROJECT_MATRIX].width
   }
 
-  const startY = START_Y
-  const centerY = startY + totalHeight / 2
+  return size?.width || DEFAULT_ELEMENT_SIZES[componentType]?.width || 320
+}
 
-  return { startY, totalHeight, centerY }
+function getHorizontalAnchor(elements: CanvasElementData[]): ElementPosition {
+  const courseInfo = elements.find(el => el.type === CanvasComponentType.COURSE_INFO)
+  if (courseInfo) {
+    return { x: courseInfo.position.x, y: courseInfo.position.y }
+  }
+  return { x: COLUMN_X_POSITIONS[0], y: START_Y }
+}
+
+function isHorizontalStackType(componentType: CanvasComponentType): boolean {
+  if (componentType === CanvasComponentType.SOURCE_DOCUMENT_PANEL) {
+    return true
+  }
+
+  return HORIZONTAL_STACK_GROUPS.some(group => group.includes(componentType))
 }
 
 /**
@@ -387,71 +427,37 @@ function calculateBasicPanelsRange(elements: CanvasElementData[]): {
  */
 function calculateHorizontalPosition(
   componentType: CanvasComponentType,
-  elements: CanvasElementData[]
+  elements: CanvasElementData[],
+  selfHeight?: number
 ): ElementPosition {
-  const column = COMPONENT_TO_COLUMN[componentType]
-  if (column === undefined) {
-    // 未定义列的组件，使用默认位置
+  if (!isHorizontalStackType(componentType)) {
     return { x: COLUMN_X_POSITIONS[0], y: START_Y }
   }
 
-  const x = COLUMN_X_POSITIONS[column]
+  const temporaryId = `__horizontal_position_${componentType}`
+  const defaultSize = DEFAULT_ELEMENT_SIZES[componentType] || { width: 320, height: 200 }
 
-  // 第0列（课程信息）：垂直居中于四个面板，并向下偏移200
-  if (column === LAYOUT_COLUMNS.COURSE_INFO) {
-    const { centerY } = calculateBasicPanelsRange(elements)
-    const selfHeight = DEFAULT_ELEMENT_SIZES[componentType]?.height || 200
-    return { x, y: centerY - selfHeight / 2 + 500 }
+  const draftElement: CanvasElementData = {
+    id: temporaryId,
+    type: componentType,
+    position: { x: COLUMN_X_POSITIONS[0], y: START_Y },
+    size: {
+      width: defaultSize.width,
+      height: selfHeight ?? defaultSize.height,
+    },
+    selected: false,
+    data: {} as CanvasComponentData,
   }
 
-  // 第1列（基础面板）：按到达顺序纵向排列
-  if (column === LAYOUT_COLUMNS.BASIC_PANELS) {
-    // 找出所有已存在的基础面板（按到达顺序）
-    const existingPanels = elements.filter(el => BASIC_PANELS_ORDER.includes(el.type))
+  const recalculated = recalculateAllPanelPositions([...elements, draftElement])
+  const calculated = recalculated.find(el => el.id === temporaryId)
 
-    // 新面板放在已存在面板的最后
-    if (existingPanels.length === 0) {
-      return { x, y: START_Y }
-    }
-
-    // 计算最后一个面板的底部位置
-    const lastPanel = existingPanels[existingPanels.length - 1]
-    const lastPanelHeight = lastPanel.size?.height || DEFAULT_ELEMENT_SIZES[lastPanel.type]?.height || 200
-    const nextY = lastPanel.position.y + lastPanelHeight + ROW_GAP
-
-    return { x, y: nextY }
+  if (!calculated) {
+    const anchor = getHorizontalAnchor(elements)
+    return { x: anchor.x, y: anchor.y }
   }
 
-  // 第2列（课程矩阵）：垂直居中于四个面板
-  if (column === LAYOUT_COLUMNS.COURSE_MATRIX) {
-    const { centerY } = calculateBasicPanelsRange(elements)
-    const selfHeight = DEFAULT_ELEMENT_SIZES[componentType]?.height || 680
-    return { x, y: centerY - selfHeight / 2 }
-  }
-
-  // 第3列（项目矩阵）：纵向排列多个项目矩阵，起始位置与第一个基础面板对齐
-  if (column === LAYOUT_COLUMNS.PROJECT_MATRIX) {
-    const existingProjectMatrices = elements.filter(
-      el => el.type === CanvasComponentType.PROJECT_MATRIX || el.type === CanvasComponentType.PROJECT_MATRIX_PANEL
-    )
-    if (existingProjectMatrices.length === 0) {
-      // 第一个项目矩阵的 y 轴与第一个基础面板对齐（按到达顺序）
-      const firstBasicPanel = elements.find(el => BASIC_PANELS_ORDER.includes(el.type))
-      const startY = firstBasicPanel?.position.y ?? START_Y
-      return { x, y: startY }
-    }
-    // 后续项目矩阵在最后一个下方，使用实际高度
-    const lastMatrix = existingProjectMatrices[existingProjectMatrices.length - 1]
-    // 使用元素的实际高度，若无则使用最小高度
-    const lastMatrixHeight = lastMatrix.size?.height || PROJECT_MATRIX_HEIGHT_CONFIG.MIN_HEIGHT
-    return {
-      x,
-      y: lastMatrix.position.y + lastMatrixHeight + ROW_GAP,
-    }
-  }
-
-  // 默认位置
-  return { x, y: START_Y }
+  return calculated.position
 }
 
 /**
@@ -467,34 +473,125 @@ function calculateHorizontalPositionWithSize(
   elements: CanvasElementData[],
   selfHeight?: number
 ): ElementPosition {
-  // 对于非项目矩阵类型，直接使用原函数
-  if (componentType !== CanvasComponentType.PROJECT_MATRIX &&
-      componentType !== CanvasComponentType.PROJECT_MATRIX_PANEL) {
-    return calculateHorizontalPosition(componentType, elements)
+  return calculateHorizontalPosition(componentType, elements, selfHeight)
+}
+
+function getElementHeightByType(
+  componentType: CanvasComponentType,
+  data?: CanvasComponentData,
+  size?: { width: number; height: number }
+): number {
+  if (componentType === CanvasComponentType.GRADUATION_SUPPORT) {
+    return calculateGraduationSupportSize(data).height
   }
 
-  const column = LAYOUT_COLUMNS.PROJECT_MATRIX
-  const x = COLUMN_X_POSITIONS[column]
-
-  // 第3列（项目矩阵）：纵向排列多个项目矩阵
-  const existingProjectMatrices = elements.filter(
-    el => el.type === CanvasComponentType.PROJECT_MATRIX || el.type === CanvasComponentType.PROJECT_MATRIX_PANEL
-  )
-
-  if (existingProjectMatrices.length === 0) {
-    // 第一个项目矩阵的 y 轴与第一个基础面板对齐（按到达顺序）
-    const firstBasicPanel = elements.find(el => BASIC_PANELS_ORDER.includes(el.type))
-    const startY = firstBasicPanel?.position.y ?? START_Y
-    return { x, y: startY }
+  if (componentType === CanvasComponentType.PROJECT_MATRIX || componentType === CanvasComponentType.PROJECT_MATRIX_PANEL) {
+    return size?.height || calculateProjectMatrixHeight(data)
   }
 
-  // 后续项目矩阵在最后一个下方，使用实际高度
-  const lastMatrix = existingProjectMatrices[existingProjectMatrices.length - 1]
-  const lastMatrixHeight = lastMatrix.size?.height || PROJECT_MATRIX_HEIGHT_CONFIG.MIN_HEIGHT
-  return {
-    x,
-    y: lastMatrix.position.y + lastMatrixHeight + ROW_GAP,
+  return size?.height || DEFAULT_ELEMENT_SIZES[componentType]?.height || 200
+}
+
+function getVerticalAnchor(elements: CanvasElementData[]): ElementPosition {
+  const courseInfo = elements.find(el => el.type === CanvasComponentType.COURSE_INFO)
+  if (courseInfo) {
+    return { x: courseInfo.position.x, y: courseInfo.position.y }
   }
+  return { x: START_X, y: VERTICAL_START_Y }
+}
+
+function isVerticalStackType(componentType: CanvasComponentType): boolean {
+  return VERTICAL_STACK_GROUPS.some(group => group.includes(componentType))
+}
+
+function recalculateAllPanelPositionsVertical(elements: CanvasElementData[]): CanvasElementData[] {
+  if (elements.length === 0) return elements
+
+  const updatedElements = [...elements]
+  const anchor = getVerticalAnchor(updatedElements)
+
+  let currentY = anchor.y
+
+  const courseInfoIndex = updatedElements.findIndex(el => el.type === CanvasComponentType.COURSE_INFO)
+  if (courseInfoIndex >= 0) {
+    const courseInfo = updatedElements[courseInfoIndex]
+    const courseInfoHeight = getElementHeightByType(CanvasComponentType.COURSE_INFO, courseInfo.data, courseInfo.size)
+    updatedElements[courseInfoIndex] = {
+      ...courseInfo,
+      position: anchor,
+    }
+    currentY = anchor.y + courseInfoHeight + VERTICAL_STACK_GAP
+  }
+
+  const startGroupIndex = courseInfoIndex >= 0 ? 1 : 0
+  for (let groupIndex = startGroupIndex; groupIndex < VERTICAL_STACK_GROUPS.length; groupIndex++) {
+    const groupTypes = VERTICAL_STACK_GROUPS[groupIndex]
+    const indicesInGroup = updatedElements
+      .map((el, index) => ({ el, index }))
+      .filter(({ el }) => groupTypes.includes(el.type))
+      .map(({ index }) => index)
+
+    for (const index of indicesInGroup) {
+      const el = updatedElements[index]
+
+      let correctedSize = el.size
+      if (el.type === CanvasComponentType.GRADUATION_SUPPORT) {
+        correctedSize = calculateGraduationSupportSize(el.data)
+      } else if (el.type === CanvasComponentType.PROJECT_MATRIX || el.type === CanvasComponentType.PROJECT_MATRIX_PANEL) {
+        const matrixHeight = getElementHeightByType(el.type, el.data, el.size)
+        correctedSize = {
+          width: el.size?.width || DEFAULT_ELEMENT_SIZES[CanvasComponentType.PROJECT_MATRIX].width,
+          height: matrixHeight,
+        }
+      }
+
+      const elementHeight = getElementHeightByType(el.type, el.data, correctedSize)
+      updatedElements[index] = {
+        ...el,
+        size: correctedSize,
+        position: { x: anchor.x, y: currentY },
+      }
+
+      currentY = currentY + elementHeight + VERTICAL_STACK_GAP
+    }
+  }
+
+  return updatedElements
+}
+
+function calculateVerticalPosition(
+  componentType: CanvasComponentType,
+  elements: CanvasElementData[],
+  selfHeight?: number
+): ElementPosition {
+  if (!isVerticalStackType(componentType)) {
+    return { x: START_X, y: VERTICAL_START_Y }
+  }
+
+  const temporaryId = `__vertical_position_${componentType}`
+  const defaultSize = DEFAULT_ELEMENT_SIZES[componentType] || { width: 400, height: 200 }
+
+  const draftElement: CanvasElementData = {
+    id: temporaryId,
+    type: componentType,
+    position: { x: START_X, y: VERTICAL_START_Y },
+    size: {
+      width: defaultSize.width,
+      height: selfHeight ?? defaultSize.height,
+    },
+    selected: false,
+    data: {} as CanvasComponentData,
+  }
+
+  const recalculated = recalculateAllPanelPositionsVertical([...elements, draftElement])
+  const calculated = recalculated.find(el => el.id === temporaryId)
+
+  if (!calculated) {
+    const anchor = getVerticalAnchor(elements)
+    return { x: anchor.x, y: anchor.y }
+  }
+
+  return calculated.position
 }
 
 /**
@@ -506,42 +603,19 @@ function calculateHorizontalPositionWithSize(
  */
 function recalculatePanelPositions(
   elements: CanvasElementData[],
-  changedPanelType: CanvasComponentType
+  _changedPanelType: CanvasComponentType
 ): Map<string, ElementPosition> {
   const updates = new Map<string, ElementPosition>()
 
-  // 只处理第1列的基础面板
-  if (!BASIC_PANELS_ORDER.includes(changedPanelType)) {
-    return updates
-  }
+  const recalculated = recalculateAllPanelPositions(elements)
+  const recalculatedMap = new Map(recalculated.map(el => [el.id, el.position]))
 
-  // 按到达顺序（elements 数组顺序）找出所有基础面板
-  const basicPanels: { el: CanvasElementData; index: number }[] = []
-  for (let i = 0; i < elements.length; i++) {
-    if (BASIC_PANELS_ORDER.includes(elements[i].type)) {
-      basicPanels.push({ el: elements[i], index: i })
+  for (const el of elements) {
+    const newPos = recalculatedMap.get(el.id)
+    if (!newPos) continue
+    if (newPos.x !== el.position.x || newPos.y !== el.position.y) {
+      updates.set(el.id, newPos)
     }
-  }
-
-  // 找到变化面板在到达顺序中的位置
-  const changedPanelIndex = basicPanels.findIndex(({ el }) => el.type === changedPanelType)
-  if (changedPanelIndex === -1) return updates
-
-  // 从变化面板的位置开始，计算后续面板的 Y 坐标
-  const columnX = COLUMN_X_POSITIONS[LAYOUT_COLUMNS.BASIC_PANELS]
-  const changedPanel = basicPanels[changedPanelIndex].el
-  const changedPanelHeight = changedPanel.size?.height || DEFAULT_ELEMENT_SIZES[changedPanel.type]?.height || 200
-  let currentY = changedPanel.position.y + changedPanelHeight + ROW_GAP
-
-  // 更新变化面板之后的所有面板位置
-  for (let i = changedPanelIndex + 1; i < basicPanels.length; i++) {
-    const { el } = basicPanels[i]
-    // 只有当位置确实需要变化时才添加到更新列表
-    if (el.position.y !== currentY) {
-      updates.set(el.id, { x: columnX, y: currentY })
-    }
-    const panelHeight = el.size?.height || DEFAULT_ELEMENT_SIZES[el.type]?.height || 200
-    currentY = currentY + panelHeight + ROW_GAP
   }
 
   return updates
@@ -554,79 +628,84 @@ function recalculatePanelPositions(
  * @returns 更新后的元素数组
  */
 function recalculateAllPanelPositions(elements: CanvasElementData[]): CanvasElementData[] {
-  // 如果没有元素，直接返回
   if (elements.length === 0) return elements
 
-  // 复制元素数组
   const updatedElements = [...elements]
 
-  // 第1列：基础面板按到达顺序（elements 数组顺序）纵向排列
-  // 找出所有基础面板及其在数组中的索引
-  const basicPanelIndices: number[] = []
-  for (let i = 0; i < updatedElements.length; i++) {
-    if (BASIC_PANELS_ORDER.includes(updatedElements[i].type)) {
-      basicPanelIndices.push(i)
-    }
-  }
+  const anchor = getHorizontalAnchor(updatedElements)
+  const baselineY = anchor.y
+  let currentX = anchor.x
 
-  // 按到达顺序设置位置
-  let basicPanelY = START_Y
-  for (const index of basicPanelIndices) {
-    const el = updatedElements[index]
-    const panelHeight = el.size?.height || DEFAULT_ELEMENT_SIZES[el.type]?.height || 200
-    updatedElements[index] = {
-      ...el,
-      position: { x: COLUMN_X_POSITIONS[LAYOUT_COLUMNS.BASIC_PANELS], y: basicPanelY },
-    }
-    basicPanelY = basicPanelY + panelHeight + ROW_GAP
-  }
-
-  // 计算面板布局范围（用于居中计算，需要在面板位置更新后重新计算）
-  const { centerY } = calculateBasicPanelsRange(updatedElements)
-
-  // 第0列：课程信息（垂直居中于四个面板，并向下偏移200）
   const courseInfoIndex = updatedElements.findIndex(el => el.type === CanvasComponentType.COURSE_INFO)
   if (courseInfoIndex >= 0) {
     const courseInfo = updatedElements[courseInfoIndex]
-    const selfHeight = courseInfo.size?.height || DEFAULT_ELEMENT_SIZES[CanvasComponentType.COURSE_INFO]?.height || 200
+    const courseInfoWidth = getElementWidthByType(CanvasComponentType.COURSE_INFO, courseInfo.data, courseInfo.size)
     updatedElements[courseInfoIndex] = {
       ...courseInfo,
-      position: { x: COLUMN_X_POSITIONS[LAYOUT_COLUMNS.COURSE_INFO], y: centerY - selfHeight / 2 + 200 },
+      position: anchor,
+    }
+    currentX = anchor.x + courseInfoWidth + HORIZONTAL_GROUP_GAP
+  }
+
+  const sourceDocumentPanelIndex = updatedElements.findIndex(el => el.type === CanvasComponentType.SOURCE_DOCUMENT_PANEL)
+  if (sourceDocumentPanelIndex >= 0) {
+    const sourcePanel = updatedElements[sourceDocumentPanelIndex]
+    const sourcePanelHeight = getElementHeightByType(CanvasComponentType.SOURCE_DOCUMENT_PANEL, sourcePanel.data, sourcePanel.size)
+    updatedElements[sourceDocumentPanelIndex] = {
+      ...sourcePanel,
+      position: {
+        x: anchor.x,
+        y: baselineY - sourcePanelHeight - HORIZONTAL_ITEM_GAP,
+      },
     }
   }
 
-  // 第2列：课程矩阵（垂直居中于四个面板）
-  const courseMatrixIndex = updatedElements.findIndex(el => el.type === CanvasComponentType.COURSE_MATRIX)
-  if (courseMatrixIndex >= 0) {
-    const courseMatrix = updatedElements[courseMatrixIndex]
-    const selfHeight = courseMatrix.size?.height || DEFAULT_ELEMENT_SIZES[CanvasComponentType.COURSE_MATRIX]?.height || 680
-    updatedElements[courseMatrixIndex] = {
-      ...courseMatrix,
-      position: { x: COLUMN_X_POSITIONS[LAYOUT_COLUMNS.COURSE_MATRIX], y: centerY - selfHeight / 2 },
+  const startGroupIndex = courseInfoIndex >= 0 ? 1 : 0
+  for (let groupIndex = startGroupIndex; groupIndex < HORIZONTAL_STACK_GROUPS.length; groupIndex++) {
+    const groupTypes = HORIZONTAL_STACK_GROUPS[groupIndex]
+    const indicesInGroup = updatedElements
+      .map((el, index) => ({ el, index }))
+      .filter(({ el }) => groupTypes.includes(el.type))
+      .map(({ index }) => index)
+
+    if (indicesInGroup.length === 0) {
+      continue
     }
-  }
 
-  // 第3列：项目矩阵纵向排列（第一个与教学目标面板对齐，后续依次向下）
-  const projectMatrices = updatedElements
-    .map((el, i) => ({ el, i }))
-    .filter(({ el }) => el.type === CanvasComponentType.PROJECT_MATRIX || el.type === CanvasComponentType.PROJECT_MATRIX_PANEL)
+    for (let i = 0; i < indicesInGroup.length; i++) {
+      const index = indicesInGroup[i]
+      const el = updatedElements[index]
 
-  if (projectMatrices.length > 0) {
-    // 第一个项目矩阵与第一个基础面板 y 轴对齐（按到达顺序）
-    const firstBasicPanel = updatedElements.find(el => BASIC_PANELS_ORDER.includes(el.type))
-    let projectMatrixY = firstBasicPanel?.position.y ?? START_Y
-
-    for (const { el, i } of projectMatrices) {
-      // 动态计算高度：优先使用已有 size，否则根据数据计算
-      const matrixHeight = el.size?.height || calculateProjectMatrixHeight(el.data)
-      updatedElements[i] = {
-        ...el,
-        position: { x: COLUMN_X_POSITIONS[LAYOUT_COLUMNS.PROJECT_MATRIX], y: projectMatrixY },
-        // 确保 size 被正确设置
-        size: { width: el.size?.width || 900, height: matrixHeight },
+      let correctedSize = el.size
+      if (el.type === CanvasComponentType.GRADUATION_SUPPORT) {
+        correctedSize = calculateGraduationSupportSize(el.data)
+      } else if (el.type === CanvasComponentType.PROJECT_MATRIX || el.type === CanvasComponentType.PROJECT_MATRIX_PANEL) {
+        const matrixHeight = getElementHeightByType(el.type, el.data, el.size)
+        correctedSize = {
+          width: getElementWidthByType(el.type, el.data, el.size),
+          height: matrixHeight,
+        }
       }
-      projectMatrixY = projectMatrixY + matrixHeight + ROW_GAP
+
+      const elementWidth = getElementWidthByType(el.type, el.data, correctedSize)
+      updatedElements[index] = {
+        ...el,
+        size: correctedSize,
+        position: {
+          x: currentX,
+          y: el.type === CanvasComponentType.COURSE_MATRIX
+            ? baselineY + HORIZONTAL_COURSE_MATRIX_OFFSET
+            : baselineY,
+        },
+      }
+
+      currentX = currentX + elementWidth
+      if (i < indicesInGroup.length - 1) {
+        currentX = currentX + HORIZONTAL_ITEM_GAP
+      }
     }
+
+    currentX = currentX + HORIZONTAL_GROUP_GAP
   }
 
   return updatedElements
@@ -636,7 +715,7 @@ function recalculateAllPanelPositions(elements: CanvasElementData[]): CanvasElem
  * 画布元素状态管理Hook
  * 支持节点和边的管理，以及 React Flow 集成
  */
-export function useCanvasElements() {
+export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
   const [elements, setElements] = useState<CanvasElementData[]>([])
   const [edges, setEdges] = useState<CanvasEdgeData[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -650,11 +729,36 @@ export function useCanvasElements() {
     return `element_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
   }, [])
 
-  // 计算新元素位置（水平布局）
+  const calculatePositionByLayout = useCallback((
+    componentType: CanvasComponentType,
+    currentElements: CanvasElementData[],
+    selfHeight?: number
+  ): ElementPosition => {
+    if (layoutMode === "vertical") {
+      return calculateVerticalPosition(componentType, currentElements, selfHeight)
+    }
+
+    if (selfHeight !== undefined) {
+      return calculateHorizontalPositionWithSize(componentType, currentElements, selfHeight)
+    }
+
+    return calculateHorizontalPosition(componentType, currentElements)
+  }, [layoutMode])
+
+  const recalculateAllByLayout = useCallback((currentElements: CanvasElementData[]): CanvasElementData[] => {
+    return layoutMode === "vertical"
+      ? recalculateAllPanelPositionsVertical(currentElements)
+      : recalculateAllPanelPositions(currentElements)
+  }, [layoutMode])
+
+  useEffect(() => {
+    setElements(prev => recalculateAllByLayout(prev))
+  }, [layoutMode, recalculateAllByLayout])
+
+  // 计算新元素位置
   const calculateNextPosition = useCallback((componentType: CanvasComponentType): ElementPosition => {
-    // 使用水平布局位置计算函数
-    return calculateHorizontalPosition(componentType, elements)
-  }, [elements])
+    return calculatePositionByLayout(componentType, elements)
+  }, [calculatePositionByLayout, elements])
 
   // 添加元素
   const addElement = useCallback((
@@ -829,6 +933,10 @@ export function useCanvasElements() {
 
       // 10. 如果子节点数量变化，级联更新后续面板位置（填补空缺）
       if (childCountChanged) {
+        if (layoutMode === "vertical") {
+          return recalculateAllPanelPositionsVertical(newElements)
+        }
+
         const positionUpdates = recalculatePanelPositions(newElements, panelType)
         // 应用位置更新
         for (let i = 0; i < newElements.length; i++) {
@@ -851,11 +959,44 @@ export function useCanvasElements() {
   }, [])
 
   // 更新元素数据
+  // 专业矩阵特殊处理：根据数据动态计算尺寸，并级联更新后续面板位置
   const updateElementData = useCallback((id: string, data: Partial<CanvasComponentData>) => {
-    setElements(prev => prev.map(el =>
-      el.id === id ? { ...el, data: { ...el.data, ...data } } : el
-    ))
-  }, [])
+    setElements(prev => {
+      let updated = prev.map(el => {
+        if (el.id !== id) return el
+        const newData = { ...el.data, ...data }
+        // 专业矩阵：根据支撑指标点数量动态计算尺寸
+        if (el.type === CanvasComponentType.GRADUATION_SUPPORT) {
+          const newSize = calculateGraduationSupportSize(newData)
+          return { ...el, data: newData, size: newSize }
+        }
+        return { ...el, data: newData }
+      })
+
+      // 专业矩阵高度变化时，级联更新后续面板位置
+      const targetEl = prev.find(el => el.id === id)
+      if (targetEl?.type === CanvasComponentType.GRADUATION_SUPPORT) {
+        const oldHeight = targetEl.size?.height || 200
+        const newEl = updated.find(el => el.id === id)
+        const newHeight = newEl?.size?.height || 200
+        if (oldHeight !== newHeight) {
+          if (layoutMode === "vertical") {
+            return recalculateAllPanelPositionsVertical(updated)
+          }
+
+          const positionUpdates = recalculatePanelPositions(updated, CanvasComponentType.GRADUATION_SUPPORT)
+          for (let i = 0; i < updated.length; i++) {
+            const newPos = positionUpdates.get(updated[i].id)
+            if (newPos) {
+              updated[i] = { ...updated[i], position: newPos }
+            }
+          }
+        }
+      }
+
+      return updated
+    })
+  }, [layoutMode])
 
   // 选中元素（完整版本：同时更新 selectedId 和 elements.selected 状态）
   // 用于 AI/SSE 自动选中场景，需要完整的外部→内部同步 + setCenter 聚焦
@@ -911,7 +1052,7 @@ export function useCanvasElements() {
     })
 
     // 重新计算所有 Panel 的垂直位置，确保间距正确
-    const recalculatedElements = recalculateAllPanelPositions(uniqueElements)
+    const recalculatedElements = recalculateAllByLayout(uniqueElements)
 
     // 恢复选中状态
     const selectedIdSet = new Set(loadedSelectedIds || [])
@@ -929,7 +1070,7 @@ export function useCanvasElements() {
     setSelectedId(firstSelectedId)
 
     console.log("[画布] 已加载数据, 元素数:", loadedElements?.length || 0, "边数:", loadedEdges?.length || 0, "选中:", loadedSelectedIds || [])
-  }, [])
+  }, [recalculateAllByLayout])
 
   // 按组件类型清空
   const clearByComponentType = useCallback((componentType: CanvasComponentType) => {
@@ -1247,11 +1388,13 @@ export function useCanvasElements() {
               const updated = [...prev]
               const existingEl = updated[existingIndex]
 
-              // 项目矩阵需要重新计算高度
+              // 项目矩阵/专业矩阵需要重新计算尺寸
               let newSize = existingEl.size
               if (component === CanvasComponentType.PROJECT_MATRIX || component === CanvasComponentType.PROJECT_MATRIX_PANEL) {
                 const dynamicHeight = calculateProjectMatrixHeight(data)
                 newSize = { width: existingEl.size?.width || 900, height: dynamicHeight }
+              } else if (component === CanvasComponentType.GRADUATION_SUPPORT) {
+                newSize = calculateGraduationSupportSize(data)
               }
 
               updated[existingIndex] = {
@@ -1279,14 +1422,20 @@ export function useCanvasElements() {
 
             // ---------- Panel 类型处理 ----------
             if (PANEL_TYPES.includes(component)) {
-              // 计算 Panel 初始尺寸（无子节点时的最小尺寸）
-              const cardType = PANEL_TO_CARD_MAP[component]
-              const cardSize = cardType ? DEFAULT_ELEMENT_SIZES[cardType] : { width: 280, height: 80 }
-              const columns = PANEL_GRID_COLUMNS[component] || 3
-              const panelSize = calculatePanelSize(0, columns, cardSize)
+              // 计算 Panel 初始尺寸
+              let panelSize: { width: number; height: number }
+              if (component === CanvasComponentType.GRADUATION_SUPPORT) {
+                // 专业矩阵：根据数据动态计算尺寸（初始创建时可能已有支撑数据）
+                panelSize = calculateGraduationSupportSize(data)
+              } else {
+                // 其他 Panel：根据子节点数量计算（无子节点时的最小尺寸）
+                const cardType = PANEL_TO_CARD_MAP[component]
+                const cardSize = cardType ? DEFAULT_ELEMENT_SIZES[cardType] : { width: 280, height: 80 }
+                const columns = PANEL_GRID_COLUMNS[component] || 3
+                panelSize = calculatePanelSize(0, columns, cardSize)
+              }
 
-              // 使用水平布局位置计算
-              const panelPosition = calculateHorizontalPosition(component, prev)
+              const panelPosition = calculatePositionByLayout(component, prev)
 
               const panelElement: CanvasElementData = {
                 id: elementId,
@@ -1298,15 +1447,60 @@ export function useCanvasElements() {
               }
 
               // 添加新 Panel 后重新计算所有面板位置
-              const newElements = recalculateAllPanelPositions([...prev, panelElement])
+              const newElements = recalculateAllByLayout([...prev, panelElement])
 
-              // 水平布局连线：课程信息 → 当前面板（如果是四个基础面板之一）
+              // 水平布局连线：课程信息 → 当前面板（如果是基础面板之一）
               if (COURSE_INFO_TO_PANELS.includes(component)) {
                 const courseInfoNode = newElements.find(el => el.type === CanvasComponentType.COURSE_INFO)
                 if (courseInfoNode) {
                   setTimeout(() => {
                     addEdge({
                       source: courseInfoNode.id,
+                      target: elementId,
+                      sourceHandle: "right",
+                      targetHandle: "left",
+                    })
+                  }, 0)
+                }
+              }
+
+              // 教学目标面板连线：毕业要求支撑 → 教学目标（OBJECTIVE_PANEL 在独立列）
+              if (component === CanvasComponentType.OBJECTIVE_PANEL) {
+                const graduationSupportNode = newElements.find(el => el.type === CanvasComponentType.GRADUATION_SUPPORT)
+                if (graduationSupportNode) {
+                  setTimeout(() => {
+                    addEdge({
+                      source: graduationSupportNode.id,
+                      target: elementId,
+                      sourceHandle: "right",
+                      targetHandle: "left",
+                    })
+                  }, 0)
+                }
+              }
+
+              // 章节面板连线：教学目标 → 章节项目
+              if (component === CanvasComponentType.CHAPTER_PANEL) {
+                const objectivePanelNode = newElements.find(el => el.type === CanvasComponentType.OBJECTIVE_PANEL)
+                if (objectivePanelNode) {
+                  setTimeout(() => {
+                    addEdge({
+                      source: objectivePanelNode.id,
+                      target: elementId,
+                      sourceHandle: "right",
+                      targetHandle: "left",
+                    })
+                  }, 0)
+                }
+              }
+
+              // 课点面板连线：章节项目 → 课点信息
+              if (component === CanvasComponentType.COURSE_POINT_PANEL) {
+                const chapterPanelNode = newElements.find(el => el.type === CanvasComponentType.CHAPTER_PANEL)
+                if (chapterPanelNode) {
+                  setTimeout(() => {
+                    addEdge({
+                      source: chapterPanelNode.id,
                       target: elementId,
                       sourceHandle: "right",
                       targetHandle: "left",
@@ -1361,6 +1555,10 @@ export function useCanvasElements() {
 
                 // 性能优化：仅当高度变化时才级联更新后续 Panel 位置
                 if (heightChanged) {
+                  if (layoutMode === "vertical") {
+                    return recalculateAllPanelPositionsVertical(newElements)
+                  }
+
                   const positionUpdates = recalculatePanelPositions(newElements, panelType)
                   for (let i = 0; i < newElements.length; i++) {
                     const newPos = positionUpdates.get(newElements[i].id)
@@ -1372,9 +1570,9 @@ export function useCanvasElements() {
 
                 return newElements
               } else {
-                // Panel 不存在时作为独立节点，使用水平布局计算位置
+                // Panel 不存在时作为独立节点，使用当前布局计算位置
                 const cardSize = DEFAULT_ELEMENT_SIZES[component]
-                const position = calculateHorizontalPosition(component, prev)
+                const position = calculatePositionByLayout(component, prev)
 
                 const cardElement: CanvasElementData = {
                   id: elementId,
@@ -1398,7 +1596,7 @@ export function useCanvasElements() {
               }
 
               // 基于最新状态计算位置（需要考虑新的动态高度）
-              const position = calculateHorizontalPositionWithSize(component, prev, elementSize.height)
+              const position = calculatePositionByLayout(component, prev, elementSize.height)
 
               const newElement: CanvasElementData = {
                 id: elementId,
@@ -1456,7 +1654,7 @@ export function useCanvasElements() {
                 }
               } else {
                 // 没有项目矩阵时，使用默认位置计算
-                position = calculateHorizontalPosition(component, prev)
+                position = calculatePositionByLayout(component, prev)
               }
 
               // 与所有项目矩阵建立连线
@@ -1488,7 +1686,7 @@ export function useCanvasElements() {
             // ---------- 课程矩阵处理 ----------
             if (component === CanvasComponentType.COURSE_MATRIX) {
               const elementSize = DEFAULT_ELEMENT_SIZES[component] || { width: 1100, height: 680 }
-              const position = calculateHorizontalPosition(component, prev)
+              const position = calculatePositionByLayout(component, prev)
 
               const newElement: CanvasElementData = {
                 id: elementId,
@@ -1520,7 +1718,7 @@ export function useCanvasElements() {
             // ---------- 课程信息处理 ----------
             if (component === CanvasComponentType.COURSE_INFO) {
               const elementSize = DEFAULT_ELEMENT_SIZES[component] || { width: 480, height: 300 }
-              const position = calculateHorizontalPosition(component, prev)
+              const position = calculatePositionByLayout(component, prev)
 
               const newElement: CanvasElementData = {
                 id: elementId,
@@ -1574,7 +1772,7 @@ export function useCanvasElements() {
 
             // ---------- 其他类型：默认处理 ----------
             const elementSize = DEFAULT_ELEMENT_SIZES[component] || { width: 400, height: 300 }
-            const position = calculateHorizontalPosition(component, prev)
+            const position = calculatePositionByLayout(component, prev)
 
             const newElement: CanvasElementData = {
               id: elementId,
@@ -1615,7 +1813,7 @@ export function useCanvasElements() {
                 const newElements = [...prev]
                 items.forEach(item => {
                   const cardSize = DEFAULT_ELEMENT_SIZES[item.component] || { width: 280, height: 130 }
-                  const position = calculateHorizontalPosition(item.component, newElements)
+                  const position = calculatePositionByLayout(item.component, newElements)
                   newElements.push({
                     id: (item.data as { id?: string }).id || `${item.component}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
                     type: item.component,
@@ -1668,6 +1866,10 @@ export function useCanvasElements() {
               const newElements = [...filteredElements, ...newChildren]
 
               // 级联更新后续面板位置
+              if (layoutMode === "vertical") {
+                return recalculateAllPanelPositionsVertical(newElements)
+              }
+
               const positionUpdates = recalculatePanelPositions(newElements, panelType)
               for (let i = 0; i < newElements.length; i++) {
                 const newPos = positionUpdates.get(newElements[i].id)
@@ -1757,16 +1959,14 @@ export function useCanvasElements() {
 
               // 查找课程信息卡片的位置
               const courseInfo = filteredElements.find(el => el.type === CanvasComponentType.COURSE_INFO)
-              const courseInfoX = courseInfo?.position?.x ?? COLUMN_X_POSITIONS[LAYOUT_COLUMNS.COURSE_INFO]
+              const expectedCourseInfoPosition = calculatePositionByLayout(CanvasComponentType.COURSE_INFO, filteredElements)
+              const courseInfoX = courseInfo?.position?.x ?? expectedCourseInfoPosition.x
               // 当课程卡片不存在时，使用预期的课程卡片位置（基于面板范围计算）
               let courseInfoY: number
               if (courseInfo) {
                 courseInfoY = courseInfo.position.y
               } else {
-                // 计算预期的课程卡片位置（与 recalculateAllPanelPositions 保持一致，偏移量 +200）
-                const { centerY } = calculateBasicPanelsRange(filteredElements)
-                const courseInfoHeight = DEFAULT_ELEMENT_SIZES[CanvasComponentType.COURSE_INFO]?.height || 300
-                courseInfoY = centerY - courseInfoHeight / 2 + 200
+                courseInfoY = expectedCourseInfoPosition.y
               }
               const courseInfoWidth = DEFAULT_ELEMENT_SIZES[CanvasComponentType.COURSE_INFO].width
 
@@ -1836,6 +2036,9 @@ export function useCanvasElements() {
     removeEdge,
     addEdges,
     applyLayout,
+    calculatePositionByLayout,
+    recalculateAllByLayout,
+    layoutMode,
   ])
 
   return {

@@ -8,6 +8,7 @@ import {
   useNodesState,
   useEdgesState,
   useReactFlow,
+  useUpdateNodeInternals,
   type Node,
   type Edge,
   type Connection,
@@ -23,6 +24,8 @@ import "@xyflow/react/dist/style.css"
 import "./flow/canvas.css"
 import { FlowNodeType, FlowEdgeType, NODE_COLORS } from "./flow/utils/types"
 import { CustomZoomControls } from "./flow/controls/custom-zoom-controls"
+import type { CanvasLayoutMode } from "./flow/utils/canvas-layout"
+import { CanvasLayoutProvider } from "./flow/utils/canvas-layout-context"
 import type { HighlightState } from "@/shared/hooks/use-canvas-highlight"
 import { useCanvasDrawers } from "@/shared/hooks/use-canvas-drawers"
 import { useProcessedNodes } from "@/shared/hooks/use-processed-nodes"
@@ -46,6 +49,7 @@ import { ObjectivePanelNode } from "./flow/nodes/objective-panel-node"
 import { CoursePointPanelNode } from "./flow/nodes/course-point-panel-node"
 import { ChapterPanelNode } from "./flow/nodes/chapter-panel-node"
 import { KsaPanelNode } from "./flow/nodes/ksa-panel-node"
+import { GraduationSupportPanelNode } from "./flow/nodes/graduation-support-panel-node"
 import { SourceDocumentPanelNode } from "./flow/nodes/source-document-panel-node"
 import { SourceDocumentNode } from "./flow/nodes/source-document-node"
 import { SupportEdge } from "./flow/edges/support-edge"
@@ -101,6 +105,7 @@ const nodeTypes: Record<string, any> = {
   [FlowNodeType.COURSE_POINT_PANEL]: CoursePointPanelNode,
   [FlowNodeType.CHAPTER_PANEL]: ChapterPanelNode,
   [FlowNodeType.KSA_PANEL]: KsaPanelNode,
+  [FlowNodeType.GRADUATION_SUPPORT_PANEL]: GraduationSupportPanelNode,
   [FlowNodeType.SOURCE_DOCUMENT_PANEL]: SourceDocumentPanelNode,
   [FlowNodeType.SOURCE_DOCUMENT]: SourceDocumentNode,
 }
@@ -157,6 +162,8 @@ export interface AiCanvasPanelProps {
   onSourceDocumentUpdate?: (document: SourceDocumentCardData) => void
   // 源文档重做回调（重新解析原文件时触发）
   onSourceDocumentRegenerate?: (document: SourceDocumentCardData) => void
+  // 专业矩阵更新回调（保存毕业要求支撑编辑时触发）
+  onGraduationSupportUpdate?: (panelId: string, data: import("./canvas-elements/types").GraduationSupportData) => void
   // 是否显示小地图
   showMiniMap?: boolean
   // 是否显示控制栏
@@ -179,6 +186,10 @@ export interface AiCanvasPanelProps {
   onUpdateCourseInfo?: (updates: { courseId?: number; majorId?: number }) => void
   // 是否正在上传画布数据到OSS
   isUploading?: boolean
+  // 布局模式
+  layoutMode?: CanvasLayoutMode
+  // 布局模式切换回调
+  onLayoutModeChange?: (mode: CanvasLayoutMode) => void
 }
 
 /**
@@ -206,6 +217,7 @@ function AiCanvasPanelInner({
   onProjectMatrixUpdate,
   onSourceDocumentUpdate,
   onSourceDocumentRegenerate,
+  onGraduationSupportUpdate,
   showMiniMap = true,
   showControls = true,
   onNodeRegenerate,
@@ -217,6 +229,8 @@ function AiCanvasPanelInner({
   onSaveSuccess,
   onUpdateCourseInfo,
   isUploading = false,
+  layoutMode = "horizontal",
+  onLayoutModeChange,
 }: AiCanvasPanelProps) {
   // 使用 React Flow 的状态管理
   const [flowNodes, setNodes, onNodesChange] = useNodesState(nodes)
@@ -230,7 +244,12 @@ function AiCanvasPanelInner({
   }, [onSelectionChange])
 
   // 获取 React Flow 实例方法（用于视角控制和坐标转换）
-  const { setCenter, getZoom, screenToFlowPosition } = useReactFlow()
+  const { setCenter, getZoom, screenToFlowPosition, fitView } = useReactFlow()
+  const updateNodeInternals = useUpdateNodeInternals()
+  const [isLayoutSwitching, setIsLayoutSwitching] = useState(false)
+  const [flowRenderKey, setFlowRenderKey] = useState(0)
+  const prevLayoutModeRef = useRef<CanvasLayoutMode>(layoutMode)
+  const flowNodesRef = useRef<Node[]>(flowNodes)
 
   // 连接菜单状态
   const [connectionMenu, setConnectionMenu] = useState<ConnectionMenuState>({
@@ -295,6 +314,12 @@ function AiCanvasPanelInner({
     handleSourceDocumentSave,
     handleSourceDocumentRegenerate,
     handleSourceDocumentDrawerClose,
+    // 专业矩阵编辑
+    graduationSupportDrawer,
+    isSavingGraduationSupport,
+    handleGraduationSupportPanelEdit,
+    handleGraduationSupportSave,
+    handleGraduationSupportDrawerClose,
   } = useCanvasDrawers({
     flowNodes,
     onNodeDataUpdate,
@@ -306,6 +331,7 @@ function AiCanvasPanelInner({
     onProjectMatrixUpdate,
     onSourceDocumentUpdate,
     onSourceDocumentRegenerate,
+    onGraduationSupportUpdate,
   })
 
   // 记录上一次的节点 ID 集合，用于检测节点增删
@@ -313,8 +339,14 @@ function AiCanvasPanelInner({
   const prevEdgeIdsRef = useRef<Set<string>>(new Set())
   // 记录上一次的节点数据引用，用于检测数据变化（引用比较替代 JSON.stringify）
   const prevNodeDataRef = useRef<Map<string, unknown>>(new Map())
+  // 记录上一次外部传入的节点位置，用于检测外部布局重排
+  const prevNodePositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map())
   // 记录上一次外部传入的选中节点 ID 集合，用于检测外部触发的选中变化（支持多选）
   const prevExternalSelectedIdsRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    flowNodesRef.current = flowNodes
+  }, [flowNodes])
 
   // 同步外部 props 变化（节点增删、数据变化、选中状态变化）
   // 合并为单个 effect 避免多次 setNodes 导致连续渲染
@@ -331,14 +363,24 @@ function AiCanvasPanelInner({
 
     // 检测已有节点的数据是否变化（通过引用比较，避免 JSON.stringify 开销）
     const currentNodeData = new Map<string, unknown>()
+    const currentNodePositions = new Map<string, { x: number; y: number }>()
+    const positionChangedIds = new Set<string>()
     let hasDataChange = false
     for (const node of nodes) {
       currentNodeData.set(node.id, node.data)
+      currentNodePositions.set(node.id, node.position)
       // 只检查已存在节点的数据变化（引用不同即视为数据变化）
       if (prevNodeIds.has(node.id) && prevNodeDataRef.current.get(node.id) !== node.data) {
         hasDataChange = true
       }
+
+      // 检测外部传入的位置变化（用于布局切换时同步重排）
+      const prevPos = prevNodePositionsRef.current.get(node.id)
+      if (prevPos && (prevPos.x !== node.position.x || prevPos.y !== node.position.y)) {
+        positionChangedIds.add(node.id)
+      }
     }
+    const hasPositionChange = positionChangedIds.size > 0
 
     // 检测外部选中状态变化
     const externalSelectedIds = new Set(nodes.filter(n => n.selected).map(n => n.id))
@@ -346,7 +388,7 @@ function AiCanvasPanelInner({
     const newlySelectedIds = [...externalSelectedIds].filter(id => !prevExternalSelectedIds.has(id))
     const hasSelectionChange = newlySelectedIds.length > 0
 
-    if (hasNodeChange || hasDataChange || hasSelectionChange) {
+    if (hasNodeChange || hasDataChange || hasSelectionChange || hasPositionChange) {
       // 找出新增的节点（不在 prevNodeIds 中的节点）
       const newNodes = nodes.filter(n => !prevNodeIds.has(n.id))
       // 判断是否为首次加载（prevNodeIds 为空表示首次加载）
@@ -366,8 +408,10 @@ function AiCanvasPanelInner({
 
         return nodes.map(node => ({
           ...node,
-          // 如果节点已存在，保留其当前位置；否则使用外部传入的位置
-          position: existingPositions.get(node.id) || node.position,
+          // 仅当外部位置发生变化时使用外部位置（如布局切换）；否则保留内部拖拽位置
+          position: positionChangedIds.has(node.id)
+            ? node.position
+            : (existingPositions.get(node.id) || node.position),
           // 首次加载时保留外部传入的选中状态（从 localStorage 恢复），后续新增时选中新节点
           // 数据变化时不改变选中状态
           // [MOD] 批量创建时只选中第一个新节点，而非选中所有新节点
@@ -383,6 +427,7 @@ function AiCanvasPanelInner({
       })
       prevNodeIdsRef.current = currentNodeIds
       prevNodeDataRef.current = currentNodeData
+      prevNodePositionsRef.current = currentNodePositions
       prevExternalSelectedIdsRef.current = externalSelectedIds
 
       // 视角聚焦逻辑
@@ -434,6 +479,7 @@ function AiCanvasPanelInner({
       }
     } else {
       // 无节点/数据变化时也更新选中状态的 ref
+      prevNodePositionsRef.current = currentNodePositions
       prevExternalSelectedIdsRef.current = externalSelectedIds
     }
   }, [nodes, setNodes, setCenter, getZoom])
@@ -451,6 +497,72 @@ function AiCanvasPanelInner({
       prevEdgeIdsRef.current = currentEdgeIds
     }
   }, [edges, setEdges])
+
+  useEffect(() => {
+    if (flowNodes.length === 0) return
+
+    // 布局切换后在两帧后刷新 node internals，确保节点新坐标和 Handle 新方向都已落地
+    let cancelled = false
+    const frame1 = requestAnimationFrame(() => {
+      const frame2 = requestAnimationFrame(() => {
+        if (cancelled) return
+        for (const node of flowNodes) {
+          updateNodeInternals(node.id)
+        }
+        // 强制触发边路径重算，避免出现需手动拖拽一次才对齐的问题
+        setEdges(prev => [...prev])
+      })
+      if (cancelled) {
+        cancelAnimationFrame(frame2)
+      }
+    })
+
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(frame1)
+    }
+  }, [layoutMode, flowNodes, updateNodeInternals, setEdges])
+
+  useEffect(() => {
+    if (prevLayoutModeRef.current === layoutMode) return
+
+    prevLayoutModeRef.current = layoutMode
+    setIsLayoutSwitching(true)
+    setFlowRenderKey(prev => prev + 1)
+
+    const completeTimer = setTimeout(() => {
+      setIsLayoutSwitching(false)
+      requestAnimationFrame(() => {
+        const currentNodes = flowNodesRef.current
+        const selectedNodes = currentNodes.filter(node => node.selected)
+        if (selectedNodes.length > 0) {
+          const targetNode = selectedNodes[selectedNodes.length - 1]
+          const nodeMap = new Map<string, Node>(currentNodes.map(n => [n.id, n]))
+          const absolutePos = getAbsolutePosition(targetNode, nodeMap)
+          const nodeWidth = targetNode.measured?.width || targetNode.width || 300
+          const nodeHeight = targetNode.measured?.height || targetNode.height || 200
+
+          setCenter(
+            absolutePos.x + nodeWidth / 2,
+            absolutePos.y + nodeHeight / 2,
+            { zoom: getZoom(), duration: 180 }
+          )
+        } else {
+          fitView({ padding: 0.2, duration: 180, maxZoom: 1 })
+        }
+      })
+    }, 280)
+
+    // 兜底超时，避免任何异常时序导致遮罩不消失
+    const fallbackTimer = setTimeout(() => {
+      setIsLayoutSwitching(false)
+    }, 1500)
+
+    return () => {
+      clearTimeout(completeTimer)
+      clearTimeout(fallbackTimer)
+    }
+  }, [layoutMode, fitView, setCenter, getZoom])
 
   // 处理节点拖动结束，同步位置到外部状态
   const handleNodeDragStop = useCallback(
@@ -653,6 +765,7 @@ function AiCanvasPanelInner({
     onKsaPanelEdit: handleKsaPanelEdit,
     onChapterPanelEdit: handleChapterPanelEdit,
     onObjectivePanelEdit: handleObjectivePanelEdit,
+    onGraduationSupportPanelEdit: handleGraduationSupportPanelEdit,
     onSourceDocumentEdit: handleSourceDocumentEdit,
     onSourceDocumentRefresh: (nodeId: string) => {
       // 从节点中获取文档数据后调用 handleSourceDocumentRegenerate
@@ -681,6 +794,7 @@ function AiCanvasPanelInner({
       [FlowNodeType.COURSE_POINT_PANEL]: "#16a34a",
       [FlowNodeType.CHAPTER_PANEL]: "#9333ea",
       [FlowNodeType.KSA_PANEL]: "#d97706",
+      [FlowNodeType.GRADUATION_SUPPORT_PANEL]: "#059669",
       [FlowNodeType.SOURCE_DOCUMENT_PANEL]: "#ea580c",
       [FlowNodeType.SOURCE_DOCUMENT]: "#f97316",
     }
@@ -698,7 +812,9 @@ function AiCanvasPanelInner({
 
   return (
     <div ref={containerRef} className={`w-full h-full relative ${className || ""}`}>
+      <CanvasLayoutProvider layoutMode={layoutMode}>
       <ReactFlow
+        key={`canvas-flow-${layoutMode}-${flowRenderKey}`}
         nodes={processedNodes}
         edges={flowEdges}
         onNodesChange={handleNodesChange}
@@ -738,7 +854,14 @@ function AiCanvasPanelInner({
         />
 
         {/* 自定义缩放控制栏（含同步状态指示器） */}
-        {showControls && <CustomZoomControls isUploading={isUploading} isLoading={isRegenerating} />}
+        {showControls && (
+          <CustomZoomControls
+            isUploading={isUploading}
+            isLoading={isRegenerating}
+            layoutMode={layoutMode}
+            onLayoutModeChange={onLayoutModeChange}
+          />
+        )}
 
         {/* 小地图 */}
         {showMiniMap && (
@@ -756,6 +879,15 @@ function AiCanvasPanelInner({
           />
         )}
       </ReactFlow>
+      </CanvasLayoutProvider>
+
+      {isLayoutSwitching && (
+        <div className="absolute inset-0 z-[60] flex items-center justify-center canvas-loading-overlay">
+          <div className="px-4 py-2 rounded-md border border-white/30 bg-white/20 text-sm text-white canvas-loading-text">
+            正在切换布局，请稍候...
+          </div>
+        </div>
+      )}
 
       {/* 连接菜单 */}
       <CanvasConnectionMenu
@@ -803,6 +935,10 @@ function AiCanvasPanelInner({
         onSourceDocumentSave={handleSourceDocumentSave}
         onSourceDocumentRegenerate={handleSourceDocumentRegenerate}
         onSourceDocumentDrawerClose={handleSourceDocumentDrawerClose}
+        graduationSupportDrawer={graduationSupportDrawer}
+        isSavingGraduationSupport={isSavingGraduationSupport}
+        onGraduationSupportSave={handleGraduationSupportSave}
+        onGraduationSupportDrawerClose={handleGraduationSupportDrawerClose}
         canvasElements={canvasElements}
         canvasOssKey={canvasOssKey}
         treeData={treeData}

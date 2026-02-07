@@ -136,6 +136,7 @@ export function createMessagePair(
  */
 export const ELEMENT_TYPE_TITLES: Partial<Record<CanvasComponentType, string>> = {
   [CanvasComponentType.COURSE_INFO]: "课程信息",
+  [CanvasComponentType.GRADUATION_SUPPORT]: "专业矩阵",
   [CanvasComponentType.OBJECTIVE_PANEL]: "教学目标",
   [CanvasComponentType.CHAPTER_PANEL]: "章节项目",
   [CanvasComponentType.COURSE_POINT_PANEL]: "课点信息",

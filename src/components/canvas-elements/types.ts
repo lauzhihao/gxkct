@@ -53,6 +53,8 @@ export enum CanvasComponentType {
   // KSA
   KSA_PANEL = "ksa_panel",
   KSA_ITEM = "ksa_item",
+  // 毕业要求支撑
+  GRADUATION_SUPPORT = "graduation_support",
   // 矩阵
   COURSE_MATRIX = "course_matrix",
   PROJECT_MATRIX_PANEL = "project_matrix_panel",
@@ -158,6 +160,7 @@ export interface ObjectiveCardData {
   id: string
   index: number
   content: string
+  originalId?: number
   // 索引签名，满足 @xyflow/react Node 泛型约束
   [key: string]: unknown
 }
@@ -172,6 +175,7 @@ export interface CoursePointCardData {
   name: string              // 课点名称（用于显示）
   description?: string      // 课点描述
   content?: string          // 兼容旧格式
+  originalId?: number
   // 索引签名，满足 @xyflow/react Node 泛型约束
   [key: string]: unknown
 }
@@ -185,6 +189,7 @@ export interface ChapterCardData {
   name: string
   theory_hours?: number
   practice_hours?: number
+  originalId?: number
   // ============ 画布节点扩展字段 ============
   highlighted?: boolean       // 高亮状态
   isDeleting?: boolean       // 删除中状态
@@ -201,6 +206,7 @@ export interface KsaItemData {
   category: "K" | "S" | "A"
   index: number
   content: string
+  originalId?: number
   // 索引签名，满足 @xyflow/react Node 泛型约束
   [key: string]: unknown
 }
@@ -222,6 +228,7 @@ export interface CourseMatrixSupport {
   objective_id: string
   objective_index: number
   course_points: CourseMatrixCoursePoint[]
+  originalGraduateRequireId?: number
 }
 
 /**
@@ -239,7 +246,7 @@ export interface CourseMatrixRow {
  */
 export interface CourseMatrixData {
   course_name: string
-  objectives: Array<{ id: string; index: number; content: string }>
+  objectives: Array<{ id: string; index: number; content: string; originalId?: number }>
   rows: CourseMatrixRow[]
   // 索引签名，满足 @xyflow/react Node 泛型约束
   [key: string]: unknown
@@ -344,6 +351,33 @@ export interface SourceDocumentsData {
 }
 
 /**
+ * 专业矩阵（毕业要求支撑）面板数据
+ * 存储用户选择的学校/院系/专业以及指标点支撑关系
+ */
+export interface GraduationSupportData {
+  id: string
+  // 选中的组织信息
+  universityId?: string
+  universityName?: string
+  departmentId?: string
+  departmentName?: string
+  majorId?: string
+  majorName?: string
+  // 毕业要求 + 指标点 + 支撑关系
+  requirements?: Array<{
+    id: number
+    content: string
+    indicators: Array<{
+      id: number
+      description: string
+      supportLevel?: "strong" | "weak"
+    }>
+  }>
+  // 索引签名，满足 @xyflow/react Node 泛型约束
+  [key: string]: unknown
+}
+
+/**
  * 开课报告卡片数据（用于画布显示）
  */
 export interface CourseReportCardData {
@@ -371,6 +405,7 @@ export type CanvasComponentData =
   | ProjectMatrixData
   | SourceDocumentCardData
   | SourceDocumentsData
+  | GraduationSupportData
   | CourseReportCardData
   | Record<string, unknown>
 

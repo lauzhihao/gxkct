@@ -1241,7 +1241,7 @@ export function CanvasSaveWizard({
     if (coursePoints.length === 0) return
 
     const points = coursePoints.map(point => ({
-      id: NEW_RECORD_ID,
+      id: point.originalId ?? NEW_RECORD_ID,
       title: point.content,
       description: typeof point.description === 'string' ? point.description : "",
     }))
@@ -1261,7 +1261,7 @@ export function CanvasSaveWizard({
   ) => {
     const chapterCard = chapters.find(ch => ch.id === row.chapter_id)
     return {
-      id: parseInt(row.chapter_id, 10) || 0,
+      id: chapterCard?.originalId ?? 0,
       uniqueCode: "",
       courseUnitId: courseId,
       name: row.chapter_name,
@@ -1277,14 +1277,21 @@ export function CanvasSaveWizard({
     row: CourseMatrixData["rows"][number],
     courseId: number
   ): CourseMatrixPayloadItem["data"] => {
+    const chapterCard = chapters.find(ch => ch.id === row.chapter_id)
     const items: CourseMatrixPayloadItem["data"] = []
     row.supports.forEach((support) => {
+      // 从 courseMatrixData.objectives 或 support 自身查找 originalGraduateRequireId
+      const objOriginalId = courseMatrixData?.objectives?.find(
+        o => o.id === support.objective_id
+      )?.originalId
+      const graduateRequireId = support.originalGraduateRequireId ?? objOriginalId ?? 0
+
       support.course_points.forEach((cp) => {
         items.push({
           id: NEW_RECORD_ID,
           courseUnitId: courseId,
-          projectId: parseInt(row.chapter_id, 10) || 0,
-          graduateRequireId: parseInt(support.objective_id, 10) || 0,
+          projectId: chapterCard?.originalId ?? 0,
+          graduateRequireId,
           point: {
             id: parseInt(cp.id, 10) || 0,
             title: cp.name,
@@ -1304,7 +1311,7 @@ export function CanvasSaveWizard({
       })
     })
     return items
-  }, [])
+  }, [chapters, courseMatrixData])
 
   // 保存课程矩阵数据
   const saveCourseMatrix = useCallback(async (courseId: number): Promise<void> => {
@@ -1380,7 +1387,7 @@ export function CanvasSaveWizard({
         const indicatorId = requirement.indicators[indicatorIdx].id
 
         payload.push({
-          id: NEW_RECORD_ID,
+          id: objective.originalId ?? NEW_RECORD_ID,
           parentId: indicatorId,
           courseId: courseId,
           description: objective.content,

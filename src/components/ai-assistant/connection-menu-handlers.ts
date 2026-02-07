@@ -48,6 +48,7 @@ const OPTION_TO_PANEL_TYPE: Record<string, CanvasComponentType> = {
   coursePoint: CanvasComponentType.COURSE_POINT_PANEL,
   chapter: CanvasComponentType.CHAPTER_PANEL,
   ksa: CanvasComponentType.KSA_PANEL,
+  graduationSupport: CanvasComponentType.GRADUATION_SUPPORT,
 }
 
 /**
@@ -58,6 +59,7 @@ const OPTION_TO_TITLE: Record<string, string> = {
   coursePoint: "课点信息",
   chapter: "章节项目",
   ksa: "KSA",
+  graduationSupport: "专业矩阵",
 }
 
 /**
@@ -236,6 +238,12 @@ function handlePanelOption(
   option: string,
   panelType: CanvasComponentType
 ): void {
+  // 防御性兜底：单例面板（如课点信息）如果已存在则忽略重复创建
+  const panelExists = ctx.canvasElements.some((el) => el.type === panelType)
+  if (panelExists) {
+    return
+  }
+
   const panelId = `${panelType}_${Date.now()}`
 
   ctx.handleCanvasEvent({
