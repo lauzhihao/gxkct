@@ -174,6 +174,7 @@ export const BasePanelNode = memo(function BasePanelNode({
           id="top"
           type="target"
           position={Position.Top}
+          isConnectableStart={false}
           className="!w-3 !h-3 !bg-gray-400 !border-2 !border-white"
         />
       )}
@@ -310,6 +311,7 @@ export const BasePanelNode = memo(function BasePanelNode({
           id="left"
           type="target"
           position={leftHandlePosition}
+          isConnectableStart={false}
           className={`!w-4 !h-4 !border-2 !border-white !rounded-full !shadow-sm ${handleColorClass} ${disabledHandleClass}`}
         />
       )}

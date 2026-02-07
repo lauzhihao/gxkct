@@ -19,6 +19,7 @@ import { FlowNodeType } from "@/components/flow/utils/types"
 import { applyDagreLayout, generateEdgeId } from "@/components/flow/utils/layout"
 import {
   CANVAS_LAYOUT_POSITION_CONFIG,
+  HORIZONTAL_LAYOUT_GRID_SIZE,
   HORIZONTAL_LAYOUT_GROUPS,
   HORIZONTAL_LAYOUT_GROUP_GAP_PX,
   HORIZONTAL_LAYOUT_ITEM_GAP_PX,
@@ -326,7 +327,33 @@ const VERTICAL_START_Y = CANVAS_LAYOUT_POSITION_CONFIG.vertical.startY
 const HORIZONTAL_STACK_GROUPS = HORIZONTAL_LAYOUT_GROUPS
 const HORIZONTAL_GROUP_GAP = HORIZONTAL_LAYOUT_GROUP_GAP_PX
 const HORIZONTAL_ITEM_GAP = HORIZONTAL_LAYOUT_ITEM_GAP_PX
+const HORIZONTAL_LINK_SPAN_GAP = HORIZONTAL_LAYOUT_GRID_SIZE * 10
 const HORIZONTAL_COURSE_MATRIX_OFFSET = HORIZONTAL_COURSE_MATRIX_OFFSET_PX
+
+const HORIZONTAL_LINKED_PAIRS = new Set<string>([
+  `${CanvasComponentType.COURSE_INFO}->${CanvasComponentType.GRADUATION_SUPPORT}`,
+  `${CanvasComponentType.GRADUATION_SUPPORT}->${CanvasComponentType.OBJECTIVE_PANEL}`,
+  `${CanvasComponentType.OBJECTIVE_PANEL}->${CanvasComponentType.CHAPTER_PANEL}`,
+  `${CanvasComponentType.CHAPTER_PANEL}->${CanvasComponentType.COURSE_POINT_PANEL}`,
+  `${CanvasComponentType.COURSE_POINT_PANEL}->${CanvasComponentType.COURSE_MATRIX}`,
+  `${CanvasComponentType.COURSE_MATRIX}->${CanvasComponentType.PROJECT_MATRIX}`,
+  `${CanvasComponentType.COURSE_MATRIX}->${CanvasComponentType.PROJECT_MATRIX_PANEL}`,
+  `${CanvasComponentType.PROJECT_MATRIX}->${CanvasComponentType.COURSE_REPORT}`,
+  `${CanvasComponentType.PROJECT_MATRIX_PANEL}->${CanvasComponentType.COURSE_REPORT}`,
+])
+
+function getHorizontalGapBetween(
+  leftType: CanvasComponentType,
+  rightType: CanvasComponentType,
+  fallbackGap: number
+): number {
+  const pairKey = `${leftType}->${rightType}`
+  const reversePairKey = `${rightType}->${leftType}`
+  if (HORIZONTAL_LINKED_PAIRS.has(pairKey) || HORIZONTAL_LINKED_PAIRS.has(reversePairKey)) {
+    return Math.max(fallbackGap, HORIZONTAL_LINK_SPAN_GAP)
+  }
+  return fallbackGap
+}
 // Panel 内子节点布局配置
 const PANEL_PADDING = { top: 75, left: 20, right: 20, bottom: 10 }
 const CARD_GAP_X = 15 // 水平间距
@@ -504,6 +531,10 @@ function isVerticalStackType(componentType: CanvasComponentType): boolean {
   return VERTICAL_STACK_GROUPS.some(group => group.includes(componentType))
 }
 
+function isProjectMatrixType(componentType: CanvasComponentType): boolean {
+  return componentType === CanvasComponentType.PROJECT_MATRIX || componentType === CanvasComponentType.PROJECT_MATRIX_PANEL
+}
+
 function recalculateAllPanelPositionsVertical(elements: CanvasElementData[]): CanvasElementData[] {
   if (elements.length === 0) return elements
 
@@ -531,13 +562,55 @@ function recalculateAllPanelPositionsVertical(elements: CanvasElementData[]): Ca
       .filter(({ el }) => groupTypes.includes(el.type))
       .map(({ index }) => index)
 
+    const isProjectMatrixGroup =
+      groupTypes.includes(CanvasComponentType.PROJECT_MATRIX) ||
+      groupTypes.includes(CanvasComponentType.PROJECT_MATRIX_PANEL)
+
+    if (isProjectMatrixGroup && indicesInGroup.length > 0) {
+      const rowY = currentY
+      let currentX = anchor.x
+      let maxHeight = 0
+
+      for (let i = 0; i < indicesInGroup.length; i++) {
+        const index = indicesInGroup[i]
+        const el = updatedElements[index]
+
+        let correctedSize = el.size
+        if (isProjectMatrixType(el.type)) {
+          const matrixHeight = getElementHeightByType(el.type, el.data, el.size)
+          correctedSize = {
+            width: el.size?.width || DEFAULT_ELEMENT_SIZES[CanvasComponentType.PROJECT_MATRIX].width,
+            height: matrixHeight,
+          }
+        }
+
+        const elementWidth = getElementWidthByType(el.type, el.data, correctedSize)
+        const elementHeight = getElementHeightByType(el.type, el.data, correctedSize)
+        maxHeight = Math.max(maxHeight, elementHeight)
+
+        updatedElements[index] = {
+          ...el,
+          size: correctedSize,
+          position: { x: currentX, y: rowY },
+        }
+
+        currentX = currentX + elementWidth
+        if (i < indicesInGroup.length - 1) {
+          currentX = currentX + HORIZONTAL_ITEM_GAP
+        }
+      }
+
+      currentY = currentY + maxHeight + VERTICAL_STACK_GAP
+      continue
+    }
+
     for (const index of indicesInGroup) {
       const el = updatedElements[index]
 
       let correctedSize = el.size
       if (el.type === CanvasComponentType.GRADUATION_SUPPORT) {
         correctedSize = calculateGraduationSupportSize(el.data)
-      } else if (el.type === CanvasComponentType.PROJECT_MATRIX || el.type === CanvasComponentType.PROJECT_MATRIX_PANEL) {
+      } else if (isProjectMatrixType(el.type)) {
         const matrixHeight = getElementHeightByType(el.type, el.data, el.size)
         correctedSize = {
           width: el.size?.width || DEFAULT_ELEMENT_SIZES[CanvasComponentType.PROJECT_MATRIX].width,
@@ -668,7 +741,57 @@ function recalculateAllPanelPositions(elements: CanvasElementData[]): CanvasElem
       .filter(({ el }) => groupTypes.includes(el.type))
       .map(({ index }) => index)
 
+    const isProjectMatrixGroup =
+      groupTypes.includes(CanvasComponentType.PROJECT_MATRIX) ||
+      groupTypes.includes(CanvasComponentType.PROJECT_MATRIX_PANEL)
+
     if (indicesInGroup.length === 0) {
+      continue
+    }
+
+    if (isProjectMatrixGroup) {
+      const columnX = currentX
+      let currentY = baselineY
+      let maxWidth = 0
+
+      for (const index of indicesInGroup) {
+        const el = updatedElements[index]
+
+        let correctedSize = el.size
+        if (isProjectMatrixType(el.type)) {
+          const matrixHeight = getElementHeightByType(el.type, el.data, el.size)
+          correctedSize = {
+            width: getElementWidthByType(el.type, el.data, el.size),
+            height: matrixHeight,
+          }
+        }
+
+        const elementWidth = getElementWidthByType(el.type, el.data, correctedSize)
+        const elementHeight = getElementHeightByType(el.type, el.data, correctedSize)
+        maxWidth = Math.max(maxWidth, elementWidth)
+
+        updatedElements[index] = {
+          ...el,
+          size: correctedSize,
+          position: { x: columnX, y: currentY },
+        }
+
+        currentY = currentY + elementHeight + HORIZONTAL_ITEM_GAP
+      }
+
+      let gapAfterGroup = HORIZONTAL_GROUP_GAP
+      const lastType = updatedElements[indicesInGroup[indicesInGroup.length - 1]].type
+      for (let nextGroupIndex = groupIndex + 1; nextGroupIndex < HORIZONTAL_STACK_GROUPS.length; nextGroupIndex++) {
+        const nextGroupTypes = HORIZONTAL_STACK_GROUPS[nextGroupIndex]
+        const nextIndex = updatedElements.findIndex(el => nextGroupTypes.includes(el.type))
+        if (nextIndex >= 0) {
+          const nextType = updatedElements[nextIndex].type
+          gapAfterGroup = getHorizontalGapBetween(lastType, nextType, HORIZONTAL_GROUP_GAP)
+          break
+        }
+      }
+
+      currentX = currentX + maxWidth + gapAfterGroup
       continue
     }
 
@@ -679,7 +802,7 @@ function recalculateAllPanelPositions(elements: CanvasElementData[]): CanvasElem
       let correctedSize = el.size
       if (el.type === CanvasComponentType.GRADUATION_SUPPORT) {
         correctedSize = calculateGraduationSupportSize(el.data)
-      } else if (el.type === CanvasComponentType.PROJECT_MATRIX || el.type === CanvasComponentType.PROJECT_MATRIX_PANEL) {
+      } else if (isProjectMatrixType(el.type)) {
         const matrixHeight = getElementHeightByType(el.type, el.data, el.size)
         correctedSize = {
           width: getElementWidthByType(el.type, el.data, el.size),
@@ -701,11 +824,25 @@ function recalculateAllPanelPositions(elements: CanvasElementData[]): CanvasElem
 
       currentX = currentX + elementWidth
       if (i < indicesInGroup.length - 1) {
-        currentX = currentX + HORIZONTAL_ITEM_GAP
+        const nextType = updatedElements[indicesInGroup[i + 1]].type
+        const gap = getHorizontalGapBetween(el.type, nextType, HORIZONTAL_ITEM_GAP)
+        currentX = currentX + gap
       }
     }
 
-    currentX = currentX + HORIZONTAL_GROUP_GAP
+    let gapAfterGroup = HORIZONTAL_GROUP_GAP
+    const lastType = updatedElements[indicesInGroup[indicesInGroup.length - 1]].type
+    for (let nextGroupIndex = groupIndex + 1; nextGroupIndex < HORIZONTAL_STACK_GROUPS.length; nextGroupIndex++) {
+      const nextGroupTypes = HORIZONTAL_STACK_GROUPS[nextGroupIndex]
+      const nextIndex = updatedElements.findIndex(el => nextGroupTypes.includes(el.type))
+      if (nextIndex >= 0) {
+        const nextType = updatedElements[nextIndex].type
+        gapAfterGroup = getHorizontalGapBetween(lastType, nextType, HORIZONTAL_GROUP_GAP)
+        break
+      }
+    }
+
+    currentX = currentX + gapAfterGroup
   }
 
   return updatedElements
@@ -1697,18 +1834,16 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
                 data: data as CanvasComponentData,
               }
 
-              // 水平布局连线：A/B/C 三个面板 → 课程矩阵
+              // 课程矩阵仅与课点信息面板建立连线
               setTimeout(() => {
-                for (const panelType of PANELS_TO_MATRIX) {
-                  const panel = prev.find(el => el.type === panelType)
-                  if (panel) {
-                    addEdge({
-                      source: panel.id,
-                      target: elementId,
-                      sourceHandle: "right",
-                      targetHandle: "left",
-                    })
-                  }
+                const coursePointPanel = prev.find(el => el.type === CanvasComponentType.COURSE_POINT_PANEL)
+                if (coursePointPanel) {
+                  addEdge({
+                    source: coursePointPanel.id,
+                    target: elementId,
+                    sourceHandle: "right",
+                    targetHandle: "left",
+                  })
                 }
               }, 0)
 
