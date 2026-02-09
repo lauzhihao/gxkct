@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import type { DetailPanelProps } from "@/components/detail-panel/types"
 import { convertCourseToCanvasComplete } from "@/lib/utils/course-to-canvas"
 import { BookOpen, Calendar, Pencil, Trash2, User, Loader2 } from "lucide-react"
@@ -10,7 +10,7 @@ import { cn } from "@/shared/utils/utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
 import { Accordion } from "@/shared/components/ui/accordion"
 import AddCourseForm from "@/components/add-course-form"
-import { api, type CombinedCourseDetail, type SaveCourseUnitRequest } from "@/lib/api"
+import { api, type CombinedCourseDetail, type CourseGoal, type SaveCourseUnitRequest } from "@/lib/api"
 import { courseApiService } from "@/modules/courses/api"
 import { courseGoalsApi } from "@/modules/courses/api/courseGoalsApi"
 import {
@@ -35,6 +35,8 @@ import { TeachingObjectivesEditor } from "@/modules/courses/components/shared/te
 import { getCourseCache } from "@/shared/utils/course-cache"
 import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
 import { useAiCanvasStore } from "@/shared/stores/ai-canvas-store"
+import type { TreeNode } from "@/types"
+import type { MatrixDataForCanvas, ProjectMatrixApiData } from "@/lib/utils/course-to-canvas"
 
 const COURSE_TABS = {
   info: "课程信息",
@@ -46,12 +48,45 @@ const COURSE_TABS = {
 type CourseTabKey = keyof typeof COURSE_TABS
 const DEFAULT_COURSE_TAB: CourseTabKey = "info"
 
-export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeData, currentUser }: DetailPanelProps) {
+interface CourseFormMetadata {
+  courseNatureId?: number
+  introduction?: string | null
+  theoryPeriod?: number
+  practicePeriod?: number
+  teachingClass?: string
+  teachingLocation?: string
+  teachingTime?: string
+  studentCount?: number
+  credits?: number
+  mainTextbook?: string
+  referenceResources?: string
+  attendancePolicy?: string
+  assignmentPolicy?: string
+  conductRequirements?: string
+  practiceRequirements?: string
+  teamworkRequirements?: string
+  bonusRequirements?: string
+  otherSuggestions?: string
+  assessmentMethod?: string
+  assessmentForm?: string
+  scoreType?: string
+  scoreTable?: unknown
+  assessmentDescription?: string
+}
+
+interface CourseFormData {
+  name?: string
+  metadata?: CourseFormMetadata
+}
+
+export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeData }: DetailPanelProps) {
+  const courseNode = node?.nodeType === "course" ? node : null
+  const courseNodeId = courseNode?.id
   const [isEditingCourse, setIsEditingCourse] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isEditingTeachingObjectives, setIsEditingTeachingObjectives] = useState(false)
   const [courseDetailData, setCourseDetailData] = useState<CombinedCourseDetail | null>(null)
-  const [courseGoals, setCourseGoals] = useState<any[]>([])
+  const [courseGoals, setCourseGoals] = useState<CourseGoal[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("info")
   const [activeMatrixTab, setActiveMatrixTab] = useState("courseMatrix")
@@ -71,9 +106,9 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
   } = useAiCanvasStore()
 
   useEffect(() => {
-    if (!node) return
+    if (!courseNode) return
     setActivePage(DEFAULT_COURSE_TAB, COURSE_TABS[DEFAULT_COURSE_TAB])
-  }, [node?.nodeId, setActivePage])
+  }, [courseNodeId, courseNode, setActivePage])
 
   const handleTabChange = (value: string) => {
     setActiveTab(value)
@@ -86,7 +121,7 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
   useEffect(() => {
     setIsEditingCourse(false)
     setIsDeleteDialogOpen(false)
-  }, [node?.nodeId])
+  }, [courseNode?.nodeId])
 
   useEffect(() => {
     const handleOpenResources = () => setActiveTab("resources")
@@ -100,7 +135,7 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
       setIsLoading(true)
       try {
         // 直接使用 node.id 作为课程ID（兼容属性，从 nodeId 解析出的数字ID）
-        const courseId = node?.id
+        const courseId = courseNodeId
         if (!courseId) {
           console.error("[CourseDetail] 无法获取课程ID")
           setIsLoading(false)
@@ -119,17 +154,17 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
       }
     }
 
-    if (node?.id) {
+    if (courseNodeId) {
       loadCourseDetail()
     }
-  }, [node?.id])
+  }, [courseNodeId])
 
   // 加载教学目标数据（课程详情加载完成后即加载）
   useEffect(() => {
     const loadCourseGoals = async () => {
       try {
         // 直接使用 node.id 作为课程ID
-        const courseId = node?.id
+        const courseId = courseNodeId
         // majorId 从已加载的课程详情中获取
         const majorId = courseDetailData?.courseDetailData?.course?.majorId
 
@@ -153,14 +188,14 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
     if (courseDetailData) {
       loadCourseGoals()
     }
-  }, [node?.id, courseDetailData])
+  }, [courseNodeId, courseDetailData])
 
-  if (!node || node.nodeType !== "course") return null
+  const handleEditCourseFormSubmit = async (courseData: CourseFormData, isAutoSave: boolean = false) => {
+    if (!courseNode) return
 
-  const handleEditCourseFormSubmit = async (courseData: any, isAutoSave: boolean = false) => {
     try {
       // 构建保存请求数据
-      const courseId = node?.id ? parseInt(node.id, 10) : 0
+      const courseId = courseNode.id ? parseInt(courseNode.id, 10) : 0
       const majorId = courseDetailData?.courseDetailData?.course?.majorId || 0
       const classId = courseDetailData?.courseDetailData?.course?.classId || 1
       const typeId = courseData.metadata?.courseNatureId || courseDetailData?.courseDetailData?.course?.typeId || 1
@@ -215,7 +250,7 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
 
       // 更新本地节点数据
       if (onUpdateNode) {
-        onUpdateNode(node.nodeId, courseData)
+        onUpdateNode(courseNode.nodeId, courseData as Partial<TreeNode>)
       }
 
       // 手动保存时退出编辑模式，自动保存时不退出
@@ -231,7 +266,7 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
     if (onDelete) {
       onDelete(nodeId)
     }
-    if (node?.nodeId === nodeId && onNodeSelect) {
+    if (courseNode?.nodeId === nodeId && onNodeSelect) {
       onNodeSelect(null)
     }
     setIsDeleteDialogOpen(false)
@@ -239,18 +274,18 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
 
   // 注册画布数据准备回调到全局 store，供 Header AI 按钮调用
   useEffect(() => {
-    if (!courseDetailData || !node?.id) {
+    if (!courseDetailData || !courseNodeId) {
       unregisterPrepareCanvasData()
       return
     }
 
     const prepareCanvasData = async () => {
-      const courseId = node.id!
+      const courseId = courseNodeId
       const prepareStart = performance.now()
       const matrixFetchStart = performance.now()
 
       // 并行获取课程矩阵和项目矩阵数据
-      let matrixData: import("@/lib/utils/course-to-canvas").MatrixDataForCanvas | undefined
+      let matrixData: MatrixDataForCanvas | undefined
       try {
         const [courseMatrixRes, projectMatrixRes] = await Promise.all([
           api.matrices.getCourseMatrix(String(courseId)),
@@ -261,7 +296,7 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
           ? courseMatrixRes.data
           : undefined
         const projectMatrixApiData = projectMatrixRes.data
-          ? (projectMatrixRes.data as any)
+          ? (projectMatrixRes.data as unknown as ProjectMatrixApiData)
           : undefined
 
         const matrixFetchDurationMs = performance.now() - matrixFetchStart
@@ -271,9 +306,9 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
           console.log("[CourseDetail] 矩阵数据加载完成:", {
             fetchDurationMs: Number(matrixFetchDurationMs.toFixed(1)),
             courseMatrixCount: courseMatrixItems?.length || 0,
-            projectCount: (projectMatrixApiData as any)?.projects?.length || 0,
-            projectRowsCount: (projectMatrixApiData as any)?.data?.length || 0,
-            ksaCount: (projectMatrixApiData as any)?.ksas?.length || 0,
+            projectCount: projectMatrixApiData?.projects?.length || 0,
+            projectRowsCount: projectMatrixApiData?.data?.length || 0,
+            ksaCount: projectMatrixApiData?.ksas?.length || 0,
           })
         } else {
           console.log("[CourseDetail] 矩阵数据为空:", {
@@ -300,7 +335,7 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
     }
 
     clearPreparedCanvasData()
-    registerPrepareCanvasData(prepareCanvasData, String(node.id))
+    registerPrepareCanvasData(prepareCanvasData, String(courseNodeId))
     // 在课程详情页数据已就绪后预热一次，点击 AI 时可直接复用结果
     prefetchCanvasData()
 
@@ -309,18 +344,20 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
     clearPreparedCanvasData,
     courseDetailData,
     courseGoals,
-    node?.id,
+    courseNodeId,
     prefetchCanvasData,
     registerPrepareCanvasData,
     unregisterPrepareCanvasData,
   ])
 
+  if (!courseNode) return null
+
   // 获取课程所属的专业ID - 从已加载的课程详情中获取
   const getMajorId = (): string => {
-    return courseDetailData?.courseDetailData?.course?.majorId?.toString() || node.id || ""
+    return courseDetailData?.courseDetailData?.course?.majorId?.toString() || courseNode.id || ""
   }
 
-  if (isEditingCourse && node?.nodeType === "course") {
+  if (isEditingCourse) {
     // 如果courseDetailData已加载，使用其中的majorId；否则等待加载
     if (isLoading) {
       return (
@@ -338,7 +375,7 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
         majorId={getMajorId()}
         onCancel={() => setIsEditingCourse(false)}
         onSubmit={handleEditCourseFormSubmit}
-        initialData={node}
+        initialData={courseNode}
         isEditMode={true}
         courseDetailData={courseDetailData}
       />
@@ -373,7 +410,7 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
   const majorId = courseDetailInfo.course.majorId
 
   // 从课程详情中获取专业名称，优先从缓存获取
-  const courseCache = getCourseCache(node.id || '')
+  const courseCache = getCourseCache(courseNode.id || '')
   const majorName = courseCache?.majorName || courseNameData.major || "未设置"
 
   // 获取讲师数组 - 从缓存中读取
@@ -399,7 +436,7 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
           setActiveTab("matrix")
         }}
         courseGoals={courseGoals}
-        node={node}
+        node={courseNode}
         majorId={majorId}
         majorIndicators={[]}
         teachingObjectiveIndicatorMap={{}}
@@ -542,15 +579,15 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
             </TabsContent>
 
             <TabsContent value="resources" className="space-y-4 mt-4 px-6">
-              <CourseResources nodeId={node.id || node.nodeId} />
+              <CourseResources nodeId={courseNode.id || courseNode.nodeId} />
             </TabsContent>
 
             <TabsContent value="matrix" className="space-y-4 mt-2 px-6">
-              <CourseThreeLevelMatrix node={node} onUpdateNode={onUpdateNode} treeData={treeData} majorId={majorId} onEditTeachingObjectives={() => setIsEditingTeachingObjectives(true)} activeMatrixTab={activeMatrixTab} onActiveMatrixTabChange={setActiveMatrixTab} />
+              <CourseThreeLevelMatrix node={courseNode} onUpdateNode={onUpdateNode} treeData={treeData} majorId={majorId} onEditTeachingObjectives={() => setIsEditingTeachingObjectives(true)} activeMatrixTab={activeMatrixTab} onActiveMatrixTabChange={setActiveMatrixTab} />
             </TabsContent>
 
             <TabsContent value="supervision" className="space-y-4 mt-4 px-6">
-              <CourseSupervision courseId={node.id || node.nodeId} collegeId={collegeId} />
+              <CourseSupervision courseId={courseNode.id || courseNode.nodeId} collegeId={collegeId} />
             </TabsContent>
           </Tabs>
         </div>
@@ -561,11 +598,11 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>确认删除</AlertDialogTitle>
-            <AlertDialogDescription>确定要删除课程"{courseNameData.name}"吗？此操作不可撤销。</AlertDialogDescription>
+            <AlertDialogDescription>确定要删除课程&quot;{courseNameData.name}&quot;吗？此操作不可撤销。</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={() => handleDeleteNode(node.nodeId)} className="bg-red-500 hover:bg-red-600">
+            <AlertDialogAction onClick={() => handleDeleteNode(courseNode.nodeId)} className="bg-red-500 hover:bg-red-600">
               确认删除
             </AlertDialogAction>
           </AlertDialogFooter>

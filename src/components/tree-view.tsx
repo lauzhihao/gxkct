@@ -68,21 +68,6 @@ function highlightText(text: string, searchTerm: string): React.ReactNode {
   )
 }
 
-const getIcon = (type: string) => {
-  switch (type) {
-    case "university":
-      return Building2
-    case "department":
-      return GraduationCap
-    case "major":
-      return BookOpen
-    case "course":
-      return FileText
-    default:
-      return FileText
-  }
-}
-
 function hasMatchingDescendant(node: TreeNode, matchingIds: Set<string>): boolean {
   if (matchingIds.has(node.nodeId)) return true
   if (node.children) {
@@ -130,8 +115,6 @@ function TreeNodeComponent({
   isFirstMatch = false,
   departmentMajors,
 }: TreeNodeProps): ReactElement {
-  const Icon = getIcon(node.nodeType)
-
   // 如果是department节点，合并动态加载的专业数据
   let actualChildren = node.children || []
   if (node.nodeType === "department" && departmentMajors?.has(node.nodeId)) {
@@ -151,7 +134,7 @@ function TreeNodeComponent({
   const isSelected = selectedNodeId === node.nodeId
   const isStarred = node.isStarred || false
 
-  const nodeRef = React.createRef<HTMLButtonElement>()
+  const nodeRef = React.useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (isFirstMatch && nodeRef.current && searchTerm.trim()) {
@@ -210,84 +193,73 @@ function TreeNodeComponent({
     }
   }
 
-  const indentPadding = level * 24
+  const handleStarToggleFromKeyboard = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault()
+      e.stopPropagation()
+      if (onToggleStar) {
+        onToggleStar(node.nodeId)
+      }
+    }
+  }
 
-  return (
-    <div className="select-none">
-      <button
-        ref={nodeRef}
-        onClick={handleClick}
-        className={cn(
-          "w-full flex items-center gap-3 py-3 rounded-lg transition-all duration-200",
-          "backdrop-blur-sm border",
-          "hover:bg-card/50 hover:border-primary/50 hover:shadow-lg",
-          "focus:outline-none focus:ring-2 focus:ring-primary/50",
-          "group",
-          isSelected && "bg-primary/10 border-primary/50 shadow-md",
-        )}
-        style={{ paddingLeft: `${16 + indentPadding}px`, paddingRight: "16px" }}
-      >
-        {hasChildren && (
-          <div className="flex-shrink-0">
-            {isExpanded ? (
-              <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform" />
-            ) : (
-              <ChevronRight className="w-4 h-4 text-muted-foreground transition-transform" />
-            )}
-          </div>
-        )}
-        {!hasChildren && <div className="w-4 flex-shrink-0" />}
+  const renderNodeIcon = () => {
+    const iconClassName = "w-5 h-5 text-primary"
 
+    switch (node.nodeType) {
+      case "university":
+        return <Building2 className={iconClassName} />
+      case "department":
+        return <GraduationCap className={iconClassName} />
+      case "major":
+        return <BookOpen className={iconClassName} />
+      case "course":
+      default:
+        return <FileText className={iconClassName} />
+    }
+  }
+
+  const nodeMetaContent = (
+    <>
+      {(node.nodeType === "course" || node.nodeType === "major") ? (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div
+                className={cn(
+                  "font-medium text-foreground group-hover:text-primary transition-colors truncate cursor-pointer",
+                  isSelected && "text-primary",
+                )}
+              >
+                {highlightText(node.nodeName, searchTerm)}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right" align="center" className="max-w-xs">
+              {node.nodeName}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ) : (
         <div
           className={cn(
-            "flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center",
-            "bg-gradient-to-br from-primary/20 to-accent/20",
-            "border border-primary/30",
-            "group-hover:from-primary/30 group-hover:to-accent/30",
-            "transition-all duration-200",
-            isSelected && "from-primary/30 to-accent/30 border-primary/50",
+            "font-medium text-foreground group-hover:text-primary transition-colors truncate",
+            isSelected && "text-primary",
           )}
         >
-          <Icon className="w-5 h-5 text-primary" />
+          {highlightText(node.nodeName, searchTerm)}
         </div>
-
-        <div className="flex-1 text-left min-w-0 overflow-hidden">
-          {(node.nodeType === "course" || node.nodeType === "major") ? (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div
-                    className={cn(
-                      "font-medium text-foreground group-hover:text-primary transition-colors truncate cursor-pointer",
-                      isSelected && "text-primary",
-                    )}
-                  >
-                    {highlightText(node.nodeName, searchTerm)}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="right" align="center" className="max-w-xs">
-                  {node.nodeName}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : (
-            <div
-              className={cn(
-                "font-medium text-foreground group-hover:text-primary transition-colors truncate",
-                isSelected && "text-primary",
-              )}
-            >
-              {highlightText(node.nodeName, searchTerm)}
-            </div>
-          )}
-          {node.description && (
-            <div className="text-xs text-muted-foreground mt-0.5 truncate">
-              {highlightText(node.description, searchTerm)}
-            </div>
-          )}
+      )}
+      {node.description && (
+        <div className="text-xs text-muted-foreground mt-0.5 truncate">
+          {highlightText(node.description, searchTerm)}
         </div>
+      )}
+    </>
+  )
 
-        {level === 0 && onToggleStar && (
+  const starButton =
+    level === 0 && onToggleStar
+      ? (
           <div
             onClick={handleStarClick}
             className={cn(
@@ -298,79 +270,144 @@ function TreeNodeComponent({
             aria-label={isStarred ? "已设为星标" : "设为星标"}
             role="button"
             tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault()
-                handleStarClick(e as any)
-              }
-            }}
+            onKeyDown={handleStarToggleFromKeyboard}
           >
             <Star className={cn("w-5 h-5 transition-all", isStarred && "fill-yellow-500")} />
           </div>
-        )}
-      </button>
+        )
+      : null
 
-      {isExpanded && (
-        <div className="mt-2 space-y-2">
-          {displayChildren.length > 0 ? (
-            displayChildren.map((child, index) => (
-              <TreeNodeComponent
-                key={`${node.nodeId}-${child.nodeId || index}`}
-                node={child}
-                level={level + 1}
-                onSelect={onSelect}
-                selectedNodeId={selectedNodeId}
-                expandedNodes={expandedNodes}
-                onToggleExpand={onToggleExpand}
-                visibleCourseCounts={visibleCourseCounts}
-                onLoadMoreCourses={onLoadMoreCourses}
-                searchTerm={searchTerm}
-                isSearching={isSearching}
-                currentSchoolId={currentSchoolId || null}
-                onSetCurrentSchool={onSetCurrentSchool}
-                onToggleStar={onToggleStar}
-                matchingNodeIds={matchingNodeIds}
-                pathNodeIds={pathNodeIds}
-                isFirstMatch={isFirstMatch && index === 0 && matchingNodeIds?.has(child.nodeId)}
-                departmentMajors={departmentMajors}
-              />
-            ))
-          ) : isSearching && (node.nodeType === "department" || node.nodeType === "major") ? (
-            <div
-              className="text-sm text-muted-foreground py-2"
-              style={{ paddingLeft: `${16 + (level + 1) * 24}px` }}
-            >
-              加载中...
+  const loadMoreButton =
+    showLoadMore
+      ? (
+          <button
+            onClick={handleLoadMore}
+            className={cn(
+              "w-full flex items-center gap-3 py-3 rounded-lg transition-all duration-200",
+              "backdrop-blur-sm border border-dashed border-primary/30",
+              "hover:bg-primary/10 hover:border-primary/50",
+              "focus:outline-none focus:ring-2 focus:ring-primary/50",
+              "group",
+            )}
+            style={{ paddingLeft: `${16 + (level + 1) * 24}px`, paddingRight: "16px" }}
+          >
+            <div className="w-4 flex-shrink-0" />
+
+            <div className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center bg-primary/10 border border-primary/30 group-hover:bg-primary/20">
+              <MoreHorizontal className="w-5 h-5 text-primary" />
             </div>
-          ) : null}
 
-          {showLoadMore && (
-            <button
-              onClick={handleLoadMore}
-              className={cn(
-                "w-full flex items-center gap-3 py-3 rounded-lg transition-all duration-200",
-                "backdrop-blur-sm border border-dashed border-primary/30",
-                "hover:bg-primary/10 hover:border-primary/50",
-                "focus:outline-none focus:ring-2 focus:ring-primary/50",
-                "group",
-              )}
-              style={{ paddingLeft: `${16 + (level + 1) * 24}px`, paddingRight: "16px" }}
-            >
-              <div className="w-4 flex-shrink-0" />
+            <div className="flex-1 text-left">
+              <div className="font-medium text-primary">更多{remainingCount}门课程</div>
+            </div>
+          </button>
+        )
+      : null
 
-              <div className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center bg-primary/10 border border-primary/30 group-hover:bg-primary/20">
-                <MoreHorizontal className="w-5 h-5 text-primary" />
+  const childrenContent =
+    isExpanded
+      ? (
+          <div className="mt-2 space-y-2">
+            {displayChildren.length > 0 ? (
+              displayChildren.map((child, index) => (
+                <TreeNodeComponent
+                  key={`${node.nodeId}-${child.nodeId || index}`}
+                  node={child}
+                  level={level + 1}
+                  onSelect={onSelect}
+                  selectedNodeId={selectedNodeId}
+                  expandedNodes={expandedNodes}
+                  onToggleExpand={onToggleExpand}
+                  visibleCourseCounts={visibleCourseCounts}
+                  onLoadMoreCourses={onLoadMoreCourses}
+                  searchTerm={searchTerm}
+                  isSearching={isSearching}
+                  currentSchoolId={currentSchoolId || null}
+                  onSetCurrentSchool={onSetCurrentSchool}
+                  onToggleStar={onToggleStar}
+                  matchingNodeIds={matchingNodeIds}
+                  pathNodeIds={pathNodeIds}
+                  isFirstMatch={isFirstMatch && index === 0 && matchingNodeIds?.has(child.nodeId)}
+                  departmentMajors={departmentMajors}
+                />
+              ))
+            ) : isSearching && (node.nodeType === "department" || node.nodeType === "major") ? (
+              <div
+                className="text-sm text-muted-foreground py-2"
+                style={{ paddingLeft: `${16 + (level + 1) * 24}px` }}
+              >
+                加载中...
               </div>
+            ) : null}
 
-              <div className="flex-1 text-left">
-                <div className="font-medium text-primary">更多{remainingCount}门课程</div>
-              </div>
-            </button>
+            {loadMoreButton}
+          </div>
+        )
+      : null
+
+  const iconNode = renderNodeIcon()
+  const indentPadding = level * 24
+
+  const rowContent = (
+    <>
+      {hasChildren && (
+        <div className="flex-shrink-0">
+          {isExpanded ? (
+            <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-muted-foreground transition-transform" />
           )}
         </div>
       )}
-    </div>
+      {!hasChildren && <div className="w-4 flex-shrink-0" />}
+
+      <div
+        className={cn(
+          "flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center",
+          "bg-gradient-to-br from-primary/20 to-accent/20",
+          "border border-primary/30",
+          "group-hover:from-primary/30 group-hover:to-accent/30",
+          "transition-all duration-200",
+          isSelected && "from-primary/30 to-accent/30 border-primary/50",
+        )}
+      >
+        {iconNode}
+      </div>
+
+      <div className="flex-1 text-left min-w-0 overflow-hidden">{nodeMetaContent}</div>
+
+      {starButton}
+    </>
   )
+
+  const nodeButton = (
+    <button
+      ref={nodeRef}
+      onClick={handleClick}
+      className={cn(
+        "w-full flex items-center gap-3 py-3 rounded-lg transition-all duration-200",
+        "backdrop-blur-sm border",
+        "hover:bg-card/50 hover:border-primary/50 hover:shadow-lg",
+        "focus:outline-none focus:ring-2 focus:ring-primary/50",
+        "group",
+        isSelected && "bg-primary/10 border-primary/50 shadow-md",
+      )}
+      style={{ paddingLeft: `${16 + indentPadding}px`, paddingRight: "16px" }}
+    >
+      {rowContent}
+    </button>
+  )
+
+  const content = (
+    <>
+      {nodeButton}
+      {childrenContent}
+    </>
+  )
+
+  const treeNodeCard = <div className="select-none">{content}</div>
+
+  return treeNodeCard
 }
 
 interface TreeViewProps {
@@ -403,16 +440,8 @@ export const TreeView = React.forwardRef<
   isCollapsed = false,
   onToggleCollapse,
   onDepartmentMajorsChange,
-  onToggleExpand: onToggleExpandProp,
+  onToggleExpand,
 }: TreeViewProps, ref): ReactElement {
-  // 如果treeData为null,返回空状态
-  if (!treeData) {
-    return (
-      <div className="rounded-lg border border-border bg-card p-6 text-center">
-        <div className="text-muted-foreground">暂无数据</div>
-      </div>
-    )
-  }
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(["root"]))
   const [visibleCourseCounts, setVisibleCourseCounts] = useState<Map<string, number>>(new Map())
   const { searchTerm, setSearchTerm, isSearching, searchResults, clearSearch } = useTreeSearch()
@@ -426,6 +455,10 @@ export const TreeView = React.forwardRef<
 
 
   const handleToggleExpand = React.useCallback(async (nodeId: string) => {
+    if (!treeData) {
+      return
+    }
+
     // 检查当前是否已展开
     const isCurrentlyExpanded = expandedNodes.has(nodeId)
 
@@ -464,7 +497,7 @@ export const TreeView = React.forwardRef<
 
     // 如果在treeData中没找到，尝试在动态加载的专业数据中查找
     if (!node) {
-      for (const [deptId, majors] of departmentMajors.entries()) {
+      for (const majors of departmentMajors.values()) {
         const found = majors.find(m => m.nodeId === nodeId)
         if (found) {
           node = found
@@ -482,13 +515,17 @@ export const TreeView = React.forwardRef<
       setIsDataLoading(true)
       try {
         await loadDepartmentMajors(nodeId)
+        onToggleExpand?.(nodeId)
       } finally {
         setIsDataLoading(false)
       }
+      return
     }
 
+    onToggleExpand?.(nodeId)
+
     // major节点的课程数据由 tree 接口返回，不需要额外加载
-  }, [treeData, expandedNodes, loadedDepartments, departmentMajors, loadDepartmentMajors])
+  }, [treeData, expandedNodes, loadedDepartments, departmentMajors, loadDepartmentMajors, onToggleExpand])
 
   // 使用useImperativeHandle暴露handleToggleExpand方法给外部调用
   React.useImperativeHandle(ref, () => ({
@@ -523,10 +560,11 @@ export const TreeView = React.forwardRef<
 
   // 处理星标切换，确保只有一个一级节点被星标
   const handleToggleStar = (nodeId: string) => {
-    if (!onUpdateNode || !treeData.children) return
+    const rootChildren = treeData?.children
+    if (!onUpdateNode || !rootChildren) return
 
     // 找到要切换星标的节点
-    const targetNode = treeData.children.find(child => child.nodeId === nodeId)
+    const targetNode = rootChildren.find(child => child.nodeId === nodeId)
     if (!targetNode) return
 
     const isCurrentlyStarred = targetNode.isStarred || false
@@ -534,7 +572,7 @@ export const TreeView = React.forwardRef<
     // 如果当前节点未被星标，则取消所有其他节点的星标，并设置当前节点为星标
     if (!isCurrentlyStarred) {
       // 取消所有一级节点的星标
-      treeData.children.forEach(child => {
+      rootChildren.forEach(child => {
         if (child.isStarred) {
           onUpdateNode(child.nodeId, { isStarred: false })
         }
@@ -548,6 +586,10 @@ export const TreeView = React.forwardRef<
   }
 
   useEffect(() => {
+    if (!treeData) {
+      return
+    }
+
     if (selectedNode) {
       // 当选中节点时，自动展开其所有父节点
       const findPathToNode = (root: TreeNode, targetId: string, path: string[] = []): string[] | null => {
@@ -576,6 +618,10 @@ export const TreeView = React.forwardRef<
   }, [selectedNode, treeData])
 
   useEffect(() => {
+    if (!treeData) {
+      return
+    }
+
     if (searchTerm.trim() && searchResults.length > 0) {
       const newExpandedNodes = new Set<string>([treeData.nodeId])
 
@@ -585,10 +631,14 @@ export const TreeView = React.forwardRef<
 
       setExpandedNodes(newExpandedNodes)
     }
-  }, [searchTerm, searchResults, treeData.nodeId])
+  }, [searchTerm, searchResults, treeData])
 
   // 单独处理搜索结果中需要加载的数据
   useEffect(() => {
+    if (!treeData) {
+      return
+    }
+
     if (searchTerm.trim() && searchResults.length > 0) {
       const nodesToLoad: Array<{ id: string; type: string }> = []
 
@@ -609,7 +659,7 @@ export const TreeView = React.forwardRef<
       const totalToLoad = nodesToLoad.length
 
       // 只加载 department 节点的专业数据，major 节点的课程由 tree 接口返回
-      const departmentsToLoad = nodesToLoad.filter(({ type }) => type === "department" && !loadedDepartments.has(type))
+      const departmentsToLoad = nodesToLoad.filter(({ id, type }) => type === "department" && !loadedDepartments.has(id))
 
       if (departmentsToLoad.length === 0) {
         setIsDataLoading(false)
@@ -638,12 +688,14 @@ export const TreeView = React.forwardRef<
     expandedNodes,
     loadedDepartments,
     loadDepartmentMajors,
+    treeData,
   ])
 
 
 
   // 获取选中节点的完整路径（用于折叠状态显示）
   const selectedNodePath = React.useMemo(() => {
+    if (!treeData) return []
     if (!selectedNode || !treeData.children) return []
 
     const findPathWithNodes = (
@@ -673,7 +725,7 @@ export const TreeView = React.forwardRef<
     }
 
     return findPathWithNodes(treeData.children, selectedNode.nodeId, []) || []
-  }, [selectedNode, treeData.children, departmentMajors])
+  }, [selectedNode, treeData, departmentMajors])
 
   const matchingNodeIds = React.useMemo(() => {
     if (!searchTerm.trim() || searchResults.length === 0) return undefined
@@ -713,6 +765,15 @@ export const TreeView = React.forwardRef<
 
     return false
   }, [searchTerm, matchingNodeIds, pathNodeIds])
+
+  // 如果treeData为null,返回空状态
+  if (!treeData) {
+    return (
+      <div className="rounded-lg border border-border bg-card p-6 text-center">
+        <div className="text-muted-foreground">暂无数据</div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -858,7 +919,7 @@ export const TreeView = React.forwardRef<
           {/* 搜索无结果提示 */}
           {searchTerm.trim() && !isSearching && searchResults.length === 0 && (
             <div className="mt-2 text-sm text-muted-foreground text-center py-2">
-              未找到包含"{searchTerm}"的节点
+              未找到包含&quot;{searchTerm}&quot;的节点
             </div>
           )}
         </div>
