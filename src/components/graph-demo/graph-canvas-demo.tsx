@@ -37,7 +37,7 @@ function GraphCanvasInner() {
     setNodes(nextGraph.nodes)
     setEdges(nextGraph.edges)
     nodesRef.current = nextGraph.nodes
-  }, [mode])
+  }, [mode, setNodes, setEdges])
 
   useEffect(() => {
     nodesRef.current = nodes
@@ -50,7 +50,7 @@ function GraphCanvasInner() {
     setLastResolveMs(elapsed)
     setNodes(nextNodes)
     nodesRef.current = nextNodes
-  }, [])
+  }, [setNodes])
 
   const handleNodeClick: NodeMouseHandler = useCallback((_event, node) => {
     setSelectedId(node.id)

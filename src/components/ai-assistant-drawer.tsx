@@ -2,6 +2,7 @@
 
 import "./ai-assistant.css"
 import { useState, useEffect, useRef, useCallback } from "react"
+import Image from "next/image"
 import { Plus, Copy, Check, FileText } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/shared/components/ui/sheet"
@@ -9,9 +10,7 @@ import { AiCanvasPanel } from "./ai-canvas-panel"
 import {
   CanvasAction,
   CanvasComponentType,
-  CanvasEventMessage,
   ProgressEventMessage,
-  ProcessingEventMessage,
   ObjectiveCardData,
   ChapterCardData,
   CoursePointCardData,
@@ -40,7 +39,6 @@ import {
   AI_API_CONFIG,
   getAIRequestUrl,
   buildAIRequest,
-  getToolStatusText,
   type AIRequestPayload,
 } from "./ai-assistant/api-config"
 import {
@@ -125,11 +123,6 @@ export function AiAssistantDrawer({
   const [isCanvasExpanded, setIsCanvasExpanded] = useState(false)
   const hasTriggeredExpandRef = useRef(false) // 防止重复触发
 
-  // SSE新事件状态
-  const [currentMode, setCurrentMode] = useState<"chat" | "course_building">("chat")
-  const [buildingStage, setBuildingStage] = useState<string | null>(null)
-  const [progress, setProgress] = useState<{ current: number; total: number; message: string; stage: string } | null>(null)
-  const [toolStatus, setToolStatus] = useState<{ node: string; event: string; tool?: string; args?: Record<string, unknown> } | null>(null)
   // sessionId复制状态
   const [sessionIdCopied, setSessionIdCopied] = useState(false)
 
@@ -162,7 +155,6 @@ export function AiAssistantDrawer({
     removeEdge: removeCanvasEdge,
     selectElement: selectCanvasElement,
     setSelectedIdOnly,
-    updateSelection: updateCanvasSelection,
     updateElementPosition: updateCanvasElementPosition,
     updateElementData: updateCanvasElementData,
     updatePanelChildren: updateCanvasPanelChildren,
@@ -186,9 +178,7 @@ export function AiAssistantDrawer({
   const {
     ossKey: canvasOssKey,
     isUploading: isCanvasUploading,
-    hasUnsavedChanges: hasCanvasUnsavedChanges,
     updateCanvasData,
-    getOssKey: getCanvasOssKey,
     forceUpload: forceCanvasUpload,
     loadFromLocal: loadCanvasFromLocal,
     clearPersistence: clearCanvasPersistence,
@@ -404,9 +394,7 @@ export function AiAssistantDrawer({
   const {
     processStream,
     resetController: resetSSEController,
-    abort: abortSSE,
-    getSignal: getSSESignal,
-  } = useSSEStream({})
+      } = useSSEStream({})
 
   const streamingControllerRef = useRef<AbortController | null>(null)
   const scrollViewportRef = useRef<HTMLDivElement | null>(null)

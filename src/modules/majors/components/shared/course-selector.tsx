@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/shared/components/ui/dialog"
+import { useState, useEffect, useCallback } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Search, Loader2, ChevronLeft, ChevronRight, Plus } from "lucide-react"
@@ -9,7 +9,6 @@ import { api } from "@/lib/api"
 import type { TreeNode } from "@/types"
 import { cn } from "@/shared/utils/utils"
 import { QuickCreateCourseDialog } from "@/modules/majors/components/dialogs/quick-create-course-dialog"
-import { useToast } from "@/shared/hooks/use-toast"
 
 interface CourseSelectorProps {
   open: boolean
@@ -22,7 +21,6 @@ interface CourseSelectorProps {
 }
 
 export function CourseSelector({ open, onOpenChange, majorId, majorName, departmentId, onSaveCourses, initialSupport }: CourseSelectorProps) {
-  const { toast } = useToast()
   const [courses, setCourses] = useState<TreeNode[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
@@ -36,23 +34,18 @@ export function CourseSelector({ open, onOpenChange, majorId, majorName, departm
       setSearchTerm("")
       setSelectedSupport(initialSupport || {})
       setCurrentPage(1)
-      loadCourses()
+      setIsLoading(true)
+      api.tree.getMajorCourses(majorId).then((response) => {
+        if (response.data) {
+          setCourses(response.data)
+        }
+        setIsLoading(false)
+      }).catch((error) => {
+        console.error("加载课程失败:", error)
+        setIsLoading(false)
+      })
     }
   }, [open, majorId, initialSupport])
-
-  const loadCourses = async () => {
-    setIsLoading(true)
-    try {
-      const response = await api.tree.getMajorCourses(majorId)
-      if (response.data) {
-        setCourses(response.data)
-      }
-    } catch (error) {
-      console.error("加载课程失败:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   const filteredCourses = courses.filter((course) =>
     course.name?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false
@@ -90,9 +83,18 @@ export function CourseSelector({ open, onOpenChange, majorId, majorName, departm
   }
 
   // 课程创建成功后刷新列表
-  const handleQuickCreateCourseSuccess = () => {
-    loadCourses()
-  }
+  const handleQuickCreateCourseSuccess = useCallback(() => {
+    setIsLoading(true)
+    api.tree.getMajorCourses(majorId).then((response) => {
+      if (response.data) {
+        setCourses(response.data)
+      }
+      setIsLoading(false)
+    }).catch((error) => {
+      console.error("加载课程失败:", error)
+      setIsLoading(false)
+    })
+  }, [majorId])
 
   return (
     <>

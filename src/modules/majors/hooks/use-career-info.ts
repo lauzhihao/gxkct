@@ -21,7 +21,7 @@ export interface UseCareerInfoResult {
   // 业务操作方法
   addCareerInfo: () => void
   removeCareerInfo: (id: string) => void
-  updateCareerInfo: (id: string, field: string, value: any) => void
+  updateCareerInfo: (id: string, field: string, value: unknown) => void
   handleCareerDirectionSelect: (
     careerInfoId: string,
     category1: string,
@@ -38,12 +38,12 @@ export interface UseCareerInfoResult {
   getOccupationCode: (category1: string, category2: string, category3: string, category4: string) => string | null
 }
 
-export function useCareerInfo(initialData: any, worksData: WorkCategory[]): UseCareerInfoResult {
+export function useCareerInfo(initialData: MajorMetadata | undefined, worksData: WorkCategory[]): UseCareerInfoResult {
   // 从 professionsVOS 或 careerInfo 加载职业信息
   const loadCareerInfoList = () => {
     // 直接访问 initialData 的属性（已扁平化）
     if (initialData?.professionsVOS && initialData.professionsVOS.length > 0) {
-      return initialData.professionsVOS.map((professionVO: any, index: number) => ({
+      return initialData.professionsVOS.map((professionVO, index: number) => ({
         id: String(professionVO.id || index + 1),
         level: "中级",
         direction: {
@@ -90,7 +90,7 @@ export function useCareerInfo(initialData: any, worksData: WorkCategory[]): UseC
     }
   }
 
-  const updateCareerInfo = (id: string, field: string, value: any) => {
+  const updateCareerInfo = (id: string, field: string, value: unknown) => {
     setCareerInfoList(careerInfoList.map((item) => (item.id === id ? { ...item, [field]: value } : item)))
   }
 
@@ -164,26 +164,24 @@ export function useCareerInfo(initialData: any, worksData: WorkCategory[]): UseC
   }
 
   // 获取职业代码
-  const getOccupationCode = (
-    category1: string,
-    category2: string,
-    category3: string,
-    category4: string
-  ): string | null => {
-    const cat1 = worksData.find((item) => item.label === category1)
-    if (!cat1) return null
+  const getOccupationCode = useCallback(
+    (category1: string, category2: string, category3: string, category4: string): string | null => {
+      const cat1 = worksData.find((item) => item.label === category1)
+      if (!cat1) return null
 
-    const cat2 = cat1.children?.find((item) => item.label === category2)
-    if (!cat2) return null
+      const cat2 = cat1.children?.find((item) => item.label === category2)
+      if (!cat2) return null
 
-    const cat3 = cat2.children?.find((item) => item.label === category3)
-    if (!cat3) return null
+      const cat3 = cat2.children?.find((item) => item.label === category3)
+      if (!cat3) return null
 
-    const cat4 = cat3.children?.find((item) => item.label === category4)
-    if (!cat4) return null
+      const cat4 = cat3.children?.find((item) => item.label === category4)
+      if (!cat4) return null
 
-    return cat4.value
-  }
+      return cat4.value
+    },
+    [worksData]
+  )
 
   // 选择职业方向后调用接口获取工作职责
   const handleCareerDirectionSelect = useCallback(
@@ -224,7 +222,7 @@ export function useCareerInfo(initialData: any, worksData: WorkCategory[]): UseC
           })
       }
     },
-    []
+    [getOccupationCode]
   )
 
   return {

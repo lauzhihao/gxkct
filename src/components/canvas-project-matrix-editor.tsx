@@ -211,7 +211,7 @@ function TaskObjectivesManageDialog({
         <div className="flex-1 overflow-y-auto py-4 space-y-2">
           {localObjectives.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">
-              暂无教学任务目标，点击上方"新增"按钮添加
+              暂无教学任务目标，点击上方&quot;新增&quot;按钮添加
             </div>
           ) : (
             localObjectives.map((obj) => (

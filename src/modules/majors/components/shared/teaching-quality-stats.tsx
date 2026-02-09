@@ -12,44 +12,12 @@ interface TeachingQualityStatsProps {
   node: TreeNode
   nodeType: "department" | "major"
   treeData?: TreeNode
-  departmentMajors?: Map<string, TreeNode[]>
-  majorCourses?: Map<string, TreeNode[]>
 }
 
-export function TeachingQualityStats({ node, nodeType, treeData, departmentMajors, majorCourses }: TeachingQualityStatsProps) {
+export function TeachingQualityStats({ node, nodeType, treeData }: TeachingQualityStatsProps) {
   const [tasks, setTasks] = useState<TeachingSupervisoryTask[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [selectedTask, setSelectedTask] = useState<TeachingSupervisoryTask | null>(null)
-
-  // 获取 collegeId - 从 parentId 中提取
-  const getCollegeId = (): string | null => {
-    if (nodeType === "department") {
-      // 院系节点从 parentId 中提取 collegeId（格式如 "university_123"）
-      return node.parentId?.replace("university_", "") || null
-    } else if (nodeType === "major") {
-      // 专业节点需要从父院系获取 collegeId
-      const parentDeptId = node.parentId
-      if (!parentDeptId || !treeData) return null
-
-      // 从树中查找父院系
-      const findDepartment = (searchNode: TreeNode): TreeNode | null => {
-        if (searchNode.nodeId === parentDeptId && searchNode.nodeType === "department") {
-          return searchNode
-        }
-        if (searchNode.children) {
-          for (const child of searchNode.children) {
-            const found = findDepartment(child)
-            if (found) return found
-          }
-        }
-        return null
-      }
-
-      const parentDept = findDepartment(treeData)
-      return parentDept?.parentId?.replace("university_", "") || null
-    }
-    return null
-  }
 
   // 从 node.nodeId 中提取数字部分（处理 "major_123" 格式）
   const getMajorId = (): Long | null => {
@@ -117,6 +85,7 @@ export function TeachingQualityStats({ node, nodeType, treeData, departmentMajor
     }
 
     fetchTasks()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node.id, node.nodeId, node.parentId, treeData, nodeType])
 
   const getStatusLabel = (status: string) => {
