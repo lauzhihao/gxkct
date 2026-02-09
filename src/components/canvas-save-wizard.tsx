@@ -1242,7 +1242,9 @@ export function CanvasSaveWizard({
 
     const points = coursePoints.map(point => ({
       id: point.originalId ?? NEW_RECORD_ID,
-      title: point.content,
+      title: typeof point.content === "string"
+        ? point.content
+        : (typeof point.name === "string" ? point.name : ""),
       description: typeof point.description === 'string' ? point.description : "",
     }))
 

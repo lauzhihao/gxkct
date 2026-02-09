@@ -194,7 +194,7 @@ export function useProjectMatrix(node: TreeNode, majorId?: string | number): Use
         console.error("[useProjectMatrix] 获取项目矩阵数据失败:", projectMatrixResponse.error)
       } else if (projectMatrixResponse.data) {
         console.log("[useProjectMatrix] 项目矩阵原始响应:", projectMatrixResponse.data)
-        const responseData = projectMatrixResponse.data
+        const responseData = projectMatrixResponse.data.data
         console.log("[useProjectMatrix] projects结构:", JSON.stringify(responseData.projects?.[0], null, 2))
         console.log("[useProjectMatrix] data数组长度:", responseData.data?.length)
         if (responseData.data?.length > 0) {

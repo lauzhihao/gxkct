@@ -180,11 +180,11 @@ export function CourseMajorMatrix({ node, majorNode, majorId, onUpdateNode }: Co
     setIsSavingMatrix(true)
 
     try {
-      // 构建保存数据，id为0表示新增，majorId和courseUnitId需要转为字符串
+      // 构建保存数据，id为0表示新增
       const saveData = matrixData.map((item) => ({
         id: item.id > 0 ? item.id : 0,
-        majorId: String(item.majorId),
-        courseUnitId: String(item.courseUnitId),
+        majorId: item.majorId,
+        courseUnitId: item.courseUnitId,
         courseUnitName: item.courseUnitName || "",
         graduateRequireId: item.graduateRequireId,
         relate: item.relate,
