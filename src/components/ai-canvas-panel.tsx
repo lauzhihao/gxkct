@@ -190,6 +190,14 @@ export interface AiCanvasPanelProps {
   layoutMode?: CanvasLayoutMode
   // 布局模式切换回调
   onLayoutModeChange?: (mode: CanvasLayoutMode) => void
+  // 是否禁用自动聚焦（新增节点或选中变化时）
+  disableAutoFocus?: boolean
+  // 是否禁用新增节点自动选中
+  disableAutoSelectNewNodes?: boolean
+  // 画布是否处于增量构建阶段
+  isBuilding?: boolean
+  // 构建进度
+  buildingProgress?: { loaded: number; total: number; stage: string; etaSeconds?: number | null } | null
 }
 
 /**
@@ -231,7 +239,16 @@ function AiCanvasPanelInner({
   isUploading = false,
   layoutMode = "horizontal",
   onLayoutModeChange,
+  disableAutoFocus = false,
+  disableAutoSelectNewNodes = false,
+  isBuilding = false,
+  buildingProgress = null,
 }: AiCanvasPanelProps) {
+  const stageLabelMap: Record<string, string> = {
+    "base-ready": "骨架已就绪",
+    "panel-cards": "课点/KSA 明细加载中",
+    "project-matrix": "项目矩阵加载中",
+  }
   // 使用 React Flow 的状态管理
   const [flowNodes, setNodes, onNodesChange] = useNodesState(nodes)
   const [flowEdges, setEdges, onEdgesChange] = useEdgesState(edges)
@@ -422,7 +439,9 @@ function AiCanvasPanelInner({
               ? node.selected
               : (hasDataChange && !hasNodeChange
                 ? (prevFlowNodes.find(n => n.id === node.id)?.selected ?? false)
-                : newNodes[0]?.id === node.id),
+                : (disableAutoSelectNewNodes
+                  ? (prevFlowNodes.find(n => n.id === node.id)?.selected ?? false)
+                  : newNodes[0]?.id === node.id)),
         }))
       })
       prevNodeIdsRef.current = currentNodeIds
@@ -431,7 +450,7 @@ function AiCanvasPanelInner({
       prevExternalSelectedIdsRef.current = externalSelectedIds
 
       // 视角聚焦逻辑
-      if (hasSelectionChange && !hasNodeChange) {
+      if (!disableAutoFocus && hasSelectionChange && !hasNodeChange) {
         // 外部选中变化：聚焦到最后一个新选中的节点
         const lastNewlySelectedId = newlySelectedIds[newlySelectedIds.length - 1]
         const targetNode = nodeMap.get(lastNewlySelectedId)
@@ -447,7 +466,7 @@ function AiCanvasPanelInner({
             )
           }, 50)
         }
-      } else if (hasNodeChange) {
+      } else if (!disableAutoFocus && hasNodeChange) {
         if (isInitialLoad && nodes.length > 0) {
           // 首次加载：优先聚焦选中节点，否则聚焦第一个节点
           const selectedNode = nodes.find(n => n.selected)
@@ -482,7 +501,7 @@ function AiCanvasPanelInner({
       prevNodePositionsRef.current = currentNodePositions
       prevExternalSelectedIdsRef.current = externalSelectedIds
     }
-  }, [nodes, setNodes, setCenter, getZoom])
+  }, [nodes, setNodes, setCenter, getZoom, disableAutoFocus, disableAutoSelectNewNodes])
 
   useEffect(() => {
     const currentEdgeIds = new Set(edges.map(e => e.id))
@@ -499,14 +518,16 @@ function AiCanvasPanelInner({
   }, [edges, setEdges])
 
   useEffect(() => {
-    if (flowNodes.length === 0) return
+    if (isBuilding) return
+    const currentNodes = flowNodesRef.current
+    if (currentNodes.length === 0) return
 
-    // 布局切换后在两帧后刷新 node internals，确保节点新坐标和 Handle 新方向都已落地
+    // 仅在布局切换后刷新 internals，避免批量挂载期间反复全量重算导致长任务
     let cancelled = false
     const frame1 = requestAnimationFrame(() => {
       const frame2 = requestAnimationFrame(() => {
         if (cancelled) return
-        for (const node of flowNodes) {
+        for (const node of currentNodes) {
           updateNodeInternals(node.id)
         }
         // 强制触发边路径重算，避免出现需手动拖拽一次才对齐的问题
@@ -521,7 +542,7 @@ function AiCanvasPanelInner({
       cancelled = true
       cancelAnimationFrame(frame1)
     }
-  }, [layoutMode, flowNodes, updateNodeInternals, setEdges])
+  }, [layoutMode, isBuilding, updateNodeInternals, setEdges])
 
   useEffect(() => {
     if (prevLayoutModeRef.current === layoutMode) return
@@ -833,6 +854,7 @@ function AiCanvasPanelInner({
         defaultViewport={{ x: 0, y: 0, zoom: 1 }}
         minZoom={0.1}
         maxZoom={2}
+        onlyRenderVisibleElements
         deleteKeyCode={["Backspace", "Delete"]}
         multiSelectionKeyCode={["Control", "Meta"]}
         // 默认拖动模式：左键拖拽空白处平移视口，滚轮缩放
@@ -864,7 +886,7 @@ function AiCanvasPanelInner({
         )}
 
         {/* 小地图 */}
-        {showMiniMap && (
+        {showMiniMap && !isBuilding && (
           <MiniMap
             nodeColor={nodeColor}
             nodeStrokeWidth={3}
@@ -885,6 +907,20 @@ function AiCanvasPanelInner({
         <div className="absolute inset-0 z-[60] flex items-center justify-center canvas-loading-overlay">
           <div className="px-4 py-2 rounded-md border border-white/30 bg-white/20 text-sm text-white canvas-loading-text">
             正在切换布局，请稍候...
+          </div>
+        </div>
+      )}
+
+      {isBuilding && (
+        <div className="absolute inset-0 z-[55] flex items-center justify-center bg-background/50 pointer-events-auto">
+          <div className="px-4 py-2 rounded-md border border-border bg-background text-sm text-foreground shadow-sm">
+            正在构建画布...
+            {buildingProgress && (
+              <span className="ml-2 text-muted-foreground">
+                {stageLabelMap[buildingProgress.stage] || buildingProgress.stage} {buildingProgress.loaded}/{buildingProgress.total}
+                {buildingProgress.etaSeconds != null ? `，约 ${buildingProgress.etaSeconds}s` : ""}
+              </span>
+            )}
           </div>
         </div>
       )}

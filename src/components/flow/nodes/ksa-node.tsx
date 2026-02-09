@@ -1,9 +1,9 @@
 "use client"
 
-import { memo, useCallback } from "react"
+import { memo } from "react"
 import { type NodeProps, type Node } from "@xyflow/react"
 import { Brain, Wrench, Heart } from "lucide-react"
-import { BaseFlowNode } from "./base-flow-node"
+import { BaseStaticCardNode } from "./base-static-card-node"
 import type { KsaItemData } from "@/components/canvas-elements/types"
 
 // KSA 类别配置
@@ -37,7 +37,8 @@ const KSA_CONFIG = {
 interface KsaNodeData extends KsaItemData {
   highlighted?: boolean
   isDeleting?: boolean
-  onDelete?: (nodeId: string) => void
+  isLoading?: boolean
+  progressMessage?: string | null
   // 索引签名，满足 @xyflow/react Node 泛型约束
   [key: string]: unknown
 }
@@ -51,7 +52,6 @@ type KsaNodeType = Node<KsaNodeData, "ksa">
  * KSA 节点 - 支持高亮联动
  */
 export const KsaNode = memo(function KsaNode({
-  id,
   data,
   selected,
 }: NodeProps<KsaNodeType>) {
@@ -59,28 +59,22 @@ export const KsaNode = memo(function KsaNode({
   const Icon = config.icon
   const highlighted = data.highlighted ?? false
 
-  // 处理删除按钮点击
-  const handleDelete = useCallback(() => {
-    data.onDelete?.(id)
-  }, [data, id])
-
   return (
-    <BaseFlowNode
-      id={id}
+    <BaseStaticCardNode
       selected={selected}
       highlighted={highlighted}
       isDeleting={data.isDeleting}
+      isLoading={data.isLoading}
+      progressMessage={data.progressMessage}
       icon={<Icon className="h-4 w-4" />}
       title={`${config.label} ${data.category}${data.index}`}
       headerColorClass={config.headerColorClass}
       borderColorClass={config.borderColorClass}
       textColorClass={config.textColorClass}
       width={260}
-      showRightHandle={false}
-      onDelete={handleDelete}
     >
       <p className="text-sm text-gray-700 line-clamp-2">{data.content}</p>
-    </BaseFlowNode>
+    </BaseStaticCardNode>
   )
 })
 

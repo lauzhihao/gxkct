@@ -20,6 +20,11 @@ import { useLoadingStore } from "@/shared/stores/loading-store"
 import { useAiCanvasStore } from "@/shared/stores/ai-canvas-store"
 import type { InitialCanvasData } from "@/types/ai-assistant"
 
+const EMPTY_INITIAL_CANVAS_DATA: InitialCanvasData = {
+  elements: [],
+  edges: [],
+}
+
 const COLOR_THEMES = {
   green: {
     name: "NaiveUI 绿色",
@@ -218,8 +223,9 @@ export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNode
   const startLoading = useLoadingStore((state) => state.startLoading)
   const stopLoading = useLoadingStore((state) => state.stopLoading)
 
-  // 课程详情页注册的画布数据准备回调
+  // 课程详情页注册的画布数据准备回调（带缓存复用）
   const prepareCanvasData = useAiCanvasStore((state) => state.prepareCanvasData)
+  const prepareOrGetCanvasData = useAiCanvasStore((state) => state.prepareOrGetCanvasData)
 
   const unreadCount = notifications.filter((n) => !n.read).length
 
@@ -251,29 +257,31 @@ export function Header({ onResetData, isTreeCollapsed, currentPath, selectedNode
     loadTheme()
   }, [])
 
-  // [MOD] 点击 AI 按钮：课程页面时自动加载课程画布数据，否则打开空白 Drawer
+  // [MOD] 点击 AI 按钮：先打开 Drawer，再异步加载画布数据，避免阻塞打开动画
   const handleAiButtonClick = useCallback(async () => {
     if (isAiLoading) return
-    startLoading()
+    const hasCourseCanvasProvider = !!prepareCanvasData
+    setAiInitialCanvasData(hasCourseCanvasProvider ? EMPTY_INITIAL_CANVAS_DATA : null)
+    setCourseDevDrawerOpen(true)
 
-    if (prepareCanvasData) {
-      try {
-        const canvasData = await prepareCanvasData()
-        setAiInitialCanvasData(canvasData)
-      } catch (error) {
-        console.error("[Header] 准备课程画布数据失败:", error)
-      }
+    if (!hasCourseCanvasProvider) {
+      return
     }
 
-    requestAnimationFrame(() => setCourseDevDrawerOpen(true))
-  }, [isAiLoading, startLoading, prepareCanvasData])
+    startLoading()
 
-  // [MOD] Drawer 打开后清除全局 loading
-  useEffect(() => {
-    if (!courseDevDrawerOpen) return
-    const timer = setTimeout(() => stopLoading(), 1500)
-    return () => clearTimeout(timer)
-  }, [courseDevDrawerOpen, stopLoading])
+    try {
+      const canvasData = await prepareOrGetCanvasData()
+      if (canvasData) {
+        setAiInitialCanvasData(canvasData)
+      }
+    } catch (error) {
+      console.error("[Header] 准备课程画布数据失败:", error)
+      setAiInitialCanvasData(null)
+    } finally {
+      stopLoading()
+    }
+  }, [isAiLoading, prepareCanvasData, prepareOrGetCanvasData, startLoading, stopLoading])
 
   const applyTheme = async (themeKey: keyof typeof COLOR_THEMES) => {
     const theme = COLOR_THEMES[themeKey]

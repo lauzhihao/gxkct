@@ -62,6 +62,18 @@ const PROJECT_MATRIX_HEIGHT_CONFIG = {
   MAX_HEIGHT: 1200,      // 最大高度（与 max-h-[1200px] 对应）
 }
 
+const PROJECT_MATRIX_BATCH_SIZE = 4
+const HEAVY_PANEL_CARD_BATCH_SIZE_INITIAL = 32
+const HEAVY_PANEL_CARD_BATCH_SIZE_MIN = 8
+const HEAVY_PANEL_CARD_BATCH_SIZE_MAX = 96
+
+const NON_INTERACTIVE_CARD_NODE_TYPES = new Set<FlowNodeType>([
+  FlowNodeType.OBJECTIVE,
+  FlowNodeType.COURSE_POINT,
+  FlowNodeType.CHAPTER,
+  FlowNodeType.KSA,
+])
+
 /**
  * 根据项目矩阵数据计算实际高度
  * @param data 项目矩阵数据
@@ -277,7 +289,6 @@ const PANEL_TO_CARD_MAP: Partial<Record<CanvasComponentType, CanvasComponentType
 // 课程信息 → 三个基础面板（一对多，水平展开）
 const COURSE_INFO_TO_PANELS: CanvasComponentType[] = [
   CanvasComponentType.GRADUATION_SUPPORT, // A - 毕业要求支撑
-  CanvasComponentType.KSA_PANEL,          // D - KSA三要素
 ]
 
 // 第1列面板的纵向排列顺序（从上到下：A/B/C/D）
@@ -336,8 +347,9 @@ const HORIZONTAL_LINKED_PAIRS = new Set<string>([
   `${CanvasComponentType.OBJECTIVE_PANEL}->${CanvasComponentType.CHAPTER_PANEL}`,
   `${CanvasComponentType.CHAPTER_PANEL}->${CanvasComponentType.COURSE_POINT_PANEL}`,
   `${CanvasComponentType.COURSE_POINT_PANEL}->${CanvasComponentType.COURSE_MATRIX}`,
-  `${CanvasComponentType.COURSE_MATRIX}->${CanvasComponentType.PROJECT_MATRIX}`,
-  `${CanvasComponentType.COURSE_MATRIX}->${CanvasComponentType.PROJECT_MATRIX_PANEL}`,
+  `${CanvasComponentType.COURSE_MATRIX}->${CanvasComponentType.KSA_PANEL}`,
+  `${CanvasComponentType.KSA_PANEL}->${CanvasComponentType.PROJECT_MATRIX}`,
+  `${CanvasComponentType.KSA_PANEL}->${CanvasComponentType.PROJECT_MATRIX_PANEL}`,
   `${CanvasComponentType.PROJECT_MATRIX}->${CanvasComponentType.COURSE_REPORT}`,
   `${CanvasComponentType.PROJECT_MATRIX_PANEL}->${CanvasComponentType.COURSE_REPORT}`,
 ])
@@ -1175,7 +1187,12 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
     loadedElements: CanvasElementData[],
     loadedEdges: CanvasEdgeData[],
     loadedSpecialComponents?: Record<string, { type: CanvasComponentType; data: CanvasComponentData }>,
-    loadedSelectedIds?: string[]
+    loadedSelectedIds?: string[],
+    options?: {
+      onBaseReady?: () => void
+      onComplete?: () => void
+      onProgress?: (progress: { loaded: number; total: number; stage: string }) => void
+    }
   ) => {
     // [MOD] 按 ID 去重，保留首次出现的元素（修复历史数据中可能存在的重复 ID 问题）
     const seenIds = new Set<string>()
@@ -1198,13 +1215,132 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
       selected: selectedIdSet.has(el.id),
     }))
 
-    setElements(elementsWithSelection)
+    const projectMatrixTypes = new Set<CanvasComponentType>([
+      CanvasComponentType.PROJECT_MATRIX,
+      CanvasComponentType.PROJECT_MATRIX_PANEL,
+    ])
+
+    const heavyPanelCardTypes = new Set<CanvasComponentType>([
+      CanvasComponentType.COURSE_POINT_CARD,
+      CanvasComponentType.KSA_ITEM,
+    ])
+
+    const projectMatrixElements = elementsWithSelection.filter(el => projectMatrixTypes.has(el.type))
+    const heavyPanelCardElements = elementsWithSelection.filter(el => heavyPanelCardTypes.has(el.type))
+    const staticElements = elementsWithSelection.filter(
+      el => !projectMatrixTypes.has(el.type) && !heavyPanelCardTypes.has(el.type)
+    )
+
+    const totalToAppend = heavyPanelCardElements.length + projectMatrixElements.length
+    let appendedCount = 0
+
+    const emitProgress = (stage: string) => {
+      options?.onProgress?.({
+        loaded: appendedCount,
+        total: totalToAppend,
+        stage,
+      })
+    }
+
     setEdges(loadedEdges || [])
     setSpecialComponents(loadedSpecialComponents || {})
 
     // 恢复 selectedId（取第一个选中的元素）
     const firstSelectedId = loadedSelectedIds && loadedSelectedIds.length > 0 ? loadedSelectedIds[0] : null
     setSelectedId(firstSelectedId)
+
+    // [MOD] 项目矩阵数量较多时分批挂载，避免一次性渲染多张大表导致主线程长任务
+    setElements(staticElements)
+    emitProgress("base-ready")
+    requestAnimationFrame(() => {
+      options?.onBaseReady?.()
+    })
+
+    const sortedHeavyPanelCards = [...heavyPanelCardElements].sort((a, b) => {
+      if (a.parentId !== b.parentId) {
+        return String(a.parentId || "").localeCompare(String(b.parentId || ""))
+      }
+      return a.position.y - b.position.y
+    })
+
+    const sortedProjectMatrices = [...projectMatrixElements].sort((a, b) => a.position.y - b.position.y)
+
+    const appendProjectMatrixBatch = (startIndex: number) => {
+      const batch = sortedProjectMatrices.slice(startIndex, startIndex + PROJECT_MATRIX_BATCH_SIZE)
+      if (batch.length === 0) {
+        requestAnimationFrame(() => {
+          options?.onComplete?.()
+        })
+        return
+      }
+
+      setElements(prev => [...prev, ...batch])
+      appendedCount += batch.length
+      emitProgress("project-matrix")
+
+      const nextIndex = startIndex + PROJECT_MATRIX_BATCH_SIZE
+      if (nextIndex < sortedProjectMatrices.length) {
+        requestAnimationFrame(() => appendProjectMatrixBatch(nextIndex))
+      } else {
+        console.log("[画布] 项目矩阵分批挂载完成:", {
+          projectMatrixCount: sortedProjectMatrices.length,
+          batchSize: PROJECT_MATRIX_BATCH_SIZE,
+        })
+        requestAnimationFrame(() => {
+          options?.onComplete?.()
+        })
+      }
+    }
+
+    let heavyPanelCardBatchSize = HEAVY_PANEL_CARD_BATCH_SIZE_INITIAL
+    let lastBatchFrameTs = performance.now()
+
+    const appendHeavyPanelCardBatch = (startIndex: number) => {
+      const now = performance.now()
+      const frameInterval = now - lastBatchFrameTs
+      lastBatchFrameTs = now
+
+      // 根据帧间隔动态调节批次大小：卡顿时减小，流畅时增大
+      if (frameInterval > 40) {
+        heavyPanelCardBatchSize = Math.max(
+          HEAVY_PANEL_CARD_BATCH_SIZE_MIN,
+          Math.floor(heavyPanelCardBatchSize * 0.7)
+        )
+      } else if (frameInterval < 18) {
+        heavyPanelCardBatchSize = Math.min(
+          HEAVY_PANEL_CARD_BATCH_SIZE_MAX,
+          Math.ceil(heavyPanelCardBatchSize * 1.2)
+        )
+      }
+
+      const batch = sortedHeavyPanelCards.slice(startIndex, startIndex + heavyPanelCardBatchSize)
+      if (batch.length === 0) {
+        if (sortedProjectMatrices.length > 0) {
+          requestAnimationFrame(() => appendProjectMatrixBatch(0))
+        } else {
+          requestAnimationFrame(() => {
+            options?.onComplete?.()
+          })
+        }
+        return
+      }
+
+      setElements(prev => [...prev, ...batch])
+      appendedCount += batch.length
+      emitProgress("panel-cards")
+
+      requestAnimationFrame(() => appendHeavyPanelCardBatch(startIndex + batch.length))
+    }
+
+    if (totalToAppend === 0) {
+      requestAnimationFrame(() => {
+        options?.onComplete?.()
+      })
+    } else if (sortedHeavyPanelCards.length > 0) {
+      requestAnimationFrame(() => appendHeavyPanelCardBatch(0))
+    } else {
+      requestAnimationFrame(() => appendProjectMatrixBatch(0))
+    }
 
     console.log("[画布] 已加载数据, 元素数:", loadedElements?.length || 0, "边数:", loadedEdges?.length || 0, "选中:", loadedSelectedIds || [])
   }, [recalculateAllByLayout])
@@ -1364,6 +1500,7 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
     return sortedElements.map(el => {
       const isPanel = PANEL_TYPES.includes(el.type)
       const nodeType = COMPONENT_TO_NODE_TYPE[el.type] || FlowNodeType.COURSE_INFO
+      const isNonInteractiveCard = NON_INTERACTIVE_CARD_NODE_TYPES.has(nodeType)
 
       return {
         id: el.id,
@@ -1371,6 +1508,10 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
         position: el.position,
         data: el.data as unknown as Record<string, unknown>,
         selected: el.selected,
+        draggable: isNonInteractiveCard ? false : undefined,
+        selectable: isNonInteractiveCard ? false : undefined,
+        connectable: isNonInteractiveCard ? false : undefined,
+        focusable: isNonInteractiveCard ? false : undefined,
         // Group Node 属性
         parentId: el.parentId,
         extent: el.extent,
@@ -1646,6 +1787,21 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
                 }
               }
 
+              // KSA 面板连线：课程矩阵 → KSA
+              if (component === CanvasComponentType.KSA_PANEL) {
+                const courseMatrixNode = newElements.find(el => el.type === CanvasComponentType.COURSE_MATRIX)
+                if (courseMatrixNode) {
+                  setTimeout(() => {
+                    addEdge({
+                      source: courseMatrixNode.id,
+                      target: elementId,
+                      sourceHandle: "right",
+                      targetHandle: "left",
+                    })
+                  }, 0)
+                }
+              }
+
               return newElements
             }
 
@@ -1744,12 +1900,12 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
                 data: data as CanvasComponentData,
               }
 
-              // 创建与课程矩阵的连线
-              const courseMatrix = prev.find(el => el.type === CanvasComponentType.COURSE_MATRIX)
-              if (courseMatrix) {
+              // 创建与 KSA 面板的连线
+              const ksaPanel = prev.find(el => el.type === CanvasComponentType.KSA_PANEL)
+              if (ksaPanel) {
                 setTimeout(() => {
                   addEdge({
-                    source: courseMatrix.id,
+                    source: ksaPanel.id,
                     target: elementId,
                     sourceHandle: "right",
                     targetHandle: "left",
@@ -1834,13 +1990,23 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
                 data: data as CanvasComponentData,
               }
 
-              // 课程矩阵仅与课点信息面板建立连线
+              // 课程矩阵与课点信息面板、KSA 面板建立连线
               setTimeout(() => {
                 const coursePointPanel = prev.find(el => el.type === CanvasComponentType.COURSE_POINT_PANEL)
                 if (coursePointPanel) {
                   addEdge({
                     source: coursePointPanel.id,
                     target: elementId,
+                    sourceHandle: "right",
+                    targetHandle: "left",
+                  })
+                }
+
+                const ksaPanel = prev.find(el => el.type === CanvasComponentType.KSA_PANEL)
+                if (ksaPanel) {
+                  addEdge({
+                    source: elementId,
+                    target: ksaPanel.id,
                     sourceHandle: "right",
                     targetHandle: "left",
                   })

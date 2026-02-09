@@ -105,8 +105,27 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
     </button>
   )
 
-  // 渲染从课程矩阵拖出的菜单（只显示项目矩阵）
+  // 渲染从课程矩阵拖出的菜单（只显示 KSA）
   const renderCourseMatrixMenu = () => (
+    <button
+      className={`group flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm canvas-menu-item ${
+        hasKsaPanel
+          ? "text-muted-foreground/50 cursor-not-allowed"
+          : "hover:bg-accent hover:text-accent-foreground"
+      }`}
+      onClick={() => !hasKsaPanel && onSelect("ksa")}
+      disabled={hasKsaPanel}
+      title={hasKsaPanel ? "画布中已存在KSA面板" : ""}
+    >
+      <Plus className={`h-4 w-4 transition-opacity ${
+        hasKsaPanel ? "opacity-30" : "opacity-0 group-hover:opacity-100"
+      }`} />
+      <span>+ KSA</span>
+    </button>
+  )
+
+  // 渲染从 KSA 面板拖出的菜单（只显示项目矩阵）
+  const renderKsaPanelMenu = () => (
     <button
       className="group flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground canvas-menu-item"
       onClick={() => onSelect("projectMatrix")}
@@ -228,6 +247,9 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
     }
     if (sourceNodeType === FlowNodeType.COURSE_MATRIX) {
       return renderCourseMatrixMenu()
+    }
+    if (sourceNodeType === FlowNodeType.KSA_PANEL) {
+      return renderKsaPanelMenu()
     }
     if (menuState.sourceHandle === "matrix") {
       return renderMatrixExtendMenu()

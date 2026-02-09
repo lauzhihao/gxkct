@@ -13,6 +13,8 @@ const CANVAS_VERSION = "1.0"
 
 // 默认上传间隔（毫秒）
 const DEFAULT_UPLOAD_INTERVAL = 30000 // 30秒
+const SAVE_TO_LOCAL_DEBOUNCE_MS = 400
+const AUTO_UPLOAD_MIN_INTERVAL_MS = 5000
 
 
 /**
@@ -46,9 +48,12 @@ function hasDataLayerChanges(
   const nextKeys = Object.keys(next.specialComponents)
   if (prevKeys.length !== nextKeys.length) return true
 
+  const prevElementMap = new Map(prev.elements.map((element) => [element.id, element]))
+  const nextElementMap = new Map(next.elements.map((element) => [element.id, element]))
+
   // 比较每个元素的 id, type, data, parentId（忽略 position, selected, size）
-  for (const nextEl of next.elements) {
-    const prevEl = prev.elements.find(e => e.id === nextEl.id)
+  for (const [id, nextEl] of nextElementMap) {
+    const prevEl = prevElementMap.get(id)
     if (!prevEl) return true // 新增元素
 
     if (prevEl.type !== nextEl.type) return true
@@ -58,20 +63,23 @@ function hasDataLayerChanges(
   }
 
   // 检查是否有被删除的元素
-  for (const prevEl of prev.elements) {
-    if (!next.elements.find(e => e.id === prevEl.id)) return true
+  for (const id of prevElementMap.keys()) {
+    if (!nextElementMap.has(id)) return true
   }
 
+  const prevEdgeMap = new Map(prev.edges.map((edge) => [edge.id, edge]))
+  const nextEdgeMap = new Map(next.edges.map((edge) => [edge.id, edge]))
+
   // 比较边的内容
-  for (const nextEdge of next.edges) {
-    const prevEdge = prev.edges.find(e => e.id === nextEdge.id)
+  for (const [id, nextEdge] of nextEdgeMap) {
+    const prevEdge = prevEdgeMap.get(id)
     if (!prevEdge) return true // 新增边
     if (prevEdge.source !== nextEdge.source || prevEdge.target !== nextEdge.target) return true
   }
 
   // 检查是否有被删除的边
-  for (const prevEdge of prev.edges) {
-    if (!next.edges.find(e => e.id === prevEdge.id)) return true
+  for (const id of prevEdgeMap.keys()) {
+    if (!nextEdgeMap.has(id)) return true
   }
 
   // 比较 specialComponents 的内容
@@ -93,6 +101,8 @@ export interface UseCanvasPersistenceOptions {
   onUploadSuccess?: (ossKey: string) => void
   // 上传失败回调
   onUploadError?: (error: Error) => void
+  // 是否暂停自动上传（用于大批量构建阶段）
+  suspendAutoUpload?: boolean
 }
 
 export interface CanvasPersistenceState {
@@ -106,6 +116,10 @@ export interface CanvasPersistenceState {
   hasUnsavedChanges: boolean
 }
 
+interface UpdateCanvasDataOptions {
+  skipAutoUpload?: boolean
+}
+
 /**
  * 画布持久化 Hook
  * 处理画布内容的本地保存和阿里云 OSS 上传
@@ -117,6 +131,7 @@ export function useCanvasPersistence(options: UseCanvasPersistenceOptions) {
     autoUpload = true,
     onUploadSuccess,
     onUploadError,
+    suspendAutoUpload = false,
   } = options
 
   const [state, setState] = useState<CanvasPersistenceState>({
@@ -136,6 +151,10 @@ export function useCanvasPersistence(options: UseCanvasPersistenceOptions) {
 
   // 上传定时器
   const uploadTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const coalescedUploadTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const isUploadingRef = useRef(false)
+  const lastAutoUploadAtRef = useRef(0)
 
   // 初始化：从本地存储恢复 ossKey
   useEffect(() => {
@@ -181,19 +200,25 @@ export function useCanvasPersistence(options: UseCanvasPersistenceOptions) {
       return
     }
 
-    const content = serializeCanvas()
-    if (!content) {
-      console.log("[画布] saveToLocal: 无画布数据可保存")
-      return
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current)
     }
 
-    const storageKey = `${STORAGE_KEY_CANVAS_CONTENT}_${sessionId}`
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(content))
-      console.log("[画布] 已保存到本地存储, key:", storageKey, "元素数:", content.elements.length)
-    } catch (error) {
-      console.error("[画布] 保存到本地存储失败:", error)
-    }
+    saveTimerRef.current = setTimeout(() => {
+      const content = serializeCanvas()
+      if (!content) {
+        console.log("[画布] saveToLocal: 无画布数据可保存")
+        return
+      }
+
+      const storageKey = `${STORAGE_KEY_CANVAS_CONTENT}_${sessionId}`
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(content))
+        console.log("[画布] 已保存到本地存储, key:", storageKey, "元素数:", content.elements.length)
+      } catch (error) {
+        console.error("[画布] 保存到本地存储失败:", error)
+      }
+    }, SAVE_TO_LOCAL_DEBOUNCE_MS)
   }, [sessionId, serializeCanvas])
 
   /**
@@ -201,6 +226,7 @@ export function useCanvasPersistence(options: UseCanvasPersistenceOptions) {
    */
   const uploadToOss = useCallback(async (): Promise<string | null> => {
     if (!sessionId) return null
+    if (isUploadingRef.current) return state.ossKey
 
     const content = serializeCanvas()
     if (!content) return null
@@ -210,6 +236,7 @@ export function useCanvasPersistence(options: UseCanvasPersistenceOptions) {
       return state.ossKey
     }
 
+    isUploadingRef.current = true
     setState(prev => ({ ...prev, isUploading: true }))
 
     try {
@@ -231,13 +258,9 @@ export function useCanvasPersistence(options: UseCanvasPersistenceOptions) {
         size: contentSize,
       })
 
-      console.log("[画布] presign响应:", presignResponse)
-
       if (!presignResponse.data) {
         throw new Error(presignResponse.error || "获取上传签名失败")
       }
-
-      console.log("[画布] presign.data:", presignResponse.data)
 
       // 兼容后端返回的字段名
       const responseData = presignResponse.data as unknown as Record<string, unknown>
@@ -262,7 +285,6 @@ export function useCanvasPersistence(options: UseCanvasPersistenceOptions) {
       setState(prev => ({
         ...prev,
         ossKey,
-        isUploading: false,
         lastUploadTime: Date.now(),
         hasUnsavedChanges: false,
       }))
@@ -275,11 +297,13 @@ export function useCanvasPersistence(options: UseCanvasPersistenceOptions) {
       onUploadSuccess?.(ossKey)
       return ossKey
     } catch (error) {
-      setState(prev => ({ ...prev, isUploading: false }))
       const err = error instanceof Error ? error : new Error("上传失败")
       onUploadError?.(err)
       console.error("上传画布到 OSS 失败:", error)
-      return null
+      throw err
+    } finally {
+      isUploadingRef.current = false
+      setState(prev => ({ ...prev, isUploading: false }))
     }
   }, [sessionId, serializeCanvas, state.ossKey, onUploadSuccess, onUploadError])
 
@@ -290,7 +314,8 @@ export function useCanvasPersistence(options: UseCanvasPersistenceOptions) {
     elements: CanvasElementData[],
     edges: CanvasEdgeData[],
     specialComponents: Record<string, { type: CanvasComponentType; data: CanvasComponentData }>,
-    selectedIds: string[] = []
+    selectedIds: string[] = [],
+    options: UpdateCanvasDataOptions = {}
   ) => {
     const newData = { elements, edges, specialComponents, selectedIds }
 
@@ -298,17 +323,40 @@ export function useCanvasPersistence(options: UseCanvasPersistenceOptions) {
     const isDataChange = hasDataLayerChanges(canvasDataRef.current, newData)
 
     canvasDataRef.current = newData
-    setState(prev => ({ ...prev, hasUnsavedChanges: true }))
+    if (isDataChange) {
+      setState(prev => (prev.hasUnsavedChanges ? prev : { ...prev, hasUnsavedChanges: true }))
+    }
 
     // 立即保存到本地
     saveToLocal()
 
     // [MOD] 如果是数据层变化，直接上传到 OSS（覆盖式上传，移除防抖逻辑）
-    if (isDataChange) {
-      console.log("[画布] 检测到数据层变化，直接上传到 OSS")
-      uploadToOss()
+    if (isDataChange && !options.skipAutoUpload && !suspendAutoUpload) {
+      const now = Date.now()
+      const elapsedSinceLastAutoUpload = now - lastAutoUploadAtRef.current
+
+      if (!isUploadingRef.current && elapsedSinceLastAutoUpload >= AUTO_UPLOAD_MIN_INTERVAL_MS) {
+        lastAutoUploadAtRef.current = now
+        console.log("[画布] 检测到数据层变化，直接上传到 OSS")
+        uploadToOss().catch(() => {
+          // 已在 uploadToOss 内部统一触发 onUploadError 和日志
+        })
+      } else {
+        const waitMs = Math.max(AUTO_UPLOAD_MIN_INTERVAL_MS - elapsedSinceLastAutoUpload, 300)
+        if (coalescedUploadTimerRef.current) {
+          clearTimeout(coalescedUploadTimerRef.current)
+        }
+        coalescedUploadTimerRef.current = setTimeout(() => {
+          if (isUploadingRef.current) return
+          lastAutoUploadAtRef.current = Date.now()
+          console.log("[画布] 自动上传合并触发")
+          uploadToOss().catch(() => {
+            // 已在 uploadToOss 内部统一触发 onUploadError 和日志
+          })
+        }, waitMs)
+      }
     }
-  }, [saveToLocal, uploadToOss])
+  }, [saveToLocal, uploadToOss, suspendAutoUpload])
 
   /**
    * 手动触发上传
@@ -405,7 +453,7 @@ export function useCanvasPersistence(options: UseCanvasPersistenceOptions) {
   // 自动上传定时器
   useEffect(() => {
     // sessionId 为空时不启动定时器
-    if (!autoUpload || !sessionId) return
+    if (!autoUpload || !sessionId || suspendAutoUpload) return
 
     // 清除旧定时器
     if (uploadTimerRef.current) {
@@ -425,7 +473,18 @@ export function useCanvasPersistence(options: UseCanvasPersistenceOptions) {
         clearInterval(uploadTimerRef.current)
       }
     }
-  }, [autoUpload, sessionId, uploadInterval, state.hasUnsavedChanges, state.isUploading, uploadToOss])
+  }, [autoUpload, sessionId, uploadInterval, suspendAutoUpload, state.hasUnsavedChanges, state.isUploading, uploadToOss])
+
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+      }
+      if (coalescedUploadTimerRef.current) {
+        clearTimeout(coalescedUploadTimerRef.current)
+      }
+    }
+  }, [])
 
 
   return {

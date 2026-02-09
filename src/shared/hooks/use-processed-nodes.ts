@@ -36,6 +36,13 @@ const PANEL_NODE_TYPES = [
   FlowNodeType.SOURCE_DOCUMENT_PANEL,
 ]
 
+const STATIC_CARD_NODE_TYPES = new Set<FlowNodeType>([
+  FlowNodeType.OBJECTIVE,
+  FlowNodeType.COURSE_POINT,
+  FlowNodeType.CHAPTER,
+  FlowNodeType.KSA,
+])
+
 /**
  * useProcessedNodes hook 参数
  */
@@ -174,6 +181,11 @@ export function useProcessedNodes({
     }
 
     const result = flowNodes.map((node) => {
+      const nodeType = node.type as FlowNodeType
+      if (STATIC_CARD_NODE_TYPES.has(nodeType)) {
+        return node
+      }
+
       const isHighlighted = highlightState.highlightedIds.has(node.id)
       const isNodeDeleting = deletingNodeIds.has(node.id)
       const isUpdating = updatingPanelIds.has(node.id)
@@ -196,7 +208,7 @@ export function useProcessedNodes({
         : undefined
 
       // 获取节点对应的画布组件类型（用于重做功能）
-      const canvasComponentType = FLOW_TO_CANVAS_TYPE[node.type as FlowNodeType]
+      const canvasComponentType = FLOW_TO_CANVAS_TYPE[nodeType]
 
       // [MOD] 分离删除状态和加载状态，修复更新时 Handle 消失导致连线丢失的问题
       const baseInjection = {

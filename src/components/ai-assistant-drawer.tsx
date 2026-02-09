@@ -88,6 +88,9 @@ export function AiAssistantDrawer({
   const [sessionId, setSessionId] = useState<string>("")
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [isInitialized, setIsInitialized] = useState(false)
+  const [isCanvasHydrating, setIsCanvasHydrating] = useState(false)
+  const [isCanvasInteractionLocked, setIsCanvasInteractionLocked] = useState(false)
+  const [canvasBuildProgress, setCanvasBuildProgress] = useState<{ loaded: number; total: number; stage: string; etaSeconds?: number | null } | null>(null)
   const [layoutMode, setLayoutMode] = useState<CanvasLayoutMode>("horizontal")
 
   // 客户端初始化：从localStorage读取会话数据
@@ -193,6 +196,7 @@ export function AiAssistantDrawer({
     sessionId,
     autoUpload: true,
     uploadInterval: 30000, // 30秒自动上传
+    suspendAutoUpload: isCanvasHydrating,
     onUploadSuccess: handleCanvasUploadSuccess,
     onUploadError: handleCanvasUploadError,
   })
@@ -202,6 +206,7 @@ export function AiAssistantDrawer({
 
   // [MOD] 追踪初始画布数据是否已处理，避免重复加载
   const initialCanvasDataProcessedRef = useRef<boolean>(false)
+  const canvasBuildStartAtRef = useRef<number | null>(null)
 
   // [MOD] 使用 ref 保存最新的 canvasElements，解决 SSE 回调中闭包捕获旧值的问题
   const canvasElementsRef = useRef(canvasElements)
@@ -220,14 +225,39 @@ export function AiAssistantDrawer({
       console.log("[AI助手] 本地存储数据:", localCanvasData ? `元素数=${localCanvasData.elements?.length || 0}, 边数=${localCanvasData.edges?.length || 0}` : "无数据")
 
       if (localCanvasData && (localCanvasData.elements?.length > 0 || localCanvasData.edges?.length > 0)) {
+        setIsCanvasHydrating(true)
+        setIsCanvasInteractionLocked(true)
+        canvasBuildStartAtRef.current = Date.now()
+        setCanvasBuildProgress(null)
         // 加载本地画布数据（包含选中状态）
         // 类型断言：本地存储的数据结构与画布元素类型一致
         loadCanvasData(
           (localCanvasData.elements || []) as Parameters<typeof loadCanvasData>[0],
           (localCanvasData.edges || []) as Parameters<typeof loadCanvasData>[1],
           localCanvasData.specialComponents as Parameters<typeof loadCanvasData>[2],
-          localCanvasData.selectedIds
+          localCanvasData.selectedIds,
+          {
+            onBaseReady: () => {
+              // 基础骨架就绪后立即解锁交互，重元素继续后台分批挂载
+              setIsCanvasInteractionLocked(false)
+            },
+            onComplete: () => {
+              setIsCanvasHydrating(false)
+              setIsCanvasInteractionLocked(false)
+              canvasBuildStartAtRef.current = null
+              setCanvasBuildProgress(null)
+            },
+            onProgress: (progress) => {
+              const startAt = canvasBuildStartAtRef.current
+              const elapsedSeconds = startAt ? Math.max((Date.now() - startAt) / 1000, 0.1) : 0
+              const speed = progress.loaded > 0 ? progress.loaded / elapsedSeconds : 0
+              const remaining = Math.max(progress.total - progress.loaded, 0)
+              const etaSeconds = speed > 0 ? Math.ceil(remaining / speed) : null
+              setCanvasBuildProgress({ ...progress, etaSeconds })
+            },
+          }
         )
+
         // 如果有画布内容，自动展开画布
         if (localCanvasData.elements?.length > 0) {
           setIsCanvasExpanded(true)
@@ -292,10 +322,43 @@ export function AiAssistantDrawer({
       setElementLoadingStates(new Map())
 
       // 6. 加载画布数据
+      // [MOD] 在初始画布完成首帧渲染前暂停持久化上传，避免批量挂载触发上传风暴
+      setIsCanvasHydrating(true)
+      setIsCanvasInteractionLocked(true)
+      canvasBuildStartAtRef.current = Date.now()
+      setCanvasBuildProgress(null)
+      const canvasRenderStart = performance.now()
       loadCanvasData(
         initialCanvasData.elements,
         initialCanvasData.edges,
-        initialCanvasData.specialComponents
+        initialCanvasData.specialComponents,
+        undefined,
+        {
+          onBaseReady: () => {
+            // 先释放交互锁，允许用户拖拽/缩放/查看，剩余节点后台继续追加
+            setIsCanvasInteractionLocked(false)
+          },
+          onComplete: () => {
+            const renderDurationMs = performance.now() - canvasRenderStart
+            console.log("[AI助手] 初始画布首帧渲染完成:", {
+              renderDurationMs: Number(renderDurationMs.toFixed(1)),
+              elementsCount: initialCanvasData.elements.length,
+              edgesCount: initialCanvasData.edges.length,
+            })
+            setIsCanvasHydrating(false)
+            setIsCanvasInteractionLocked(false)
+            canvasBuildStartAtRef.current = null
+            setCanvasBuildProgress(null)
+          },
+          onProgress: (progress) => {
+            const startAt = canvasBuildStartAtRef.current
+            const elapsedSeconds = startAt ? Math.max((Date.now() - startAt) / 1000, 0.1) : 0
+            const speed = progress.loaded > 0 ? progress.loaded / elapsedSeconds : 0
+            const remaining = Math.max(progress.total - progress.loaded, 0)
+            const etaSeconds = speed > 0 ? Math.ceil(remaining / speed) : null
+            setCanvasBuildProgress({ ...progress, etaSeconds })
+          },
+        }
       )
 
       // 7. 展开画布
@@ -322,6 +385,7 @@ export function AiAssistantDrawer({
   useEffect(() => {
     if (!open) {
       initialCanvasDataProcessedRef.current = false
+      setIsCanvasInteractionLocked(false)
     }
   }, [open])
 
@@ -329,12 +393,12 @@ export function AiAssistantDrawer({
   // 重要：必须在画布加载完成后才能保存，否则会用空数据覆盖已保存的数据
   useEffect(() => {
     // 只有当前 session 的画布已完成加载后，才允许保存
-    if (sessionId && hasLoadedCanvasRef.current === sessionId) {
+    if (sessionId && hasLoadedCanvasRef.current === sessionId && !isCanvasHydrating) {
       // 将选中状态转换为数组传递（支持多选场景）
       const selectedIds = canvasSelectedId ? [canvasSelectedId] : []
       updateCanvasData(canvasElements, canvasEdges, canvasSpecialComponents, selectedIds)
     }
-  }, [sessionId, canvasElements, canvasEdges, canvasSpecialComponents, canvasSelectedId, updateCanvasData])
+  }, [sessionId, canvasElements, canvasEdges, canvasSpecialComponents, canvasSelectedId, isCanvasHydrating, updateCanvasData])
 
   // SSE 流式处理 Hook（提供统一的流处理能力）
   const {
@@ -374,6 +438,10 @@ export function AiAssistantDrawer({
     // 重置画布展开状态
     setIsCanvasExpanded(false)
     hasTriggeredExpandRef.current = false
+    setIsCanvasHydrating(false)
+    setIsCanvasInteractionLocked(false)
+    canvasBuildStartAtRef.current = null
+    setCanvasBuildProgress(null)
     // 清空画布元素
     clearCanvas()
     // 清除画布持久化数据
@@ -1753,6 +1821,10 @@ export function AiAssistantDrawer({
                     className="w-full h-full"
                     nodes={flowNodes}
                     edges={toFlowEdges()}
+                    disableAutoFocus={isCanvasHydrating}
+                    disableAutoSelectNewNodes={isCanvasHydrating}
+                    isBuilding={isCanvasInteractionLocked}
+                    buildingProgress={canvasBuildProgress}
                     onNodeDelete={(nodeId) => {
                       // [MOD] 删除前将元素ID加入已删除集合，禁用聊天区关联卡片
                       setDeletedElementIds(prev => new Set(prev).add(nodeId))

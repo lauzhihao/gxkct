@@ -36,7 +36,7 @@ export class CourseGoalsApi {
         }
       }
 
-      console.log("[CourseGoalsApi] 课程目标数据加载成功", response.data)
+      console.log("[CourseGoalsApi] 课程目标数据加载成功", response.data.length)
 
       return {
         data: response.data,

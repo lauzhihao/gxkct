@@ -63,7 +63,12 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
     { value: "2025-fall", label: "2025年秋季学期" },
   ])
   const { setActivePage } = useActivePageTracker()
-  const { registerPrepareCanvasData, unregisterPrepareCanvasData } = useAiCanvasStore()
+  const {
+    registerPrepareCanvasData,
+    unregisterPrepareCanvasData,
+    prefetchCanvasData,
+    clearPreparedCanvasData,
+  } = useAiCanvasStore()
 
   useEffect(() => {
     if (!node) return
@@ -136,7 +141,7 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
         console.log(`[CourseDetail] 开始加载教学目标，courseId: ${courseId}, majorId: ${majorId}`)
         const response = await courseGoalsApi.getCourseGoals(String(courseId), String(majorId))
         if (response.data) {
-          console.log(`[CourseDetail] 教学目标加载成功:`, response.data)
+          console.log(`[CourseDetail] 教学目标加载成功:`, response.data.length)
           setCourseGoals(response.data)
         }
       } catch (error) {
@@ -241,6 +246,8 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
 
     const prepareCanvasData = async () => {
       const courseId = node.id!
+      const prepareStart = performance.now()
+      const matrixFetchStart = performance.now()
 
       // 并行获取课程矩阵和项目矩阵数据
       let matrixData: import("@/lib/utils/course-to-canvas").MatrixDataForCanvas | undefined
@@ -257,20 +264,34 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
           ? (projectMatrixRes.data as any)
           : undefined
 
+        const matrixFetchDurationMs = performance.now() - matrixFetchStart
+
         if (courseMatrixItems || projectMatrixApiData) {
           matrixData = { courseMatrixItems, projectMatrixApiData }
-          console.log("[CourseDetail] 矩阵数据加载成功:", {
+          console.log("[CourseDetail] 矩阵数据加载完成:", {
+            fetchDurationMs: Number(matrixFetchDurationMs.toFixed(1)),
             courseMatrixCount: courseMatrixItems?.length || 0,
             projectCount: (projectMatrixApiData as any)?.projects?.length || 0,
+            projectRowsCount: (projectMatrixApiData as any)?.data?.length || 0,
+            ksaCount: (projectMatrixApiData as any)?.ksas?.length || 0,
+          })
+        } else {
+          console.log("[CourseDetail] 矩阵数据为空:", {
+            fetchDurationMs: Number(matrixFetchDurationMs.toFixed(1)),
           })
         }
       } catch (error) {
         console.error("[CourseDetail] 加载矩阵数据失败，将继续不带矩阵数据:", error)
       }
 
+      const convertStart = performance.now()
       const canvasData = convertCourseToCanvasComplete(courseDetailData, courseGoals, matrixData)
+      const convertDurationMs = performance.now() - convertStart
+      const totalDurationMs = performance.now() - prepareStart
 
       console.log("[CourseDetail] 转换课程数据到画布格式:", {
+        convertDurationMs: Number(convertDurationMs.toFixed(1)),
+        totalDurationMs: Number(totalDurationMs.toFixed(1)),
         elementsCount: canvasData.elements.length,
         edgesCount: canvasData.edges.length,
       })
@@ -278,9 +299,21 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
       return canvasData
     }
 
-    registerPrepareCanvasData(prepareCanvasData)
+    clearPreparedCanvasData()
+    registerPrepareCanvasData(prepareCanvasData, String(node.id))
+    // 在课程详情页数据已就绪后预热一次，点击 AI 时可直接复用结果
+    prefetchCanvasData()
+
     return () => unregisterPrepareCanvasData()
-  }, [courseDetailData, courseGoals, node?.id, registerPrepareCanvasData, unregisterPrepareCanvasData])
+  }, [
+    clearPreparedCanvasData,
+    courseDetailData,
+    courseGoals,
+    node?.id,
+    prefetchCanvasData,
+    registerPrepareCanvasData,
+    unregisterPrepareCanvasData,
+  ])
 
   // 获取课程所属的专业ID - 从已加载的课程详情中获取
   const getMajorId = (): string => {

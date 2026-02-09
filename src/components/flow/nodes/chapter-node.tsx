@@ -1,9 +1,9 @@
 "use client"
 
-import { memo, useCallback } from "react"
+import { memo } from "react"
 import { type Node, type NodeProps } from "@xyflow/react"
 import { FileText, Clock } from "lucide-react"
-import { BaseFlowNode } from "./base-flow-node"
+import { BaseStaticCardNode } from "./base-static-card-node"
 import { FlowNodeType } from "@/components/flow/utils/types"
 import type { ChapterCardData } from "@/components/canvas-elements/types"
 
@@ -17,32 +17,27 @@ export type ChapterNode = Node<ChapterCardData, FlowNodeType.CHAPTER>
  * 章节节点 - 支持高亮联动
  */
 export const ChapterNodeComponent = memo(function ChapterNodeComponent({
-  id,
   data,
   selected,
 }: NodeProps<ChapterNode>) {
   const totalHours = (data.theory_hours || 0) + (data.practice_hours || 0)
   const highlighted = data.highlighted ?? false
-
-  // 处理删除按钮点击
-  const handleDelete = useCallback(() => {
-    data.onDelete?.(id)
-  }, [data, id])
+  const isLoading = Boolean((data as { isLoading?: unknown }).isLoading)
+  const progressMessage = (data as { progressMessage?: unknown }).progressMessage
 
   return (
-    <BaseFlowNode
-      id={id}
+    <BaseStaticCardNode
       selected={selected}
       highlighted={highlighted}
       isDeleting={data.isDeleting}
+      isLoading={isLoading}
+      progressMessage={typeof progressMessage === "string" ? progressMessage : null}
       icon={<FileText className="h-4 w-4" />}
       title={`第${data.index}章: ${data.name}`}
       headerColorClass="bg-purple-100"
       borderColorClass="border-purple-200"
       textColorClass="text-purple-700"
       width={280}
-      showRightHandle={false}
-      onDelete={handleDelete}
     >
       <div className="flex items-center gap-3 text-sm">
         <div className="flex items-center gap-1 text-purple-600">
@@ -53,7 +48,7 @@ export const ChapterNodeComponent = memo(function ChapterNodeComponent({
           (理论 {data.theory_hours || 0} / 实践 {data.practice_hours || 0})
         </span>
       </div>
-    </BaseFlowNode>
+    </BaseStaticCardNode>
   )
 })
 

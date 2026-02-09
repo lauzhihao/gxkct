@@ -7,7 +7,8 @@ export const LAYOUT_COLUMNS = {
   BASIC_PANELS: 1,
   OBJECTIVE_PANEL: 2,
   COURSE_MATRIX: 3,
-  PROJECT_MATRIX: 4,
+  KSA_PANEL: 4,
+  PROJECT_MATRIX: 5,
 } as const
 
 export const COMPONENT_TO_LAYOUT_COLUMN: Partial<Record<CanvasComponentType, number>> = {
@@ -17,7 +18,7 @@ export const COMPONENT_TO_LAYOUT_COLUMN: Partial<Record<CanvasComponentType, num
   [CanvasComponentType.OBJECTIVE_PANEL]: LAYOUT_COLUMNS.OBJECTIVE_PANEL,
   [CanvasComponentType.CHAPTER_PANEL]: LAYOUT_COLUMNS.BASIC_PANELS,
   [CanvasComponentType.COURSE_POINT_PANEL]: LAYOUT_COLUMNS.BASIC_PANELS,
-  [CanvasComponentType.KSA_PANEL]: LAYOUT_COLUMNS.BASIC_PANELS,
+  [CanvasComponentType.KSA_PANEL]: LAYOUT_COLUMNS.KSA_PANEL,
   [CanvasComponentType.COURSE_MATRIX]: LAYOUT_COLUMNS.COURSE_MATRIX,
   [CanvasComponentType.PROJECT_MATRIX]: LAYOUT_COLUMNS.PROJECT_MATRIX,
   [CanvasComponentType.PROJECT_MATRIX_PANEL]: LAYOUT_COLUMNS.PROJECT_MATRIX,
@@ -28,12 +29,12 @@ export const CANVAS_LAYOUT_POSITION_CONFIG = {
   horizontal: {
     startX: 60,
     startY: 60,
-    columnAxis: [-633, 640, 1200, 2705, 4088],
+    columnAxis: [-633, 640, 1200, 2705, 3660, 5050],
   },
   vertical: {
     startX: 60,
     startY: 60,
-    rowAxis: [60, 640, 1200, 2705, 4088],
+    rowAxis: [60, 640, 1200, 2705, 3660, 5050],
   },
 } as const
 
@@ -56,9 +57,9 @@ export const HORIZONTAL_LAYOUT_GROUPS: CanvasComponentType[][] = [
     CanvasComponentType.OBJECTIVE_PANEL,
     CanvasComponentType.CHAPTER_PANEL,
     CanvasComponentType.COURSE_POINT_PANEL,
-    CanvasComponentType.KSA_PANEL,
   ],
   [CanvasComponentType.COURSE_MATRIX],
+  [CanvasComponentType.KSA_PANEL],
   [CanvasComponentType.PROJECT_MATRIX, CanvasComponentType.PROJECT_MATRIX_PANEL],
   [CanvasComponentType.COURSE_REPORT],
 ]
@@ -69,8 +70,8 @@ export const VERTICAL_LAYOUT_GROUPS: CanvasComponentType[][] = [
   [CanvasComponentType.OBJECTIVE_PANEL],
   [CanvasComponentType.CHAPTER_PANEL],
   [CanvasComponentType.COURSE_POINT_PANEL],
-  [CanvasComponentType.KSA_PANEL],
   [CanvasComponentType.COURSE_MATRIX],
+  [CanvasComponentType.KSA_PANEL],
   [CanvasComponentType.PROJECT_MATRIX, CanvasComponentType.PROJECT_MATRIX_PANEL],
   [CanvasComponentType.COURSE_REPORT],
 ]

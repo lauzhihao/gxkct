@@ -1,9 +1,9 @@
 "use client"
 
-import { memo, useCallback } from "react"
+import { memo } from "react"
 import { type NodeProps } from "@xyflow/react"
 import { Lightbulb } from "lucide-react"
-import { BaseFlowNode } from "./base-flow-node"
+import { BaseStaticCardNode } from "./base-static-card-node"
 import type { CoursePointCardData } from "@/components/canvas-elements/types"
 
 /**
@@ -14,14 +14,14 @@ import type { CoursePointCardData } from "@/components/canvas-elements/types"
 interface CoursePointNodeData extends CoursePointCardData {
   highlighted?: boolean
   isDeleting?: boolean
-  onDelete?: (nodeId: string) => void
+  isLoading?: boolean
+  progressMessage?: string | null
 }
 
 /**
  * 课点节点 - 支持高亮联动
  */
 export const CoursePointNode = memo(function CoursePointNode({
-  id,
   data,
   selected,
 }: NodeProps<any>) {
@@ -29,25 +29,19 @@ export const CoursePointNode = memo(function CoursePointNode({
   const nodeData = data as CoursePointNodeData
   const highlighted = nodeData.highlighted ?? false
 
-  // 处理删除按钮点击
-  const handleDelete = useCallback(() => {
-    nodeData.onDelete?.(id)
-  }, [nodeData, id])
-
   return (
-    <BaseFlowNode
-      id={id}
+    <BaseStaticCardNode
       selected={selected}
       highlighted={highlighted}
       isDeleting={nodeData.isDeleting}
+      isLoading={nodeData.isLoading}
+      progressMessage={nodeData.progressMessage}
       icon={<Lightbulb className="h-4 w-4" />}
       title={`课点${nodeData.index}`}
       headerColorClass="bg-green-100"
       borderColorClass="border-green-200"
       textColorClass="text-green-700"
       width={280}
-      showRightHandle={false}
-      onDelete={handleDelete}
     >
       {/* [MOD] 正文优先显示 description，兼容旧数据的 content/name 字段 */}
       {(nodeData.description || nodeData.content || nodeData.name) ? (
@@ -55,7 +49,7 @@ export const CoursePointNode = memo(function CoursePointNode({
       ) : (
         <p className="text-sm text-gray-400 italic">暂无描述</p>
       )}
-    </BaseFlowNode>
+    </BaseStaticCardNode>
   )
 })
 

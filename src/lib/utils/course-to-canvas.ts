@@ -139,6 +139,74 @@ function calculatePanelSize(
   }
 }
 
+function getPanelColumns(panelType: CanvasComponentType): number {
+  return PANEL_GRID_COLUMNS[panelType] || 3
+}
+
+function createPanelElement(
+  id: string,
+  type: CanvasComponentType,
+  position: ElementPosition,
+  size: { width: number; height: number },
+  data?: CanvasComponentData
+): CanvasElementData {
+  return {
+    id,
+    type,
+    position,
+    size,
+    selected: false,
+    data: data ?? { id },
+  }
+}
+
+function createSupportEdge(source: string, target: string): CanvasEdgeData {
+  return {
+    id: generateEdgeId(source, target),
+    source,
+    target,
+    type: "support",
+  }
+}
+
+function createPanelChildElement(
+  id: string,
+  type: CanvasComponentType,
+  panelType: CanvasComponentType,
+  index: number,
+  panelId: string,
+  data: CanvasComponentData
+): CanvasElementData {
+  const panelColumns = getPanelColumns(panelType)
+  const cardSize = ELEMENT_SIZES[type]
+
+  return {
+    id,
+    type,
+    position: calculateCardPosition(index, panelColumns, cardSize),
+    size: cardSize,
+    selected: false,
+    data,
+    parentId: panelId,
+    extent: "parent",
+  }
+}
+
+function createAutoSizedPanelElement(
+  id: string,
+  panelType: CanvasComponentType,
+  cardType: CanvasComponentType,
+  childCount: number,
+  position: ElementPosition,
+  data?: CanvasComponentData
+): CanvasElementData {
+  const panelColumns = getPanelColumns(panelType)
+  const cardSize = ELEMENT_SIZES[cardType]
+  const panelSize = calculatePanelSize(childCount, panelColumns, cardSize)
+
+  return createPanelElement(id, panelType, position, panelSize, data)
+}
+
 // ============ 课程目标数据类型 ============
 
 /**
@@ -189,12 +257,7 @@ export function convertCourseToCanvas(
   elements.push(graduationSupportElement)
 
   // 添加连线：course_info → graduation_support
-  edges.push({
-    id: generateEdgeId(courseInfoElement.id, graduationSupportElement.id),
-    source: courseInfoElement.id,
-    target: graduationSupportElement.id,
-    type: "support",
-  })
+  edges.push(createSupportEdge(courseInfoElement.id, graduationSupportElement.id))
 
   currentY = graduationSupportElement.position.y + (graduationSupportElement.size?.height || 200) + ROW_GAP
 
@@ -208,12 +271,7 @@ export function convertCourseToCanvas(
       elements.push(objectivePanel)
 
       // 添加连线：graduation_support → objective_panel
-      edges.push({
-        id: generateEdgeId(graduationSupportElement.id, objectivePanel.id),
-        source: graduationSupportElement.id,
-        target: objectivePanel.id,
-        type: "support",
-      })
+      edges.push(createSupportEdge(graduationSupportElement.id, objectivePanel.id))
     }
   }
 
@@ -226,12 +284,7 @@ export function convertCourseToCanvas(
     // 添加连线：objective_panel → chapter_panel
     const objectivePanel = elements.find(el => el.type === CanvasComponentType.OBJECTIVE_PANEL)
     if (objectivePanel) {
-      edges.push({
-        id: generateEdgeId(objectivePanel.id, chapterPanel.id),
-        source: objectivePanel.id,
-        target: chapterPanel.id,
-        type: "support",
-      })
+      edges.push(createSupportEdge(objectivePanel.id, chapterPanel.id))
     }
 
     currentY = chapterPanel.position.y + (chapterPanel.size?.height || 200) + ROW_GAP
@@ -246,12 +299,7 @@ export function convertCourseToCanvas(
     // 添加连线：chapter_panel → course_point_panel
     const chapterPanel = elements.find(el => el.type === CanvasComponentType.CHAPTER_PANEL)
     if (chapterPanel) {
-      edges.push({
-        id: generateEdgeId(chapterPanel.id, coursePointPanel.id),
-        source: chapterPanel.id,
-        target: coursePointPanel.id,
-        type: "support",
-      })
+      edges.push(createSupportEdge(chapterPanel.id, coursePointPanel.id))
     }
 
     currentY = coursePointPanel.position.y + (coursePointPanel.size?.height || 210) + ROW_GAP
@@ -260,16 +308,8 @@ export function convertCourseToCanvas(
   // 5. 生成 ksa_panel 和 ksa_item 元素
   const ksas = pointksa.ksas || []
   if (ksas.length > 0) {
-    const ksaPanel = createKsaPanelElement(ksas, currentY)
+    const ksaPanel = createKsaPanelElement(ksas, START_Y)
     elements.push(ksaPanel)
-
-    // 添加连线：course_info → ksa_panel
-    edges.push({
-      id: generateEdgeId(courseInfoElement.id, ksaPanel.id),
-      source: courseInfoElement.id,
-      target: ksaPanel.id,
-      type: "support",
-    })
   }
 
   return {
@@ -330,24 +370,20 @@ function createObjectivePanelElement(
   startY: number
 ): CanvasElementData {
   const panelId = "objective_panel_loaded"
-  const panelColumns = PANEL_GRID_COLUMNS[CanvasComponentType.OBJECTIVE_PANEL] || 3
+  const panelColumns = getPanelColumns(CanvasComponentType.OBJECTIVE_PANEL)
   const cardSize = ELEMENT_SIZES[CanvasComponentType.OBJECTIVE_CARD]
 
-  // 计算 Panel 尺寸
-  const panelSize = calculatePanelSize(goals.length, panelColumns, cardSize)
-
-  // 创建 Panel 元素（教学目标面板位于独立的第2列）
-  const panelElement: CanvasElementData = {
-    id: panelId,
-    type: CanvasComponentType.OBJECTIVE_PANEL,
-    position: {
+  const panelElement = createAutoSizedPanelElement(
+    panelId,
+    CanvasComponentType.OBJECTIVE_PANEL,
+    CanvasComponentType.OBJECTIVE_CARD,
+    goals.length,
+    {
       x: COLUMN_X_POSITIONS[2],
       y: startY,
     },
-    size: panelSize,
-    selected: false,
-    data: { id: panelId },
-  }
+    { id: panelId }
+  )
 
   // 创建子卡片元素
   for (let i = 0; i < goals.length; i++) {
@@ -390,23 +426,17 @@ function createChapterPanelElement(
   startY: number
 ): CanvasElementData {
   const panelId = "chapter_panel_loaded"
-  const panelColumns = PANEL_GRID_COLUMNS[CanvasComponentType.CHAPTER_PANEL] || 3
-  const cardSize = ELEMENT_SIZES[CanvasComponentType.CHAPTER_CARD]
-
-  // 计算 Panel 尺寸
-  const panelSize = calculatePanelSize(chapters.length, panelColumns, cardSize)
-
-  const panelElement: CanvasElementData = {
-    id: panelId,
-    type: CanvasComponentType.CHAPTER_PANEL,
-    position: {
+  const panelElement = createAutoSizedPanelElement(
+    panelId,
+    CanvasComponentType.CHAPTER_PANEL,
+    CanvasComponentType.CHAPTER_CARD,
+    chapters.length,
+    {
       x: COLUMN_X_POSITIONS[1],
       y: startY,
     },
-    size: panelSize,
-    selected: false,
-    data: { id: panelId },
-  }
+    { id: panelId }
+  )
 
   return panelElement
 }
@@ -419,23 +449,17 @@ function createCoursePointPanelElement(
   startY: number
 ): CanvasElementData {
   const panelId = "course_point_panel_loaded"
-  const panelColumns = PANEL_GRID_COLUMNS[CanvasComponentType.COURSE_POINT_PANEL] || 3
-  const cardSize = ELEMENT_SIZES[CanvasComponentType.COURSE_POINT_CARD]
-
-  // 计算 Panel 尺寸
-  const panelSize = calculatePanelSize(points.length, panelColumns, cardSize)
-
-  const panelElement: CanvasElementData = {
-    id: panelId,
-    type: CanvasComponentType.COURSE_POINT_PANEL,
-    position: {
+  const panelElement = createAutoSizedPanelElement(
+    panelId,
+    CanvasComponentType.COURSE_POINT_PANEL,
+    CanvasComponentType.COURSE_POINT_CARD,
+    points.length,
+    {
       x: COLUMN_X_POSITIONS[1],
       y: startY,
     },
-    size: panelSize,
-    selected: false,
-    data: { id: panelId },
-  }
+    { id: panelId }
+  )
 
   return panelElement
 }
@@ -448,23 +472,17 @@ function createKsaPanelElement(
   startY: number
 ): CanvasElementData {
   const panelId = "ksa_panel_loaded"
-  const panelColumns = PANEL_GRID_COLUMNS[CanvasComponentType.KSA_PANEL] || 3
-  const cardSize = ELEMENT_SIZES[CanvasComponentType.KSA_ITEM]
-
-  // 计算 Panel 尺寸
-  const panelSize = calculatePanelSize(ksas.length, panelColumns, cardSize)
-
-  const panelElement: CanvasElementData = {
-    id: panelId,
-    type: CanvasComponentType.KSA_PANEL,
-    position: {
-      x: COLUMN_X_POSITIONS[1],
+  const panelElement = createAutoSizedPanelElement(
+    panelId,
+    CanvasComponentType.KSA_PANEL,
+    CanvasComponentType.KSA_ITEM,
+    ksas.length,
+    {
+      x: COLUMN_X_POSITIONS[4],
       y: startY,
     },
-    size: panelSize,
-    selected: false,
-    data: { id: panelId },
-  }
+    { id: panelId }
+  )
 
   return panelElement
 }
@@ -479,8 +497,6 @@ export function createObjectiveCard(
   index: number,
   panelId: string
 ): CanvasElementData {
-  const panelColumns = PANEL_GRID_COLUMNS[CanvasComponentType.OBJECTIVE_PANEL] || 3
-  const cardSize = ELEMENT_SIZES[CanvasComponentType.OBJECTIVE_CARD]
   const cardId = `objective_${index + 1}`
 
   const cardData: ObjectiveCardData = {
@@ -490,14 +506,14 @@ export function createObjectiveCard(
   }
 
   return {
-    id: cardId,
-    type: CanvasComponentType.OBJECTIVE_CARD,
-    position: calculateCardPosition(index, panelColumns, cardSize),
-    size: cardSize,
-    selected: false,
-    data: cardData,
-    parentId: panelId,
-    extent: "parent",
+    ...createPanelChildElement(
+      cardId,
+      CanvasComponentType.OBJECTIVE_CARD,
+      CanvasComponentType.OBJECTIVE_PANEL,
+      index,
+      panelId,
+      cardData
+    ),
   }
 }
 
@@ -517,8 +533,6 @@ export function createChapterCard(
   index: number,
   panelId: string
 ): CanvasElementData {
-  const panelColumns = PANEL_GRID_COLUMNS[CanvasComponentType.CHAPTER_PANEL] || 3
-  const cardSize = ELEMENT_SIZES[CanvasComponentType.CHAPTER_CARD]
   const cardId = `chapter_${index + 1}`
 
   const cardData: ChapterCardData = {
@@ -530,14 +544,14 @@ export function createChapterCard(
   }
 
   return {
-    id: cardId,
-    type: CanvasComponentType.CHAPTER_CARD,
-    position: calculateCardPosition(index, panelColumns, cardSize),
-    size: cardSize,
-    selected: false,
-    data: cardData,
-    parentId: panelId,
-    extent: "parent",
+    ...createPanelChildElement(
+      cardId,
+      CanvasComponentType.CHAPTER_CARD,
+      CanvasComponentType.CHAPTER_PANEL,
+      index,
+      panelId,
+      cardData
+    ),
   }
 }
 
@@ -549,8 +563,6 @@ export function createCoursePointCard(
   index: number,
   panelId: string
 ): CanvasElementData {
-  const panelColumns = PANEL_GRID_COLUMNS[CanvasComponentType.COURSE_POINT_PANEL] || 3
-  const cardSize = ELEMENT_SIZES[CanvasComponentType.COURSE_POINT_CARD]
   const cardId = `course_point_${index + 1}`
 
   const cardData: CoursePointCardData = {
@@ -561,14 +573,14 @@ export function createCoursePointCard(
   }
 
   return {
-    id: cardId,
-    type: CanvasComponentType.COURSE_POINT_CARD,
-    position: calculateCardPosition(index, panelColumns, cardSize),
-    size: cardSize,
-    selected: false,
-    data: cardData,
-    parentId: panelId,
-    extent: "parent",
+    ...createPanelChildElement(
+      cardId,
+      CanvasComponentType.COURSE_POINT_CARD,
+      CanvasComponentType.COURSE_POINT_PANEL,
+      index,
+      panelId,
+      cardData
+    ),
   }
 }
 
@@ -580,9 +592,6 @@ export function createKsaItem(
   index: number,
   panelId: string
 ): CanvasElementData {
-  const panelColumns = PANEL_GRID_COLUMNS[CanvasComponentType.KSA_PANEL] || 3
-  const cardSize = ELEMENT_SIZES[CanvasComponentType.KSA_ITEM]
-
   // 确定类别（优先使用 title 字段，兼容 type 和 category），规范化为大写
   const rawCategory = ksa.title || ksa.type || ksa.category || "K"
   const category = rawCategory.toUpperCase() as "K" | "S" | "A"
@@ -598,14 +607,14 @@ export function createKsaItem(
   }
 
   return {
-    id: cardId,
-    type: CanvasComponentType.KSA_ITEM,
-    position: calculateCardPosition(index, panelColumns, cardSize),
-    size: cardSize,
-    selected: false,
-    data: cardData,
-    parentId: panelId,
-    extent: "parent",
+    ...createPanelChildElement(
+      cardId,
+      CanvasComponentType.KSA_ITEM,
+      CanvasComponentType.KSA_PANEL,
+      index,
+      panelId,
+      cardData
+    ),
   }
 }
 
@@ -820,6 +829,7 @@ function convertProjectMatrixToCanvasData(
   if (!apiData?.projects || apiData.projects.length === 0) return []
 
   const results: ProjectMatrixData[] = []
+  const dataItems = apiData.data || []
 
   // 构建 KSA 查找表
   const ksaMap = new Map<number, { title: string; description: string; level: number }>()
@@ -837,6 +847,17 @@ function convertProjectMatrixToCanvasData(
     }
   })
 
+  // 预分组：projectId -> 该项目的全部数据行，避免每个项目重复 filter 全量数据
+  const projectDataMap = new Map<string, typeof dataItems>()
+  dataItems.forEach((item) => {
+    const projectId = item.courseMatrix?.projectId
+    if (projectId === undefined || projectId === null) return
+    const key = String(projectId)
+    const list = projectDataMap.get(key) || []
+    list.push(item)
+    projectDataMap.set(key, list)
+  })
+
   apiData.projects.forEach((projectItem, projectIdx) => {
     const project = projectItem.project
     const goals = projectItem.goals || []
@@ -848,17 +869,13 @@ function convertProjectMatrixToCanvasData(
       description: goal.description || "",
     }))
 
-    // 从 apiData.data 中筛选属于该 project 的数据行
-    const projectDataItems = (apiData.data || []).filter((item) => {
-      const pid = item.courseMatrix?.projectId
-      return String(pid) === String(project.id)
-    })
+    const projectDataItems = projectDataMap.get(String(project.id)) || []
 
     // 按课点 ID 分组
     const coursePointMap = new Map<string, {
       point: { id: string; title: string; description?: string }
-      courseMatrix: typeof projectDataItems[0]["courseMatrix"]
-      projectMatrices: NonNullable<typeof projectDataItems[0]["projectMatrices"]>
+      courseMatrix?: typeof projectDataItems[number]["courseMatrix"]
+      matricesByGoal: Map<string, Array<NonNullable<typeof projectDataItems[number]["projectMatrices"]>[number]>>
     }>()
 
     projectDataItems.forEach((item) => {
@@ -873,22 +890,27 @@ function convertProjectMatrixToCanvasData(
             description: item.courseMatrix?.point?.description,
           },
           courseMatrix: item.courseMatrix,
-          projectMatrices: [],
+          matricesByGoal: new Map(),
         })
       }
-      if (item.projectMatrices) {
-        coursePointMap.get(pointId)!.projectMatrices.push(...item.projectMatrices)
+
+      const groupedPoint = coursePointMap.get(pointId)
+      if (!groupedPoint) return
+
+      if (item.projectMatrices && item.projectMatrices.length > 0) {
+        item.projectMatrices.forEach((pm) => {
+          const goalKey = String(pm.taskGoalId)
+          const groupedMatrices = groupedPoint.matricesByGoal.get(goalKey) || []
+          groupedMatrices.push(pm)
+          groupedPoint.matricesByGoal.set(goalKey, groupedMatrices)
+        })
       }
     })
 
     // 构建 rows
     const rows: ProjectMatrixRow[] = Array.from(coursePointMap.values()).map((data) => {
       const objectiveSupports: ProjectMatrixObjectiveSupport[] = taskObjectives.map((obj) => {
-        // 查找属于该任务目标的 KSA 支撑
-        const matchingMatrices = data.projectMatrices.filter(
-          (pm) => String(pm.taskGoalId) === obj.id
-        )
-
+        const matchingMatrices = data.matricesByGoal.get(obj.id) || []
         const ksaItems: ProjectMatrixKsaItem[] = matchingMatrices
           .filter((pm) => pm.ksa)
           .map((pm) => {
@@ -953,6 +975,7 @@ export function convertCourseToCanvasComplete(
   courseGoals?: CourseGoalWithChildren[],
   matrixData?: MatrixDataForCanvas
 ): CanvasData {
+  const convertStart = typeof performance !== "undefined" ? performance.now() : Date.now()
   const elements: CanvasElementData[] = []
   const edges: CanvasEdgeData[] = []
 
@@ -977,12 +1000,7 @@ export function convertCourseToCanvasComplete(
   elements.push(graduationSupportElement)
 
   // 连线：course_info → graduation_support
-  edges.push({
-    id: generateEdgeId(courseInfoElement.id, graduationSupportElement.id),
-    source: courseInfoElement.id,
-    target: graduationSupportElement.id,
-    type: "support",
-  })
+  edges.push(createSupportEdge(courseInfoElement.id, graduationSupportElement.id))
 
   currentY = graduationSupportElement.position.y + (graduationSupportElement.size?.height || 200) + ROW_GAP
 
@@ -993,27 +1011,23 @@ export function convertCourseToCanvasComplete(
     const teachingObjectives = courseGoals.flatMap((goal) => goal.children || [])
 
     if (teachingObjectives.length > 0) {
-      const panelColumns = PANEL_GRID_COLUMNS[CanvasComponentType.OBJECTIVE_PANEL] || 3
-      const cardSize = ELEMENT_SIZES[CanvasComponentType.OBJECTIVE_CARD]
-      const objectivePanelSize = calculatePanelSize(teachingObjectives.length, panelColumns, cardSize)
-
       // 更新 Panel 数据，添加 items
       const objectiveItems = teachingObjectives.map((obj, idx) => ({
         id: `objective_${idx + 1}`,
         description: obj.description || obj.content || "",
       }))
 
-      const objectivePanelElement: CanvasElementData = {
-        id: "objective_panel_loaded",
-        type: CanvasComponentType.OBJECTIVE_PANEL,
-        position: {
+      const objectivePanelElement = createAutoSizedPanelElement(
+        "objective_panel_loaded",
+        CanvasComponentType.OBJECTIVE_PANEL,
+        CanvasComponentType.OBJECTIVE_CARD,
+        teachingObjectives.length,
+        {
           x: COLUMN_X_POSITIONS[2],
           y: START_Y,
         },
-        size: objectivePanelSize,
-        selected: false,
-        data: { id: "objective_panel_loaded", items: objectiveItems },
-      }
+        { id: "objective_panel_loaded", items: objectiveItems }
+      )
       elements.push(objectivePanelElement)
 
       // 创建子卡片（使用真正的教学目标）
@@ -1025,35 +1039,26 @@ export function convertCourseToCanvasComplete(
           originalId: obj.id ?? undefined,
         }
 
-        elements.push({
-          id: `objective_${idx + 1}`,
-          type: CanvasComponentType.OBJECTIVE_CARD,
-          position: calculateCardPosition(idx, panelColumns, cardSize),
-          size: cardSize,
-          selected: false,
-          data: cardData,
-          parentId: "objective_panel_loaded",
-          extent: "parent",
-        })
+        elements.push(
+          createPanelChildElement(
+            `objective_${idx + 1}`,
+            CanvasComponentType.OBJECTIVE_CARD,
+            CanvasComponentType.OBJECTIVE_PANEL,
+            idx,
+            "objective_panel_loaded",
+            cardData
+          )
+        )
       })
 
       // 连线：graduation_support → objective_panel
-      edges.push({
-        id: generateEdgeId(graduationSupportElement.id, objectivePanelElement.id),
-        source: graduationSupportElement.id,
-        target: objectivePanelElement.id,
-        type: "support",
-      })
+      edges.push(createSupportEdge(graduationSupportElement.id, objectivePanelElement.id))
     }
   }
 
   // 4. 创建 chapter_panel 和 chapter_card 元素
   const chapters = course.courseMatrixVOS || []
   if (chapters.length > 0) {
-    const panelColumns = PANEL_GRID_COLUMNS[CanvasComponentType.CHAPTER_PANEL] || 3
-    const cardSize = ELEMENT_SIZES[CanvasComponentType.CHAPTER_CARD]
-    const panelSize = calculatePanelSize(chapters.length, panelColumns, cardSize)
-
     const chapterItems = chapters.map((chapter, idx) => ({
       id: `chapter_${idx + 1}`,
       name: chapter.name || chapter.chapterName || "",
@@ -1061,17 +1066,17 @@ export function convertCourseToCanvasComplete(
       practiceHours: Number(chapter.practicePeriod) || 0,
     }))
 
-    const chapterPanelElement: CanvasElementData = {
-      id: "chapter_panel_loaded",
-      type: CanvasComponentType.CHAPTER_PANEL,
-      position: {
+    const chapterPanelElement = createAutoSizedPanelElement(
+      "chapter_panel_loaded",
+      CanvasComponentType.CHAPTER_PANEL,
+      CanvasComponentType.CHAPTER_CARD,
+      chapters.length,
+      {
         x: COLUMN_X_POSITIONS[1],
         y: currentY,
       },
-      size: panelSize,
-      selected: false,
-      data: { id: "chapter_panel_loaded", items: chapterItems },
-    }
+      { id: "chapter_panel_loaded", items: chapterItems }
+    )
     elements.push(chapterPanelElement)
 
     // 创建子卡片
@@ -1086,39 +1091,30 @@ export function convertCourseToCanvasComplete(
         originalId: chapter.id ?? undefined,
       }
 
-      elements.push({
-        id: `chapter_${idx + 1}`,
-        type: CanvasComponentType.CHAPTER_CARD,
-        position: calculateCardPosition(idx, panelColumns, cardSize),
-        size: cardSize,
-        selected: false,
-        data: cardData,
-        parentId: "chapter_panel_loaded",
-        extent: "parent",
-      })
+      elements.push(
+        createPanelChildElement(
+          `chapter_${idx + 1}`,
+          CanvasComponentType.CHAPTER_CARD,
+          CanvasComponentType.CHAPTER_PANEL,
+          idx,
+          "chapter_panel_loaded",
+          cardData
+        )
+      )
     })
 
     // 添加连线：objective_panel → chapter_panel
     const objectivePanelElement = elements.find(el => el.type === CanvasComponentType.OBJECTIVE_PANEL)
     if (objectivePanelElement) {
-      edges.push({
-        id: generateEdgeId(objectivePanelElement.id, chapterPanelElement.id),
-        source: objectivePanelElement.id,
-        target: chapterPanelElement.id,
-        type: "support",
-      })
+      edges.push(createSupportEdge(objectivePanelElement.id, chapterPanelElement.id))
     }
 
-    currentY = chapterPanelElement.position.y + panelSize.height + ROW_GAP
+    currentY = chapterPanelElement.position.y + (chapterPanelElement.size?.height || 200) + ROW_GAP
   }
 
   // 5. 创建 course_point_panel 和 course_point_card 元素
   const coursePoints = pointksa.points || []
   if (coursePoints.length > 0) {
-    const panelColumns = PANEL_GRID_COLUMNS[CanvasComponentType.COURSE_POINT_PANEL] || 3
-    const cardSize = ELEMENT_SIZES[CanvasComponentType.COURSE_POINT_CARD]
-    const panelSize = calculatePanelSize(coursePoints.length, panelColumns, cardSize)
-
     // 辅助函数：从标题中提取数字用于排序
     const extractNumber = (text: string): number => {
       const match = text.match(/\d+/)
@@ -1173,17 +1169,17 @@ export function convertCourseToCanvasComplete(
       content: point.parsed.content,
     }))
 
-    const coursePointPanelElement: CanvasElementData = {
-      id: "course_point_panel_loaded",
-      type: CanvasComponentType.COURSE_POINT_PANEL,
-      position: {
+    const coursePointPanelElement = createAutoSizedPanelElement(
+      "course_point_panel_loaded",
+      CanvasComponentType.COURSE_POINT_PANEL,
+      CanvasComponentType.COURSE_POINT_CARD,
+      coursePoints.length,
+      {
         x: COLUMN_X_POSITIONS[1],
         y: currentY,
       },
-      size: panelSize,
-      selected: false,
-      data: { id: "course_point_panel_loaded", items: coursePointItems },
-    }
+      { id: "course_point_panel_loaded", items: coursePointItems }
+    )
     elements.push(coursePointPanelElement)
 
     // 创建子卡片（使用解析后的数据）
@@ -1196,39 +1192,30 @@ export function convertCourseToCanvasComplete(
         originalId: point.id ?? undefined,
       }
 
-      elements.push({
-        id: `course_point_${sortedIdx + 1}`,
-        type: CanvasComponentType.COURSE_POINT_CARD,
-        position: calculateCardPosition(sortedIdx, panelColumns, cardSize),
-        size: cardSize,
-        selected: false,
-        data: cardData,
-        parentId: "course_point_panel_loaded",
-        extent: "parent",
-      })
+      elements.push(
+        createPanelChildElement(
+          `course_point_${sortedIdx + 1}`,
+          CanvasComponentType.COURSE_POINT_CARD,
+          CanvasComponentType.COURSE_POINT_PANEL,
+          sortedIdx,
+          "course_point_panel_loaded",
+          cardData
+        )
+      )
     })
 
     // 添加连线：chapter_panel → course_point_panel
     const chapterPanelElement = elements.find(el => el.type === CanvasComponentType.CHAPTER_PANEL)
     if (chapterPanelElement) {
-      edges.push({
-        id: generateEdgeId(chapterPanelElement.id, coursePointPanelElement.id),
-        source: chapterPanelElement.id,
-        target: coursePointPanelElement.id,
-        type: "support",
-      })
+      edges.push(createSupportEdge(chapterPanelElement.id, coursePointPanelElement.id))
     }
 
-    currentY = coursePointPanelElement.position.y + panelSize.height + ROW_GAP
+    currentY = coursePointPanelElement.position.y + (coursePointPanelElement.size?.height || 210) + ROW_GAP
   }
 
   // 6. 创建 ksa_panel 和 ksa_item 元素
   const ksas = pointksa.ksas || []
   if (ksas.length > 0) {
-    const panelColumns = PANEL_GRID_COLUMNS[CanvasComponentType.KSA_PANEL] || 3
-    const cardSize = ELEMENT_SIZES[CanvasComponentType.KSA_ITEM]
-    const panelSize = calculatePanelSize(ksas.length, panelColumns, cardSize)
-
     // 类别排序优先级
     const categoryOrder: Record<string, number> = { K: 0, S: 1, A: 2 }
 
@@ -1257,17 +1244,17 @@ export function convertCourseToCanvasComplete(
       }
     })
 
-    const ksaPanelElement: CanvasElementData = {
-      id: "ksa_panel_loaded",
-      type: CanvasComponentType.KSA_PANEL,
-      position: {
-        x: COLUMN_X_POSITIONS[1],
-        y: currentY,
+    const ksaPanelElement = createAutoSizedPanelElement(
+      "ksa_panel_loaded",
+      CanvasComponentType.KSA_PANEL,
+      CanvasComponentType.KSA_ITEM,
+      ksas.length,
+      {
+        x: COLUMN_X_POSITIONS[4],
+        y: START_Y,
       },
-      size: panelSize,
-      selected: false,
-      data: { id: "ksa_panel_loaded", items: ksaItems },
-    }
+      { id: "ksa_panel_loaded", items: ksaItems }
+    )
     elements.push(ksaPanelElement)
 
     // 创建子卡片（使用排序后的索引计算网格位置）
@@ -1286,25 +1273,18 @@ export function convertCourseToCanvasComplete(
       }
 
       // 使用排序后的索引计算位置，这样同类别的卡片会聚合在一起
-      elements.push({
-        id: cardId,
-        type: CanvasComponentType.KSA_ITEM,
-        position: calculateCardPosition(sortedIndex, panelColumns, cardSize),
-        size: cardSize,
-        selected: false,
-        data: cardData,
-        parentId: "ksa_panel_loaded",
-        extent: "parent",
-      })
+      elements.push(
+        createPanelChildElement(
+          cardId,
+          CanvasComponentType.KSA_ITEM,
+          CanvasComponentType.KSA_PANEL,
+          sortedIndex,
+          "ksa_panel_loaded",
+          cardData
+        )
+      )
     })
 
-    // 添加连线
-    edges.push({
-      id: generateEdgeId(courseInfoElement.id, ksaPanelElement.id),
-      source: courseInfoElement.id,
-      target: ksaPanelElement.id,
-      type: "support",
-    })
   }
 
   // 7. 创建课程矩阵元素（从 API 数据转换）
@@ -1329,15 +1309,16 @@ export function convertCourseToCanvasComplete(
     }
     elements.push(courseMatrixElement)
 
-    // 章节面板 → 课程矩阵 连线
-    const chapterPanelEl = elements.find((el) => el.id === "chapter_panel_loaded")
-    if (chapterPanelEl) {
-      edges.push({
-        id: generateEdgeId(chapterPanelEl.id, courseMatrixElement.id),
-        source: chapterPanelEl.id,
-        target: courseMatrixElement.id,
-        type: "support",
-      })
+    // 课点面板 → 课程矩阵 连线
+    const coursePointPanelEl = elements.find((el) => el.id === "course_point_panel_loaded")
+    if (coursePointPanelEl) {
+      edges.push(createSupportEdge(coursePointPanelEl.id, courseMatrixElement.id))
+    }
+
+    // 课程矩阵 → KSA 面板 连线
+    const ksaPanelEl = elements.find((el) => el.id === "ksa_panel_loaded")
+    if (ksaPanelEl) {
+      edges.push(createSupportEdge(courseMatrixElement.id, ksaPanelEl.id))
     }
 
     // 8. 创建项目矩阵元素（从 API 数据转换）
@@ -1354,7 +1335,7 @@ export function convertCourseToCanvasComplete(
           id: pmId,
           type: CanvasComponentType.PROJECT_MATRIX,
           position: {
-            x: COLUMN_X_POSITIONS[4],
+            x: COLUMN_X_POSITIONS[5],
             y: projectMatrixY,
           },
           size: ELEMENT_SIZES[CanvasComponentType.PROJECT_MATRIX],
@@ -1363,18 +1344,28 @@ export function convertCourseToCanvasComplete(
         }
         elements.push(pmElement)
 
-        // 课程矩阵 → 项目矩阵 连线
-        edges.push({
-          id: generateEdgeId(courseMatrixElement.id, pmId),
-          source: courseMatrixElement.id,
-          target: pmId,
-          type: "support",
-        })
+        // KSA 面板 → 项目矩阵 连线
+        if (ksaPanelEl) {
+          edges.push(createSupportEdge(ksaPanelEl.id, pmId))
+        }
 
         projectMatrixY += (ELEMENT_SIZES[CanvasComponentType.PROJECT_MATRIX].height || 200) + ROW_GAP
       })
     }
   }
+
+  const convertDurationMs = (typeof performance !== "undefined" ? performance.now() : Date.now()) - convertStart
+  console.log("[CanvasTransform] convertCourseToCanvasComplete 完成:", {
+    durationMs: Number(convertDurationMs.toFixed(1)),
+    elementsCount: elements.length,
+    edgesCount: edges.length,
+    objectiveCount: courseGoals?.reduce((sum, goal) => sum + (goal.children?.length || 0), 0) || 0,
+    chapterCount: course?.courseMatrixVOS?.length || 0,
+    coursePointCount: pointksa?.points?.length || 0,
+    ksaCount: pointksa?.ksas?.length || 0,
+    matrixCourseCount: matrixData?.courseMatrixItems?.length || 0,
+    matrixProjectCount: matrixData?.projectMatrixApiData?.projects?.length || 0,
+  })
 
   return {
     elements,

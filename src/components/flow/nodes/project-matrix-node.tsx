@@ -1,10 +1,15 @@
 "use client"
 
-import { memo, useCallback } from "react"
+import { memo, useCallback, useMemo, useState, useEffect } from "react"
 import { type Node, type NodeProps } from "@xyflow/react"
 import { LayoutGrid, Star } from "lucide-react"
 import { BaseFlowNode } from "./base-flow-node"
-import type { ProjectMatrixData, ProjectMatrixKsaItem, KsaItemData } from "@/components/canvas-elements/types"
+import type {
+  ProjectMatrixData,
+  ProjectMatrixKsaItem,
+  KsaItemData,
+  ProjectMatrixObjectiveSupport,
+} from "@/components/canvas-elements/types"
 import { FlowNodeType } from "@/components/flow/utils/types"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip"
 import { SupportLabel } from "@/shared/components/support-label"
@@ -100,6 +105,29 @@ export const ProjectMatrixNodeComponent = memo(function ProjectMatrixNodeCompone
 }: NodeProps<ProjectMatrixNode>) {
   const highlighted = data.highlighted ?? false
   const taskObjectives = data.task_objectives || []
+  const rows = data.rows || []
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  useEffect(() => {
+    // 初始加载一律折叠，避免多项目矩阵同时渲染表格造成首屏卡顿
+    setIsExpanded(false)
+  }, [rows.length])
+
+  const supportIndex = useMemo(() => {
+    if (!isExpanded) {
+      return {}
+    }
+
+    const rowSupportMap: Record<string, Record<string, ProjectMatrixObjectiveSupport>> = {}
+    rows.forEach((row) => {
+      const objectiveMap: Record<string, ProjectMatrixObjectiveSupport> = {}
+      row.objective_supports?.forEach((support) => {
+        objectiveMap[support.task_objective_id] = support
+      })
+      rowSupportMap[row.course_point_id] = objectiveMap
+    })
+    return rowSupportMap
+  }, [rows, isExpanded])
 
   // 处理课点行点击
   const handleCoursePointClick = useCallback((coursePointId: string) => {
@@ -147,8 +175,19 @@ export const ProjectMatrixNodeComponent = memo(function ProjectMatrixNodeCompone
       onRefresh={handleRefresh}
       onEdit={handleEdit}
     >
+      <div className="mb-2 flex items-center justify-between rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+        <span>课点 {rows.length} 条，任务目标 {taskObjectives.length} 条</span>
+        <button
+          type="button"
+          onClick={() => setIsExpanded((prev) => !prev)}
+          className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
+        >
+          {isExpanded ? "收起详情" : "展开详情"}
+        </button>
+      </div>
+
       {/* 矩阵表格 */}
-      {data.rows && data.rows.length > 0 ? (
+      {isExpanded && rows.length > 0 ? (
         <div className="max-h-[1200px] overflow-auto rounded border border-slate-200" data-scrollable>
           <table className="w-full text-sm border-collapse">
             <thead className="bg-slate-50 sticky top-0 z-10">
@@ -191,7 +230,7 @@ export const ProjectMatrixNodeComponent = memo(function ProjectMatrixNodeCompone
               </tr>
             </thead>
             <tbody>
-              {data.rows.map((row) => (
+              {rows.map((row) => (
                 <tr
                   key={row.course_point_id}
                   onClick={() => handleCoursePointClick(row.course_point_id)}
@@ -209,9 +248,7 @@ export const ProjectMatrixNodeComponent = memo(function ProjectMatrixNodeCompone
                   </td>
                   {/* 任务目标交叉单元格 - 显示KSA支撑 */}
                   {taskObjectives.map((obj) => {
-                    const support = row.objective_supports?.find(
-                      (s) => s.task_objective_id === obj.id
-                    )
+                    const support = supportIndex[row.course_point_id]?.[obj.id]
                     const ksaItems = support?.ksa_items || []
                     return (
                       <td
@@ -264,8 +301,10 @@ export const ProjectMatrixNodeComponent = memo(function ProjectMatrixNodeCompone
             </tbody>
           </table>
         </div>
-      ) : (
+      ) : rows.length === 0 ? (
         <div className="text-sm text-gray-400 text-center py-4">暂无课点数据</div>
+      ) : (
+        <div className="text-xs text-slate-500 text-center py-3">已折叠明细表，点击“展开详情”查看</div>
       )}
     </BaseFlowNode>
   )

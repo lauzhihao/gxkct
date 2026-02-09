@@ -74,7 +74,7 @@ export const GraduationSupportPanelNode = memo(function GraduationSupportPanelNo
         isLoading={data.isLoading}
         isRefreshing={data.isRefreshing}
         icon={<Shield className="h-4 w-4" />}
-        title="专业矩阵"
+        title="毕业要求指标点"
         headerColorClass="bg-emerald-100/90"
         borderColorClass="border-emerald-300"
         bgColorClass="bg-emerald-50/60 backdrop-blur-sm"

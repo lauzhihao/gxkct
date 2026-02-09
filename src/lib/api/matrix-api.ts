@@ -450,7 +450,7 @@ export class MatrixApi {
         }
       }
 
-      console.log("[getProjectMatrixData] 接口调用成功:", response.data)
+      console.log("[getProjectMatrixData] 接口调用成功")
       return {
         data: response.data,
         error: null,
