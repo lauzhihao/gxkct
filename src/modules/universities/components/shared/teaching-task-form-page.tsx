@@ -1,19 +1,18 @@
 "use client"
 
-import { ArrowLeft, Plus, Trash2, Check, X, Loader2, ChevronDown } from "lucide-react"
+import { ArrowLeft, Plus, Trash2, Check, X, Loader2 } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import type {
   TeachingSupervisoryTask,
   EvaluationCriterion,
   PublishNode,
   TaskEvaluationCriteria,
-  TaskMember,
 } from "@/types"
 import { api } from "@/lib/api"
 import { cn } from "@/shared/utils/utils"
@@ -76,17 +75,13 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
   }>({})
 
   // 初始化时检查是否有复制的数据
-  const sortCriteriaByIdDesc = (items: EvaluationCriterion[]): EvaluationCriterion[] => {
-    return [...items].sort((a, b) => Number(b.id) - Number(a.id))
-  }
-
-  const normalizeCriteriaOrder = (items: EvaluationCriterion[]): EvaluationCriterion[] => {
-    const sorted = sortCriteriaByIdDesc(items)
+  const normalizeCriteriaOrder = useCallback((items: EvaluationCriterion[]): EvaluationCriterion[] => {
+    const sorted = [...items].sort((a, b) => Number(b.id) - Number(a.id))
     return sorted.map((item, index) => ({
       ...item,
       sequence: sorted.length - index,
     }))
-  }
+  }, [])
 
   useEffect(() => {
     const copiedData = (window as any).__copiedTaskData
@@ -105,7 +100,7 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
       // 清除临时数据
       delete (window as any).__copiedTaskData
     }
-  }, [])
+  }, [normalizeCriteriaOrder])
 
   const normalizeCriteriaItems = (items: EvaluationCriterion[]): EvaluationCriterion[] => {
     return items.map((item) => ({
@@ -174,7 +169,23 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
     return () => {
       cancelled = true
     }
-  }, [initialTask.id, initialTask.universityId])
+  }, [initialTask.id, initialTask.universityId, initialTask.evaluationCriteria?.items, normalizeCriteriaOrder])
+
+  const buildEvaluationCriteriaPayload = useCallback((targetTaskId?: number): TaskEvaluationCriteria | undefined => {
+    const validCriteria = criteria.filter((s) => !!s.indicator && !!s.indicator.trim())
+    if (validCriteria.length === 0) {
+      return undefined
+    }
+    const resolvedUniversityId = formData.universityId || initialTask.universityId
+    if (!resolvedUniversityId) {
+      return undefined
+    }
+    return {
+      taskId: typeof targetTaskId === "number" ? targetTaskId : undefined,
+      universityId: resolvedUniversityId,
+      items: validCriteria,
+    }
+  }, [criteria, formData.universityId, initialTask.universityId])
 
   // 自动保存（编辑模式，每30秒保存一次）
   useEffect(() => {
@@ -225,7 +236,7 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
     }, 30000) // 每30秒执行一次
 
     return () => clearInterval(autoSaveInterval)
-  }, [initialTask.id, initialTask.universityId, formData, criteria, onAutoSave, isPublishSelectorOpen, isMemberSelectorOpen, isCollegeMemberSelectorOpen, isDataLoading])
+  }, [initialTask.id, initialTask.universityId, formData, criteria, onAutoSave, isPublishSelectorOpen, isMemberSelectorOpen, isCollegeMemberSelectorOpen, isDataLoading, buildEvaluationCriteriaPayload])
 
   const handleAddCriterion = () => {
     const newCriterion: EvaluationCriterion = {
@@ -346,32 +357,6 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
       "4": "D",
     }
     return levelMap[levelStr] || levelStr
-  }
-
-  // 检查评价标准项是否为空（所有必填字段都为空）
-  const isCriterionEmpty = (criterion: EvaluationCriterion): boolean => {
-    return !criterion.indicator || !criterion.indicator.trim()
-  }
-
-  // 过滤掉空白的评价标准项
-  const getValidCriteria = (): EvaluationCriterion[] => {
-    return criteria.filter((s) => !isCriterionEmpty(s))
-  }
-
-  const buildEvaluationCriteriaPayload = (targetTaskId?: number): TaskEvaluationCriteria | undefined => {
-    const validCriteria = getValidCriteria()
-    if (validCriteria.length === 0) {
-      return undefined
-    }
-    const resolvedUniversityId = formData.universityId || initialTask.universityId
-    if (!resolvedUniversityId) {
-      return undefined
-    }
-    return {
-      taskId: typeof targetTaskId === "number" ? targetTaskId : undefined,
-      universityId: resolvedUniversityId,
-      items: validCriteria,
-    }
   }
 
   const handleSubmit = async () => {

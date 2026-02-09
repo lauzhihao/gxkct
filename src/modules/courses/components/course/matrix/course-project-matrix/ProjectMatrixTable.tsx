@@ -8,13 +8,19 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/shared/components/ui/tooltip"
 import { Button } from "@/shared/components/ui/button"
 import { SupportLabel } from "@/shared/components/support-label"
-import type { ProjectMatrixData } from "@/modules/courses/hooks/use-project-matrix"
+import type {
+  ProjectMatrixData,
+  ProjectMatrixGoal,
+  ProjectMatrixItem,
+  ProjectMatrixItemProjectMatrix,
+  ProjectMatrixProjectItem,
+} from "@/modules/courses/hooks/use-project-matrix"
 
 interface ProjectMatrixTableProps {
   projectMatrixData: ProjectMatrixData | null
   isEditingProjectMatrix: boolean
   focusedCell: string | null
-  onOpenTaskObjectivesDialog: (projectId: string, goals: any[]) => void
+  onOpenTaskObjectivesDialog: (projectId: string, goals: ProjectMatrixGoal[]) => void
   onOpenKsaDialog: (chapterId: string, coursePointId: string, taskId: string) => void
   onFocusCell: (cellId: string | null) => void
 }
@@ -39,10 +45,10 @@ export function ProjectMatrixTable({
 
   return (
     <Accordion type="multiple" className="space-y-3">
-      {projectMatrixData.projects.map((projectItem: any, projectIdx: number) => {
+      {projectMatrixData.projects.map((projectItem: ProjectMatrixProjectItem, projectIdx: number) => {
         const project = projectItem.project
         const goals = projectItem.goals || []
-        const projectId = project.id || `project-${projectIdx}`
+        const projectId = String(project.id ?? `project-${projectIdx}`)
         const projectName = project.name || `项目${projectIdx + 1}`
 
         return (
@@ -143,25 +149,27 @@ export function ProjectMatrixTable({
                       </thead>
                       <tbody>
                         {projectMatrixData?.data
-                          ?.filter((item: any) => item.courseMatrix?.projectId === projectId)
-                          .map((item: any, rowIdx: number) => (
+                          ?.filter((item: ProjectMatrixItem) => item.courseMatrix?.projectId === projectId)
+                          .map((item: ProjectMatrixItem, rowIdx: number) => (
                             <tr
                               key={item.courseMatrix?.id || rowIdx}
                               className="border-b border-border hover:bg-secondary/20"
                             >
                               <td className="p-2 text-center border-r border-border">
                                 <SupportLabel
-                                  title={item.courseMatrix?.point?.title}
+                                  title={item.courseMatrix?.point?.title || "-"}
                                   desc={item.courseMatrix?.point?.description}
                                   type={item.courseMatrix?.relate?.relate === 0 ? "strong" : "weak"}
                                   size="md"
                                   tipsPosition="right"
                                 />
                               </td>
-                              {goals.map((goal: any, goalIdx: number) => {
+                              {goals.map((goal: ProjectMatrixGoal, goalIdx: number) => {
                                 // 查找该教学目标对应的所有projectMatrix
                                 const goalProjectMatrices =
-                                  item.projectMatrices?.filter((pm: any) => pm.taskGoalId === goal.id) || []
+                                  item.projectMatrices?.filter(
+                                    (pm: ProjectMatrixItemProjectMatrix) => String(pm.taskGoalId) === String(goal.id)
+                                  ) || []
 
                                 return (
                                   <td
@@ -174,7 +182,7 @@ export function ProjectMatrixTable({
                                           goalProjectMatrices.length === 0 ? "min-h-[32px]" : ""
                                         }`}
                                       >
-                                        {goalProjectMatrices.map((pm: any, pmIdx: number) => (
+                                        {goalProjectMatrices.map((pm: ProjectMatrixItemProjectMatrix, pmIdx: number) => (
                                           <SupportLabel
                                             key={pm.id || pmIdx}
                                             title={`${pm.ksa?.title}${pm.ksa?.level}`}
@@ -185,7 +193,11 @@ export function ProjectMatrixTable({
                                         ))}
                                         <button
                                           onClick={() =>
-                                            onOpenKsaDialog(projectId, item.courseMatrix?.point?.id, goal.id)
+                                            onOpenKsaDialog(
+                                              projectId,
+                                              String(item.courseMatrix?.point?.id ?? ""),
+                                              String(goal.id)
+                                            )
                                           }
                                           className="w-4 h-4 rounded-full border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/10 flex items-center justify-center transition-all group flex-shrink-0"
                                           title="添加KSA支撑关系"
@@ -196,9 +208,9 @@ export function ProjectMatrixTable({
                                     ) : (
                                       <div className="flex items-center justify-center gap-2 flex-wrap min-h-[32px]">
                                         {goalProjectMatrices.length > 0 ? (
-                                          goalProjectMatrices.map((pm: any, pmIdx: number) => (
-                                            <SupportLabel
-                                              key={pm.id || pmIdx}
+                                           goalProjectMatrices.map((pm: ProjectMatrixItemProjectMatrix, pmIdx: number) => (
+                                             <SupportLabel
+                                               key={pm.id || pmIdx}
                                               title={`${pm.ksa?.title}${pm.ksa?.level}`}
                                               desc={pm.ksa?.description}
                                               type={pm.relate?.relate === 0 ? "strong" : "weak"}

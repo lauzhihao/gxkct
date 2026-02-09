@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/shared/components/ui/button"
 import { cn } from "@/shared/utils/utils"
 import type { KsaItem } from "@/modules/courses/hooks/use-project-matrix"
-import type { UseKsaManagementResult, KsaCellData } from "@/modules/courses/hooks/use-ksa-management"
+import type { KsaCellData } from "@/modules/courses/hooks/use-ksa-management"
 import { projectMatrixApi } from "@/modules/courses/api/projectMatrixApi"
 
 interface KsaDialogProps {

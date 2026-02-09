@@ -148,41 +148,6 @@ function calculateGraduationSupportSize(data: unknown): { width: number; height:
 }
 
 /**
- * 转换后端SSE返回的 course_info 数据为前端期望的格式
- * 后端格式: { course_name, course_type, course_nature, description, total_theory_hours, total_practice_hours, ... }
- * 前端格式: { name, metadata: { courseType, courseNatureName, introduction, theoryPeriod, practicePeriod, ... } }
- */
-function transformCourseInfoData(data: Record<string, unknown>): Record<string, unknown> {
-  // 如果已经是前端格式（有 name 字段），直接返回
-  if (data.name !== undefined) {
-    return data
-  }
-
-  // 转换后端格式为前端格式
-  const transformed: Record<string, unknown> = {
-    name: data.course_name || '',
-    type: data.course_type || '',
-    metadata: {
-      courseType: data.course_type,
-      courseNatureName: data.course_nature,
-      introduction: data.description,
-      theoryPeriod: data.total_theory_hours,
-      practicePeriod: data.total_practice_hours,
-      // 保留其他可能的字段
-      targetAudience: data.target_audience,
-      courseLevel: data.course_level,
-    },
-  }
-
-  // 保留原始数据中的其他字段（如 id）
-  if (data.id) {
-    transformed.id = data.id
-  }
-
-  return transformed
-}
-
-/**
  * 深度合并两个对象
  * 用于SSE UPDATE事件的部分数据更新，将新数据合并到现有数据中
  * @param target 目标对象（现有数据）
@@ -291,21 +256,6 @@ const COURSE_INFO_TO_PANELS: CanvasComponentType[] = [
   CanvasComponentType.GRADUATION_SUPPORT, // A - 毕业要求支撑
 ]
 
-// 第1列面板的纵向排列顺序（从上到下：A/B/C/D）
-const BASIC_PANELS_ORDER: CanvasComponentType[] = [
-  CanvasComponentType.GRADUATION_SUPPORT, // A - 毕业要求支撑
-  CanvasComponentType.CHAPTER_PANEL,      // B - 章节项目
-  CanvasComponentType.COURSE_POINT_PANEL, // C - 课点信息
-  CanvasComponentType.KSA_PANEL,          // D - KSA三要素
-]
-
-// 汇聚到课程矩阵的面板（A/B/C，不包含 D）
-const PANELS_TO_MATRIX: CanvasComponentType[] = [
-  CanvasComponentType.OBJECTIVE_PANEL,
-  CanvasComponentType.CHAPTER_PANEL,
-  CanvasComponentType.COURSE_POINT_PANEL,
-]
-
 // 单例组件类型（画布内唯一，重复创建时忽略）
 const SINGLETON_COMPONENT_TYPES: CanvasComponentType[] = [
   CanvasComponentType.SOURCE_DOCUMENT_PANEL, // 源文档面板
@@ -324,13 +274,6 @@ const COLUMN_X_POSITIONS = [...CANVAS_LAYOUT_POSITION_CONFIG.horizontal.columnAx
 const VERTICAL_STACK_GROUPS = VERTICAL_LAYOUT_GROUPS
 const VERTICAL_STACK_GAP = VERTICAL_LAYOUT_GAP_PX
 
-// 列间距配置（课程卡片-面板间距160，面板-矩阵间距200）
-const COLUMN_GAP = 100
-
-// 元素间距
-const ELEMENT_GAP = 40
-// 同列内行间距（用于第1列的四个面板和第3列的项目矩阵）
-const ROW_GAP = 40
 // 起始 Y 坐标
 const START_X = CANVAS_LAYOUT_POSITION_CONFIG.vertical.startX
 const START_Y = CANVAS_LAYOUT_POSITION_CONFIG.horizontal.startY
@@ -462,6 +405,7 @@ function isHorizontalStackType(componentType: CanvasComponentType): boolean {
  * 计算水平布局中组件的位置
  * @param componentType 组件类型
  * @param elements 当前已存在的元素（用于计算同列内的 Y 偏移）
+ * @param selfHeight
  * @returns 元素位置
  */
 function calculateHorizontalPosition(
@@ -683,12 +627,10 @@ function calculateVerticalPosition(
  * 计算指定 Panel 之后所有同列 Panel 的新位置（水平布局版本）
  * 按到达顺序（elements 数组顺序）计算，而不是依赖固定的 ABCD 顺序
  * @param elements 当前所有元素
- * @param changedPanelType 尺寸发生变化的 Panel 类型
  * @returns 需要更新位置的元素 Map { id -> newPosition }
  */
 function recalculatePanelPositions(
-  elements: CanvasElementData[],
-  _changedPanelType: CanvasComponentType
+  elements: CanvasElementData[]
 ): Map<string, ElementPosition> {
   const updates = new Map<string, ElementPosition>()
 
@@ -1086,7 +1028,7 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
           return recalculateAllPanelPositionsVertical(newElements)
         }
 
-        const positionUpdates = recalculatePanelPositions(newElements, panelType)
+        const positionUpdates = recalculatePanelPositions(newElements)
         // 应用位置更新
         for (let i = 0; i < newElements.length; i++) {
           const newPos = positionUpdates.get(newElements[i].id)
@@ -1098,7 +1040,7 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
 
       return newElements
     })
-  }, [])
+  }, [layoutMode])
 
   // 更新元素位置
   const updateElementPosition = useCallback((id: string, position: ElementPosition) => {
@@ -1111,7 +1053,7 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
   // 专业矩阵特殊处理：根据数据动态计算尺寸，并级联更新后续面板位置
   const updateElementData = useCallback((id: string, data: Partial<CanvasComponentData>) => {
     setElements(prev => {
-      let updated = prev.map(el => {
+      const updated = prev.map(el => {
         if (el.id !== id) return el
         const newData = { ...el.data, ...data }
         // 专业矩阵：根据支撑指标点数量动态计算尺寸
@@ -1133,7 +1075,7 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
             return recalculateAllPanelPositionsVertical(updated)
           }
 
-          const positionUpdates = recalculatePanelPositions(updated, CanvasComponentType.GRADUATION_SUPPORT)
+          const positionUpdates = recalculatePanelPositions(updated)
           for (let i = 0; i < updated.length; i++) {
             const newPos = positionUpdates.get(updated[i].id)
             if (newPos) {
@@ -1580,7 +1522,8 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
               updatePanelChildren(id, targetElement.type, childType, childrenData)
             }
             // 同时更新 Panel 自身数据（不包含 items，避免重复）
-            const { items: _, ...panelData } = updateData
+            const panelData = { ...updateData }
+            delete panelData.items
             if (Object.keys(panelData).length > 0) {
               updateElementData(id, panelData as CanvasComponentData)
             }
@@ -1852,7 +1795,7 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
                     return recalculateAllPanelPositionsVertical(newElements)
                   }
 
-                  const positionUpdates = recalculatePanelPositions(newElements, panelType)
+                  const positionUpdates = recalculatePanelPositions(newElements)
                   for (let i = 0; i < newElements.length; i++) {
                     const newPos = positionUpdates.get(newElements[i].id)
                     if (newPos) {
@@ -2171,7 +2114,7 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
                 return recalculateAllPanelPositionsVertical(newElements)
               }
 
-              const positionUpdates = recalculatePanelPositions(newElements, panelType)
+              const positionUpdates = recalculatePanelPositions(newElements)
               for (let i = 0; i < newElements.length; i++) {
                 const newPos = positionUpdates.get(newElements[i].id)
                 if (newPos) {
@@ -2329,8 +2272,8 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
     elements,
     addElement,
     updateElementData,
+    updatePanelChildren,
     removeElement,
-    setComponentData,
     clearByComponentType,
     clearCanvas,
     addEdge,

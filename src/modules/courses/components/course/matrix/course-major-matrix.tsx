@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { BookMarked, Pencil, X, Loader2, Check } from "lucide-react"
 import { cn } from "@/shared/utils/utils"
@@ -13,14 +13,12 @@ interface CourseMajorMatrixProps {
   node: TreeNode
   majorNode?: TreeNode
   majorId?: string | number
-  onUpdateNode?: (nodeId: string, updates: any) => void
 }
 
-export function CourseMajorMatrix({ node, majorNode, majorId, onUpdateNode }: CourseMajorMatrixProps) {
+export function CourseMajorMatrix({ node, majorNode, majorId }: CourseMajorMatrixProps) {
   const [isEditingMatrix, setIsEditingMatrix] = useState(false)
   const [matrixData, setMatrixData] = useState<MajorMatrixItemResponse[]>([])
   const [isSavingMatrix, setIsSavingMatrix] = useState(false)
-  const [isLoadingMatrix, setIsLoadingMatrix] = useState(false)
   const [expandedReqs, setExpandedReqs] = useState<Set<number>>(new Set())
   const [clampedReqs, setClampedReqs] = useState<Set<number>>(new Set())
   const textRefsMap = useRef<Map<number, HTMLDivElement>>(new Map())
@@ -32,10 +30,9 @@ export function CourseMajorMatrix({ node, majorNode, majorId, onUpdateNode }: Co
   const isDataReady = majorDetailData !== null
 
   // 并行加载专业详情和矩阵数据，使用 Promise.all 避免竞态条件
-  const loadAllData = async () => {
+  const loadAllData = useCallback(async () => {
     if (!majorId || !node?.id) return
 
-    setIsLoadingMatrix(true)
     try {
       const [majorDetailResponse, matrixResponse] = await Promise.all([
         courseDetailApi.getMajorDetail(majorId),
@@ -50,10 +47,8 @@ export function CourseMajorMatrix({ node, majorNode, majorId, onUpdateNode }: Co
       }
     } catch (error) {
       console.error("[CourseMajorMatrix] 加载数据失败:", error)
-    } finally {
-      setIsLoadingMatrix(false)
     }
-  }
+  }, [majorId, node?.id])
 
   // 获取毕业要求数据
   const getGraduationRequirements = () => {
@@ -66,14 +61,6 @@ export function CourseMajorMatrix({ node, majorNode, majorId, onUpdateNode }: Co
       }))
     }
     return []
-  }
-
-  // 获取毕业要求下指标点的索引
-  const getIndicatorIndex = (reqId: number, graduateRequireId: number): number => {
-    const req = majorDetailData?.requiresVOS?.find((r: any) => r.id === reqId)
-    if (!req?.children) return -1
-    const index = req.children.findIndex((child: any) => child.id === graduateRequireId)
-    return index >= 0 ? index : -1
   }
 
   // 根据 graduateRequireId 获取支撑级别
@@ -92,7 +79,34 @@ export function CourseMajorMatrix({ node, majorNode, majorId, onUpdateNode }: Co
 
   useEffect(() => {
     loadAllData()
-  }, [node?.id, majorNode, majorId])
+  }, [loadAllData])
+
+  const handleSaveMatrix = useCallback(async (isAutoSave = false) => {
+    setIsSavingMatrix(true)
+
+    try {
+      // 构建保存数据，id为0表示新增
+      const saveData = matrixData.map((item) => ({
+        id: item.id > 0 ? item.id : 0,
+        majorId: item.majorId,
+        courseUnitId: item.courseUnitId,
+        courseUnitName: item.courseUnitName || "",
+        graduateRequireId: item.graduateRequireId,
+        relate: item.relate,
+      }))
+
+      await api.matrices.updateMajorMatrix(String(node.id), saveData)
+      console.log("[CourseMajorMatrix] 专业矩阵保存成功")
+    } catch (error) {
+      console.error("保存专业矩阵数据失败:", error)
+    } finally {
+      setIsSavingMatrix(false)
+
+      if (!isAutoSave) {
+        setIsEditingMatrix(false)
+      }
+    }
+  }, [matrixData, node.id])
 
   useEffect(() => {
     if (!isEditingMatrix) return
@@ -102,7 +116,7 @@ export function CourseMajorMatrix({ node, majorNode, majorId, onUpdateNode }: Co
     }, 10000)
 
     return () => clearInterval(autoSaveInterval)
-  }, [isEditingMatrix, matrixData])
+  }, [isEditingMatrix, matrixData, handleSaveMatrix])
 
   // 检测毕业要求文本是否被截断
   useEffect(() => {
@@ -138,7 +152,7 @@ export function CourseMajorMatrix({ node, majorNode, majorId, onUpdateNode }: Co
       setClampedIndicators(newClampedIndicators)
     }, 100)
     return () => clearTimeout(timer)
-  }, [majorNode])
+  }, [majorNode, expandedIndicators])
 
   // 处理支撑级别变更（编辑模式），支持点击切换选中/取消选中
   const handleSupportLevelChange = (reqId: number, indicatorIdx: number, value: number) => {
@@ -173,34 +187,6 @@ export function CourseMajorMatrix({ node, majorNode, majorId, onUpdateNode }: Co
       })
     }
     setMatrixData(newData)
-  }
-
-  // 保存专业矩阵
-  const handleSaveMatrix = async (isAutoSave = false) => {
-    setIsSavingMatrix(true)
-
-    try {
-      // 构建保存数据，id为0表示新增
-      const saveData = matrixData.map((item) => ({
-        id: item.id > 0 ? item.id : 0,
-        majorId: item.majorId,
-        courseUnitId: item.courseUnitId,
-        courseUnitName: item.courseUnitName || "",
-        graduateRequireId: item.graduateRequireId,
-        relate: item.relate,
-      }))
-
-      await api.matrices.updateMajorMatrix(String(node.id), saveData)
-      console.log("[CourseMajorMatrix] 专业矩阵保存成功")
-    } catch (error) {
-      console.error("保存专业矩阵数据失败:", error)
-    } finally {
-      setIsSavingMatrix(false)
-
-      if (!isAutoSave) {
-        setIsEditingMatrix(false)
-      }
-    }
   }
 
   // 取消编辑

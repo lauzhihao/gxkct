@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/shared/components/ui/button"
-import { BookMarked, Plus, Search, FileText, User, Award, Clock, X, Loader2 } from "lucide-react"
+import { BookMarked, Plus, Search, FileText, User, X, Loader2 } from "lucide-react"
 import { cn } from "@/shared/utils/utils"
 import type { TreeNode } from "@/types"
 import { useMajorCoursePreferences } from "@/modules/majors/hooks/use-major-course-preferences"
@@ -33,7 +33,8 @@ interface MajorCoursesProps {
   refreshKey?: number
 }
 
-export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, majorCourses, departmentId, refreshKey }: MajorCoursesProps) {
+export function MajorCourses(props: MajorCoursesProps) {
+  const { node, currentUser, onNodeSelect, onAddCourse, refreshKey } = props
   const [courseSearchTerm, setCourseSearchTerm] = useState("")
   const { showMyCourses, setShowMyCourses } = useMajorCoursePreferences()
 
@@ -92,7 +93,7 @@ export function MajorCourses({ node, currentUser, onNodeSelect, onAddCourse, maj
     }
 
     fetchCourses()
-  }, [node?.id, refreshKey])
+  }, [node?.id, node?.name, node?.nodeName, refreshKey])
 
   // 获取课程ID
   const getCourseId = (course: any) => course.self?.value || course.id || ''

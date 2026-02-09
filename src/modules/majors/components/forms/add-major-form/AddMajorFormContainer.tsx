@@ -13,7 +13,7 @@ import { useGraduationRequirements } from "@/modules/majors/hooks/use-graduation
 import { useToast } from "@/shared/hooks/use-toast"
 import { api } from "@/lib/api"
 import { TreeApi } from "@/lib/api/tree-api"
-import { majorApiService } from "@/modules/majors/api"
+import { majorApiService, type CreateMajorRequest } from "@/modules/majors/api"
 import type { IndicatorCourseSupport } from "@/modules/majors/types"
 import worksJsonData from "@/mock-data/works.json"
 
@@ -23,6 +23,39 @@ const treeApiInstance = new TreeApi()
 // 导入原始组件的UI部分 - 这里暂时保留原始渲染逻辑
 // 后续可以继续拆分为更小的展示组件
 import { AddMajorFormView } from "./AddMajorFormView"
+
+interface MajorDetailProfessionItem {
+  name?: string
+}
+
+interface MajorDetailProfessionVO {
+  id?: number
+  profession?: MajorDetailProfessionItem[]
+  task?: string
+}
+
+interface MajorDetailRequireChild {
+  id: number
+  description?: string
+}
+
+interface MajorDetailRequireVO {
+  id: number
+  description?: string
+  children?: MajorDetailRequireChild[]
+}
+
+interface MajorDetailResponse {
+  majorClass?: string
+  code?: string
+  majorLevel?: string
+  feature?: string
+  demandType?: string
+  demandArea?: string
+  position?: string
+  professionsVOS?: MajorDetailProfessionVO[]
+  requiresVOS?: MajorDetailRequireVO[]
+}
 
 export function AddMajorFormContainer({
   departmentId,
@@ -55,6 +88,16 @@ export function AddMajorFormContainer({
   // 加载状态
   const [isLoadingDetail, setIsLoadingDetail] = useState(false)
   const hasLoadedDetailRef = useRef(false)
+  const {
+    setMajorCode,
+    setMajorLevel,
+    setEducationalFeatures,
+    setDemandStatus,
+    setSelectedProvince,
+    setPosition,
+  } = formState
+  const { setCareerInfoList } = careerInfo
+  const { setGraduationRequirements, setIndicatorCourseSupports } = graduationReqs
 
   // 编辑模式下加载专业详情
   useEffect(() => {
@@ -64,7 +107,7 @@ export function AddMajorFormContainer({
     hasLoadedDetailRef.current = true
 
     // 从真实 API 加载完整矩阵数据，构建 indicatorCourseSupports
-    const loadIndicatorCourseSupportsFromApi = async (majorId: string, requiresVOS: any[]) => {
+    const loadIndicatorCourseSupportsFromApi = async (majorId: string, requiresVOS: MajorDetailRequireVO[]) => {
       try {
         const cleanMajorId = majorId.replace("major_", "")
 
@@ -75,8 +118,8 @@ export function AddMajorFormContainer({
 
         // 2. 从 requiresVOS 构建 graduateRequireId -> supportKey 映射
         const idToKeyMap: Record<number, string> = {}
-        requiresVOS.forEach((req: any) => {
-          req.children?.forEach((child: any, idx: number) => {
+        requiresVOS.forEach((req) => {
+          req.children?.forEach((child, idx: number) => {
             idToKeyMap[child.id] = `${String(req.id)}-${idx}`
           })
         })
@@ -98,7 +141,7 @@ export function AddMajorFormContainer({
           }
         }
 
-        graduationReqs.setIndicatorCourseSupports(supports)
+        setIndicatorCourseSupports(supports)
       } catch (error) {
         console.error("加载指标点课程支撑关系失败:", error)
       }
@@ -109,31 +152,31 @@ export function AddMajorFormContainer({
       try {
         const response = await treeApiInstance.getMajorDetail(majorId)
         if (response.data) {
-          const detailData = response.data
+          const detailData = response.data as MajorDetailResponse
 
           // 更新基础表单状态
           if (detailData.majorClass || detailData.code) {
-            formState.setMajorCode(detailData.majorClass || detailData.code || "")
+            setMajorCode(detailData.majorClass || detailData.code || "")
           }
           if (detailData.majorLevel) {
-            formState.setMajorLevel(detailData.majorLevel)
+            setMajorLevel(detailData.majorLevel)
           }
           if (detailData.feature) {
-            formState.setEducationalFeatures(detailData.feature)
+            setEducationalFeatures(detailData.feature)
           }
           if (detailData.demandType) {
-            formState.setDemandStatus(detailData.demandType)
+            setDemandStatus(detailData.demandType)
           }
           if (detailData.demandArea) {
-            formState.setSelectedProvince(detailData.demandArea)
+            setSelectedProvince(detailData.demandArea)
           }
           if (detailData.position) {
-            formState.setPosition(detailData.position)
+            setPosition(detailData.position)
           }
 
           // 更新职业信息
           if (detailData.professionsVOS && detailData.professionsVOS.length > 0) {
-            const careerInfoList = detailData.professionsVOS.map((professionVO: any, index: number) => ({
+            const careerInfoList = detailData.professionsVOS.map((professionVO, index: number) => ({
               id: String(professionVO.id || index + 1),
               level: "中级",
               direction: {
@@ -144,17 +187,17 @@ export function AddMajorFormContainer({
               },
               tasks: professionVO.task || "",
             }))
-            careerInfo.setCareerInfoList(careerInfoList)
+            setCareerInfoList(careerInfoList)
           }
 
           // 更新毕业要求
           if (detailData.requiresVOS && detailData.requiresVOS.length > 0) {
-            const graduationRequirements = detailData.requiresVOS.map((requireVO: any) => ({
+            const graduationRequirements = detailData.requiresVOS.map((requireVO) => ({
               id: String(requireVO.id),
               content: requireVO.description || "",
-              indicators: requireVO.children?.map((child: any) => child.description || "") || [""],
+              indicators: requireVO.children?.map((child) => child.description || "") || [""],
             }))
-            graduationReqs.setGraduationRequirements(graduationRequirements)
+            setGraduationRequirements(graduationRequirements)
           }
 
           // 异步加载课程列表和矩阵数据，构建 indicatorCourseSupports
@@ -168,7 +211,20 @@ export function AddMajorFormContainer({
     }
 
     loadMajorDetail()
-  }, [isEditMode, initialData?.id, initialData?.nodeId])
+  }, [
+    isEditMode,
+    initialData?.id,
+    initialData?.nodeId,
+    setCareerInfoList,
+    setDemandStatus,
+    setEducationalFeatures,
+    setGraduationRequirements,
+    setIndicatorCourseSupports,
+    setMajorCode,
+    setMajorLevel,
+    setPosition,
+    setSelectedProvince,
+  ])
 
   // 保存 handleSubmit 函数引用，供自动保存使用
   const handleSubmitRef = useRef<((isAutoSave?: boolean) => Promise<void>) | null>(null)
@@ -284,7 +340,7 @@ export function AddMajorFormContainer({
       children: requirement.indicators.map((indicator, indIndex) => ({
         id: parseInt(requirement.id) * 1000 + indIndex + 1,
         description: indicator,
-        children: [] as any[],
+        children: [] as CreateMajorRequest["requiresVOS"][number]["children"][number]["children"],
       })),
     }))
 
@@ -324,7 +380,7 @@ export function AddMajorFormContainer({
           position: formState.position,
           requiresVOS: requiresVOS,
           upload: false,
-          professionsVOS: professionsVOS.map((p, idx) => ({
+          professionsVOS: professionsVOS.map((p) => ({
             id: p.id,
             majorId: parseInt(majorId) || 0,
             task: p.task,

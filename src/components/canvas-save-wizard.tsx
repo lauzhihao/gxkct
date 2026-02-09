@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react"
-import { Save, Building2, GraduationCap, BookOpen, Loader2, CheckCircle2, Target, Search, X, User, FileText, Check, ArrowLeft } from "lucide-react"
+import { Save, Building2, GraduationCap, BookOpen, Loader2, CheckCircle2, Target, Search, X, User, FileText, ArrowLeft } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -797,7 +797,6 @@ export function CanvasSaveWizard({
   onOpenChange,
   courseInfo,
   canvasElements,
-  canvasOssKey,
   treeData,
   onSaveSuccess,
   onUpdateCourseInfo,
@@ -1112,11 +1111,6 @@ export function CanvasSaveWizard({
     }
   }, [open, courseInfo?.metadata?.courseId, courses, graduationRequirements.length, selectedCourseId, currentStep, selectedPath.majorId, loadExistingMappings])
 
-  // 计算总指标点数量
-  const totalIndicators = useMemo(() => {
-    return graduationRequirements.reduce((sum, req) => sum + (req.indicators?.length || 0), 0)
-  }, [graduationRequirements])
-
   // 根据课程关联的指标点ID过滤毕业要求（仅保留包含关联指标点的毕业要求及其对应指标点）
   const filteredGraduationRequirements = useMemo(() => {
     // 未加载到课程指标点数据时，显示全部毕业要求
@@ -1357,7 +1351,7 @@ export function CanvasSaveWizard({
   }, [chapters])
 
   // 保存教学目标与毕业要求指标点的关联关系
-  const saveObjectiveIndicatorMapping = useCallback(async (courseId: number, majorId: string): Promise<void> => {
+  const saveObjectiveIndicatorMapping = useCallback(async (courseId: number): Promise<void> => {
     if (relationMapping.size === 0 || objectives.length === 0) return
 
     try {
@@ -1443,7 +1437,7 @@ export function CanvasSaveWizard({
 
       // 3-6. 并行保存其他数据（失败不阻断主流程）
       await Promise.allSettled([
-        saveObjectiveIndicatorMapping(courseId, majorId),
+        saveObjectiveIndicatorMapping(courseId),
         saveCoursePoints(courseId, majorId),
         saveCourseMatrix(courseId),
         saveProjectMatrix(courseId),

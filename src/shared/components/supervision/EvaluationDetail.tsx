@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Check, X as CloseIcon, Info, Plus, Loader2 } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Card } from "@/shared/components/ui/card"
 import { Label } from "@/shared/components/ui/label"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/components/ui/tooltip"
-import type { Long } from "@/types"
+import type { EvaluationLevel, Long } from "@/types"
 import { courseTeachingTasksApi, type CourseEvaluationDetailResponse, type EvaluationItemDetail, type CourseEvaluationSubmitDTO, type EvaluationTypeSubmit } from "@/modules/courses/api/courseTeachingTasksApi"
 import { formatDate } from "@/shared/utils/date-utils"
 import { CourseResourcePickerDialog, type PickedResource } from "@/modules/courses/components/dialogs/course-resource-picker-dialog"
@@ -28,7 +28,7 @@ interface ScoreItem {
 // 评价视图类型
 type EvaluationViewType = "self" | "dept" | "school"
 
-export function EvaluationDetail({ taskId, courseId, courseName, onBack, breadcrumb }: EvaluationDetailProps) {
+export function EvaluationDetail({ taskId, courseId, onBack, breadcrumb }: EvaluationDetailProps) {
   const [evaluationDetail, setEvaluationDetail] = useState<CourseEvaluationDetailResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   // 按视图类型分开存储评分数据
@@ -63,7 +63,7 @@ export function EvaluationDetail({ taskId, courseId, courseName, onBack, breadcr
     (activeViewType === "school" && evaluationDetail?.canSchoolEvaluate)
 
   // 获取标准项的等级系数映射
-  const getLevelCoefficients = (itemId: string): Record<string, number> => {
+  const getLevelCoefficients = useCallback((itemId: string): Record<string, number> => {
     if (!evaluationDetail) return {}
     const item = evaluationDetail.items?.find((i) => String(i.criterion.id) === itemId)
     if (!item) return {}
@@ -73,7 +73,7 @@ export function EvaluationDetail({ taskId, courseId, courseName, onBack, breadcr
       coefficients[level.level] = level.coefficient
     })
     return coefficients
-  }
+  }, [evaluationDetail])
 
   // 获取选中等级的说明文案
   const getLevelDescription = (itemId: string, level: string): string => {
@@ -86,7 +86,7 @@ export function EvaluationDetail({ taskId, courseId, courseName, onBack, breadcr
   }
 
   // 根据视图类型获取评价数据
-  const getEvaluationByType = (item: EvaluationItemDetail, type: EvaluationViewType) => {
+  const getEvaluationByType = useCallback((item: EvaluationItemDetail, type: EvaluationViewType) => {
     switch (type) {
       case "self":
         return item.selfEvaluation
@@ -97,7 +97,7 @@ export function EvaluationDetail({ taskId, courseId, courseName, onBack, breadcr
       default:
         return null
     }
-  }
+  }, [])
 
   // 切换视图类型
   const handleViewTypeChange = (type: EvaluationViewType) => {
@@ -105,7 +105,7 @@ export function EvaluationDetail({ taskId, courseId, courseName, onBack, breadcr
   }
 
   // 从评价数据中提取 scores 和 materials
-  const extractEvaluationData = (
+  const extractEvaluationData = useCallback((
     items: EvaluationItemDetail[] | undefined,
     type: EvaluationViewType
   ): { scores: Record<string, ScoreItem>; materials: Record<string, PickedResource[]> } => {
@@ -127,7 +127,7 @@ export function EvaluationDetail({ taskId, courseId, courseName, onBack, breadcr
       }
     })
     return { scores, materials }
-  }
+  }, [getEvaluationByType])
 
   // 加载评分详情
   useEffect(() => {
@@ -187,7 +187,7 @@ export function EvaluationDetail({ taskId, courseId, courseName, onBack, breadcr
     return () => {
       cancelled = true
     }
-  }, [taskId, courseId])
+  }, [taskId, courseId, extractEvaluationData])
 
   // 计算总分
   useEffect(() => {
@@ -206,7 +206,7 @@ export function EvaluationDetail({ taskId, courseId, courseName, onBack, breadcr
     })
 
     setTotalScore(Math.round(total * 100) / 100)
-  }, [scores, evaluationDetail])
+  }, [scores, evaluationDetail, getLevelCoefficients])
 
   // 系统指标标签映射
   const getSystemIndicatorLabel = (systemIndicator: string | undefined): string => {
@@ -294,7 +294,8 @@ export function EvaluationDetail({ taskId, courseId, courseName, onBack, breadcr
     setMaterialsByType((prev) => {
       const currentTypeData = prev[activeViewType]
       if (!currentTypeData[itemId]) return prev
-      const { [itemId]: _, ...rest } = currentTypeData
+      const rest = { ...currentTypeData }
+      delete rest[itemId]
       return {
         ...prev,
         [activeViewType]: rest
@@ -309,7 +310,8 @@ export function EvaluationDetail({ taskId, courseId, courseName, onBack, breadcr
       if (!current) return prev
       const nextList = current.filter((res) => res.id !== resourceId)
       if (nextList.length === 0) {
-        const { [itemId]: _, ...rest } = currentTypeData
+        const rest = { ...currentTypeData }
+        delete rest[itemId]
         return {
           ...prev,
           [activeViewType]: rest
@@ -701,7 +703,7 @@ export function EvaluationDetail({ taskId, courseId, courseName, onBack, breadcr
                               评级 {canEdit && <span className="text-red-500">*</span>}
                             </Label>
                             <div className="flex gap-2">
-                              {criterion.levels?.map((level: any) => (
+                              {criterion.levels?.map((level: EvaluationLevel) => (
                                 <Button
                                   key={level.level}
                                   onClick={() => canEdit && handleLevelChange(itemId, level.level as "A" | "B" | "C" | "D")}
@@ -723,14 +725,14 @@ export function EvaluationDetail({ taskId, courseId, courseName, onBack, breadcr
                                 <div className="text-base text-muted-foreground pt-2 border-t border-primary/10 flex items-center justify-between">
                                   {criterion.type === "system" ? (
                                     <span className="font-semibold text-primary flex-1 text-center">
-                                      {getSystemIndicatorLabel(criterion.systemIndicator)} {getOperatorLabel(criterion.levels?.find((l: any) => l.level === scores[itemId].level)?.condition?.operator)} {criterion.levels?.find((l: any) => l.level === scores[itemId].level)?.condition?.threshold || "-"}
+                                      {getSystemIndicatorLabel(criterion.systemIndicator)} {getOperatorLabel(criterion.levels?.find((l: EvaluationLevel) => l.level === scores[itemId].level)?.condition?.operator)} {criterion.levels?.find((l: EvaluationLevel) => l.level === scores[itemId].level)?.condition?.threshold || "-"}
                                     </span>
                                   ) : (
                                     <div className="flex-1" />
                                   )}
                                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 flex items-center justify-center flex-shrink-0">
                                     <span className="font-semibold text-primary text-base">
-                                      {formatCoefficient(criterion.levels?.find((l: any) => l.level === scores[itemId].level)?.coefficient)}
+                                      {formatCoefficient(criterion.levels?.find((l: EvaluationLevel) => l.level === scores[itemId].level)?.coefficient)}
                                     </span>
                                   </div>
                                 </div>

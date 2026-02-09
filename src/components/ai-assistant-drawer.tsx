@@ -224,6 +224,16 @@ export function AiAssistantDrawer({
     canvasElementsRef.current = canvasElements
   }, [canvasElements])
 
+  // 统一计算画布构建进度 ETA，避免两个加载入口出现重复逻辑
+  const updateCanvasBuildProgressWithEta = useCallback((progress: { loaded: number; total: number; stage: string }) => {
+    const startAt = canvasBuildStartAtRef.current
+    const elapsedSeconds = startAt ? Math.max((Date.now() - startAt) / 1000, 0.1) : 0
+    const speed = progress.loaded > 0 ? progress.loaded / elapsedSeconds : 0
+    const remaining = Math.max(progress.total - progress.loaded, 0)
+    const etaSeconds = speed > 0 ? Math.ceil(remaining / speed) : null
+    setCanvasBuildProgress({ ...progress, etaSeconds })
+  }, [])
+
   // 抽屉打开时，从本地存储加载画布数据（必须在保存逻辑之前执行）
   // [MOD] 增加 !initialCanvasData 条件：当有外部初始数据时，跳过本地存储加载，避免数据合并
   useEffect(() => {
@@ -257,14 +267,7 @@ export function AiAssistantDrawer({
               canvasBuildStartAtRef.current = null
               setCanvasBuildProgress(null)
             },
-            onProgress: (progress) => {
-              const startAt = canvasBuildStartAtRef.current
-              const elapsedSeconds = startAt ? Math.max((Date.now() - startAt) / 1000, 0.1) : 0
-              const speed = progress.loaded > 0 ? progress.loaded / elapsedSeconds : 0
-              const remaining = Math.max(progress.total - progress.loaded, 0)
-              const etaSeconds = speed > 0 ? Math.ceil(remaining / speed) : null
-              setCanvasBuildProgress({ ...progress, etaSeconds })
-            },
+            onProgress: updateCanvasBuildProgressWithEta,
           }
         )
 
@@ -278,7 +281,7 @@ export function AiAssistantDrawer({
       // 标记该 session 的画布已完成加载（无论有无数据）
       hasLoadedCanvasRef.current = sessionId
     }
-  }, [open, sessionId, isInitialized, initialCanvasData, loadCanvasFromLocal, loadCanvasData])
+  }, [open, sessionId, isInitialized, initialCanvasData, loadCanvasFromLocal, loadCanvasData, updateCanvasBuildProgressWithEta])
 
   // [MOD] 处理从外部传入的初始画布数据（如从课程详情页加载已有课程）
   useEffect(() => {
@@ -321,10 +324,6 @@ export function AiAssistantDrawer({
       setStreamingThinking("")
 
       // 5. 重置其他状态
-      setCurrentMode("chat")
-      setBuildingStage(null)
-      setProgress(null)
-      setToolStatus(null)
       setIsRegenerating(false)
       setRegenerateTag(null)
       setFillProgress({})
@@ -360,14 +359,7 @@ export function AiAssistantDrawer({
             canvasBuildStartAtRef.current = null
             setCanvasBuildProgress(null)
           },
-          onProgress: (progress) => {
-            const startAt = canvasBuildStartAtRef.current
-            const elapsedSeconds = startAt ? Math.max((Date.now() - startAt) / 1000, 0.1) : 0
-            const speed = progress.loaded > 0 ? progress.loaded / elapsedSeconds : 0
-            const remaining = Math.max(progress.total - progress.loaded, 0)
-            const etaSeconds = speed > 0 ? Math.ceil(remaining / speed) : null
-            setCanvasBuildProgress({ ...progress, etaSeconds })
-          },
+          onProgress: updateCanvasBuildProgressWithEta,
         }
       )
 
@@ -389,6 +381,7 @@ export function AiAssistantDrawer({
     clearCanvas,
     clearCanvasPersistence,
     loadCanvasData,
+    updateCanvasBuildProgressWithEta,
   ])
 
   // [MOD] 当抽屉关闭时，重置初始数据处理标记
@@ -457,10 +450,6 @@ export function AiAssistantDrawer({
     // 重置画布加载标志，允许新会话加载其画布数据
     hasLoadedCanvasRef.current = null
     // 重置SSE事件状态
-    setCurrentMode("chat")
-    setBuildingStage(null)
-    setProgress(null)
-    setToolStatus(null)
     // 重置重做状态
     setIsRegenerating(false)
     setRegenerateTag(null)
@@ -496,7 +485,8 @@ export function AiAssistantDrawer({
       })
 
       if (!presignResponse.data) {
-        throw new Error(presignResponse.error || "获取上传签名失败")
+        console.error("上传文件到OSS失败:", presignResponse.error || "获取上传签名失败")
+        return null
       }
 
       const { uploadUrl, ossKey: returnedOssKey, headers } = presignResponse.data
@@ -514,7 +504,8 @@ export function AiAssistantDrawer({
       })
 
       if (!uploadResponse.ok) {
-        throw new Error("上传文件失败")
+        console.error("上传文件到OSS失败:", `上传文件失败，HTTP ${uploadResponse.status}`)
+        return null
       }
 
       // 构建访问URL（从uploadUrl中提取基础域名）
@@ -680,6 +671,16 @@ export function AiAssistantDrawer({
     // [MOD] 用于追踪已创建关联消息的元素ID，避免重复创建（移到 try 外以便 catch 可访问）
     const linkedElementIds = new Set<string>()
 
+    const clearLinkedElementLoading = () => {
+      if (linkedElementIds.size > 0) {
+        setElementLoadingStates(prev => {
+          const newMap = new Map(prev)
+          linkedElementIds.forEach(id => newMap.set(id, false))
+          return newMap
+        })
+      }
+    }
+
     try {
       // 执行请求前的准备操作
       if (config.onBeforeRequest) {
@@ -689,7 +690,16 @@ export function AiAssistantDrawer({
       // [MOD] 强制上传最新画布数据，确保后端获取到最新状态
       const ossKey = await forceCanvasUpload()
       if (!ossKey) {
-        throw new Error("画布上传失败")
+        commitAssistantContent(config.errorMessage)
+        if (streamingControllerRef.current === controller) {
+          streamingControllerRef.current = null
+        }
+        setStreamingMessageId(null)
+        setStreamingText('')
+        setIsRegenerating(false)
+        clearLinkedElementLoading()
+        console.error(`[${config.logPrefix}] 失败: 画布上传失败`)
+        return
       }
 
       // 构建请求负载
@@ -704,7 +714,16 @@ export function AiAssistantDrawer({
       const response = await fetch(getAIRequestUrl(), buildAIRequest(payload, controller.signal))
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        commitAssistantContent(config.errorMessage)
+        if (streamingControllerRef.current === controller) {
+          streamingControllerRef.current = null
+        }
+        setStreamingMessageId(null)
+        setStreamingText('')
+        setIsRegenerating(false)
+        clearLinkedElementLoading()
+        console.error(`[${config.logPrefix}] 失败: HTTP ${response.status}`)
+        return
       }
 
       // 使用 useSSEStream 的 processStream 处理响应
@@ -837,13 +856,7 @@ export function AiAssistantDrawer({
       setIsRegenerating(false)
 
       // [MOD] 清除本次 SSE 创建的元素 loading 状态
-      if (linkedElementIds.size > 0) {
-        setElementLoadingStates(prev => {
-          const newMap = new Map(prev)
-          linkedElementIds.forEach(id => newMap.set(id, false))
-          return newMap
-        })
-      }
+      clearLinkedElementLoading()
 
       // 执行完成回调
       config.onComplete?.()
@@ -860,13 +873,7 @@ export function AiAssistantDrawer({
         setStreamingText('')
         setIsRegenerating(false)
         // [MOD] 中止时也清除 loading 状态
-        if (linkedElementIds.size > 0) {
-          setElementLoadingStates(prev => {
-            const newMap = new Map(prev)
-            linkedElementIds.forEach(id => newMap.set(id, false))
-            return newMap
-          })
-        }
+        clearLinkedElementLoading()
         return
       }
 
@@ -882,13 +889,7 @@ export function AiAssistantDrawer({
       setStreamingText('')
       setIsRegenerating(false)
       // [MOD] 错误时也清除 loading 状态
-      if (linkedElementIds.size > 0) {
-        setElementLoadingStates(prev => {
-          const newMap = new Map(prev)
-          linkedElementIds.forEach(id => newMap.set(id, false))
-          return newMap
-        })
-      }
+      clearLinkedElementLoading()
 
       console.error(`[${config.logPrefix}] 失败:`, error)
     }
@@ -1244,8 +1245,6 @@ export function AiAssistantDrawer({
     setStreamingThinking('')
     setIsRegenerating(false)
     setRegenerateTag(null)
-    setToolStatus(null)
-    setProgress(null)
 
     // 通知后端终止生成
     if (sessionId) {
@@ -1375,6 +1374,16 @@ export function AiAssistantDrawer({
     // [MOD] 用于追踪已创建关联消息的元素ID，避免重复创建（移到 try 外以便 catch 可访问）
     const linkedElementIds = new Set<string>()
 
+    const clearLinkedElementLoading = () => {
+      if (linkedElementIds.size > 0) {
+        setElementLoadingStates(prev => {
+          const newMap = new Map(prev)
+          linkedElementIds.forEach(id => newMap.set(id, false))
+          return newMap
+        })
+      }
+    }
+
     try {
       // [MOD] 强制上传最新画布数据，确保后端获取到最新状态
       const ossKey = await forceCanvasUpload()
@@ -1396,23 +1405,22 @@ export function AiAssistantDrawer({
       const response = await fetch(getAIRequestUrl(), buildAIRequest(payload, controller.signal))
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const fallback = controller.signal.aborted
+          ? "已取消本次 AI 响应。"
+          : "抱歉，AI 服务暂时不可用，请稍后再试。"
+        commitAssistantContent(fallback)
+        if (streamingControllerRef.current === controller) {
+          streamingControllerRef.current = null
+        }
+        setStreamingMessageId(null)
+        setStreamingText('')
+        clearLinkedElementLoading()
+        console.error(`[聊天] 请求失败: HTTP ${response.status}`)
+        return
       }
 
       // 使用 useSSEStream 的 processStream 处理响应
       const result = await processStream(response, {
-        onStatusEvent: (status) => {
-          setToolStatus({
-            node: status.node,
-            event: status.event,
-            tool: status.tool,
-            args: status.args,
-          })
-          // tools end 时清除状态
-          if (status.node === 'tools' && status.event === 'end') {
-            setTimeout(() => setToolStatus(null), 1000)
-          }
-        },
         onCanvasEvent: (event) => {
           // [MOD] 统一生成元素 ID（在 handleCanvasEvent 之前），确保聊天关联卡片与画布元素使用相同 ID
           // 支持所有在 ELEMENT_TYPE_TITLES 中定义的元素类型
@@ -1505,18 +1513,6 @@ export function AiAssistantDrawer({
           }
           console.log('[UI事件]', event.action, event)
         },
-        onProgressEvent: (progressEvent) => {
-          setProgress({
-            current: progressEvent.current,
-            total: progressEvent.total,
-            message: progressEvent.message,
-            stage: progressEvent.stage,
-          })
-          // 完成时清除进度
-          if (progressEvent.stage === 'complete') {
-            setTimeout(() => setProgress(null), 2000)
-          }
-        },
         onProcessingEvent: (event) => {
           // 处理 processing 事件（加载进度文案）
           if (event.stage === 'generating' && event.message) {
@@ -1533,10 +1529,6 @@ export function AiAssistantDrawer({
           }
         },
         onModeEvent: (modeEvent) => {
-          setCurrentMode(modeEvent.mode)
-          if (modeEvent.stage) {
-            setBuildingStage(modeEvent.stage)
-          }
           // chat 模式时收起画布
           if (modeEvent.mode === 'chat') {
             setIsCanvasExpanded(false)
@@ -1574,16 +1566,8 @@ export function AiAssistantDrawer({
       }
       setStreamingMessageId(null)
       setStreamingText('')
-      // [MOD] SSE 完成后清除工具状态，避免动画持续导致 CPU 高
-      setToolStatus(null)
       // [MOD] 清除本次 SSE 创建的元素 loading 状态
-      if (linkedElementIds.size > 0) {
-        setElementLoadingStates(prev => {
-          const newMap = new Map(prev)
-          linkedElementIds.forEach(id => newMap.set(id, false))
-          return newMap
-        })
-      }
+      clearLinkedElementLoading()
       // 不清空思考内容，保留显示"思考完毕"状态
     } catch (error) {
       // AbortError 已在 processStream 内部处理并抛出，这里需要捕获
@@ -1593,15 +1577,8 @@ export function AiAssistantDrawer({
         }
         setStreamingMessageId(null)
         setStreamingText('')
-        setToolStatus(null)
         // [MOD] 中止时也清除 loading 状态
-        if (linkedElementIds.size > 0) {
-          setElementLoadingStates(prev => {
-            const newMap = new Map(prev)
-            linkedElementIds.forEach(id => newMap.set(id, false))
-            return newMap
-          })
-        }
+        clearLinkedElementLoading()
         return
       }
 
@@ -1614,15 +1591,8 @@ export function AiAssistantDrawer({
       }
       setStreamingMessageId(null)
       setStreamingText('')
-      setToolStatus(null)
       // [MOD] 错误时也清除 loading 状态
-      if (linkedElementIds.size > 0) {
-        setElementLoadingStates(prev => {
-          const newMap = new Map(prev)
-          linkedElementIds.forEach(id => newMap.set(id, false))
-          return newMap
-        })
-      }
+      clearLinkedElementLoading()
     }
   }, [inputMessage, isInitialized, sessionId, regenerateTag, attachedFiles, uploadFileToOss, handleCanvasEvent, processStream, resetSSEController, handleFillCoursePoints, handleFillKsa, handleFillChapterPanel, handleFillObjectivePanel, handleFillCourseMatrix, handleFillProjectMatrix, handleFillCourseInfo, clearAttachedFiles, forceCanvasUpload, updateFillProgress])
 
@@ -1678,7 +1648,7 @@ export function AiAssistantDrawer({
           )}
           {/* 左侧聊天区域 */}
           <div className={`flex flex-col min-h-0 transition-[width] duration-500 ease-out ${
-            isCanvasExpanded ? "w-[25%] flex-shrink-0 min-w-0 overflow-hidden" : "w-full"
+            isCanvasExpanded ? "w-[25%] shrink-0 min-w-0 overflow-hidden" : "w-full"
           }`}>
           <SheetHeader className={`relative ${isCanvasExpanded ? "px-4 pt-4 pb-3" : "px-6 pt-6 pb-4"}`}>
             <SheetTitle className="text-left text-xl font-semibold flex items-center gap-2">
@@ -1699,7 +1669,7 @@ export function AiAssistantDrawer({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 rounded-full bg-primary/10 hover:bg-primary/20 text-primary flex-shrink-0"
+                className="h-8 w-8 rounded-full bg-primary/10 hover:bg-primary/20 text-primary shrink-0"
                 onClick={handleNewSession}
                 title="开始新会话"
               >
@@ -1805,7 +1775,7 @@ export function AiAssistantDrawer({
           {isCanvasExpanded && (
             <>
               {/* 垂直分割线 - [MOD] 仅在流式输出时启用动画 */}
-              <div className={`ai-canvas-divider w-[2px] h-full flex-shrink-0 ${streamingMessageId ? 'ai-canvas-divider-active' : ''}`} />
+              <div className={`ai-canvas-divider w-0.5 h-full shrink-0 ${streamingMessageId ? 'ai-canvas-divider-active' : ''}`} />
               {/* 右侧Canvas画布区域 - 使用绝对定位确保有明确的宽高 */}
               <div className="flex-1 min-w-0 bg-background/50 relative">
                 <div className="absolute inset-0">

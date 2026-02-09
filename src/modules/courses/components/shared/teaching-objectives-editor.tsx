@@ -2,12 +2,10 @@
 
 import { useState, useEffect, useRef, useMemo } from "react"
 import { Button } from "@/shared/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/shared/components/ui/dialog"
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/shared/components/ui/accordion"
-import { Pencil, X, Check, Loader2, Plus, BookMarked, GripVertical, Search, Settings, Trash2, Star, Flag, ArrowLeft, XCircle } from "lucide-react"
+import { Check, Loader2, Plus, Search, Trash2, Star, ArrowLeft, XCircle } from "lucide-react"
 import { FileUpload } from "@/shared/components/ui/file-upload"
 import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
-import { cn } from "@/shared/utils/utils"
 import type { TreeNode } from "@/types"
 import type { CourseGoal } from "@/lib/api/course-goals-api"
 import { courseGoalsApi } from "@/modules/courses/api/courseGoalsApi"
@@ -24,17 +22,14 @@ interface TeachingObjectivesEditorProps {
   isLoadingTeachingObjectiveIndicators: boolean
 }
 
-export function TeachingObjectivesEditor({
-  isOpen,
-  onClose,
-  courseGoals,
-  node,
-  majorId,
-  majorIndicators,
-  teachingObjectiveIndicatorMap,
-  isLoadingMajorIndicators,
-  isLoadingTeachingObjectiveIndicators,
-}: TeachingObjectivesEditorProps) {
+export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
+  const {
+    isOpen,
+    onClose,
+    courseGoals,
+    node,
+    majorId,
+  } = props
   // 教学目标编辑状态
   const [editingGoalObjectives, setEditingGoalObjectives] = useState<Record<string, any[]>>({})
   const [goalObjectiveInputs, setGoalObjectiveInputs] = useState<Record<string, { inputValue: string; isEditing: boolean }>>({})
@@ -106,11 +101,33 @@ export function TeachingObjectivesEditor({
     }
 
     const autoSaveInterval = setInterval(() => {
-      handleAutoSaveTeachingObjectives()
+      if (isAutoSavingTeachingObjectives || !courseGoals || courseGoals.length === 0) {
+        return
+      }
+
+      setIsAutoSavingTeachingObjectives(true)
+      Promise.resolve().then(async () => {
+        try {
+          const updatedGoals = courseGoals.map((goal: any) => ({
+            ...goal,
+            children: editingGoalObjectives[goal.id] || goal.children || [],
+          }))
+
+          const courseId = node?.id
+          if (courseId && majorId) {
+            console.log("[TeachingObjectivesEditor] 教学目标自动保存:", updatedGoals)
+            await courseGoalsApi.updateCourseGoals(String(courseId), String(majorId), updatedGoals)
+          }
+        } catch (error) {
+          console.error("[TeachingObjectivesEditor] 自动保存教学目标失败:", error)
+        } finally {
+          setIsAutoSavingTeachingObjectives(false)
+        }
+      })
     }, 30000)
 
     return () => clearInterval(autoSaveInterval)
-  }, [isOpen])
+  }, [isOpen, isAutoSavingTeachingObjectives, courseGoals, editingGoalObjectives, node?.id, majorId])
 
   // 教学目标编辑函数
   const startAddingObjectiveForGoal = (goalId: string) => {
@@ -172,35 +189,6 @@ export function TeachingObjectivesEditor({
       return updated
     })
   }
-
-
-
-  const handleAutoSaveTeachingObjectives = async () => {
-    if (isAutoSavingTeachingObjectives || !courseGoals || courseGoals.length === 0) {
-      return
-    }
-
-    setIsAutoSavingTeachingObjectives(true)
-    try {
-      const updatedGoals = courseGoals.map((goal: any) => ({
-        ...goal,
-        children: editingGoalObjectives[goal.id] || goal.children || [],
-      }))
-
-      // 使用 node.id 作为 courseId，使用传入的 majorId
-      const courseId = node?.id
-      if (courseId && majorId) {
-        console.log("[TeachingObjectivesEditor] 教学目标自动保存:", updatedGoals)
-        // 调用API保存教学目标
-        await courseGoalsApi.updateCourseGoals(String(courseId), String(majorId), updatedGoals)
-      }
-    } catch (error) {
-      console.error("[TeachingObjectivesEditor] 自动保存教学目标失败:", error)
-    } finally {
-      setIsAutoSavingTeachingObjectives(false)
-    }
-  }
-
   const filteredCourseGoals = useMemo(() => {
     if (!courseGoals || courseGoals.length === 0) {
       return []

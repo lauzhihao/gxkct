@@ -1,6 +1,5 @@
 import universitiesData from "@/mock-data/universities.json"
 import departmentsData from "@/mock-data/departments.json"
-import coursesData from "@/mock-data/courses.json"
 import collegesData from "@/mock-data/colleges.json"
 import usersData from "@/mock-data/users.json"
 import courseMatricesData from "@/mock-data/course-matrices.json"
@@ -151,20 +150,6 @@ function buildTreeDataLegacy(): TreeNode {
 }
 
 /**
- * 构建树形结构数据
- * 优先使用colleges.json，如果不存在则使用旧版本的分离JSON文件
- */
-function buildTreeData(): TreeNode {
-  try {
-    // 优先使用colleges.json
-    return buildTreeDataFromColleges()
-  } catch (error) {
-    console.warn("[v0] 使用colleges.json失败，回退到旧版本数据:", error)
-    return buildTreeDataLegacy()
-  }
-}
-
-/**
  * 初始化用户数据
  */
 function initializeUsers() {
@@ -256,9 +241,17 @@ export function initializeMockData(): void {
   console.log("[v0] 开始初始化Mock数据...")
 
   try {
-    // 树形数据现在从API动态获取，这里不再初始化
-    // 但保留mock数据作为降级方案
-    console.log("[v0] 树形数据将从API动态获取，不在初始化时加载")
+    // 树形数据现在从API动态获取；这里仅写入降级数据供离线/异常回退
+    try {
+      const fallbackTree = buildTreeDataFromColleges()
+      localStorage.setItem(STORAGE_KEYS.TREE_DATA, JSON.stringify(fallbackTree))
+      console.log("[v0] 树形降级数据已初始化(colleges.json)")
+    } catch (error) {
+      console.warn("[v0] colleges.json降级数据初始化失败，回退到旧数据:", error)
+      const fallbackTree = buildTreeDataLegacy()
+      localStorage.setItem(STORAGE_KEYS.TREE_DATA, JSON.stringify(fallbackTree))
+      console.log("[v0] 树形降级数据已初始化(legacy)")
+    }
 
     // 初始化用户数据
     initializeUsers()

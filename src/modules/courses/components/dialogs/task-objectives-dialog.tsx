@@ -7,7 +7,6 @@ import { Plus, Check, X, Edit, Trash2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/shared/components/ui/dialog"
 import { Button } from "@/shared/components/ui/button"
 import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
-import type { UseTaskObjectivesResult } from "@/modules/courses/hooks/use-task-objectives"
 import type { ProjectMatrixData } from "@/modules/courses/hooks/use-project-matrix"
 
 interface TaskObjectivesDialogProps {

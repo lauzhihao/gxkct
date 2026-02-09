@@ -1,17 +1,15 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef, useEffect, useMemo } from "react"
+import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
-import { ArrowLeft, Plus, Trash2, Upload, FileSpreadsheet, X, Check, Loader2, Calendar, ChevronDown, Star } from "lucide-react"
+import { ArrowLeft, Plus, Trash2, X, Check, Loader2, Calendar, ChevronDown } from "lucide-react"
 import { Card } from "@/shared/components/ui/card"
 import { Tabs, TabsContent } from "@/shared/components/ui/tabs"
 import { UnderlineTabsList, UnderlineTabsTrigger } from "@/shared/components/ui/underline-tabs"
-import { FileUpload } from "@/shared/components/ui/file-upload"
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover"
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/shared/components/ui/accordion"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/shared/components/ui/table"
 import { useToast } from "@/shared/hooks/use-toast"
 import { api } from "@/lib/api"
@@ -52,6 +50,18 @@ interface AddCourseFormProps {
   courseDetailData?: any
 }
 
+const DEFAULT_SCHEDULE_ROW = {
+  period: "",
+  sessions: "",
+  monday: "",
+  tuesday: "",
+  wednesday: "",
+  thursday: "",
+  friday: "",
+  saturday: "",
+  sunday: "",
+}
+
 const courseNatureOptions = [
   { id: 1, name: "通识教育课" },
   { id: 2, name: "学科基础课" },
@@ -68,9 +78,10 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
   const [autoSaveStatus, setAutoSaveStatus] = useState<"" | "saving" | "saved" | "failed">("")
   const teachingObjectivesSnapshotRef = useRef<TeachingObjective[]>([])
   // 自动保存开关状态（编辑模式下默认开启）
-  const [isAutoSaveEnabled, setIsAutoSaveEnabled] = useState(isEditMode)
+  const [isAutoSaveEnabled] = useState(isEditMode)
   // 用于自动保存的定时器引用
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const handleSubmitRef = useRef<(isAutoSave?: boolean) => void>(() => {})
 
   // 从majorId中提取真实的majorId（如果是major-3895格式，提取3895）
   const realMajorId = useMemo(() => {
@@ -105,33 +116,20 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
   const [teachingClass, setTeachingClass] = useState(initialData?.teachingClass || "")
   const [teachingLocation, setTeachingLocation] = useState(initialData?.teachingLocation || "")
 
-  // 课程表数据结构 - 支持多行
-  const defaultScheduleRow = {
-    period: "",
-    sessions: "",
-    monday: "",
-    tuesday: "",
-    wednesday: "",
-    thursday: "",
-    friday: "",
-    saturday: "",
-    sunday: "",
-  }
-
-  const parseTeachingSchedule = (data: any) => {
+  const parseTeachingSchedule = useCallback((data: any) => {
     if (typeof data === "string") {
       try {
         const parsed = JSON.parse(data)
         // 如果是数组格式，直接返回；否则转换为数组
         return Array.isArray(parsed) ? parsed : [parsed]
       } catch {
-        return [defaultScheduleRow]
+        return [DEFAULT_SCHEDULE_ROW]
       }
     }
-    return Array.isArray(data) ? data : (data ? [data] : [defaultScheduleRow])
-  }
+    return Array.isArray(data) ? data : (data ? [data] : [DEFAULT_SCHEDULE_ROW])
+  }, [])
 
-  const [teachingScheduleRows, setTeachingScheduleRows] = useState<typeof defaultScheduleRow[]>(() =>
+  const [teachingScheduleRows, setTeachingScheduleRows] = useState<typeof DEFAULT_SCHEDULE_ROW[]>(() =>
     parseTeachingSchedule(initialData?.teachingTime)
   )
 
@@ -140,7 +138,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
 
   // 课程表操作函数
   const addScheduleRow = () => {
-    setTeachingScheduleRows([...teachingScheduleRows, defaultScheduleRow])
+    setTeachingScheduleRows([...teachingScheduleRows, DEFAULT_SCHEDULE_ROW])
   }
 
   const deleteScheduleRow = (index: number) => {
@@ -227,26 +225,15 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
         setOpeningDate(dateStr)
       }
     }
-  }, [isEditMode, courseDetailData, initialData?.name])
+  }, [isEditMode, courseDetailData, initialData?.name, parseTeachingSchedule])
 
   // Tab 2: Teaching Objectives
   const [teachingObjectives, setTeachingObjectives] = useState<TeachingObjective[]>(
     initialData?.teachingObjectives || [{ id: "1", content: "", points: [""] }],
   )
-  const [objectivesFile, setObjectivesFile] = useState<File | null>(null)
-  const [courseGoals, setCourseGoals] = useState<any[]>([])
-  const [isLoadingGoals, setIsLoadingGoals] = useState(false)
-  // 追踪每个课程目标下的教学目标输入框状态：goalId -> { inputValue, isMultiline, isEditing }
-  const [goalObjectiveInputs, setGoalObjectiveInputs] = useState<{ [key: number]: { inputValue: string; isMultiline: boolean; isEditing: boolean } }>({})
-  // 追踪每个课程目标下的教学目标列表：goalId -> TeachingObjective[]（包含 children）
-  const [goalObjectives, setGoalObjectives] = useState<{ [key: number]: Array<TeachingObjective & { children?: TeachingObjective[] }> }>({})
-  // 追踪子项的编辑状态：`${goalId}-${objectiveId}-${childIdx}` -> { isEditing, inputValue }
-  const [childrenEditStates, setChildrenEditStates] = useState<{ [key: string]: { isEditing: boolean; inputValue: string } }>({})
-  // 追踪教学目标的编辑状态：`${goalId}-${objectiveId}` -> { isMultiline }
-  const [goalObjectiveEditStates, setGoalObjectiveEditStates] = useState<{ [key: string]: { isMultiline: boolean } }>({})
 
   // Tab 3: Course Point Information Library
-  const [coursePoints, setCoursePoints] = useState<CoursePoint[]>(
+  const [coursePoints] = useState<CoursePoint[]>(
     initialData?.coursePoints?.map((cp: any) => ({
       id: cp.id,
       content: cp.content || cp.title || "",
@@ -258,17 +245,11 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
         })) || [],
     })) || [{ id: "1", content: "", infoPoints: [] }],
   )
-  const [pointsFile, setPointsFile] = useState<File | null>(null)
 
   // Tab 4: Chapter and Project Management
-  const [chapters, setChapters] = useState<ChapterProject[]>(
+  const [chapters] = useState<ChapterProject[]>(
     initialData?.chapters || [{ id: "1", name: "", theoryHours: 0, practiceHours: 0 }],
   )
-
-  const lastObjectiveRef = useRef<HTMLInputElement>(null)
-  const lastPointRef = useRef<HTMLInputElement>(null)
-  const hasLoadedGoalsRef = useRef(false)
-  const [majorIndicators, setMajorIndicators] = useState<Array<{ requirementId: string; indicatorIndex: number; content: string }>>([])
 
   // 加载专业的指标点，并过滤出该课程支撑的指标点
   useEffect(() => {
@@ -305,23 +286,18 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
             console.log("课程支撑的指标点:", supportResponse.data)
 
             if (supportResponse.data && Array.isArray(supportResponse.data) && supportResponse.data.length > 0) {
-              // 只显示该课程支撑的指标点
+              // 仅用于保持数据加载链路，当前表单不展示该列表
               const supportedIndicatorKeys = new Set(supportResponse.data)
               const filteredIndicators = allIndicators.filter((indicator) => {
                 const key = `${indicator.requirementId}-${indicator.indicatorIndex}`
                 return supportedIndicatorKeys.has(key)
               })
               console.log("过滤后的指标点:", filteredIndicators)
-              setMajorIndicators(filteredIndicators)
             } else {
-              // 如果没有支撑的指标点，显示所有指标点
               console.log("没有支撑的指标点，显示所有指标点")
-              setMajorIndicators(allIndicators)
             }
           } else {
-            // 新增模式显示所有指标点
             console.log("新增模式，显示所有指标点")
-            setMajorIndicators(allIndicators)
           }
         }
       } catch (error) {
@@ -357,313 +333,6 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
 
     loadCourseObjectiveIndicators()
   }, [isEditMode, realCourseId, realMajorId])
-
-  // 加载课程目标数据
-  useEffect(() => {
-    const loadCourseGoalsData = async () => {
-      if (!isEditMode || !realCourseId || !realMajorId) return
-
-      // 防止重复加载（React StrictMode 会执行两次）
-      if (hasLoadedGoalsRef.current) return
-      hasLoadedGoalsRef.current = true
-
-      setIsLoadingGoals(true)
-      try {
-        console.log(`[AddCourseForm] 加载课程目标，courseId: ${realCourseId}, majorId: ${realMajorId}`)
-        const response = await api.courseGoals.getCourseGoals(realCourseId, realMajorId)
-        if (response.data && Array.isArray(response.data)) {
-          console.log(`[AddCourseForm] 课程目标加载成功`, response.data)
-          setCourseGoals(response.data)
-
-          // 初始化 goalObjectives，将 children 也添加到教学目标列表中
-          const initialGoalObjectives: Record<number, Array<TeachingObjective & { children?: TeachingObjective[] }>> = {}
-          response.data.forEach((goal: any) => {
-            const objectives: Array<TeachingObjective & { children?: TeachingObjective[] }> = []
-
-            // 如果有 children，添加到教学目标列表
-            if (goal.children && goal.children.length > 0) {
-              goal.children.forEach((child: any) => {
-                objectives.push({
-                  id: child.id.toString(),
-                  content: child.description,
-                  points: [""],
-                  children: [],
-                })
-              })
-            }
-
-            initialGoalObjectives[goal.id] = objectives
-          })
-          setGoalObjectives(initialGoalObjectives)
-        }
-      } catch (error) {
-        console.error("[AddCourseForm] 加载课程目标失败:", error)
-      } finally {
-        setIsLoadingGoals(false)
-      }
-    }
-
-    loadCourseGoalsData()
-  }, [isEditMode, realCourseId, realMajorId])
-
-  // Teaching Objectives functions
-  const addTeachingObjective = () => {
-    const newId = Date.now().toString()
-    setTeachingObjectives([{ id: newId, content: "", points: [""] }, ...teachingObjectives])
-    setTimeout(() => lastObjectiveRef.current?.focus(), 0)
-  }
-
-  const removeTeachingObjective = (id: string) => {
-    if (teachingObjectives.length > 1) {
-      setTeachingObjectives(teachingObjectives.filter((obj) => obj.id !== id))
-    }
-  }
-
-  const updateTeachingObjective = (id: string, content: string) => {
-    setTeachingObjectives(teachingObjectives.map((obj) => (obj.id === id ? { ...obj, content } : obj)))
-  }
-
-  const updateTeachingObjectiveIndicators = (id: string, indicators: string[]) => {
-    setTeachingObjectives(teachingObjectives.map((obj) => (obj.id === id ? { ...obj, supportedIndicators: indicators } : obj)))
-  }
-
-  // 课程目标下的教学目标处理函数
-  const startAddingObjectiveForGoal = (goalId: number) => {
-    setGoalObjectiveInputs((prev) => ({
-      ...prev,
-      [goalId]: { inputValue: "", isMultiline: false, isEditing: true },
-    }))
-  }
-
-  const updateGoalObjectiveInput = (goalId: number, value: string) => {
-    setGoalObjectiveInputs((prev) => ({
-      ...prev,
-      [goalId]: { ...prev[goalId], inputValue: value },
-    }))
-  }
-
-  const toggleGoalObjectiveMultiline = (goalId: number, isMultiline: boolean) => {
-    setGoalObjectiveInputs((prev) => ({
-      ...prev,
-      [goalId]: { ...prev[goalId], isMultiline },
-    }))
-  }
-
-  const finishAddingObjectiveForGoal = (goalId: number) => {
-    const input = goalObjectiveInputs[goalId]
-    if (!input || !input.inputValue.trim()) {
-      setGoalObjectiveInputs((prev) => ({
-        ...prev,
-        [goalId]: { inputValue: "", isMultiline: false, isEditing: false },
-      }))
-      return
-    }
-
-    // 添加到该课程目标的教学目标列表
-    const newObjective: TeachingObjective & { children?: TeachingObjective[] } = {
-      id: Date.now().toString(),
-      content: input.inputValue.trim(),
-      points: [""],
-      children: [],
-    }
-
-    setGoalObjectives((prev) => ({
-      ...prev,
-      [goalId]: [...(prev[goalId] || []), newObjective],
-    }))
-
-    // 清空输入框
-    setGoalObjectiveInputs((prev) => ({
-      ...prev,
-      [goalId]: { inputValue: "", isMultiline: false, isEditing: false },
-    }))
-  }
-
-  const removeGoalObjective = (goalId: number, objectiveId: string) => {
-    setGoalObjectives((prev) => ({
-      ...prev,
-      [goalId]: (prev[goalId] || []).filter((obj) => obj.id !== objectiveId),
-    }))
-  }
-
-  const toggleGoalObjectiveEditMode = (goalId: number, objectiveId: string, isMultiline: boolean) => {
-    const key = `${goalId}-${objectiveId}`
-    setGoalObjectiveEditStates((prev) => ({
-      ...prev,
-      [key]: { isMultiline },
-    }))
-  }
-
-  // 子项编辑函数
-  const startEditingChild = (goalId: number, objectiveId: string, childIdx: number, currentValue: string) => {
-    const key = `${goalId}-${objectiveId}-${childIdx}`
-    setChildrenEditStates((prev) => ({
-      ...prev,
-      [key]: { isEditing: true, inputValue: currentValue },
-    }))
-  }
-
-  const updateChildInput = (goalId: number, objectiveId: string, childIdx: number, value: string) => {
-    const key = `${goalId}-${objectiveId}-${childIdx}`
-    setChildrenEditStates((prev) => ({
-      ...prev,
-      [key]: { ...prev[key], inputValue: value },
-    }))
-  }
-
-  const finishEditingChild = (goalId: number, objectiveId: string, childIdx: number) => {
-    const key = `${goalId}-${objectiveId}-${childIdx}`
-    const editState = childrenEditStates[key]
-    if (!editState) return
-
-    // 更新子项内容
-    setGoalObjectives((prev) => ({
-      ...prev,
-      [goalId]: (prev[goalId] || []).map((obj) => {
-        if (obj.id === objectiveId && obj.children) {
-          return {
-            ...obj,
-            children: obj.children.map((child, idx) =>
-              idx === childIdx ? { ...child, content: editState.inputValue.trim() } : child
-            ),
-          }
-        }
-        return obj
-      }),
-    }))
-
-    // 清空编辑状态
-    setChildrenEditStates((prev) => {
-      const newState = { ...prev }
-      delete newState[key]
-      return newState
-    })
-  }
-
-  const removeChild = (goalId: number, objectiveId: string, childIdx: number) => {
-    setGoalObjectives((prev) => ({
-      ...prev,
-      [goalId]: (prev[goalId] || []).map((obj) => {
-        if (obj.id === objectiveId && obj.children) {
-          return {
-            ...obj,
-            children: obj.children.filter((_, idx) => idx !== childIdx),
-          }
-        }
-        return obj
-      }),
-    }))
-  }
-
-  const addChildToObjective = (goalId: number, objectiveId: string) => {
-    setGoalObjectives((prev) => ({
-      ...prev,
-      [goalId]: (prev[goalId] || []).map((obj) => {
-        if (obj.id === objectiveId) {
-          return {
-            ...obj,
-            children: [
-              ...(obj.children || []),
-              {
-                id: Date.now().toString(),
-                content: "",
-                points: [""],
-              },
-            ],
-          }
-        }
-        return obj
-      }),
-    }))
-  }
-
-  // Course Points functions
-  const addCoursePoint = () => {
-    const newId = Date.now().toString()
-    setCoursePoints([...coursePoints, { id: newId, content: "", infoPoints: [] }])
-    setTimeout(() => lastPointRef.current?.focus(), 0)
-  }
-
-  const removeCoursePoint = (id: string) => {
-    if (coursePoints.length > 1) {
-      setCoursePoints(coursePoints.filter((point) => point.id !== id))
-    }
-  }
-
-  const updateCoursePointContent = (id: string, content: string) => {
-    setCoursePoints(coursePoints.map((point) => (point.id === id ? { ...point, content } : point)))
-  }
-
-  const addInfoPointWithType = (pointId: string, type: "K" | "S" | "A") => {
-    setCoursePoints(
-      coursePoints.map((point) => {
-        if (point.id === pointId) {
-          // Count existing info points of this type
-          const existingCount = point.infoPoints.filter((ip) => ip.type === type).length
-          const newNumber = existingCount + 1
-          const newId = `${type}${newNumber}`
-
-          return {
-            ...point,
-            infoPoints: [...point.infoPoints, { id: newId, type, content: "" }],
-          }
-        }
-        return point
-      }),
-    )
-  }
-
-  const removeInfoPoint = (pointId: string, infoPointId: string) => {
-    setCoursePoints(
-      coursePoints.map((point) =>
-        point.id === pointId ? { ...point, infoPoints: point.infoPoints.filter((ip) => ip.id !== infoPointId) } : point,
-      ),
-    )
-  }
-
-  const updateInfoPointContent = (pointId: string, infoPointId: string, content: string) => {
-    setCoursePoints(
-      coursePoints.map((point) =>
-        point.id === pointId
-          ? {
-              ...point,
-              infoPoints: point.infoPoints.map((ip) => (ip.id === infoPointId ? { ...ip, content } : ip)),
-            }
-          : point,
-      ),
-    )
-  }
-
-  // Chapter functions
-  const addChapter = () => {
-    setChapters([...chapters, { id: Date.now().toString(), name: "", theoryHours: 0, practiceHours: 0 }])
-  }
-
-  const removeChapter = (id: string) => {
-    if (chapters.length > 1) {
-      setChapters(chapters.filter((ch) => ch.id !== id))
-    }
-  }
-
-  const updateChapter = (id: string, field: string, value: any) => {
-    setChapters(chapters.map((ch) => (ch.id === id ? { ...ch, [field]: value } : ch)))
-  }
-
-  const handleObjectivesFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setObjectivesFile(file)
-      // TODO: Parse Excel file
-    }
-  }
-
-  const handlePointsFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setPointsFile(file)
-      // TODO: Parse Excel file
-    }
-  }
 
   // 同步教学目标到快照ref，用于自动保存
   useEffect(() => {
@@ -718,7 +387,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
     // 启动自动保存定时器
     autoSaveTimerRef.current = setInterval(() => {
       console.log("[AddCourseForm] 自动保存触发")
-      handleSubmit(true)
+      handleSubmitRef.current(true)
     }, 10000) // 每10秒自动保存一次
 
     return () => {
@@ -727,9 +396,9 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
         autoSaveTimerRef.current = null
       }
     }
-  }, [isAutoSaveEnabled, isEditMode, courseName, courseNatureId, introduction, theoryPeriod, practicePeriod, teachingClass, teachingLocation, teachingScheduleRows, studentCount, credits, mainTextbook, referenceResources, attendancePolicy, assignmentPolicy, conductRequirements, practiceRequirements, teamworkRequirements, bonusRequirements, otherSuggestions, assessmentMethod, assessmentForm, scoreType, scoreTable, assessmentDescription, teachingObjectives, coursePoints, chapters])
+  }, [isAutoSaveEnabled, isEditMode])
 
-  const handleSubmit = (isAutoSave: boolean = false) => {
+  const handleSubmit = useCallback((isAutoSave: boolean = false) => {
     // 自动保存时不设置loading状态（避免干扰用户操作）
     if (!isAutoSave) {
       setIsLoading(true)
@@ -799,13 +468,46 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
     if (!isAutoSave) {
       setIsLoading(false)
     }
-  }
+  }, [
+    assessmentDescription,
+    assessmentForm,
+    assessmentMethod,
+    assignmentPolicy,
+    attendancePolicy,
+    bonusRequirements,
+    chapters,
+    conductRequirements,
+    courseName,
+    courseNatureId,
+    courseNatureName,
+    coursePoints,
+    courseType,
+    credits,
+    introduction,
+    isEditMode,
+    mainTextbook,
+    onSubmit,
+    openingDate,
+    otherSuggestions,
+    practicePeriod,
+    practiceRequirements,
+    referenceResources,
+    scoreTable,
+    scoreType,
+    studentCount,
+    teachingClass,
+    teachingLocation,
+    teachingObjectives,
+    teachingScheduleRows,
+    teamworkRequirements,
+    theoryPeriod,
+    toast,
+    initialData?.children,
+  ])
 
-  const totalTheoryHours = chapters.reduce((sum, ch) => sum + (ch.theoryHours || 0), 0)
-  const totalPracticeHours = chapters.reduce((sum, ch) => sum + (ch.practiceHours || 0), 0)
-  const totalHours = totalTheoryHours + totalPracticeHours
-  const chapterCount = chapters.filter((ch) => ch.name.includes("章")).length
-  const projectCount = chapters.filter((ch) => ch.name.includes("项目")).length
+  useEffect(() => {
+    handleSubmitRef.current = handleSubmit
+  }, [handleSubmit])
 
   return (
     <div className="space-y-6 mr-6">
@@ -1131,8 +833,6 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
                       </TableHeader>
                       <TableBody>
                         {teachingScheduleRows.map((row, rowIndex) => {
-                          const isFirstRow = rowIndex === 0
-                          const isLastRow = rowIndex === teachingScheduleRows.length - 1
                           const dayFields = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 
                           return (

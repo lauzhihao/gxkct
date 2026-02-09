@@ -1,16 +1,15 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useCallback } from "react"
 import type { TreeNode } from "@/types"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
 import { Button } from "@/shared/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectSeparator } from "@/shared/components/ui/select"
-import { GraduationCap, Pencil, Trash2, User, Plus } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
+import { GraduationCap, Pencil, Plus } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/shared/components/ui/dialog"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
 import { Checkbox } from "@/shared/components/ui/checkbox"
-import { cn } from "@/shared/utils/utils"
 import AddCourseForm from "@/components/add-course-form"
 import { AddMajorForm } from "@/modules/majors/components/forms/add-major-form"
 import { MajorBasicInfo } from "@/modules/majors/components/major/major-basic-info"
@@ -163,6 +162,7 @@ const SemesterSelector = React.memo(({
     </>
   )
 })
+SemesterSelector.displayName = "SemesterSelector"
 
 interface MajorDetailProps {
   node: TreeNode
@@ -177,18 +177,17 @@ interface MajorDetailProps {
   treeData?: TreeNode
 }
 
-export function MajorDetail({
-  node,
-  onUpdate,
-  onAddCourse,
-  onDeleteCourse,
-  onUpdateNode,
-  onDeleteNode,
-  onNodeSelect,
-  currentUser,
-  majorCourses,
-  treeData,
-}: MajorDetailProps) {
+export function MajorDetail(props: MajorDetailProps) {
+  const {
+    node,
+    onAddCourse,
+    onUpdateNode,
+    onDeleteNode,
+    onNodeSelect,
+    currentUser,
+    majorCourses,
+    treeData,
+  } = props
   const [isAddingCourse, setIsAddingCourse] = useState(false)
   const [isEditingMajor, setIsEditingMajor] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -208,7 +207,7 @@ export function MajorDetail({
   useEffect(() => {
     if (!node) return
     setActivePage(DEFAULT_MAJOR_TAB, MAJOR_TABS[DEFAULT_MAJOR_TAB])
-  }, [node?.nodeId, setActivePage])
+  }, [node, setActivePage])
 
   const handleTabChange = (value: string) => {
     const tabKey = value as MajorTabKey

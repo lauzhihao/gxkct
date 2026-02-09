@@ -23,7 +23,8 @@ interface MajorMatrixProps {
   onUpdateNode?: (nodeId: string, updates: any) => void
 }
 
-export function MajorMatrix({ node, onUpdateNode }: MajorMatrixProps) {
+export function MajorMatrix(props: MajorMatrixProps) {
+  const { node } = props
   const [isEditingMatrix, setIsEditingMatrix] = useState(false)
   const [matrixSupportLevels, setMatrixSupportLevels] = useState<Record<string, string>>({})
   const [isSavingMatrix, setIsSavingMatrix] = useState(false)
@@ -160,7 +161,7 @@ export function MajorMatrix({ node, onUpdateNode }: MajorMatrixProps) {
       setClampedIndicators(newClampedIndicators)
     }, 100)
     return () => clearTimeout(timer)
-  }, [node])
+  }, [node, expandedIndicators])
 
   // 获取某门课程在某个指标点的支撑级别
   const getSupportLevel = (courseId: string, reqId: number, indicatorIdx: number): string => {
@@ -355,14 +356,12 @@ export function MajorMatrix({ node, onUpdateNode }: MajorMatrixProps) {
                 <tr className="border-b border-border bg-secondary/30">
                   {graduationRequirements.map((req: any, reqIndex: number) => {
                     const indicators = req.indicators || []
-                    const rowKey = req.id
                     const isRowExpanded = indicators.some((_: any, idx: number) => expandedIndicators.has(`${req.id}-${idx}`))
                     const hasClampedInRow = indicators.some((_: any, idx: number) => clampedIndicators.has(`${req.id}-${idx}`))
 
                     return indicators.map((indicator: string, indicatorIdx: number) => {
                       const indicatorKey = `${req.id}-${indicatorIdx}`
                       const isExpanded = expandedIndicators.has(indicatorKey)
-                      const isClamped = clampedIndicators.has(indicatorKey)
 
                       return (
                         <th
