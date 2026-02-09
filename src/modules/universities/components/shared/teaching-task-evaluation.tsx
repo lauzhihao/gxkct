@@ -99,7 +99,7 @@ export function TeachingTaskEvaluation({ task: initialTask, onBack, onEdit, onCo
     return () => {
       cancelled = true
     }
-  }, [initialTask.id, initialTask.universityId])
+  }, [initialTask])
 
   const handleArchive = async () => {
     if (!onArchive || typeof task.id !== "number") return

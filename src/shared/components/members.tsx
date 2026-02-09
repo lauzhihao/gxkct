@@ -36,7 +36,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/shared/components/ui/popover"
-import { ChevronDown, Loader2 } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 import { cn } from "@/shared/utils/utils"
 import type { TreeNode, NodeType } from "@/types"
 import { api } from "@/lib/api"

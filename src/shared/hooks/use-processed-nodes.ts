@@ -164,11 +164,7 @@ export function useProcessedNodes({
       }
     }
     return map
-  }, [
-    // 只依赖 KSA 节点的数量和数据签名，而不是整个 flowNodes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    flowNodes.filter(n => n.type === FlowNodeType.KSA).map(n => `${(n.data as KsaItemData).id}_${(n.data as KsaItemData).category}${(n.data as KsaItemData).index}`).join(',')
-  ])
+  }, [flowNodes])
 
   return useMemo(() => {
     // 预先计算每个 Panel 的子节点数量

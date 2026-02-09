@@ -1,7 +1,7 @@
 "use client"
 
 import "./ai-assistant.css"
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import Image from "next/image"
 import { Plus, Copy, Check, FileText } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
@@ -58,6 +58,26 @@ import {
 import { ChatMessageItem } from "./ai-assistant/chat-message-item"
 import { ChatInputArea } from "./ai-assistant/chat-input-area"
 import { createConnectionMenuHandler } from "./ai-assistant/connection-menu-handlers"
+
+// CanvasComponentType 到 FlowNodeType 的映射（用于获取颜色配置）
+const CANVAS_TO_FLOW_TYPE: Record<CanvasComponentType, string> = {
+  [CanvasComponentType.SOURCE_DOCUMENT_PANEL]: "sourceDocumentPanel",
+  [CanvasComponentType.SOURCE_DOCUMENT_CARD]: "sourceDocument",
+  [CanvasComponentType.COURSE_INFO]: "courseInfo",
+  [CanvasComponentType.OBJECTIVE_PANEL]: "objectivePanel",
+  [CanvasComponentType.OBJECTIVE_CARD]: "objective",
+  [CanvasComponentType.COURSE_POINT_PANEL]: "coursePointPanel",
+  [CanvasComponentType.COURSE_POINT_CARD]: "coursePoint",
+  [CanvasComponentType.CHAPTER_PANEL]: "chapterPanel",
+  [CanvasComponentType.CHAPTER_CARD]: "chapter",
+  [CanvasComponentType.KSA_PANEL]: "ksaPanel",
+  [CanvasComponentType.KSA_ITEM]: "ksa",
+  [CanvasComponentType.GRADUATION_SUPPORT]: "graduationSupportPanel",
+  [CanvasComponentType.COURSE_MATRIX]: "courseMatrix",
+  [CanvasComponentType.PROJECT_MATRIX_PANEL]: "projectMatrix",
+  [CanvasComponentType.PROJECT_MATRIX]: "projectMatrix",
+  [CanvasComponentType.COURSE_REPORT]: "courseReport",
+}
 
 export function AiAssistantDrawer({
   open,
@@ -459,7 +479,7 @@ export function AiAssistantDrawer({
   }, [sessionId, clearCanvas, clearCanvasPersistence, clearAttachedFiles])
 
   // 上传文件到OSS
-  const uploadFileToOss = async (file: File): Promise<{ url: string; ossKey: string } | null> => {
+  const uploadFileToOss = useCallback(async (file: File): Promise<{ url: string; ossKey: string } | null> => {
     try {
       // 生成文件路径：gxkct/course_ai_files/{日期}/{sessionId}_{时间戳}_{原文件名}
       const now = new Date()
@@ -506,7 +526,7 @@ export function AiAssistantDrawer({
       console.error("上传文件到OSS失败:", error)
       return null
     }
-  }
+  }, [sessionId])
 
   useEffect(() => {
     return () => {
@@ -872,7 +892,7 @@ export function AiAssistantDrawer({
 
       console.error(`[${config.logPrefix}] 失败:`, error)
     }
-  }, [isRegenerating, streamingMessageId, isInitialized, sessionId, getCanvasOssKey, handleCanvasEvent, processStream, resetSSEController])
+  }, [isRegenerating, streamingMessageId, isInitialized, sessionId, handleCanvasEvent, processStream, resetSSEController, forceCanvasUpload, updateFillProgress])
 
   // 处理章节项目面板自动填充请求
   // [MOD] 增加 userPrompt 参数，支持重做时传入用户提示词
@@ -956,28 +976,9 @@ export function AiAssistantDrawer({
     })
   }, [executeSSERequest, canvasElements, updateCanvasPanelChildren, selectCanvasElement])
 
-  // CanvasComponentType 到 FlowNodeType 的映射（用于获取颜色配置）
-  const CANVAS_TO_FLOW_TYPE: Record<CanvasComponentType, string> = {
-    [CanvasComponentType.SOURCE_DOCUMENT_PANEL]: "sourceDocumentPanel",
-    [CanvasComponentType.SOURCE_DOCUMENT_CARD]: "sourceDocument",
-    [CanvasComponentType.COURSE_INFO]: "courseInfo",
-    [CanvasComponentType.OBJECTIVE_PANEL]: "objectivePanel",
-    [CanvasComponentType.OBJECTIVE_CARD]: "objective",
-    [CanvasComponentType.COURSE_POINT_PANEL]: "coursePointPanel",
-    [CanvasComponentType.COURSE_POINT_CARD]: "coursePoint",
-    [CanvasComponentType.CHAPTER_PANEL]: "chapterPanel",
-    [CanvasComponentType.CHAPTER_CARD]: "chapter",
-    [CanvasComponentType.KSA_PANEL]: "ksaPanel",
-    [CanvasComponentType.KSA_ITEM]: "ksa",
-    [CanvasComponentType.GRADUATION_SUPPORT]: "graduationSupportPanel",
-    [CanvasComponentType.COURSE_MATRIX]: "courseMatrix",
-    [CanvasComponentType.PROJECT_MATRIX_PANEL]: "projectMatrix",
-    [CanvasComponentType.PROJECT_MATRIX]: "projectMatrix",
-    [CanvasComponentType.COURSE_REPORT]: "courseReport",
-  }
-
   // 处理画布组件重做请求
-  const handleRegenerate = useCallback(async (nodeId: string, nodeType: CanvasComponentType, nodeName: string) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleRegenerate = useCallback(async (nodeId: string, nodeType: CanvasComponentType, _nodeName: string) => {
     // 获取颜色配置
     const flowNodeType = CANVAS_TO_FLOW_TYPE[nodeType] as Parameters<typeof getNodeColorConfig>[0]
     const colorConfig = getNodeColorConfig(flowNodeType)
@@ -1623,11 +1624,11 @@ export function AiAssistantDrawer({
         })
       }
     }
-  }, [inputMessage, isInitialized, sessionId, regenerateTag, attachedFiles, uploadFileToOss, getCanvasOssKey, handleCanvasEvent, processStream, resetSSEController, selectCanvasElement, executeSSERequest, handleFillCoursePoints, handleFillKsa, handleFillChapterPanel, handleFillObjectivePanel, handleFillCourseMatrix, handleFillProjectMatrix, handleFillCourseInfo])
+  }, [inputMessage, isInitialized, sessionId, regenerateTag, attachedFiles, uploadFileToOss, handleCanvasEvent, processStream, resetSSEController, handleFillCoursePoints, handleFillKsa, handleFillChapterPanel, handleFillObjectivePanel, handleFillCourseMatrix, handleFillProjectMatrix, handleFillCourseInfo, clearAttachedFiles, forceCanvasUpload, updateFillProgress])
 
   // 连接菜单处理器
-  const handleConnectionMenuSelect = useCallback(
-    createConnectionMenuHandler({
+  const handleConnectionMenuSelect = useMemo(
+    () => createConnectionMenuHandler({
       canvasElements,
       handleCanvasEvent,
       handleFillCourseMatrix,
@@ -1681,10 +1682,13 @@ export function AiAssistantDrawer({
           }`}>
           <SheetHeader className={`relative ${isCanvasExpanded ? "px-4 pt-4 pb-3" : "px-6 pt-6 pb-4"}`}>
             <SheetTitle className="text-left text-xl font-semibold flex items-center gap-2">
-              <img
+              <Image
                 src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAE4AAAAqCAMAAAAqEZ1jAAAAAXNSR0IArs4c6QAAAAlwSFlzAAAhOAAAITgBRZYxYAAAAKJQTFRFAAAAenb/RpP/k2j/XXf7cXX6P5z7i2n8W3j7ZHP7jmn9VID7Qpf8jWn8Xnr6iWr8YHb7i2n8RJb9dWz8WXr8mWj9RpP8W3n8bW/8l2j+QJz9Q5f9ToT8fWv9ZW/8lWj9VID8YnX7Pp79QZr9pWb+RJT8m2f9k2j9SYz8jWn9hmr8UIT8fmv8VX78Xnn7d2z8ZHT7WHr7bm77Xnb7Z3D7YHH7RJOQRAAAACJ0Uk5TABAgICAwQEBAWF5gZXBwgICbn5+fo7+/vsLP39/f3urv73XwOA8AAAKfSURBVHja7dbJcuIwFIXhIzCxMTMNcdwMDoMZY4NxeP9X66srEckYQlPVvcvPBhZ8dVSIAvz03xNV/Luq4Xq9Hgo8nfDqjXq97hS1yXZNhXg2Z3o+f1KnLqx62y17Pp5smp+158EUaW6I52rkxLF3eoNpt1Ne+bR+Fd8U5Oc8Px6P5M0Evgq11ytpy0jgbk6e5cSxd2pb7yKOikpTouWyhbsNMsnpefZpOzsCI7c8brkM74/LqFSC7HkwVTu9lsB14ZJy745LlDdV5+3iQTXC7s9z3pNEggOh9s3woOFqJT2BmzUSLnMQEEeeh2+rkraiOrjZeL+XXEBwyp71Ybg+hWL+iltGt8ftKQI9QMzSlDxz9VofssIMdxitdJEvbo3jxqAGKXtt6N4OkpvgkmiFa50Ch1UU8zab/Ya4Br/IUnnewHCHg+FEh7/ExUIXdq+KG4N7z3hfzXDkaa5FmGpdMENrYWWjaoDrJtJLu4ajFFfbUduryN1ue4brb2KpjSvgvETe53R24U6Ggz+RYJnsCTMujmMJ9qELErkv9y7cyXAGtNCoI2Dqx9ymAl1bcYMLJ2NO5fZ2dmHLxiBGrJlxEAl7M1HkTFUzseeiWHOxYK+CrwLltRX3qTk7/4PbTXDdaBHLxytMdcllaaA56U1RSEyU56M0jotfYBLvynM091ni0GGtPO73nLkR7AaK6yqOKnG1g+wXrnqZz9nrw87bszdjjn/dDGffbgdX9YmT4HykaoLTp/UABGfyypx7a1yFNb0wpl7BddW8geSO5JU5TE63xhmOPb2uok8reN1Nrn4qjQNBlmfdvkB5beaoMgdP4LpFgbNuX3svtSwABoZ7WPOKa0Inxgl7DurMdfFXVV7savjK8WQ1/cz5+Q9e7A/jUZeiPQO0fwAAAABJRU5ErkJggg=="
                 alt="AI 助手"
+                width={32}
+                height={32}
                 className="h-8 w-8 object-contain"
+                unoptimized
               />
               课程开发AI助手
             </SheetTitle>

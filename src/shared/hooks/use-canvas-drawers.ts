@@ -654,8 +654,7 @@ export function useCanvasDrawers({
   // ==================== 开课报告预览处理函数 ====================
 
   // 处理开课报告节点编辑图标点击 - 收集画布数据并打开预览抽屉
-  const handleCourseReportEdit = useCallback(
-    (nodeId: string) => {
+  const handleCourseReportEdit = useCallback(() => {
       // 从画布节点中提取所有数据
       // 课程信息
       const courseInfoNode = flowNodes.find(n => n.type === FlowNodeType.COURSE_INFO)

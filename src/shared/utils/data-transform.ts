@@ -239,7 +239,7 @@ export function formatPercentage(
  * @param defaultValue - 解析失败时的默认值
  * @returns 解析后的对象或默认值
  */
-export function safeJsonParse<T = any>(
+export function safeJsonParse<T = unknown>(
   jsonString: string | null | undefined,
   defaultValue: T
 ): T {

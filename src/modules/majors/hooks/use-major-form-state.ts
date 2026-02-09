@@ -47,13 +47,26 @@ export interface UseMajorFormStateResult {
   setFocusedIndicatorKey: (value: string | null) => void
 }
 
+// 导出初始数据类型供其他模块使用
+export interface InitialData {
+  majorClass?: string
+  code?: string
+  name?: string
+  nodeName?: string
+  majorLevel?: string
+  feature?: string
+  demandStatus?: string
+  selectedProvince?: string
+  position?: string
+}
+
 // 导出 Refs 类型供其他模块使用
 export type UseMajorFormStateResultRefs = Pick<
   UseMajorFormStateResult,
   "lastRequirementRef" | "lastIndicatorRefs"
 >
 
-export function useMajorFormState(initialData?: any): UseMajorFormStateResult {
+export function useMajorFormState(initialData?: InitialData): UseMajorFormStateResult {
   // 基础信息状态 - 直接访问 initialData 的属性
   const [majorCode, setMajorCode] = useState(initialData?.majorClass || initialData?.code || "")
   const [majorName, setMajorName] = useState(initialData?.name || initialData?.nodeName || "")

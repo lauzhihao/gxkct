@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import type { TreeNode } from "@/types"
 import {
   findNodeById as findNode,
@@ -11,10 +11,15 @@ import {
 } from "@/shared/utils/tree-operations"
 
 export function useTreeData(initialData: TreeNode | null) {
-  const [treeData, setTreeData] = useState<TreeNode | null>(initialData)
+  const [treeData, setTreeData] = useState<TreeNode | null>(() => initialData || null)
+  const isInitialMount = useRef(true)
 
   // 当initialData变化时更新treeData
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      return
+    }
     if (initialData) {
       console.log("[v0] useTreeData: initialData更新,设置treeData")
       setTreeData(initialData)

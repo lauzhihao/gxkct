@@ -188,8 +188,8 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
           })
         }, 300)
 
-        // 调用上传回调，获取文件地址
-        const fileUrls = await onUpload(files)
+        // 调用上传回调
+        await onUpload(files)
 
         clearInterval(progressInterval)
         setUploadProgress(100)

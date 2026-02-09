@@ -3,6 +3,19 @@
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { useState } from "react"
 import type { TreeNode, TeachingSupervisoryTask, TaskEvaluationCriteria, Long } from "@/types"
+
+// 定义通过 window 对象传递的复制任务数据类型
+interface CopiedTaskData {
+  task: TeachingTaskDraft
+  criteria: Array<unknown>
+}
+
+// 扩展 Window 类型以支持 __copiedTaskData 属性
+declare global {
+  interface Window {
+    __copiedTaskData?: CopiedTaskData
+  }
+}
 import { Button } from "@/shared/components/ui/button"
 import { Plus } from "lucide-react"
 import { TeachingTaskList } from "./shared/teaching-task-list"
@@ -102,7 +115,7 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
     const copiedCriteria = criteria?.items || []
 
     // 通过 window 对象传递复制的数据给表单组件
-    ;(window as any).__copiedTaskData = {
+    window.__copiedTaskData = {
       task: newTask,
       criteria: copiedCriteria,
     }

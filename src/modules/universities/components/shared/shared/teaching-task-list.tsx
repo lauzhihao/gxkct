@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/shared/components/ui/card"
 import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
 import { Calendar, User, Settings } from "lucide-react"
-import type { TeachingSupervisoryTask, Long } from "@/types"
+import type { TeachingSupervisoryTask } from "@/types"
 import cn from "classnames"
 
 interface TeachingTaskListProps {
