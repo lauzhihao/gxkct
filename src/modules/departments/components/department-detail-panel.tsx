@@ -1,7 +1,7 @@
 "use client"
 
-import { GraduationCap, Pencil, Trash2, Plus } from "lucide-react"
-import { cn, extractNumericId } from "@/shared/utils/utils"
+import { GraduationCap, Pencil, Plus } from "lucide-react"
+import { extractNumericId } from "@/shared/utils/utils"
 import { Button } from "@/shared/components/ui/button"
 import {
   Dialog,
@@ -32,12 +32,11 @@ const DEPARTMENT_TABS = {
 type DepartmentTabKey = keyof typeof DEPARTMENT_TABS
 const DEFAULT_DEPARTMENT_TAB: DepartmentTabKey = "overview"
 
-export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode, onDeleteNode, currentUser }: DetailPanelProps) {
+export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode, currentUser }: DetailPanelProps) {
   const [newDeptName, setNewDeptName] = useState("")
   const [newDeptDesc, setNewDeptDesc] = useState("")
   const [newDeptDirector, setNewDeptDirector] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [isEditingDepartment, setIsEditingDepartment] = useState(false)
   const [isQuickCreateMajorOpen, setIsQuickCreateMajorOpen] = useState(false)
   // 用于创建专业后自动填充搜索框
   const [majorSearchFilter, setMajorSearchFilter] = useState<string | undefined>(undefined)
@@ -48,7 +47,7 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
   useEffect(() => {
     if (!node) return
     setActivePage(DEFAULT_DEPARTMENT_TAB, DEPARTMENT_TABS[DEFAULT_DEPARTMENT_TAB])
-  }, [node?.nodeId, setActivePage])
+  }, [node, setActivePage])
 
   const handleTabChange = (value: string) => {
     const tabKey = value as DepartmentTabKey
@@ -61,7 +60,6 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
     setNewDeptName(node.nodeName)
     setNewDeptDesc(node.description || "")
     setNewDeptDirector("")
-    setIsEditingDepartment(true)
     setIsDialogOpen(true)
   }
 
@@ -77,19 +75,9 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
     setNewDeptDesc("")
     setNewDeptDirector("")
     setIsDialogOpen(false)
-    setIsEditingDepartment(false)
   }
 
-  const handleDeleteNode = (nodeId: string) => {
-    if (onDeleteNode) {
-      onDeleteNode(nodeId)
-    }
-    if (node?.nodeId === nodeId) {
-      onNodeSelect?.(null)
-    }
-  }
-
-  const handleQuickCreateMajor = (data: { name: string; directors: any[] }) => {
+  const handleQuickCreateMajor = (data: { name: string; directors: Array<{ name: string }> }) => {
     if (onAddMajor && node) {
       const departmentId = extractNumericId(node.nodeId).toString()
       onAddMajor(departmentId, {

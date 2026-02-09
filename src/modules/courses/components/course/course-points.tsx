@@ -6,9 +6,10 @@ import { AccordionItem, AccordionTrigger, AccordionContent } from "@/shared/comp
 import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
 import { Divider } from "@/shared/components/design-system"
+import type { CoursePoint } from "@/lib/api/course-points-api"
 
 interface CoursePointsProps {
-  objectives: any[]
+  objectives: CoursePoint[]
 }
 
 const highlightKeyword = (text: string, keyword: string) => {
@@ -36,7 +37,7 @@ export function CoursePoints({ objectives }: CoursePointsProps) {
   }
 
   const filteredObjectives = objectives
-    .filter((objective: any) => {
+    .filter((objective: CoursePoint) => {
       if (!search) return true
       const searchLower = search.toLowerCase()
       const contentMatch = objective.title?.toLowerCase().includes(searchLower)
@@ -44,7 +45,7 @@ export function CoursePoints({ objectives }: CoursePointsProps) {
       return contentMatch || descriptionMatch
     })
     // 按标题中的数字排序，确保 9 < 11
-    .sort((a: any, b: any) => extractNumber(a.title) - extractNumber(b.title))
+    .sort((a: CoursePoint, b: CoursePoint) => extractNumber(a.title) - extractNumber(b.title))
 
   const toggleExpanded = (index: number) => {
     const newExpanded = new Set(expandedIndex)
@@ -99,7 +100,7 @@ export function CoursePoints({ objectives }: CoursePointsProps) {
           </div>
         ) : (
           <div className="grid grid-cols-5 gap-3">
-            {filteredObjectives.map((objective: any, objIndex: number) => {
+            {filteredObjectives.map((objective: CoursePoint, objIndex: number) => {
               const isExpanded = expandedIndex.has(objIndex)
               const hasOverflow = isTextOverflow(objective.description || "")
               return (

@@ -1,10 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { showError, showSuccess } from "@/shared/utils/toast-utils"
-import type { TreeNode } from "@/types"
 import type { CourseGoal } from "@/lib/api/course-goals-api"
 import type { CoursePoint as ApiCoursePoint } from "@/lib/api/course-points-api"
 import type { CourseMatrixItem } from "@/lib/api/matrix-api"
-import type { ProjectTeachGoalData, Project, ProjectTeachGoal } from "@/lib/api/project-teach-goal-api"
+import type { ProjectTeachGoalData, Project } from "@/lib/api/project-teach-goal-api"
 import { courseGoalsApi } from "@/modules/courses/api/courseGoalsApi"
 import { coursePointsApi } from "@/modules/courses/api/coursePointsApi"
 import { projectTeachGoalApi } from "@/modules/courses/api/projectTeachGoalApi"
@@ -26,6 +25,16 @@ import type {
 
 const CourseMatrixContext = createContext<CourseMatrixContextValue | null>(null)
 
+type CachedGraduationRequirement = {
+  id: string
+  indicators?: string[]
+}
+
+type CachedMajorData = {
+  graduationRequirements?: CachedGraduationRequirement[]
+  requiresVOS?: CachedGraduationRequirement[]
+}
+
 export const CourseMatrixProvider = ({ value, children }: CourseMatrixProviderProps) => (
   <CourseMatrixContext.Provider value={value}>{children}</CourseMatrixContext.Provider>
 )
@@ -38,7 +47,7 @@ export const useCourseMatrixContext = () => {
   return context
 }
 
-export const useCourseMatrixData = ({ node, onUpdateNode, majorId }: UseCourseMatrixDataParams): CourseMatrixContextValue => {
+export const useCourseMatrixData = ({ node, majorId }: UseCourseMatrixDataParams): CourseMatrixContextValue => {
   const [isEditingCourseMatrix, setIsEditingCourseMatrix] = useState(false)
   const [courseMatrixData, setCourseMatrixData] = useState<CourseMatrixRecord>({})
   const [isSavingCourseMatrix, setIsSavingCourseMatrix] = useState(false)
@@ -142,13 +151,13 @@ export const useCourseMatrixData = ({ node, onUpdateNode, majorId }: UseCourseMa
           } else if (indicatorSupportsResponse.data && indicatorSupportsResponse.data.length > 0) {
             const majorData = localStorage.getItem(`major-${majorId}`)
             if (majorData) {
-              const parsed = JSON.parse(majorData)
+              const parsed = JSON.parse(majorData) as CachedMajorData
               const allIndicators: Array<{ requirementId: string; indicatorIndex: number; content: string }> = []
 
               // 从缓存的专业数据中获取毕业要求（兼容新旧格式）
               const graduationRequirements = parsed.graduationRequirements || parsed.requiresVOS || []
               if (graduationRequirements.length > 0) {
-                graduationRequirements.forEach((req: any) => {
+                graduationRequirements.forEach((req) => {
                   req.indicators?.forEach((indicator: string, index: number) => {
                     allIndicators.push({
                       requirementId: req.id,
@@ -281,7 +290,7 @@ export const useCourseMatrixData = ({ node, onUpdateNode, majorId }: UseCourseMa
         setIsEditingCourseMatrix(false)
       }
     },
-    [editingProjectNames, node.id, onUpdateNode, projectTeachGoalData]
+    [editingProjectNames, node.id, projectTeachGoalData]
   )
 
   useEffect(() => {
@@ -373,9 +382,9 @@ export const useCourseMatrixData = ({ node, onUpdateNode, majorId }: UseCourseMa
   }, [])
 
   const handleAddNewCoursePoint = useCallback(() => {
-    const tempId = `temp-${Date.now()}`
+    const tempId = -Date.now()
     const newCoursePointData: Partial<ApiCoursePoint> = {
-      id: tempId as any,
+      id: tempId,
       title: "",
       description: "",
       uniqueCode: "",
@@ -389,7 +398,7 @@ export const useCourseMatrixData = ({ node, onUpdateNode, majorId }: UseCourseMa
     setNewCoursePoint(newCoursePointData)
     setEditingCoursePointData(newCoursePointData)
     setCoursePointsList((prev) => [newCoursePointData as ApiCoursePoint, ...prev])
-    setEditingCoursePointId(tempId as any)
+    setEditingCoursePointId(tempId)
   }, [])
 
   const handleSaveNewCoursePoint = useCallback(async () => {
@@ -402,7 +411,7 @@ export const useCourseMatrixData = ({ node, onUpdateNode, majorId }: UseCourseMa
       await new Promise((resolve) => setTimeout(resolve, 1000))
 
       const newData: ApiCoursePoint = {
-        id: newCoursePoint?.id as any,
+        id: typeof newCoursePoint?.id === "number" ? newCoursePoint.id : -Date.now(),
         title: editingCoursePointData.title,
         description: editingCoursePointData.description || "",
         uniqueCode: "",

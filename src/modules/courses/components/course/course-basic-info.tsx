@@ -5,15 +5,52 @@ import { formatDate } from "@/shared/utils/date-utils"
 import { getCourseType, createCourseNameMapper } from "@/shared/utils/data-transform"
 import { SectionCard, SectionHeader, Divider } from "@/shared/components/design-system"
 
-interface CourseBasicInfoProps {
-  name: string
-  courseDetail?: any
-  courseNameData?: any
-  createTime?: string
-  metadata?: any
+type ScoreTableRow = Record<string, string | number | null | undefined>
+type ScheduleRow = Record<string, string | number | null | undefined>
+
+interface ScoreTableData {
+  headers?: string[]
+  rows?: ScoreTableRow[]
 }
 
-export function CourseBasicInfo({ name, courseDetail, courseNameData, createTime, metadata }: CourseBasicInfoProps) {
+interface CourseDetailData {
+  typeId?: number | null
+  theoryPeriod?: number | null
+  practicePeriod?: number | null
+  classId?: number | null
+  position?: string | null
+  criterion?: string | null
+  teachingClass?: string | null
+  teachingLocation?: string | null
+  teachingTime?: unknown
+  studentCount?: number | null
+  credits?: number | null
+  introduction?: string | null
+  mainTextbook?: string | null
+  referenceResources?: string | null
+  attendancePolicy?: string | null
+  assignmentPolicy?: string | null
+  conductRequirements?: string | null
+  practiceRequirements?: string | null
+  teamworkRequirements?: string | null
+  bonusRequirements?: string | null
+  otherSuggestions?: string | null
+  assessmentMethod?: string | null
+  assessmentForm?: string | null
+  scoreType?: string | null
+  scoreTable?: ScoreTableData | null
+  assessmentDescription?: string | null
+}
+
+interface CourseBasicInfoProps {
+  name: string
+  courseDetail?: CourseDetailData
+  courseNameData?: unknown
+  createTime?: string
+  metadata?: unknown
+}
+
+export function CourseBasicInfo({ name, courseDetail, createTime }: CourseBasicInfoProps) {
   const [getCourseName, setGetCourseName] = useState<(typeId: number | null | undefined) => string>(() => () => "未设置")
 
   // 加载课程类型映射
@@ -147,7 +184,7 @@ export function CourseBasicInfo({ name, courseDetail, courseNameData, createTime
           )}
 
           {/* 授课时间 */}
-          {courseDetail?.teachingTime && (
+          {courseDetail?.teachingTime !== undefined && courseDetail?.teachingTime !== null && (
             <div className="col-span-3">
               <div className="flex items-center gap-2 mb-3">
                 <Clock className="w-4 h-4 text-muted-foreground" />
@@ -160,7 +197,12 @@ export function CourseBasicInfo({ name, courseDetail, courseNameData, createTime
                     : courseDetail.teachingTime
 
                   // 支持数组格式（多行）和单对象格式（向后兼容）
-                  const scheduleRows = Array.isArray(scheduleData) ? scheduleData : [scheduleData]
+                  const scheduleRows: ScheduleRow[] = (Array.isArray(scheduleData)
+                    ? scheduleData
+                    : [scheduleData]
+                  ).filter(
+                    (row): row is ScheduleRow => row !== null && typeof row === "object",
+                  )
 
                   return (
                     <div className="border border-input rounded-md overflow-hidden bg-background">
@@ -201,11 +243,9 @@ export function CourseBasicInfo({ name, courseDetail, courseNameData, createTime
                       </table>
                     </div>
                   )
-                } catch (error) {
+                } catch {
                   return (
-                    <div className="p-2 border border-input rounded-md bg-muted/30">
-                      {courseDetail.teachingTime}
-                    </div>
+                      <div className="p-2 border border-input rounded-md bg-muted/30">{String(courseDetail.teachingTime)}</div>
                   )
                 }
               })()}
@@ -384,35 +424,38 @@ export function CourseBasicInfo({ name, courseDetail, courseNameData, createTime
             )}
 
             {/* 总成绩表格 */}
-            {courseDetail?.scoreTable && (
-              <div>
-                <div className="text-sm font-medium text-muted-foreground mb-2">总成绩</div>
-                <div className="border border-input rounded-md overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-input bg-secondary/30">
-                        {courseDetail.scoreTable.headers?.map((header: string, idx: number) => (
-                          <th key={idx} className={`border-input p-2 text-center font-medium ${idx < (courseDetail.scoreTable.headers?.length || 0) - 1 ? "border-r" : ""}`}>
-                            {header}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {courseDetail.scoreTable.rows?.map((row: any, rowIdx: number) => (
-                        <tr key={rowIdx} className="border-t border-input hover:bg-secondary/20">
-                          {courseDetail.scoreTable.headers?.map((header: string, colIdx: number) => (
-                            <td key={colIdx} className={`border-input p-2 text-center ${colIdx < (courseDetail.scoreTable.headers?.length || 0) - 1 ? "border-r" : ""}`}>
-                              {row[header] || "-"}
-                            </td>
+            {courseDetail?.scoreTable && (() => {
+              const scoreTable = courseDetail.scoreTable
+              return (
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground mb-2">总成绩</div>
+                  <div className="border border-input rounded-md overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-input bg-secondary/30">
+                          {scoreTable.headers?.map((header: string, idx: number) => (
+                            <th key={idx} className={`border-input p-2 text-center font-medium ${idx < (scoreTable.headers?.length || 0) - 1 ? "border-r" : ""}`}>
+                              {header}
+                            </th>
                           ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {scoreTable.rows?.map((row: ScoreTableRow, rowIdx: number) => (
+                          <tr key={rowIdx} className="border-t border-input hover:bg-secondary/20">
+                            {scoreTable.headers?.map((header: string, colIdx: number) => (
+                              <td key={colIdx} className={`border-input p-2 text-center ${colIdx < (scoreTable.headers?.length || 0) - 1 ? "border-r" : ""}`}>
+                                {row[header] || "-"}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-            )}
+              )
+            })()}
 
             {/* 五级分制说明 */}
             {courseDetail?.scoreType === "五级分制" && (

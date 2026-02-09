@@ -22,7 +22,7 @@ import {
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import "./flow/canvas.css"
-import { FlowNodeType, FlowEdgeType, NODE_COLORS } from "./flow/utils/types"
+import { FlowNodeType, FlowEdgeType } from "./flow/utils/types"
 import { CustomZoomControls } from "./flow/controls/custom-zoom-controls"
 import type { CanvasLayoutMode } from "./flow/utils/canvas-layout"
 import { CanvasLayoutProvider } from "./flow/utils/canvas-layout-context"
@@ -35,7 +35,7 @@ import type { CanvasElementData, ProjectMatrixData, ChapterCardData, CoursePoint
 import type { TreeNode } from "@/types"
 import type { FillProgress } from "@/types/ai-assistant"
 import { CanvasComponentType } from "./canvas-elements/types"
-import type { CourseInfoData, CanvasComponentData } from "./canvas-elements/types"
+import type { CanvasComponentData } from "./canvas-elements/types"
 import { CourseInfoNode } from "./flow/nodes/course-info-node"
 import { ObjectiveNode } from "./flow/nodes/objective-node"
 import { CoursePointNode } from "./flow/nodes/course-point-node"
@@ -90,7 +90,6 @@ function getAbsolutePosition(node: Node, nodeMap: Map<string, Node>): { x: numbe
 /**
  * 自定义节点类型注册
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const nodeTypes: Record<string, any> = {
   [FlowNodeType.COURSE_INFO]: CourseInfoNode,
   [FlowNodeType.OBJECTIVE]: ObjectiveNode,
@@ -113,7 +112,6 @@ const nodeTypes: Record<string, any> = {
 /**
  * 自定义边类型注册
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const edgeTypes: Record<string, any> = {
   [FlowEdgeType.SUPPORT]: SupportEdge,
 }
@@ -299,7 +297,6 @@ function AiCanvasPanelInner({
     isSavingProjectMatrix,
     courseReportDrawer,
     updatingPanelIds,
-    setUpdatingPanelIds,
     handleNodeEdit,
     handleEditSave,
     handleEditCancel,
@@ -731,11 +728,14 @@ function AiCanvasPanelInner({
 
   // 用 ref 跟踪菜单可见状态，避免 effect 依赖 connectionMenu.visible 导致频繁 attach/detach
   const connectionMenuVisibleRef = useRef(connectionMenu.visible)
-  connectionMenuVisibleRef.current = connectionMenu.visible
+
+  useEffect(() => {
+    connectionMenuVisibleRef.current = connectionMenu.visible
+  }, [connectionMenu.visible])
 
   // 点击画布其他区域关闭菜单（监听器只注册一次）
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = () => {
       if (connectionMenuVisibleRef.current) {
         closeMenu()
       }
@@ -755,7 +755,7 @@ function AiCanvasPanelInner({
   )
 
   // 处理项目矩阵中的课点行点击（高亮联动功能已移除，保留空回调）
-  const handleCoursePointRowClick = useCallback((_coursePointId: string) => {
+  const handleCoursePointRowClick = useCallback(() => {
     // 高亮联动功能已移除
   }, [])
 

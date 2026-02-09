@@ -158,12 +158,16 @@ export class MockCourseDataService implements ICourseDataService {
     return COURSE_TYPES
   }
 
-  async searchPoints(keyword: string, _courseType?: number): Promise<PointData[]> {
+  async searchPoints(keyword: string, courseType?: number): Promise<PointData[]> {
     await randomDelay(500, 1000)
+    void courseType
 
     if (!keyword.trim()) {
       // 无关键词时返回默认推荐
-      return MOCK_POINTS_DB.slice(0, 8).map(({ keywords: _, ...point }) => point)
+      return MOCK_POINTS_DB.slice(0, 8).map(point => ({
+        title: point.title,
+        description: point.description,
+      }))
     }
 
     // 按关键词匹配度排序
@@ -176,18 +180,26 @@ export class MockCourseDataService implements ICourseDataService {
       .filter(p => p.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 10)
-      .map(({ keywords: _, score: __, ...point }) => point)
+      .map(point => ({
+        title: point.title,
+        description: point.description,
+      }))
   }
 
-  async searchKsas(keyword: string, _courseType?: number): Promise<KsaData[]> {
+  async searchKsas(keyword: string, courseType?: number): Promise<KsaData[]> {
     await randomDelay(500, 1000)
+    void courseType
 
     if (!keyword.trim()) {
       // 无关键词时返回各类型的默认推荐
       const defaultK = MOCK_KSA_DB.filter(k => k.type === 'K').slice(0, 3)
       const defaultS = MOCK_KSA_DB.filter(k => k.type === 'S').slice(0, 3)
       const defaultA = MOCK_KSA_DB.filter(k => k.type === 'A').slice(0, 3)
-      return [...defaultK, ...defaultS, ...defaultA].map(({ keywords: _, ...ksa }) => ksa)
+      return [...defaultK, ...defaultS, ...defaultA].map(ksa => ({
+        type: ksa.type,
+        title: ksa.title,
+        description: ksa.description,
+      }))
     }
 
     const scored = MOCK_KSA_DB.map(ksa => ({
@@ -199,7 +211,11 @@ export class MockCourseDataService implements ICourseDataService {
       .filter(k => k.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 12)
-      .map(({ keywords: _, score: __, ...ksa }) => ksa)
+      .map(ksa => ({
+        type: ksa.type,
+        title: ksa.title,
+        description: ksa.description,
+      }))
   }
 
   async getChapterTemplates(courseType: number): Promise<ChapterData[]> {

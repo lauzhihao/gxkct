@@ -21,12 +21,10 @@ import {
   STAGES,
   STAGE_PROMPTS,
   WELCOME_OPTIONS,
-  COURSE_TYPE_OPTIONS,
   CONFIRM_OPTIONS,
   PREVIEW_OPTIONS,
   COMPLETE_OPTIONS,
   INITIAL_COURSE_DATA,
-  getNextStage,
   getPrevStage,
   COURSE_TYPES,
   BASIC_INFO_FIELDS,
@@ -144,16 +142,6 @@ export function useCourseDevFlow(): UseCourseDevFlowReturn {
     return newMessage
   }, [])
 
-  const updateLastAssistantMessage = useCallback((updates: Partial<ChatMessage>) => {
-    setMessages(prev => {
-      const lastIndex = prev.findLastIndex(m => m.role === 'assistant')
-      if (lastIndex === -1) return prev
-      const updated = [...prev]
-      updated[lastIndex] = { ...updated[lastIndex], ...updates }
-      return updated
-    })
-  }, [])
-
   // ============================================================================
   // 思考过程模拟
   // ============================================================================
@@ -262,8 +250,7 @@ export function useCourseDevFlow(): UseCourseDevFlowReturn {
   // ============================================================================
 
   const generateStageResponse = useCallback(async (
-    targetStage: CourseDevStage,
-    context?: string
+    targetStage: CourseDevStage
   ): Promise<{ content: string; options: QuickOption[] }> => {
     const prompt = STAGE_PROMPTS[targetStage]
     let content = ''
@@ -640,7 +627,7 @@ export function useCourseDevFlow(): UseCourseDevFlowReturn {
     }
 
     return false // 需要 sendMessage 继续生成响应
-  }, [stage, courseData, addMessage, simulateQuickThinking, addStreamingMessage, generateStageResponse])
+  }, [stage, courseData, simulateQuickThinking, addStreamingMessage, generateStageResponse])
 
   // ============================================================================
   // 主要操作

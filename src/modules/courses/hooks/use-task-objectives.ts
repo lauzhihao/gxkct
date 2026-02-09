@@ -15,11 +15,13 @@ export interface TaskObjective {
   }>
 }
 
+type ProjectGoal = Record<string, unknown>
+
 export interface UseTaskObjectivesResult {
   // 对话框状态
   taskObjectivesDialogOpen: boolean
   selectedProjectForTasks: string | null
-  projectGoalsForDialog: any[]
+  projectGoalsForDialog: ProjectGoal[]
 
   // 编辑状态
   newTaskObjective: string
@@ -30,14 +32,14 @@ export interface UseTaskObjectivesResult {
   // 状态更新方法
   setTaskObjectivesDialogOpen: (value: boolean) => void
   setSelectedProjectForTasks: (value: string | null) => void
-  setProjectGoalsForDialog: (value: any[]) => void
+  setProjectGoalsForDialog: (value: ProjectGoal[]) => void
   setNewTaskObjective: (value: string) => void
   setEditingTaskId: (value: string | null) => void
   setTaskObjectiveSearch: (value: string) => void
   setFocusedCell: (value: string | null) => void
 
   // 业务操作方法
-  openTaskObjectivesDialog: (projectId: string, goals: any[]) => void
+  openTaskObjectivesDialog: (projectId: string, goals: ProjectGoal[]) => void
   closeTaskObjectivesDialog: () => void
   addTaskObjective: (chapterId: string, coursePointId: string) => void
   updateTaskObjective: (chapterId: string, coursePointId: string, taskId: string, newContent: string) => void
@@ -45,19 +47,19 @@ export interface UseTaskObjectivesResult {
 }
 
 export function useTaskObjectives(
-  chapterTaskObjectives: Record<string, any[]>,
-  setChapterTaskObjectives: (value: Record<string, any[]>) => void
+  chapterTaskObjectives: Record<string, TaskObjective[]>,
+  setChapterTaskObjectives: (value: Record<string, TaskObjective[]>) => void
 ): UseTaskObjectivesResult {
   const [taskObjectivesDialogOpen, setTaskObjectivesDialogOpen] = useState(false)
   const [selectedProjectForTasks, setSelectedProjectForTasks] = useState<string | null>(null)
-  const [projectGoalsForDialog, setProjectGoalsForDialog] = useState<any[]>([])
+  const [projectGoalsForDialog, setProjectGoalsForDialog] = useState<ProjectGoal[]>([])
   const [newTaskObjective, setNewTaskObjective] = useState("")
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
   const [taskObjectiveSearch, setTaskObjectiveSearch] = useState("")
   const [focusedCell, setFocusedCell] = useState<string | null>(null)
 
   // 打开任务目标对话框
-  const openTaskObjectivesDialog = (projectId: string, goals: any[]) => {
+  const openTaskObjectivesDialog = (projectId: string, goals: ProjectGoal[]) => {
     setSelectedProjectForTasks(projectId)
     setProjectGoalsForDialog(goals || [])
     setTaskObjectivesDialogOpen(true)

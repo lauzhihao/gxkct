@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { TreeView } from "@/components/tree-view"
 import { DetailPanel } from "@/components/detail-panel"
@@ -22,7 +22,16 @@ export default function Page() {
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null)
   const [isTreeCollapsed, setIsTreeCollapsed] = useLocalStorage<boolean>(TREE_COLLAPSED_STORAGE_KEY, true)
   const [departmentMajors, setDepartmentMajors] = useState<Map<string, TreeNode[]>>(new Map())
-  const [currentUser, setCurrentUser] = useState<{ username: string; role: string } | null>(null)
+  const [currentUser] = useState<{ username: string; role: string } | null>(() => {
+    const authUser = getStoredAuthUser()
+    if (!authUser) {
+      return null
+    }
+    return {
+      username: authUser.userName,
+      role: "teacher",
+    }
+  })
   // 添加ref来存储TreeView的handleToggleExpand方法
   const treeViewRef = useRef<{ toggleExpand: (nodeId: string) => void }>(null)
   // 添加ref来引用右侧详情面板容器，用于滚动控制
@@ -32,17 +41,6 @@ export default function Page() {
   const hasLoadedTree = useRef(false)
   const router = useRouter()
   const pathname = usePathname()
-
-  useEffect(() => {
-    // 从localStorage获取当前用户信息
-    const authUser = getStoredAuthUser()
-    if (authUser) {
-      setCurrentUser({
-        username: authUser.userName,
-        role: "teacher", // 默认角色，可根据实际情况调整
-      })
-    }
-  }, [])
 
   useEffect(() => {
     const loadTreeData = async () => {
@@ -106,11 +104,12 @@ export default function Page() {
 
       if (starredNode) {
         console.log("[v0] 选中星标节点:", starredNode.nodeName)
-        setSelectedNode(starredNode)
-
-        if (starredNode.nodeType === "university") {
-          setCurrentSchoolId(extractNumericId(starredNode.nodeId).toString())
-        }
+        Promise.resolve().then(() => {
+          setSelectedNode(starredNode)
+          if (starredNode.nodeType === "university") {
+            setCurrentSchoolId(extractNumericId(starredNode.nodeId).toString())
+          }
+        })
       } else {
         console.log("[v0] 没有找到星标节点，使用第一个节点")
         const firstNode = getFirstNode(treeDataHook.treeData)
@@ -118,11 +117,12 @@ export default function Page() {
 
         if (firstNode) {
           treeDataHook.updateNode(firstNode.nodeId, { isStarred: true })
-          setSelectedNode(firstNode)
-
-          if (firstNode.nodeType === "university") {
-            setCurrentSchoolId(extractNumericId(firstNode.nodeId).toString())
-          }
+          Promise.resolve().then(() => {
+            setSelectedNode(firstNode)
+            if (firstNode.nodeType === "university") {
+              setCurrentSchoolId(extractNumericId(firstNode.nodeId).toString())
+            }
+          })
         }
       }
 
@@ -133,14 +133,13 @@ export default function Page() {
     }
   }, [treeDataHook, setCurrentSchoolId])
 
-  useEffect(() => {
-    if (selectedNode && treeDataHook?.findNodeById && treeDataHook.treeData) {
-      const updatedNode = treeDataHook.findNodeById(treeDataHook.treeData, selectedNode.nodeId)
-      if (updatedNode) {
-        setSelectedNode(updatedNode)
-      }
+  const effectiveSelectedNode = useMemo(() => {
+    if (!selectedNode || !treeDataHook?.findNodeById || !treeDataHook.treeData) {
+      return selectedNode
     }
-  }, [treeDataHook?.treeData, selectedNode, treeDataHook?.findNodeById])
+
+    return treeDataHook.findNodeById(treeDataHook.treeData, selectedNode.nodeId) ?? selectedNode
+  }, [selectedNode, treeDataHook])
 
   useEffect(() => {
     console.log("[v0] selectedNode状态变化:", selectedNode)
@@ -148,27 +147,10 @@ export default function Page() {
 
   // 当选中节点变化时，滚动右侧详情面板到顶部
   useEffect(() => {
-    if (selectedNode && detailPanelContainerRef.current) {
+    if (selectedNode?.nodeId && detailPanelContainerRef.current) {
       detailPanelContainerRef.current.scrollTo({ top: 0, behavior: "instant" })
     }
   }, [selectedNode?.nodeId])
-
-  const findParentId = (node: TreeNode, targetId: string, parentId?: string): string | null => {
-    if (node.nodeId === targetId) {
-      return parentId || null
-    }
-
-    if (node.children) {
-      for (const child of node.children) {
-        const found = findParentId(child, targetId, node.nodeId)
-        if (found) {
-          return found
-        }
-      }
-    }
-
-    return null
-  }
 
   const handleAddSchool = (newSchool: Omit<TreeNode, "id" | "nodeId">) => {
     treeDataHook?.addSchool(newSchool)
@@ -237,7 +219,7 @@ export default function Page() {
           onResetData={handleResetData}
           isTreeCollapsed={isTreeCollapsed}
           currentPath={pathname ?? undefined}
-          selectedNodeName={selectedNode?.nodeName}
+          selectedNodeName={effectiveSelectedNode?.nodeName}
           treeData={treeDataHook.treeData}
         />
 
@@ -252,7 +234,7 @@ export default function Page() {
               ref={treeViewRef}
               treeData={treeDataHook.treeData}
               onNodeSelect={setSelectedNode}
-              selectedNode={selectedNode}
+              selectedNode={effectiveSelectedNode}
               onAddSchool={handleAddSchool}
               currentSchoolId={currentSchoolId}
               onSetCurrentSchool={handleSetCurrentSchool}
@@ -270,7 +252,7 @@ export default function Page() {
             )}
           >
             <DetailPanel
-              node={selectedNode}
+              node={effectiveSelectedNode}
               treeData={treeDataHook.treeData}
               onNodeSelect={setSelectedNode}
               onAddDepartment={handleAddDepartment}

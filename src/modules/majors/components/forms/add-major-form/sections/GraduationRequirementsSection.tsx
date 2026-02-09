@@ -14,7 +14,12 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/shared/components/ui/
 import { SupportLabel } from "@/shared/components/support-label"
 import type { UseGraduationRequirementsResult } from "@/modules/majors/hooks/use-graduation-requirements"
 import type { UseMajorFormStateResult } from "@/modules/majors/hooks/use-major-form-state"
-import type { TreeNode } from "@/types"
+
+type ToastInvoker = (options: {
+  title: string
+  description: string
+  duration?: number
+}) => void
 
 interface GraduationRequirementsSectionProps {
   graduationReqs: UseGraduationRequirementsResult
@@ -33,7 +38,7 @@ interface GraduationRequirementsSectionProps {
   majorName: string
   majorId?: string
   departmentId: string
-  toast: any
+  toast: ToastInvoker
 }
 
 export function GraduationRequirementsSection({
@@ -45,6 +50,11 @@ export function GraduationRequirementsSection({
   departmentId,
   toast,
 }: GraduationRequirementsSectionProps) {
+  void isEditMode
+  void majorName
+  void majorId
+  void departmentId
+
   const {
     graduationRequirements,
     indicatorCourseSupports,
@@ -66,6 +76,9 @@ export function GraduationRequirementsSection({
     lastRequirementRef,
     lastIndicatorRefs,
   } = formState
+
+  void focusedRequirementId
+  void focusedIndicatorKey
 
   return (
       <div className="space-y-4">

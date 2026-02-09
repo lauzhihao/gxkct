@@ -1,12 +1,46 @@
 "use client"
 
 import { BookOpen, Briefcase, Award, ClipboardCheck, Loader2 } from "lucide-react"
-import { useEffect, useState, useRef, useMemo } from "react"
+import { useEffect, useState, useRef } from "react"
 import type { TreeNode } from "@/types"
 import { TreeApi } from "@/lib/api/tree-api"
 
 interface MajorBasicInfoProps {
   node: TreeNode
+}
+
+interface ProfessionPathItem {
+  name: string
+  code?: string
+}
+
+interface ProfessionVO {
+  id: string | number
+  profession?: ProfessionPathItem[]
+  task?: string
+}
+
+interface RequirementIndicator {
+  id: string | number
+  description: string
+}
+
+interface RequirementVO {
+  id: string | number
+  description: string
+  children?: RequirementIndicator[]
+}
+
+interface MajorDetailData {
+  majorLevel?: string
+  majorClass?: string
+  feature?: string
+  careerLevel?: string
+  demandType?: string
+  demandArea?: string
+  professionsVOS?: ProfessionVO[]
+  position?: string
+  requiresVOS?: RequirementVO[]
 }
 
 // 专业层次字典映射
@@ -20,7 +54,7 @@ const majorLevelMap: { [key: string]: string } = {
 const treeApiInstance = new TreeApi()
 
 export function MajorBasicInfo({ node }: MajorBasicInfoProps) {
-  const [detailData, setDetailData] = useState<any>(null)
+  const [detailData, setDetailData] = useState<MajorDetailData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const hasLoadedRef = useRef(false)
   const majorIdRef = useRef<string | null>(null)
@@ -176,9 +210,9 @@ export function MajorBasicInfo({ node }: MajorBasicInfoProps) {
 
           {/* 职业方向列表 */}
           <div className="space-y-3">
-            {metadata.professionsVOS.map((professionVO: any, index: number) => {
+            {metadata.professionsVOS.map((professionVO: ProfessionVO, index: number) => {
               const professionPath = professionVO.profession
-                ?.map((p: any) => p.name)
+                ?.map((p: ProfessionPathItem) => p.name)
                 .join(" / ") || "未设置"
 
               return (
@@ -245,7 +279,7 @@ export function MajorBasicInfo({ node }: MajorBasicInfoProps) {
           </h3>
 
           <div className="space-y-3">
-            {metadata.requiresVOS.map((req: any, reqIndex: number) => (
+            {metadata.requiresVOS.map((req: RequirementVO, reqIndex: number) => (
               <div key={req.id} className="rounded-lg border border-border bg-card/50 p-4 space-y-3">
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-sm font-medium text-primary">
@@ -260,7 +294,7 @@ export function MajorBasicInfo({ node }: MajorBasicInfoProps) {
                           <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
                           指标点
                         </div>
-                        {req.children.map((indicator: any, idx: number) => (
+                        {req.children.map((indicator: RequirementIndicator, idx: number) => (
                           <div key={indicator.id} className="flex items-start gap-2">
                             <span className="text-xs text-muted-foreground flex-shrink-0 mt-0.5">
                               {reqIndex + 1}.{idx + 1}

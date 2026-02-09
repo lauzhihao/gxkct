@@ -7,7 +7,14 @@ import { Badge } from "@/shared/components/ui/badge"
 import { Divider } from "@/shared/components/design-system"
 
 interface CourseChaptersProps {
-  chapters: any[]
+  chapters: CourseChapter[]
+}
+
+interface CourseChapter {
+  id?: string | number
+  name?: string
+  theoryPeriod?: number | string | null
+  practicePeriod?: number | string | null
 }
 
 const highlightKeyword = (text: string, keyword: string) => {
@@ -27,16 +34,16 @@ const highlightKeyword = (text: string, keyword: string) => {
 export function CourseChapters({ chapters }: CourseChaptersProps) {
   const [search, setSearch] = useState("")
 
-  const filteredChapters = chapters.filter((chapter: any) => {
+  const filteredChapters = chapters.filter((chapter: CourseChapter) => {
     if (!search) return true
     const searchLower = search.toLowerCase()
     return chapter.name?.toLowerCase().includes(searchLower)
   })
 
-  const chapterCount = filteredChapters.filter((ch: any) => ch.name?.includes("章")).length
-  const projectCount = filteredChapters.filter((ch: any) => ch.name?.includes("项目")).length
-  const totalTheoryHours = filteredChapters.reduce((sum: number, ch: any) => sum + (Number(ch.theoryPeriod) || 0), 0)
-  const totalPracticeHours = filteredChapters.reduce((sum: number, ch: any) => sum + (Number(ch.practicePeriod) || 0), 0)
+  const chapterCount = filteredChapters.filter((ch: CourseChapter) => ch.name?.includes("章")).length
+  const projectCount = filteredChapters.filter((ch: CourseChapter) => ch.name?.includes("项目")).length
+  const totalTheoryHours = filteredChapters.reduce((sum: number, ch: CourseChapter) => sum + (Number(ch.theoryPeriod) || 0), 0)
+  const totalPracticeHours = filteredChapters.reduce((sum: number, ch: CourseChapter) => sum + (Number(ch.practicePeriod) || 0), 0)
   const totalHours = totalTheoryHours + totalPracticeHours
 
   return (
@@ -94,7 +101,7 @@ export function CourseChapters({ chapters }: CourseChaptersProps) {
                   </tr>
                 ) : (
                   <>
-                    {filteredChapters.map((chapter: any, index: number) => (
+                    {filteredChapters.map((chapter: CourseChapter, index: number) => (
                       <tr key={chapter.id || index} className="border-t border-border hover:bg-secondary/30">
                         <td className="px-4 py-3 text-sm text-foreground border-r border-border">{index + 1}</td>
                         <td className="px-4 py-3 text-sm text-foreground border-r border-border">

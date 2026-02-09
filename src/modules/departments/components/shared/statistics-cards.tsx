@@ -19,16 +19,16 @@ interface MajorItem {
   parent: { value: string; label: string } | null
   self: { value: string; label: string } | null
   manager: Array<{ value: string; label: string }> | null
-  info: any
-  cover: any
-  btnMenus: any[]
-  coverMenus: any[]
-  props: any
+  info: Record<string, unknown> | null
+  cover: Record<string, unknown> | null
+  btnMenus: Array<Record<string, unknown>>
+  coverMenus: Array<Record<string, unknown>>
+  props: Record<string, unknown> | null
 }
 
 interface StatisticsCardsProps {
   node: TreeNode
-  onNodeSelect?: (node: any) => void
+  onNodeSelect?: (node: TreeNode) => void
   headerAction?: React.ReactNode
   currentUser?: { username: string; role: string } | null
   // 用于外部设置初始搜索值（如创建专业后自动填充）
