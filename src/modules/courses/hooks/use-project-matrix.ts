@@ -3,7 +3,7 @@
  * 负责加载和管理项目矩阵数据、KSA列表数据
  */
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import type { TreeNode } from "@/types"
 import { projectMatrixApi } from "@/modules/courses/api/projectMatrixApi"
 import type { ProjectMatrixDataResponse } from "@/lib/api/matrix-api"
@@ -155,25 +155,8 @@ export function useProjectMatrix(node: TreeNode, majorId?: string | number): Use
   const prevMajorIdRef = useRef<string | number | null>(null)
 
   // 加载数据
-  useEffect(() => {
-    // 当node或majorId改变时，重置ref
-    if (prevNodeIdRef.current !== node.id || prevMajorIdRef.current !== majorId) {
-      hasLoadedRef.current = false
-      prevNodeIdRef.current = node.id ?? null
-      prevMajorIdRef.current = majorId ?? null
-    }
-
-    // 防止在StrictMode下重复调用
-    if (hasLoadedRef.current) {
-      return
-    }
-    hasLoadedRef.current = true
-
-    loadProjectMatrixData()
-  }, [node.id, majorId])
-
   // 加载项目矩阵数据和KSA列表
-  const loadProjectMatrixData = async () => {
+  const loadProjectMatrixData = useCallback(async () => {
     try {
       setIsLoadingProjectMatrix(true)
 
@@ -241,7 +224,24 @@ export function useProjectMatrix(node: TreeNode, majorId?: string | number): Use
     } finally {
       setIsLoadingProjectMatrix(false)
     }
-  }
+  }, [majorId, node.id])
+
+  useEffect(() => {
+    // 当node或majorId改变时，重置ref
+    if (prevNodeIdRef.current !== node.id || prevMajorIdRef.current !== majorId) {
+      hasLoadedRef.current = false
+      prevNodeIdRef.current = node.id ?? null
+      prevMajorIdRef.current = majorId ?? null
+    }
+
+    // 防止在StrictMode下重复调用
+    if (hasLoadedRef.current) {
+      return
+    }
+    hasLoadedRef.current = true
+
+    loadProjectMatrixData()
+  }, [loadProjectMatrixData, majorId, node.id])
 
   // 更新KSA支撑关系
   const updateKsaSupport = (

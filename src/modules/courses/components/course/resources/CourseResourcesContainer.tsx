@@ -12,7 +12,7 @@ import { ResourceObjectList } from "./ResourceObjectList"
 import type { ResourceEntry } from "./types"
 import { useCourseResources } from "@/modules/courses/hooks/use-course-resources"
 import { courseResourcesApi } from "@/modules/courses/api/courseResourcesApi"
-import { showError, showSuccess, showInfo } from "@/shared/utils/toast-utils"
+import { showError, showSuccess } from "@/shared/utils/toast-utils"
 
 interface CourseResourcesContainerProps {
   nodeId: string | null

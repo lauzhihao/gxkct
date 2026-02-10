@@ -1,4 +1,4 @@
-import type { ApiResponse, BackendResponse } from "./types"
+import type { ApiResponse } from "./types"
 import { handleBackendResponse, createSuccessResponse, createErrorResponse } from "./response-handler"
 import { HttpAdapter } from "./http-adapter"
 

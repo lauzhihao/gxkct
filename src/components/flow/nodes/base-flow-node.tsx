@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useEffect, useState, type ReactNode } from "react"
-import { Handle, Position, useUpdateNodeInternals, type NodeProps } from "@xyflow/react"
+import { Handle, Position, useUpdateNodeInternals } from "@xyflow/react"
 import { Plus, Pencil, RefreshCw, Trash2, Loader2 } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip"
 import { Popover, PopoverTrigger, PopoverContent } from "@/shared/components/ui/popover"

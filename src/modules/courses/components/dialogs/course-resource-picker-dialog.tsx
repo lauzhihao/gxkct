@@ -57,7 +57,6 @@ export function CourseResourcePickerDialog({
     enterFolder,
     searchTerm,
     setSearchTerm,
-    refreshCurrentLevel,
   } = useCourseResources(nodeId)
 
   const [selectedItems, setSelectedItems] = useState<Map<string, PickedResource>>(new Map())

@@ -433,6 +433,49 @@ export class MatrixApi {
     }
   }
 
+  // 根据课程id获取它支撑的指标点及强弱关系
+  async getCourseIndicatorSupportLevels(
+    courseId: string,
+    majorId: string
+  ): Promise<ApiResponse<Record<string, "strong" | "weak">>> {
+    try {
+      const storageKey = `majorIndicatorCourseSupports-${majorId}`
+      const response = await this.storage.get<Record<string, IndicatorCourseSupport[]>>(storageKey)
+
+      if (!response.data) {
+        return {
+          data: {},
+          error: null,
+          status: 200,
+        }
+      }
+
+      const supportLevels: Record<string, "strong" | "weak"> = {}
+
+      Object.entries(response.data).forEach(([indicatorKey, courses]) => {
+        const matchedCourse = courses.find((course) => course.courseId === courseId)
+        if (!matchedCourse) return
+
+        // 同一指标点若存在多条记录，优先保留 strong
+        if (matchedCourse.supportLevel === "strong" || !supportLevels[indicatorKey]) {
+          supportLevels[indicatorKey] = matchedCourse.supportLevel
+        }
+      })
+
+      return {
+        data: supportLevels,
+        error: null,
+        status: 200,
+      }
+    } catch (error) {
+      return {
+        data: {},
+        error: `获取课程支撑强弱关系失败: ${error instanceof Error ? error.message : String(error)}`,
+        status: 500,
+      }
+    }
+  }
+
   // 获取项目矩阵数据（包含项目章节列表和KSA数据）
   async getProjectMatrixData(courseId: string): Promise<ApiResponse<ProjectMatrixDataResponse>> {
     try {

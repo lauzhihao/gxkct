@@ -11,7 +11,6 @@ import {
 import {
   getAIRequestUrl,
   buildAIRequest,
-  AI_API_CONFIG,
   type AIRequestPayload,
 } from "@/components/ai-assistant/api-config"
 import type { ChatMessage } from "@/types/ai-assistant"
@@ -21,7 +20,6 @@ import type {
   UIEventMessage,
   ProgressEventMessage,
   ModeEventMessage,
-  ErrorEventMessage,
 } from "@/components/canvas-elements"
 
 /**
@@ -98,7 +96,7 @@ export function useAIRequest(
   const streamingControllerRef = useRef<AbortController | null>(null)
 
   // 创建 SSE 流处理器（options 将在执行时动态提供）
-  const { processStream, resetController } = useSSEStream({})
+  useSSEStream({})
 
   /**
    * 执行 AI 请求
@@ -310,7 +308,7 @@ export function useAIRequest(
 
       console.error(`[${config.logPrefix}] 失败:`, error)
     }
-  }, [stateManager, eventHandlers, processStream, resetController])
+  }, [stateManager, eventHandlers])
 
   /**
    * 中止当前请求

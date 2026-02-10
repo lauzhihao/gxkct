@@ -52,18 +52,6 @@ export function CourseThreeLevelMatrix({ node, onUpdateNode, treeData, majorId, 
     setMajorNode(found)
   }, [node.nodeId, treeData])
 
-  // 辅助函数：从树中查找节点
-  const findNodeById = (root: TreeNode, targetId: string): TreeNode | undefined => {
-    if (root.nodeId === targetId) return root
-    if (root.children) {
-      for (const child of root.children) {
-        const found = findNodeById(child, targetId)
-        if (found) return found
-      }
-    }
-    return undefined
-  }
-
   return (
     <>
       {/* Tabs for Course Matrix, Project Matrix and Major Matrix */}
@@ -89,4 +77,3 @@ export function CourseThreeLevelMatrix({ node, onUpdateNode, treeData, majorId, 
     </>
   )
 }
-

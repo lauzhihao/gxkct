@@ -65,6 +65,8 @@ export interface BasePanelNodeProps {
   onDelete?: (id: string) => void
   // 进度消息（显示在loading遮罩中）
   progressMessage?: string | null
+  // 自定义内容区
+  children?: ReactNode
 }
 
 /**
@@ -100,6 +102,7 @@ export const BasePanelNode = memo(function BasePanelNode({
   onRefresh,
   onDelete,
   progressMessage,
+  children,
 }: BasePanelNodeProps) {
   const updateNodeInternals = useUpdateNodeInternals()
   const layoutMode = useCanvasLayoutMode()
@@ -265,6 +268,11 @@ export const BasePanelNode = memo(function BasePanelNode({
 
       {/* 子节点渲染区域 - React Flow 会自动在这里渲染子节点 */}
       {/* 注意：Group Node 的子节点由 React Flow 根据 parentId 自动渲染，无需手动处理 */}
+      {children && (
+        <div className="absolute inset-x-0 bottom-0 top-[41px] p-3">
+          {children}
+        </div>
+      )}
 
       {/* 空状态显示 - 当没有子节点时显示添加按钮，带弹性动画；loading 时隐藏 */}
       {childCount === 0 && onAdd && !isDeleting && (

@@ -30,7 +30,6 @@ const baseTileClass = "flex flex-col items-center gap-2 rounded-lg border border
 
 export function ResourceObjectList({
   entries,
-  viewMode: _viewMode,
   selectedIds,
   onToggleSelect,
   onFolderClick,

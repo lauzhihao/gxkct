@@ -166,6 +166,26 @@ export function useProcessedNodes({
     return map
   }, [flowNodes])
 
+  const ksaPanelStatsMap = useMemo(() => {
+    const map = new Map<string, { K: number; S: number; A: number }>()
+    for (const node of flowNodes) {
+      if (node.type !== FlowNodeType.KSA || !node.parentId || !node.data) {
+        continue
+      }
+      const ksaData = node.data as unknown as KsaItemData
+      const current = map.get(node.parentId) || { K: 0, S: 0, A: 0 }
+      if (ksaData.category === "K") {
+        current.K += 1
+      } else if (ksaData.category === "S") {
+        current.S += 1
+      } else if (ksaData.category === "A") {
+        current.A += 1
+      }
+      map.set(node.parentId, current)
+    }
+    return map
+  }, [flowNodes])
+
   return useMemo(() => {
     // 预先计算每个 Panel 的子节点数量
     const panelChildCounts = new Map<string, number>()
@@ -178,6 +198,13 @@ export function useProcessedNodes({
 
     const result = flowNodes.map((node) => {
       const nodeType = node.type as FlowNodeType
+      if (node.type === FlowNodeType.KSA) {
+        return {
+          ...node,
+          hidden: true,
+        }
+      }
+
       if (STATIC_CARD_NODE_TYPES.has(nodeType)) {
         return node
       }
@@ -297,6 +324,7 @@ export function useProcessedNodes({
           panelData.onEdit = onKsaPanelEdit
           // KSA面板填充进度信息（在生成过程中显示）
           panelData.progressMessage = isRegenerating ? fillProgress.ksa : null
+          panelData.ksaStats = ksaPanelStatsMap.get(node.id) || { K: 0, S: 0, A: 0 }
         }
         if (node.type === FlowNodeType.CHAPTER_PANEL) {
           panelData.onEdit = onChapterPanelEdit
@@ -366,5 +394,6 @@ export function useProcessedNodes({
     onSourceDocumentEdit,
     onSourceDocumentRefresh,
     ksaItemsMap,
+    ksaPanelStatsMap,
   ])
 }

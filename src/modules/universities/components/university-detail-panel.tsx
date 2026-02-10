@@ -1,7 +1,7 @@
 "use client"
 
 import { Building2, Plus, BookOpen } from "lucide-react"
-import { cn, extractNumericId } from "@/shared/utils/utils"
+import { extractNumericId } from "@/shared/utils/utils"
 import { Button } from "@/shared/components/ui/button"
 import {
   Dialog,
@@ -34,7 +34,7 @@ const UNIVERSITY_TABS = {
 type UniversityTabKey = keyof typeof UNIVERSITY_TABS
 const DEFAULT_UNIVERSITY_TAB: UniversityTabKey = "overview"
 
-export function UniversityDetail({ node, onNodeSelect, onAddDepartment, onSetCurrentSchool, onToggleExpand, currentUser }: DetailPanelProps) {
+export function UniversityDetail({ node, onNodeSelect, onSetCurrentSchool, currentUser }: DetailPanelProps) {
   const [newDeptName, setNewDeptName] = useState("")
   const [newDeptDesc, setNewDeptDesc] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -45,7 +45,7 @@ export function UniversityDetail({ node, onNodeSelect, onAddDepartment, onSetCur
   useEffect(() => {
     if (!node) return
     setActivePage(DEFAULT_UNIVERSITY_TAB, UNIVERSITY_TABS[DEFAULT_UNIVERSITY_TAB])
-  }, [node?.nodeId, setActivePage])
+  }, [node, node?.nodeId, setActivePage])
 
   const handleTabChange = (value: string) => {
     const tabKey = value as UniversityTabKey

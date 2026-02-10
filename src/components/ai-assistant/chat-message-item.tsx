@@ -149,7 +149,7 @@ function AssistantMessage({
     const intervalId = setInterval(scrollToBottom, 150)
 
     return () => clearInterval(intervalId)
-  }, [isStreaming, isThinkingExpanded])
+  }, [isStreaming, isThinkingExpanded, thinkingScrollRef])
 
   // 显示内容处理
   const displayContent =

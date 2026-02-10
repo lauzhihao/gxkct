@@ -106,7 +106,6 @@ export function buildAIRequest(
   payload: AIRequestPayload,
   signal: AbortSignal
 ): RequestInit {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const body: Record<string, any> = {
     model: AI_API_CONFIG.MODEL,
     stream: true,

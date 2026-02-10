@@ -352,8 +352,16 @@ function calculateGridPosition(
 function calculatePanelSize(
   childCount: number,
   columns: number,
-  cardSize: { width: number; height: number }
+  cardSize: { width: number; height: number },
+  panelType?: CanvasComponentType
 ): { width: number; height: number } {
+  if (panelType === CanvasComponentType.KSA_PANEL) {
+    return {
+      width: DEFAULT_ELEMENT_SIZES[CanvasComponentType.KSA_PANEL].width,
+      height: 220,
+    }
+  }
+
   // 至少显示一行
   const rows = Math.max(1, Math.ceil(childCount / columns))
   // 实际使用的列数（可能不满一行）
@@ -989,7 +997,7 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
 
       // 5. 计算新的面板尺寸
       const newChildCount = childrenData.length
-      const newPanelSize = calculatePanelSize(newChildCount, columns, cardSize)
+      const newPanelSize = calculatePanelSize(newChildCount, columns, cardSize, panelType)
 
       // 6. 判断子节点数量是否变化（数量变化会导致面板高度变化，需要级联更新后续面板位置）
       const childCountChanged = newChildCount !== oldChildCount
@@ -1653,7 +1661,7 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
                 const cardType = PANEL_TO_CARD_MAP[component]
                 const cardSize = cardType ? DEFAULT_ELEMENT_SIZES[cardType] : { width: 280, height: 80 }
                 const columns = PANEL_GRID_COLUMNS[component] || 3
-                panelSize = calculatePanelSize(0, columns, cardSize)
+                panelSize = calculatePanelSize(0, columns, cardSize, component)
               }
 
               const panelPosition = calculatePositionByLayout(component, prev)
@@ -1774,7 +1782,7 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
 
                 // 计算新的 Panel 尺寸（添加新 Card 后）
                 const newChildCount = childCount + 1
-                const newPanelSize = calculatePanelSize(newChildCount, columns, cardSize)
+                const newPanelSize = calculatePanelSize(newChildCount, columns, cardSize, panelType)
                 const oldHeight = parentPanel.size?.height || 0
                 const heightChanged = newPanelSize.height !== oldHeight
 
@@ -2080,7 +2088,7 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
 
               // 计算新的面板尺寸
               const newChildCount = items.length
-              const newPanelSize = calculatePanelSize(newChildCount, columns, cardSize)
+              const newPanelSize = calculatePanelSize(newChildCount, columns, cardSize, panelType)
 
               // 更新父面板尺寸
               const parentPanelIndex = filteredElements.findIndex(el => el.id === parentPanel.id)

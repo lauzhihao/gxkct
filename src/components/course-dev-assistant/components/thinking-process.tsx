@@ -23,7 +23,7 @@ export function ThinkingProcess({ steps, isActive }: ThinkingProcessProps) {
       </div>
 
       <div className="space-y-1.5">
-        {steps.map((step, index) => (
+        {steps.map((step) => (
           <div
             key={step.id}
             className={cn(

@@ -150,7 +150,6 @@ function SectionTitle({
  */
 export function CanvasCourseReportPreview({
   data,
-  onClose,
   canvasElements = [],
   canvasOssKey = null,
   treeData = null,

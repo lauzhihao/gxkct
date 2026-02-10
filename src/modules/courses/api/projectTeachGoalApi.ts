@@ -1,4 +1,4 @@
-import { api, type ProjectTeachGoalData, type Project } from "@/lib/api"
+import { api, type ProjectTeachGoalData } from "@/lib/api"
 import type { ApiResponse } from "@/lib/api/types"
 
 export const projectTeachGoalApi = {

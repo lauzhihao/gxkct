@@ -29,7 +29,7 @@ export function DetailPanel(props: DetailPanelProps) {
       props.onUpdateNode?.(node.id, {})
     }
   }
-  const handleDeleteCourse = (_courseId: string) => {
+  const handleDeleteCourse = () => {
     if (node?.id) {
       props.onDeleteNode?.(node.id)
     }
@@ -40,8 +40,14 @@ export function DetailPanel(props: DetailPanelProps) {
     case "department":
       return <DepartmentDetail {...props} currentUser={currentUserValue} />
     case "major":
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return <MajorDetail {...(props as any)} currentUser={currentUserValue} onUpdate={handleUpdate} onDeleteCourse={handleDeleteCourse} />
+      return (
+        <MajorDetail
+          {...(props as Parameters<typeof MajorDetail>[0])}
+          currentUser={currentUserValue}
+          onUpdate={handleUpdate}
+          onDeleteCourse={handleDeleteCourse}
+        />
+      )
     case "course":
       return <CourseDetail {...props} currentUser={currentUserValue} />
     default:

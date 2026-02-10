@@ -101,7 +101,6 @@ export function UniversalTreeSelector({
   treeData,
   filterTypes,
   initialSelectedIds = [],
-  rootType = "university",
   rootId = DEFAULT_ROOT_ID,
 }: UniversalTreeSelectorProps) {
   const [internalTree, setInternalTree] = useState<TreeNode | null>(treeData || null)
@@ -161,7 +160,7 @@ export function UniversalTreeSelector({
     // 否则尝试查找指定的节点
     const targetNode = findNodeById(internalTree, normalizedRootId)
     return targetNode || internalTree
-  }, [internalTree, normalizedRootId, rootType])
+  }, [internalTree, normalizedRootId])
 
   useEffect(() => {
     if (open && displayRoot) {
@@ -240,7 +239,7 @@ export function UniversalTreeSelector({
     } else if (!searchQuery.trim()) {
       setExpandedIds((prev) => (prev.size === 0 && displayRoot ? new Set([displayRoot.nodeId]) : prev))
     }
-  }, [searchResults, displayRoot])
+  }, [searchResults, displayRoot, searchQuery])
 
   useEffect(() => {
     if (open && displayRoot && !searchQuery.trim()) {

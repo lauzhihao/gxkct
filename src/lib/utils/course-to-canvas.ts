@@ -24,6 +24,7 @@ import {
   type ProjectMatrixRow,
   type ProjectMatrixObjectiveSupport,
   type ProjectMatrixKsaItem,
+  type GraduationSupportData,
 } from "@/components/canvas-elements/types"
 import { generateEdgeId } from "@/components/flow/utils/layout"
 import { CANVAS_LAYOUT_POSITION_CONFIG } from "@/components/flow/utils/canvas-layout"
@@ -709,6 +710,7 @@ export interface ProjectMatrixApiData {
 export interface MatrixDataForCanvas {
   courseMatrixItems?: CourseMatrixItem[]
   projectMatrixApiData?: ProjectMatrixApiData
+  graduationSupportData?: GraduationSupportData
 }
 
 /**
@@ -1093,7 +1095,6 @@ export function convertCourseToCanvasComplete(
   courseGoals?: CourseGoalWithChildren[],
   matrixData?: MatrixDataForCanvas
 ): CanvasData {
-  const convertStart = typeof performance !== "undefined" ? performance.now() : Date.now()
   const elements: CanvasElementData[] = []
   const edges: CanvasEdgeData[] = []
 
@@ -1107,13 +1108,18 @@ export function convertCourseToCanvasComplete(
   // 2. 创建 graduation_support 面板（第1列首位）
   let currentY = START_Y
 
+  const graduationSupportElementData: GraduationSupportData = {
+    id: PANEL_IDS.GRADUATION_SUPPORT,
+    ...(matrixData?.graduationSupportData || {}),
+  }
+
   const graduationSupportElement: CanvasElementData = {
     id: PANEL_IDS.GRADUATION_SUPPORT,
     type: CanvasComponentType.GRADUATION_SUPPORT,
     position: { x: COLUMN_X_POSITIONS[1], y: currentY },
     size: ELEMENT_SIZES[CanvasComponentType.GRADUATION_SUPPORT],
     selected: false,
-    data: { id: PANEL_IDS.GRADUATION_SUPPORT },
+    data: graduationSupportElementData,
   }
   elements.push(graduationSupportElement)
 

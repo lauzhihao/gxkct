@@ -5,7 +5,6 @@ import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
-import { Badge } from "@/shared/components/ui/badge"
 import { Plus, X, Check } from "lucide-react"
 import { cn } from "@/shared/utils/utils"
 import { MemberSelector } from "@/shared/components/member-selector"
@@ -124,7 +123,7 @@ export function QuickCreateMajorDialog({
       setMajorName("")
       setDirectors([])
       onOpenChange(false)
-    } catch (error) {
+    } catch {
       toast({
         variant: "destructive",
         title: "创建失败",
@@ -226,4 +225,3 @@ export function QuickCreateMajorDialog({
     </>
   )
 }
-

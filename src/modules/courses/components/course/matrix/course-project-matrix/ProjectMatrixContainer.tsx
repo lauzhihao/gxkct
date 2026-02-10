@@ -5,7 +5,6 @@
 
 "use client"
 
-import { useState } from "react"
 import { Grid3x3, Edit, Check, X, Loader2, Settings } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import type { CourseProjectMatrixProps } from "@/modules/courses/types"
@@ -29,7 +28,6 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId }: CourseProjec
     isSavingProjectMatrix,
     setProjectMatrixData,
     setChapterTaskObjectives,
-    setKsaData,
     setKsaListData,
     setIsEditingProjectMatrix,
     setIsSavingProjectMatrix,
@@ -47,7 +45,6 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId }: CourseProjec
     taskObjectiveSearch,
     focusedCell,
     setTaskObjectivesDialogOpen,
-    setSelectedProjectForTasks,
     setProjectGoalsForDialog,
     setNewTaskObjective,
     setEditingTaskId,
@@ -70,8 +67,6 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId }: CourseProjec
     editingKsaId,
     editingDescription,
     setKsaDialogOpen,
-    setSelectedKsaCell,
-    setSelectedKsaSupport,
     setKsaSearchK,
     setKsaSearchS,
     setKsaSearchA,

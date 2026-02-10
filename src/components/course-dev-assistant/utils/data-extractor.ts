@@ -43,17 +43,6 @@ const PATTERNS = {
 // 工具函数
 // ============================================================================
 
-/** 中文数字转阿拉伯数字 */
-function chineseToNumber(chinese: string): number {
-  const map: Record<string, number> = {
-    '一': 1, '二': 2, '三': 3, '四': 4, '五': 5,
-    '六': 6, '七': 7, '八': 8, '九': 9, '十': 10,
-  }
-  if (map[chinese]) return map[chinese]
-  if (/^\d+$/.test(chinese)) return parseInt(chinese, 10)
-  return 0
-}
-
 /** 根据名称匹配课程类型 */
 function matchCourseType(input: string): number | undefined {
   const lowerInput = input.toLowerCase()

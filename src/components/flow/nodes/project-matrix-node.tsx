@@ -105,7 +105,7 @@ export const ProjectMatrixNodeComponent = memo(function ProjectMatrixNodeCompone
 }: NodeProps<ProjectMatrixNode>) {
   const highlighted = data.highlighted ?? false
   const taskObjectives = data.task_objectives || []
-  const rows = data.rows || []
+  const rows = useMemo(() => data.rows ?? [], [data.rows])
   const [isExpanded, setIsExpanded] = useState(false)
 
   useEffect(() => {
@@ -175,136 +175,141 @@ export const ProjectMatrixNodeComponent = memo(function ProjectMatrixNodeCompone
       onRefresh={handleRefresh}
       onEdit={handleEdit}
     >
-      <div className="mb-2 flex items-center justify-between rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+      <div className="mb-2 flex items-center rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
         <span>课点 {rows.length} 条，任务目标 {taskObjectives.length} 条</span>
-        <button
-          type="button"
-          onClick={() => setIsExpanded((prev) => !prev)}
-          className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
-        >
-          {isExpanded ? "收起详情" : "展开详情"}
-        </button>
       </div>
 
       {/* 矩阵表格 */}
-      {isExpanded && rows.length > 0 ? (
-        <div className="max-h-[1200px] overflow-auto rounded border border-slate-200" data-scrollable>
-          <table className="w-full text-sm border-collapse">
-            <thead className="bg-slate-50 sticky top-0 z-10">
-              <tr>
-                {/* 课点列 */}
-                <th className="px-3 py-2 text-left text-slate-600 font-medium border-b border-r border-slate-200 whitespace-nowrap">
-                  课点
-                </th>
-                {/* 动态任务目标列 */}
-                {taskObjectives.map((obj) => (
-                  <th
-                    key={obj.id}
-                    className="px-3 py-2 text-center text-slate-600 font-medium border-b border-r border-slate-200 min-w-[100px] max-w-[160px]"
-                    title={obj.description}
-                  >
-                    <div className="text-xs leading-tight line-clamp-2">
-                      {obj.description}
-                    </div>
-                  </th>
-                ))}
-                {/* 固定列 */}
-                <th className="px-3 py-2 text-center text-slate-600 font-medium border-b border-r border-slate-200 whitespace-nowrap w-20">
-                  学法
-                </th>
-                <th className="px-3 py-2 text-center text-slate-600 font-medium border-b border-r border-slate-200 whitespace-nowrap w-24">
-                  教法
-                </th>
-                <th className="px-3 py-2 text-center text-slate-600 font-medium border-b border-r border-slate-200 whitespace-nowrap min-w-[120px]">
-                  学习产出
-                </th>
-                <th className="px-3 py-2 text-center text-slate-600 font-medium border-b border-r border-slate-200 whitespace-nowrap w-14">
-                  周次
-                </th>
-                <th className="px-3 py-2 text-center text-slate-600 font-medium border-b border-r border-slate-200 whitespace-nowrap w-14">
-                  理论
-                </th>
-                <th className="px-3 py-2 text-center text-slate-600 font-medium border-b border-slate-200 whitespace-nowrap w-14">
-                  实践
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr
-                  key={row.course_point_id}
-                  onClick={() => handleCoursePointClick(row.course_point_id)}
-                  className="border-t border-slate-100 cursor-pointer canvas-table-row"
-                >
-                  {/* 课点名称 - 使用 SupportLabel 标签渲染 */}
-                  <td className="px-3 py-2 text-gray-700 border-r border-slate-200">
-                    <SupportLabel
-                      title={row.course_point_name}
-                      desc={row.course_point_description}
-                      type="strong"
-                      size="sm"
-                      tipsPosition="right"
-                    />
-                  </td>
-                  {/* 任务目标交叉单元格 - 显示KSA支撑 */}
-                  {taskObjectives.map((obj) => {
-                    const support = supportIndex[row.course_point_id]?.[obj.id]
-                    const ksaItems = support?.ksa_items || []
-                    return (
-                      <td
-                        key={obj.id}
-                        className="px-2 py-2 text-center border-r border-slate-200"
-                      >
-                        {ksaItems.length > 0 ? (
-                          <div className="flex flex-wrap gap-1 justify-center">
-                            {ksaItems.map((item) => (
-                              <KsaLabel key={item.id} item={item} ksaItemsMap={data.ksaItemsMap} />
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-gray-300">-</span>
-                        )}
-                      </td>
-                    )
-                  })}
-                  {/* 学法 */}
-                  <td className="px-3 py-2 text-center text-gray-600 border-r border-slate-200 whitespace-nowrap">
-                    {row.learning_method || "-"}
-                  </td>
-                  {/* 教法 */}
-                  <td className="px-3 py-2 text-center text-gray-600 border-r border-slate-200 whitespace-nowrap">
-                    {row.teaching_method || "-"}
-                  </td>
-                  {/* 学习产出 */}
-                  <td
-                    className="px-3 py-2 text-gray-600 border-r border-slate-200 max-w-[150px]"
-                    title={row.learning_output}
-                  >
-                    <div className="text-xs leading-tight line-clamp-2">
-                      {row.learning_output || "-"}
-                    </div>
-                  </td>
-                  {/* 周次 */}
-                  <td className="px-3 py-2 text-center text-gray-500 border-r border-slate-200">
-                    {row.week || "-"}
-                  </td>
-                  {/* 理论学时 */}
-                  <td className="px-3 py-2 text-center text-gray-500 border-r border-slate-200">
-                    {row.theory_hours ?? "-"}
-                  </td>
-                  {/* 实践学时 */}
-                  <td className="px-3 py-2 text-center text-gray-500">
-                    {row.practice_hours ?? "-"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : rows.length === 0 ? (
+      {rows.length === 0 ? (
         <div className="text-sm text-gray-400 text-center py-4">暂无课点数据</div>
       ) : (
-        <div className="text-xs text-slate-500 text-center py-3">已折叠明细表，点击“展开详情”查看</div>
+        <>
+          {isExpanded ? (
+            <div className="max-h-[1200px] overflow-auto rounded border border-slate-200" data-scrollable>
+              <table className="w-full text-sm border-collapse">
+                <thead className="bg-slate-50 sticky top-0 z-10">
+                  <tr>
+                    {/* 课点列 */}
+                    <th className="px-3 py-2 text-left text-slate-600 font-medium border-b border-r border-slate-200 whitespace-nowrap">
+                      课点
+                    </th>
+                    {/* 动态任务目标列 */}
+                    {taskObjectives.map((obj) => (
+                      <th
+                        key={obj.id}
+                        className="px-3 py-2 text-center text-slate-600 font-medium border-b border-r border-slate-200 min-w-[100px] max-w-[160px]"
+                        title={obj.description}
+                      >
+                        <div className="text-xs leading-tight line-clamp-2">
+                          {obj.description}
+                        </div>
+                      </th>
+                    ))}
+                    {/* 固定列 */}
+                    <th className="px-3 py-2 text-center text-slate-600 font-medium border-b border-r border-slate-200 whitespace-nowrap w-20">
+                      学法
+                    </th>
+                    <th className="px-3 py-2 text-center text-slate-600 font-medium border-b border-r border-slate-200 whitespace-nowrap w-24">
+                      教法
+                    </th>
+                    <th className="px-3 py-2 text-center text-slate-600 font-medium border-b border-r border-slate-200 whitespace-nowrap min-w-[120px]">
+                      学习产出
+                    </th>
+                    <th className="px-3 py-2 text-center text-slate-600 font-medium border-b border-r border-slate-200 whitespace-nowrap w-14">
+                      周次
+                    </th>
+                    <th className="px-3 py-2 text-center text-slate-600 font-medium border-b border-r border-slate-200 whitespace-nowrap w-14">
+                      理论
+                    </th>
+                    <th className="px-3 py-2 text-center text-slate-600 font-medium border-b border-slate-200 whitespace-nowrap w-14">
+                      实践
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr
+                      key={row.course_point_id}
+                      onClick={() => handleCoursePointClick(row.course_point_id)}
+                      className="border-t border-slate-100 cursor-pointer canvas-table-row"
+                    >
+                      {/* 课点名称 - 使用 SupportLabel 标签渲染 */}
+                      <td className="px-3 py-2 text-gray-700 border-r border-slate-200">
+                        <SupportLabel
+                          title={row.course_point_name}
+                          desc={row.course_point_description}
+                          type="strong"
+                          size="sm"
+                          tipsPosition="right"
+                        />
+                      </td>
+                      {/* 任务目标交叉单元格 - 显示KSA支撑 */}
+                      {taskObjectives.map((obj) => {
+                        const support = supportIndex[row.course_point_id]?.[obj.id]
+                        const ksaItems = support?.ksa_items || []
+                        return (
+                          <td
+                            key={obj.id}
+                            className="px-2 py-2 text-center border-r border-slate-200"
+                          >
+                            {ksaItems.length > 0 ? (
+                              <div className="flex flex-wrap gap-1 justify-center">
+                                {ksaItems.map((item) => (
+                                  <KsaLabel key={item.id} item={item} ksaItemsMap={data.ksaItemsMap} />
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-gray-300">-</span>
+                            )}
+                          </td>
+                        )
+                      })}
+                      {/* 学法 */}
+                      <td className="px-3 py-2 text-center text-gray-600 border-r border-slate-200 whitespace-nowrap">
+                        {row.learning_method || "-"}
+                      </td>
+                      {/* 教法 */}
+                      <td className="px-3 py-2 text-center text-gray-600 border-r border-slate-200 whitespace-nowrap">
+                        {row.teaching_method || "-"}
+                      </td>
+                      {/* 学习产出 */}
+                      <td
+                        className="px-3 py-2 text-gray-600 border-r border-slate-200 max-w-[150px]"
+                        title={row.learning_output}
+                      >
+                        <div className="text-xs leading-tight line-clamp-2">
+                          {row.learning_output || "-"}
+                        </div>
+                      </td>
+                      {/* 周次 */}
+                      <td className="px-3 py-2 text-center text-gray-500 border-r border-slate-200">
+                        {row.week || "-"}
+                      </td>
+                      {/* 理论学时 */}
+                      <td className="px-3 py-2 text-center text-gray-500 border-r border-slate-200">
+                        {row.theory_hours ?? "-"}
+                      </td>
+                      {/* 实践学时 */}
+                      <td className="px-3 py-2 text-center text-gray-500">
+                        {row.practice_hours ?? "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+
+          <div className="text-xs text-slate-500 text-center py-3">
+            <button
+              type="button"
+              onClick={() => setIsExpanded((prev) => !prev)}
+              className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
+            >
+              {isExpanded ? "收起详情" : "展开详情"}
+            </button>
+          </div>
+        </>
       )}
     </BaseFlowNode>
   )

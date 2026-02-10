@@ -37,6 +37,7 @@ import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
 import { useAiCanvasStore } from "@/shared/stores/ai-canvas-store"
 import type { TreeNode } from "@/types"
 import type { MatrixDataForCanvas, ProjectMatrixApiData } from "@/lib/utils/course-to-canvas"
+import type { GraduationSupportData } from "@/components/canvas-elements/types"
 
 const COURSE_TABS = {
   info: "课程信息",
@@ -281,15 +282,22 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
 
     const prepareCanvasData = async () => {
       const courseId = courseNodeId
+      const majorId = courseDetailData.courseDetailData.course.majorId
       const prepareStart = performance.now()
       const matrixFetchStart = performance.now()
 
-      // 并行获取课程矩阵和项目矩阵数据
+      // 并行获取课程矩阵、项目矩阵和专业指标点信息
       let matrixData: MatrixDataForCanvas | undefined
       try {
-        const [courseMatrixRes, projectMatrixRes] = await Promise.all([
+        const [courseMatrixRes, projectMatrixRes, majorDetailRes, indicatorSupportLevelsRes] = await Promise.all([
           api.matrices.getCourseMatrix(String(courseId)),
           api.matrices.getProjectMatrixData(String(courseId)),
+          majorId
+            ? api.tree.getMajorDetail(String(majorId))
+            : Promise.resolve({ data: null, error: null, status: 200 }),
+          majorId
+            ? api.matrices.getCourseIndicatorSupportLevels(String(courseId), String(majorId))
+            : Promise.resolve({ data: {}, error: null, status: 200 }),
         ])
 
         const courseMatrixItems = courseMatrixRes.data && Array.isArray(courseMatrixRes.data)
@@ -298,17 +306,63 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
         const projectMatrixApiData = projectMatrixRes.data
           ? (projectMatrixRes.data as unknown as ProjectMatrixApiData)
           : undefined
+        const indicatorIdsFromGoals = new Set(
+          (courseGoals || [])
+            .map(goal => Number(goal.id))
+            .filter(id => Number.isFinite(id) && id > 0)
+        )
+        const indicatorSupportLevels: Record<string, "strong" | "weak"> = indicatorSupportLevelsRes.data || {}
+
+        let graduationSupportData: GraduationSupportData | undefined
+        const majorRequirements = majorDetailRes.data?.requiresVOS
+        if (Array.isArray(majorRequirements) && majorRequirements.length > 0 && indicatorIdsFromGoals.size > 0) {
+          const requirements = majorRequirements
+            .map((req: { id?: number; description?: string; children?: Array<{ id?: number; description?: string }> }) => ({
+              id: Number(req.id) || 0,
+              content: req.description || "",
+              indicators: (req.children || [])
+                .map((indicator, index) => ({ indicator, index }))
+                .filter(({ indicator }) => {
+                  const indicatorId = Number(indicator.id)
+                  return Number.isFinite(indicatorId) && indicatorIdsFromGoals.has(indicatorId)
+                })
+                .map(({ indicator, index }) => {
+                  const supportKey = `${Number(req.id) || 0}-${index}`
+                  const supportLevel = indicatorSupportLevels[supportKey] || "strong"
+                  return {
+                    id: Number(indicator.id) || 0,
+                    description: indicator.description || "",
+                    supportLevel,
+                  }
+                }),
+            }))
+            .filter((req: { indicators: Array<unknown> }) => req.indicators.length > 0)
+
+          if (requirements.length > 0) {
+            graduationSupportData = {
+              id: "graduation_support_loaded",
+              universityId: String(courseDetailData.courseNameData.college?.id || ""),
+              universityName: courseDetailData.courseNameData.college?.name,
+              departmentId: String(courseDetailData.courseNameData.department?.id || ""),
+              departmentName: courseDetailData.courseNameData.department?.name,
+              majorId: String(majorId),
+              majorName: courseDetailData.courseNameData.major,
+              requirements,
+            }
+          }
+        }
 
         const matrixFetchDurationMs = performance.now() - matrixFetchStart
 
-        if (courseMatrixItems || projectMatrixApiData) {
-          matrixData = { courseMatrixItems, projectMatrixApiData }
+        if (courseMatrixItems || projectMatrixApiData || graduationSupportData) {
+          matrixData = { courseMatrixItems, projectMatrixApiData, graduationSupportData }
           console.log("[CourseDetail] 矩阵数据加载完成:", {
             fetchDurationMs: Number(matrixFetchDurationMs.toFixed(1)),
             courseMatrixCount: courseMatrixItems?.length || 0,
             projectCount: projectMatrixApiData?.projects?.length || 0,
             projectRowsCount: projectMatrixApiData?.data?.length || 0,
             ksaCount: projectMatrixApiData?.ksas?.length || 0,
+            graduationIndicatorCount: graduationSupportData?.requirements?.reduce((sum, req) => sum + req.indicators.length, 0) || 0,
           })
         } else {
           console.log("[CourseDetail] 矩阵数据为空:", {
@@ -323,12 +377,19 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
       const canvasData = convertCourseToCanvasComplete(courseDetailData, courseGoals, matrixData)
       const convertDurationMs = performance.now() - convertStart
       const totalDurationMs = performance.now() - prepareStart
+      const objectiveCount = (courseGoals || []).reduce((sum, goal) => sum + (goal.children?.length || 0), 0)
+      const hitIndicatorCount = matrixData?.graduationSupportData?.requirements?.reduce((sum, req) => sum + req.indicators.length, 0) || 0
+      const renderedSupportData = canvasData.elements.find(el => el.type === "graduation_support")?.data as GraduationSupportData | undefined
+      const renderedIndicatorCount = renderedSupportData?.requirements?.reduce((sum, req) => sum + req.indicators.length, 0) || 0
 
       console.log("[CourseDetail] 转换课程数据到画布格式:", {
         convertDurationMs: Number(convertDurationMs.toFixed(1)),
         totalDurationMs: Number(totalDurationMs.toFixed(1)),
         elementsCount: canvasData.elements.length,
         edgesCount: canvasData.edges.length,
+        objectiveCount,
+        hitIndicatorCount,
+        renderedIndicatorCount,
       })
 
       return canvasData

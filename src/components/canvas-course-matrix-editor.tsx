@@ -9,7 +9,7 @@ import { useState, useCallback, useMemo } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { Loader2, Plus, Star, X } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/components/ui/tooltip"
-import type { CourseMatrixData, CourseMatrixRow, CourseMatrixCoursePoint } from "./canvas-elements/types"
+import type { CourseMatrixData, CourseMatrixCoursePoint } from "./canvas-elements/types"
 import {
   Dialog,
   DialogContent,
