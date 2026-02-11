@@ -277,6 +277,7 @@ function AiCanvasPanelInner({
 
   // 正在删除的节点ID集合（用于显示loading效果）
   const [deletingNodeIds, setDeletingNodeIds] = useState<Set<string>>(new Set())
+  const [expandedCoursePointPanelIds, setExpandedCoursePointPanelIds] = useState<Set<string>>(new Set())
   const containerRef = useRef<HTMLDivElement>(null)
 
   // 使用抽屉状态管理 hook
@@ -766,6 +767,46 @@ function AiCanvasPanelInner({
     onPanelAdd?.(panelType, panelId)
   }, [onPanelAdd])
 
+  const handleCoursePointPanelExpand = useCallback((panelId: string) => {
+    setExpandedCoursePointPanelIds(prev => {
+      if (prev.has(panelId)) {
+        return prev
+      }
+      const next = new Set(prev)
+      next.add(panelId)
+      return next
+    })
+  }, [])
+
+  const handleCoursePointPanelCollapse = useCallback((panelId: string) => {
+    setExpandedCoursePointPanelIds(prev => {
+      if (!prev.has(panelId)) {
+        return prev
+      }
+      const next = new Set(prev)
+      next.delete(panelId)
+      return next
+    })
+  }, [])
+
+  useEffect(() => {
+    const panelIds = new Set(
+      flowNodes
+        .filter(node => node.type === FlowNodeType.COURSE_POINT_PANEL)
+        .map(node => node.id)
+    )
+
+    setExpandedCoursePointPanelIds(prev => {
+      const next = new Set<string>()
+      prev.forEach(panelId => {
+        if (panelIds.has(panelId)) {
+          next.add(panelId)
+        }
+      })
+      return next.size === prev.size ? prev : next
+    })
+  }, [flowNodes])
+
   // 使用 useProcessedNodes hook 处理节点数据
   const processedNodes = useProcessedNodes({
     flowNodes,
@@ -783,6 +824,9 @@ function AiCanvasPanelInner({
     onCourseReportEdit: handleCourseReportEdit,
     onPanelAdd: handlePanelAdd,
     onCoursePointPanelEdit: handleCoursePointPanelEdit,
+    expandedCoursePointPanelIds,
+    onCoursePointPanelExpand: handleCoursePointPanelExpand,
+    onCoursePointPanelCollapse: handleCoursePointPanelCollapse,
     onKsaPanelEdit: handleKsaPanelEdit,
     onChapterPanelEdit: handleChapterPanelEdit,
     onObjectivePanelEdit: handleObjectivePanelEdit,

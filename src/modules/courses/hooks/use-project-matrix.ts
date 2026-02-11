@@ -177,15 +177,30 @@ export function useProjectMatrix(node: TreeNode, majorId?: string | number): Use
         console.error("[useProjectMatrix] 获取项目矩阵数据失败:", projectMatrixResponse.error)
       } else if (projectMatrixResponse.data) {
         console.log("[useProjectMatrix] 项目矩阵原始响应:", projectMatrixResponse.data)
-        const responseData = projectMatrixResponse.data.data
-        console.log("[useProjectMatrix] projects结构:", JSON.stringify(responseData.projects?.[0], null, 2))
-        console.log("[useProjectMatrix] data数组长度:", responseData.data?.length)
-        if (responseData.data?.length > 0) {
-          console.log("[useProjectMatrix] data[0]结构:", JSON.stringify(responseData.data[0], null, 2))
+        const rawData = projectMatrixResponse.data as unknown as {
+          projects?: unknown[]
+          data?: unknown
         }
-        const convertedData = convertToProjectMatrixData(responseData)
-        console.log("[useProjectMatrix] 转换后的数据:", JSON.stringify(convertedData, null, 2))
-        setProjectMatrixData(convertedData)
+
+        // 兼容两种后端返回形态：
+        // 1) handleBackendResponse 已解包，直接返回 { courseId, projects, data, ... }
+        // 2) 少数场景仍返回 { data: { courseId, projects, data, ... } }
+        const responseData = Array.isArray(rawData.projects)
+          ? (rawData as ProjectMatrixDataResponse["data"])
+          : ((rawData.data as ProjectMatrixDataResponse["data"]) || null)
+
+        if (!responseData) {
+          console.warn("[useProjectMatrix] 项目矩阵响应结构异常:", projectMatrixResponse.data)
+        } else {
+          console.log("[useProjectMatrix] projects结构:", JSON.stringify(responseData.projects?.[0], null, 2))
+          console.log("[useProjectMatrix] data数组长度:", responseData.data?.length)
+          if (responseData.data?.length > 0) {
+            console.log("[useProjectMatrix] data[0]结构:", JSON.stringify(responseData.data[0], null, 2))
+          }
+          const convertedData = convertToProjectMatrixData(responseData)
+          console.log("[useProjectMatrix] 转换后的数据:", JSON.stringify(convertedData, null, 2))
+          setProjectMatrixData(convertedData)
+        }
       }
 
       // 获取KSA列表数据

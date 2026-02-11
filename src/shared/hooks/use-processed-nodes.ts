@@ -43,6 +43,19 @@ const STATIC_CARD_NODE_TYPES = new Set<FlowNodeType>([
   FlowNodeType.KSA,
 ])
 
+// 课点面板默认渲染条数上限（超出部分折叠）
+const COURSE_POINT_PANEL_VISIBLE_LIMIT = 10
+const COURSE_POINT_PANEL_COLUMNS = 5
+const COURSE_POINT_CARD_WIDTH = 280
+const COURSE_POINT_CARD_HEIGHT = 140
+const COURSE_POINT_CARD_GAP_X = 10
+const PANEL_TOP_PADDING = 75
+const PANEL_LEFT_PADDING = 20
+const PANEL_BOTTOM_PADDING = 10
+const CARD_GAP_Y = 10
+const PANEL_MIN_HEIGHT = 200
+const COURSE_POINT_FOLD_BAR_HEIGHT = 34
+
 /**
  * useProcessedNodes hook 参数
  */
@@ -77,6 +90,12 @@ export interface UseProcessedNodesOptions {
   onPanelAdd: (panelType: string, panelId: string) => void
   /** 课点面板编辑回调 */
   onCoursePointPanelEdit: (panelId: string) => void
+  /** 课点面板展开状态 */
+  expandedCoursePointPanelIds?: Set<string>
+  /** 课点面板展开回调 */
+  onCoursePointPanelExpand?: (panelId: string) => void
+  /** 课点面板折叠回调 */
+  onCoursePointPanelCollapse?: (panelId: string) => void
   /** KSA面板编辑回调 */
   onKsaPanelEdit: (panelId: string) => void
   /** 章节面板编辑回调 */
@@ -146,6 +165,9 @@ export function useProcessedNodes({
   onCourseReportEdit,
   onPanelAdd,
   onCoursePointPanelEdit,
+  expandedCoursePointPanelIds,
+  onCoursePointPanelExpand,
+  onCoursePointPanelCollapse,
   onKsaPanelEdit,
   onChapterPanelEdit,
   onObjectivePanelEdit,
@@ -186,6 +208,73 @@ export function useProcessedNodes({
     return map
   }, [flowNodes])
 
+  const coursePointPanelFoldState = useMemo(() => {
+    const panelItemsMap = new Map<string, Array<{ id: string; index: number }>>()
+    for (const node of flowNodes) {
+      if (node.type !== FlowNodeType.COURSE_POINT || !node.parentId) {
+        continue
+      }
+      const pointData = node.data as { index?: number }
+      const list = panelItemsMap.get(node.parentId) || []
+      list.push({ id: node.id, index: pointData.index ?? Number.MAX_SAFE_INTEGER })
+      panelItemsMap.set(node.parentId, list)
+    }
+
+    const visibleIds = new Set<string>()
+    const collapsedVisiblePositions = new Map<string, { x: number; y: number }>()
+    const panelMeta = new Map<string, {
+      totalCount: number
+      visibleCount: number
+      hiddenCount: number
+      isExpanded: boolean
+      collapsedHeight: number
+      hasOverflow: boolean
+    }>()
+
+    panelItemsMap.forEach((items, panelId) => {
+      const sorted = [...items].sort((a, b) => a.index - b.index)
+      const totalCount = sorted.length
+      const isExpanded = expandedCoursePointPanelIds?.has(panelId) ?? false
+      const visibleCount = isExpanded ? totalCount : Math.min(totalCount, COURSE_POINT_PANEL_VISIBLE_LIMIT)
+      const hiddenCount = Math.max(0, totalCount - visibleCount)
+      const hasOverflow = totalCount > COURSE_POINT_PANEL_VISIBLE_LIMIT
+      sorted.slice(0, visibleCount).forEach((item, visibleIndex) => {
+        visibleIds.add(item.id)
+        // 折叠态下对可见课点重排为紧凑 5 列，避免保留原始稀疏坐标造成大间距
+        if (!isExpanded) {
+          const col = visibleIndex % COURSE_POINT_PANEL_COLUMNS
+          const row = Math.floor(visibleIndex / COURSE_POINT_PANEL_COLUMNS)
+          collapsedVisiblePositions.set(item.id, {
+            x: PANEL_LEFT_PADDING + col * (COURSE_POINT_CARD_WIDTH + COURSE_POINT_CARD_GAP_X),
+            y: PANEL_TOP_PADDING + row * (COURSE_POINT_CARD_HEIGHT + CARD_GAP_Y),
+          })
+        }
+      })
+
+      const collapsedVisibleCount = Math.min(totalCount, COURSE_POINT_PANEL_VISIBLE_LIMIT)
+      const rows = Math.max(1, Math.ceil(collapsedVisibleCount / COURSE_POINT_PANEL_COLUMNS))
+      const collapsedHeight = Math.max(
+        PANEL_MIN_HEIGHT,
+        PANEL_TOP_PADDING + rows * COURSE_POINT_CARD_HEIGHT + (rows - 1) * CARD_GAP_Y + PANEL_BOTTOM_PADDING + (hasOverflow ? COURSE_POINT_FOLD_BAR_HEIGHT : 0)
+      )
+
+      panelMeta.set(panelId, {
+        totalCount,
+        visibleCount,
+        hiddenCount,
+        isExpanded,
+        collapsedHeight,
+        hasOverflow,
+      })
+    })
+
+    return {
+      visibleIds,
+      collapsedVisiblePositions,
+      panelMeta,
+    }
+  }, [flowNodes, expandedCoursePointPanelIds])
+
   return useMemo(() => {
     // 预先计算每个 Panel 的子节点数量
     const panelChildCounts = new Map<string, number>()
@@ -198,6 +287,15 @@ export function useProcessedNodes({
 
     const result = flowNodes.map((node) => {
       const nodeType = node.type as FlowNodeType
+      if (node.type === FlowNodeType.COURSE_POINT && node.parentId) {
+        const collapsedPosition = coursePointPanelFoldState.collapsedVisiblePositions.get(node.id)
+        return {
+          ...node,
+          hidden: !coursePointPanelFoldState.visibleIds.has(node.id),
+          ...(collapsedPosition ? { position: collapsedPosition } : {}),
+        }
+      }
+
       if (node.type === FlowNodeType.KSA) {
         return {
           ...node,
@@ -316,9 +414,36 @@ export function useProcessedNodes({
           onAdd: () => onPanelAdd(node.type || "", node.id),
         }
         if (node.type === FlowNodeType.COURSE_POINT_PANEL) {
+          const foldMeta = coursePointPanelFoldState.panelMeta.get(node.id)
           panelData.onEdit = onCoursePointPanelEdit
+          panelData.totalChildCount = foldMeta?.totalCount || childCount
+          panelData.visibleChildCount = foldMeta?.visibleCount || childCount
+          panelData.hiddenChildCount = foldMeta?.hiddenCount || 0
+          panelData.isExpanded = foldMeta?.isExpanded || false
+          panelData.onExpand = onCoursePointPanelExpand
+          panelData.onCollapse = onCoursePointPanelCollapse
           // 课点面板填充进度信息（在生成过程中显示）
           panelData.progressMessage = isRegenerating ? fillProgress.coursePoints : null
+
+          const mergedStyle = {
+            ...node.style,
+            ...(childDisabledStyle || {}),
+          }
+          if (foldMeta?.hasOverflow) {
+            if (foldMeta.isExpanded) {
+              const baseHeight = typeof node.style?.height === "number"
+                ? node.style.height
+                : foldMeta.collapsedHeight
+              mergedStyle.height = baseHeight + COURSE_POINT_FOLD_BAR_HEIGHT
+            } else {
+              mergedStyle.height = foldMeta.collapsedHeight
+            }
+          }
+          return {
+            ...node,
+            style: mergedStyle,
+            data: panelData,
+          }
         }
         if (node.type === FlowNodeType.KSA_PANEL) {
           panelData.onEdit = onKsaPanelEdit
@@ -386,6 +511,8 @@ export function useProcessedNodes({
     onCourseReportEdit,
     onPanelAdd,
     onCoursePointPanelEdit,
+    onCoursePointPanelExpand,
+    onCoursePointPanelCollapse,
     onKsaPanelEdit,
     onChapterPanelEdit,
     onObjectivePanelEdit,
@@ -395,5 +522,6 @@ export function useProcessedNodes({
     onSourceDocumentRefresh,
     ksaItemsMap,
     ksaPanelStatsMap,
+    coursePointPanelFoldState,
   ])
 }

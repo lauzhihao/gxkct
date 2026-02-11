@@ -15,6 +15,7 @@ import {
   sortCoursePointsByTitle,
 } from "@/modules/courses/utils/course-matrix-utils"
 import type {
+  CourseMatrixPointItem,
   CourseMatrixContextValue,
   CourseMatrixRecord,
   SelectedMatrixCell,
@@ -240,7 +241,8 @@ export const useCourseMatrixData = ({ node, majorId }: UseCourseMatrixDataParams
               }
 
               transformedData[key].push({
-                id: String(item.id),
+                id: String(item.point.id),
+                matrixItemId: item.id,
                 name: item.point.title,
                 description: item.point.description,
                 support: item.relate.relate === 0 ? "strong" : "weak",
@@ -263,18 +265,88 @@ export const useCourseMatrixData = ({ node, majorId }: UseCourseMatrixDataParams
       setIsSavingCourseMatrix(true)
 
       try {
-        if (projectTeachGoalData && projectTeachGoalData.projects) {
-          projectTeachGoalData.projects.forEach((project) => {
-            if (editingProjectNames[project.id] !== undefined) {
-              project.name = editingProjectNames[project.id]
-            }
-          })
+        if (!projectTeachGoalData?.projects || !projectTeachGoalData?.goals || !node.id) {
+          showError("课程矩阵数据不完整，无法保存")
+          return
         }
 
-        // 直接使用 node.id 作为 courseId
-        if (node.id) {
-          await courseMatrixApi.updateCourseMatrix(node.id, [])
+        const courseIdNum = Number(node.id)
+        if (!Number.isFinite(courseIdNum) || courseIdNum <= 0) {
+          showError("课程ID无效，无法保存")
+          return
         }
+
+        const resolveSupportPayload = (support: SupportStrength) => {
+          if (support === "strong") {
+            return { name: "强支撑", code: "primary", relate: 0 }
+          }
+          return { name: "弱支撑", code: "success", relate: 1 }
+        }
+
+        const normalizeNumericId = (value: string | number): number => {
+          if (typeof value === "number") {
+            return Number.isFinite(value) && value > 0 ? value : 0
+          }
+          const parsed = Number.parseInt(value, 10)
+          return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+        }
+
+        const payload = projectTeachGoalData.projects.map((project, projectIndex) => {
+          const projectIdNum = normalizeNumericId(project.id)
+          const projectName = editingProjectNames[project.id] ?? project.name ?? `项目${projectIndex + 1}`
+
+          const chapterItems = projectTeachGoalData.goals.flatMap((goal) => {
+            const children = goal.children && goal.children.length > 0 ? goal.children : []
+
+            return children.flatMap((child) => {
+              const graduateRequireId = normalizeNumericId(child.id)
+              if (graduateRequireId <= 0) {
+                return []
+              }
+
+              const cellKey = buildMatrixDisplayKey(String(project.id), String(child.id))
+              const points = courseMatrixData[cellKey] || []
+
+              return points.map((point: CourseMatrixPointItem) => {
+                const pointIdNum = normalizeNumericId(point.id)
+
+                return {
+                  id: point.matrixItemId > 0 ? point.matrixItemId : 0,
+                  courseUnitId: courseIdNum,
+                  projectId: projectIdNum,
+                  graduateRequireId,
+                  point: {
+                    id: pointIdNum,
+                    title: point.name,
+                    description: point.description || "",
+                  },
+                  relate: resolveSupportPayload(point.support),
+                  study: "",
+                  teach: "",
+                  product: "",
+                  week: "0",
+                  period: "0",
+                }
+              })
+            })
+          })
+
+          return {
+            project: {
+              id: projectIdNum,
+              uniqueCode: project.uniqueCode || "",
+              courseUnitId: courseIdNum,
+              name: projectName,
+              product: project.product || "",
+              theoryPeriod: project.theoryPeriod || "0",
+              practicePeriod: project.practicePeriod || "0",
+              indexNo: project.indexNo ?? null,
+            },
+            data: chapterItems,
+          }
+        })
+
+        await courseMatrixApi.updateCourseMatrix(node.id, payload)
 
         setEditingProjectNames({})
         showSuccess("课程矩阵保存成功")
@@ -290,7 +362,7 @@ export const useCourseMatrixData = ({ node, majorId }: UseCourseMatrixDataParams
         setIsEditingCourseMatrix(false)
       }
     },
-    [editingProjectNames, node.id, projectTeachGoalData]
+    [courseMatrixData, editingProjectNames, node.id, projectTeachGoalData]
   )
 
   useEffect(() => {
@@ -352,10 +424,16 @@ export const useCourseMatrixData = ({ node, majorId }: UseCourseMatrixDataParams
     const coursePointsMap = createCoursePointMap(coursePointsList)
 
     setCourseMatrixData((prev) => {
-      const newPoints = Object.entries(selectedCoursePoints).map(([id, support]) => {
+      const existingPoints = prev[key] || []
+      const existingPointMap = new Map(existingPoints.map((point) => [point.id, point]))
+
+      const newPoints: CourseMatrixPointItem[] = Object.entries(selectedCoursePoints).map(([id, support]) => {
         const pointData = coursePointsMap.get(id) || { title: id, description: "" }
+        const existingPoint = existingPointMap.get(id)
+
         return {
           id,
+          matrixItemId: existingPoint?.matrixItemId || 0,
           name: pointData.title,
           description: pointData.description,
           support,

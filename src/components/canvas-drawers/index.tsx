@@ -210,6 +210,7 @@ export const CanvasDrawers = memo(function CanvasDrawers({
               <AddCourseForm
                 majorId=""
                 isEditMode={true}
+                hideChapterSectionInEdit={true}
                 initialData={{
                   name: courseInfoData.name || "",
                   courseType: courseInfoData.metadata?.courseType || "必修",

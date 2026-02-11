@@ -15,13 +15,6 @@ import { useToast } from "@/shared/hooks/use-toast"
 import { api } from "@/lib/api"
 import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 
-interface TeachingObjective {
-  id: string
-  content: string
-  points: string[]
-  supportedIndicators?: string[] // 支撑的指标点，格式为"requirementId-indicatorIndex"
-}
-
 interface CoursePoint {
   id: string
   content: string // Merged title and description into single content field
@@ -39,15 +32,28 @@ interface ChapterProject {
   name: string
   theoryHours: number
   practiceHours: number
+  courseUnitId?: number
+}
+
+interface RawChapterProject {
+  id?: string | number
+  name?: string
+  title?: string
+  theoryHours?: number | string | null
+  theoryPeriod?: number | string | null
+  practiceHours?: number | string | null
+  practicePeriod?: number | string | null
+  courseUnitId?: number | string | null
 }
 
 interface AddCourseFormProps {
   majorId: string
   onCancel: () => void
-  onSubmit: (courseData: any, isAutoSave?: boolean) => void
+  onSubmit: (courseData: any, isAutoSave?: boolean) => void | Promise<void>
   initialData?: any
   isEditMode?: boolean
   courseDetailData?: any
+  hideChapterSectionInEdit?: boolean
 }
 
 const DEFAULT_SCHEDULE_ROW = {
@@ -70,18 +76,31 @@ const courseNatureOptions = [
   { id: 5, name: "综合教育" },
 ]
 
-function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = false, courseDetailData }: AddCourseFormProps) {
+function AddCourseForm({
+  majorId,
+  onCancel,
+  onSubmit,
+  initialData,
+  isEditMode = false,
+  courseDetailData,
+  hideChapterSectionInEdit = false,
+}: AddCourseFormProps) {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState("basic")
   const [courseNaturePopoverOpen, setCourseNaturePopoverOpen] = useState(false)
   const [autoSaveStatus, setAutoSaveStatus] = useState<"" | "saving" | "saved" | "failed">("")
-  const teachingObjectivesSnapshotRef = useRef<TeachingObjective[]>([])
   // 自动保存开关状态（编辑模式下默认开启）
   const [isAutoSaveEnabled] = useState(isEditMode)
   // 用于自动保存的定时器引用
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const handleSubmitRef = useRef<(isAutoSave?: boolean) => void>(() => {})
+  const autoSaveStatusTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const isSubmittingRef = useRef(false)
+  const pendingAutoSaveRef = useRef(false)
+  const pendingSnapshotRef = useRef<string | null>(null)
+  const lastSavedSnapshotRef = useRef<string | null>(null)
+  const handleSubmitRef = useRef<(isAutoSave?: boolean) => Promise<void>>(async () => {})
+  const showChapterTab = !isEditMode || !hideChapterSectionInEdit
 
   // 从majorId中提取真实的majorId（如果是major-3895格式，提取3895）
   const realMajorId = useMemo(() => {
@@ -182,6 +201,45 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
     return option?.name || ""
   }, [courseNatureId])
 
+  const normalizeChapterProjects = useCallback((source: unknown): ChapterProject[] => {
+    const defaultChapter: ChapterProject = { id: "1", name: "", theoryHours: 0, practiceHours: 0 }
+    if (!Array.isArray(source) || source.length === 0) {
+      return [defaultChapter]
+    }
+
+    const normalized = source.map((item, index) => {
+      const chapter = (item || {}) as RawChapterProject
+      const id = chapter.id !== undefined && chapter.id !== null && String(chapter.id).trim().length > 0
+        ? String(chapter.id)
+        : String(index + 1)
+      const name = typeof chapter.name === "string"
+        ? chapter.name
+        : typeof chapter.title === "string"
+          ? chapter.title
+          : ""
+
+      const theoryValue = Number(chapter.theoryHours ?? chapter.theoryPeriod ?? 0)
+      const practiceValue = Number(chapter.practiceHours ?? chapter.practicePeriod ?? 0)
+
+      const courseUnitIdValue = Number(chapter.courseUnitId)
+
+      return {
+        id,
+        name,
+        theoryHours: Number.isFinite(theoryValue) ? theoryValue : 0,
+        practiceHours: Number.isFinite(practiceValue) ? practiceValue : 0,
+        courseUnitId: Number.isFinite(courseUnitIdValue) ? courseUnitIdValue : undefined,
+      }
+    })
+
+    return normalized.length > 0 ? normalized : [defaultChapter]
+  }, [])
+
+  // Tab 4: Chapter and Project Management
+  const [chapters, setChapters] = useState<ChapterProject[]>(() =>
+    normalizeChapterProjects(initialData?.chapters),
+  )
+
   // 在编辑模式下，使用传入的 courseDetailData 初始化表单字段
   useEffect(() => {
     if (!isEditMode || !courseDetailData) return
@@ -215,6 +273,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
       setScoreType(courseData.scoreType || "百分制")
       setScoreTable(courseData.scoreTable || { headers: ["等级", "分值"], rows: [{ "等级": "", "分值": "" }] })
       setAssessmentDescription(courseData.assessmentDescription || "")
+      setChapters(normalizeChapterProjects(courseData.courseMatrixVOS))
       // 根据 typeId 设置课程性质
       if (courseData.typeId) {
         setCourseNatureId(courseData.typeId)
@@ -225,12 +284,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
         setOpeningDate(dateStr)
       }
     }
-  }, [isEditMode, courseDetailData, initialData?.name, parseTeachingSchedule])
-
-  // Tab 2: Teaching Objectives
-  const [teachingObjectives, setTeachingObjectives] = useState<TeachingObjective[]>(
-    initialData?.teachingObjectives || [{ id: "1", content: "", points: [""] }],
-  )
+  }, [isEditMode, courseDetailData, initialData?.name, normalizeChapterProjects, parseTeachingSchedule])
 
   // Tab 3: Course Point Information Library
   const [coursePoints] = useState<CoursePoint[]>(
@@ -246,10 +300,31 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
     })) || [{ id: "1", content: "", infoPoints: [] }],
   )
 
-  // Tab 4: Chapter and Project Management
-  const [chapters] = useState<ChapterProject[]>(
-    initialData?.chapters || [{ id: "1", name: "", theoryHours: 0, practiceHours: 0 }],
-  )
+  useEffect(() => {
+    if (showChapterTab) return
+    if (activeTab === "chapters") {
+      setActiveTab("basic")
+    }
+  }, [activeTab, showChapterTab])
+
+  const addChapter = () => {
+    setChapters(prev => ([...prev, { id: Date.now().toString(), name: "", theoryHours: 0, practiceHours: 0 }]))
+  }
+
+  const removeChapter = (id: string) => {
+    setChapters(prev => {
+      if (prev.length <= 1) return prev
+      return prev.filter(chapter => chapter.id !== id)
+    })
+  }
+
+  const updateChapter = (id: string, field: "name" | "theoryHours" | "practiceHours", value: string | number) => {
+    setChapters(prev => prev.map(chapter => (
+      chapter.id === id
+        ? { ...chapter, [field]: value }
+        : chapter
+    )))
+  }
 
   // 加载专业的指标点，并过滤出该课程支撑的指标点
   useEffect(() => {
@@ -310,67 +385,6 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
     }
   }, [realMajorId, isEditMode, realCourseId])
 
-  // 进入编辑模式时，加载课程与指标点的关系
-  useEffect(() => {
-    const loadCourseObjectiveIndicators = async () => {
-      if (!isEditMode || !realCourseId || !realMajorId) return
-
-      try {
-        const response = await api.matrices.getCourseTeachingObjectiveIndicators(realCourseId, realMajorId)
-        if (response.data && typeof response.data === 'object') {
-          // 根据保存的关系数据，更新教学目标的supportedIndicators
-          setTeachingObjectives((prevObjectives) =>
-            prevObjectives.map((obj) => ({
-              ...obj,
-              supportedIndicators: (response.data as Record<string, string[]>)?.[obj.id] || [],
-            }))
-          )
-        }
-      } catch (error) {
-        console.error("加载课程教学目标指标点关系失败:", error)
-      }
-    }
-
-    loadCourseObjectiveIndicators()
-  }, [isEditMode, realCourseId, realMajorId])
-
-  // 同步教学目标到快照ref，用于自动保存
-  useEffect(() => {
-    teachingObjectivesSnapshotRef.current = teachingObjectives
-  }, [teachingObjectives])
-
-  // 自动保存教学目标与指标点的关系（异步，不阻塞UI）
-  useEffect(() => {
-    if (!isEditMode || !realCourseId || !realMajorId) return
-
-    const autoSaveInterval = setInterval(() => {
-      const snapshot = teachingObjectivesSnapshotRef.current
-
-      Promise.resolve().then(async () => {
-        try {
-          setAutoSaveStatus("saving")
-          // 构建教学目标与指标点的关系数据
-          const objectiveIndicatorMap: Record<string, string[]> = {}
-          snapshot.forEach((obj) => {
-            if (obj.supportedIndicators && obj.supportedIndicators.length > 0) {
-              objectiveIndicatorMap[obj.id] = obj.supportedIndicators
-            }
-          })
-          // 保存到API
-          await api.matrices.updateCourseTeachingObjectiveIndicators(realCourseId, realMajorId, objectiveIndicatorMap)
-          setAutoSaveStatus("saved")
-          setTimeout(() => setAutoSaveStatus(""), 3000)
-        } catch (error) {
-          console.error("自动保存教学目标指标点关系失败:", error)
-          setAutoSaveStatus("failed")
-          setTimeout(() => setAutoSaveStatus(""), 3000)
-        }
-      })
-    }, 10000) // 每10秒自动保存一次
-
-    return () => clearInterval(autoSaveInterval)
-  }, [isEditMode, realCourseId, realMajorId])
-
   // 自动保存课程表单（每10秒）
   useEffect(() => {
     // 清除之前的定时器
@@ -387,7 +401,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
     // 启动自动保存定时器
     autoSaveTimerRef.current = setInterval(() => {
       console.log("[AddCourseForm] 自动保存触发")
-      handleSubmitRef.current(true)
+      void handleSubmitRef.current(true)
     }, 10000) // 每10秒自动保存一次
 
     return () => {
@@ -398,77 +412,50 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
     }
   }, [isAutoSaveEnabled, isEditMode])
 
-  const handleSubmit = useCallback((isAutoSave: boolean = false) => {
-    // 自动保存时不设置loading状态（避免干扰用户操作）
-    if (!isAutoSave) {
-      setIsLoading(true)
-    }
-
-    if (!courseName.trim() || !courseNatureId) {
-      if (!isAutoSave) {
-        toast({
-          variant: "destructive",
-          title: "表单验证失败",
-          description: "请完整填写表单内容",
-          duration: 5000,
-        })
-        setIsLoading(false)
+  useEffect(() => {
+    return () => {
+      if (autoSaveStatusTimerRef.current) {
+        clearTimeout(autoSaveStatusTimerRef.current)
+        autoSaveStatusTimerRef.current = null
       }
-      return
     }
+  }, [])
 
-    const courseData = {
-      name: courseName,
-      type: "course" as const,
-      metadata: {
-        openingDate,
-        courseType,
-        courseNatureId,
-        courseNatureName: courseNatureName,
-        introduction,
-        theoryPeriod,
-        practicePeriod,
-        teachingClass,
-        teachingLocation,
-        teachingTime: JSON.stringify(teachingScheduleRows),
-        studentCount,
-        credits,
-        mainTextbook,
-        referenceResources,
-        // 课程要求字段
-        attendancePolicy,
-        assignmentPolicy,
-        conductRequirements,
-        practiceRequirements,
-        teamworkRequirements,
-        bonusRequirements,
-        otherSuggestions,
-        // 考核评价字段
-        assessmentMethod,
-        assessmentForm,
-        scoreType,
-        scoreTable,
-        assessmentDescription,
-        teachingObjectives,
-        coursePoints,
-        chapters,
-      },
-      children: initialData?.children || [],
-    }
-
-    if (!isAutoSave) {
-      toast({
-        variant: "success",
-        title: "保存成功",
-        description: isEditMode ? "课程信息已成功更新" : "课程信息已成功保存",
-        duration: 3000,
-      })
-    }
-    onSubmit(courseData, isAutoSave)
-    if (!isAutoSave) {
-      setIsLoading(false)
-    }
-  }, [
+  const buildCourseData = useCallback(() => ({
+    name: courseName,
+    type: "course" as const,
+    metadata: {
+      openingDate,
+      courseType,
+      courseNatureId,
+      courseNatureName: courseNatureName,
+      introduction,
+      theoryPeriod,
+      practicePeriod,
+      teachingClass,
+      teachingLocation,
+      teachingTime: JSON.stringify(teachingScheduleRows),
+      studentCount,
+      credits,
+      mainTextbook,
+      referenceResources,
+      attendancePolicy,
+      assignmentPolicy,
+      conductRequirements,
+      practiceRequirements,
+      teamworkRequirements,
+      bonusRequirements,
+      otherSuggestions,
+      assessmentMethod,
+      assessmentForm,
+      scoreType,
+      scoreTable,
+      assessmentDescription,
+      coursePoints,
+      chapters,
+    },
+    children: initialData?.children || [],
+  }), [
     assessmentDescription,
     assessmentForm,
     assessmentMethod,
@@ -483,10 +470,9 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
     coursePoints,
     courseType,
     credits,
+    initialData?.children,
     introduction,
-    isEditMode,
     mainTextbook,
-    onSubmit,
     openingDate,
     otherSuggestions,
     practicePeriod,
@@ -497,12 +483,126 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
     studentCount,
     teachingClass,
     teachingLocation,
-    teachingObjectives,
     teachingScheduleRows,
     teamworkRequirements,
     theoryPeriod,
+  ])
+
+  const getCurrentSnapshot = useCallback(() => JSON.stringify(buildCourseData()), [buildCourseData])
+
+  useEffect(() => {
+    if (lastSavedSnapshotRef.current !== null || isSubmittingRef.current) {
+      return
+    }
+    lastSavedSnapshotRef.current = getCurrentSnapshot()
+  }, [getCurrentSnapshot])
+
+  const handleSubmit = useCallback(async (isAutoSave: boolean = false) => {
+    const currentSnapshot = getCurrentSnapshot()
+    pendingSnapshotRef.current = currentSnapshot
+
+    if (isAutoSave && lastSavedSnapshotRef.current === currentSnapshot) {
+      return
+    }
+
+    if (isAutoSave && isSubmittingRef.current) {
+      pendingAutoSaveRef.current = true
+      return
+    }
+
+    if (!isAutoSave && isSubmittingRef.current) {
+      return
+    }
+
+    // 自动保存时不设置loading状态（避免干扰用户操作）
+    if (!isAutoSave) {
+      setIsLoading(true)
+    }
+
+    if (isAutoSave) {
+      setAutoSaveStatus("saving")
+    }
+
+    isSubmittingRef.current = true
+
+    if (!courseName.trim() || !courseNatureId) {
+      if (isAutoSave) {
+        setAutoSaveStatus("failed")
+      }
+      if (!isAutoSave) {
+        toast({
+          variant: "destructive",
+          title: "表单验证失败",
+          description: "请完整填写表单内容",
+          duration: 5000,
+        })
+        setIsLoading(false)
+      }
+      isSubmittingRef.current = false
+      return
+    }
+
+    const courseData = buildCourseData()
+
+    try {
+      await Promise.resolve(onSubmit(courseData, isAutoSave))
+      lastSavedSnapshotRef.current = currentSnapshot
+      if (!isAutoSave) {
+        toast({
+          variant: "success",
+          title: "保存成功",
+          description: isEditMode ? "课程信息已成功更新" : "课程信息已成功保存",
+          duration: 3000,
+        })
+      } else {
+        setAutoSaveStatus("saved")
+      }
+    } catch (error) {
+      if (!isAutoSave) {
+        toast({
+          variant: "destructive",
+          title: "保存失败",
+          description: "课程信息保存失败，请重试",
+          duration: 5000,
+        })
+      } else {
+        setAutoSaveStatus("failed")
+      }
+      console.error("[AddCourseForm] 保存失败:", error)
+    } finally {
+      if (autoSaveStatusTimerRef.current) {
+        clearTimeout(autoSaveStatusTimerRef.current)
+      }
+      if (isAutoSave) {
+        autoSaveStatusTimerRef.current = setTimeout(() => {
+          setAutoSaveStatus("")
+          autoSaveStatusTimerRef.current = null
+        }, 3000)
+      }
+
+      if (!isAutoSave) {
+        setIsLoading(false)
+      }
+
+      isSubmittingRef.current = false
+
+      if (pendingAutoSaveRef.current) {
+        pendingAutoSaveRef.current = false
+        const latestSnapshot = getCurrentSnapshot()
+        pendingSnapshotRef.current = latestSnapshot
+        if (latestSnapshot !== lastSavedSnapshotRef.current) {
+          void handleSubmitRef.current(true)
+        }
+      }
+    }
+  }, [
+    buildCourseData,
+    getCurrentSnapshot,
+    isEditMode,
+    onSubmit,
     toast,
-    initialData?.children,
+    courseName,
+    courseNatureId,
   ])
 
   useEffect(() => {
@@ -567,7 +667,7 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
 
       <Card className="p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <UnderlineTabsList className="grid grid-cols-3">
+          <UnderlineTabsList className={`grid ${showChapterTab ? "grid-cols-4" : "grid-cols-3"}`}>
             <UnderlineTabsTrigger value="basic">
               基本信息
             </UnderlineTabsTrigger>
@@ -577,6 +677,11 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
             <UnderlineTabsTrigger value="assessment">
               考核评价
             </UnderlineTabsTrigger>
+            {showChapterTab && (
+              <UnderlineTabsTrigger value="chapters">
+                章节项目
+              </UnderlineTabsTrigger>
+            )}
           </UnderlineTabsList>
 
           <TabsContent value="basic" className="space-y-6 mt-6">
@@ -1233,6 +1338,83 @@ function AddCourseForm({ majorId, onCancel, onSubmit, initialData, isEditMode = 
                 </div>
               )}
 
+            </div>
+          </TabsContent>
+
+          <TabsContent value="chapters" className="space-y-6 mt-6">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-sm bg-[var(--naive-primary)]" />
+                <h3 className="text-base font-semibold text-foreground">章节项目</h3>
+              </div>
+              <div className="border-t border-dashed border-border" />
+
+              <div className="border border-input rounded-md overflow-hidden bg-background">
+                <Table>
+                  <TableHeader className="[&_tr]:border-0">
+                    <TableRow className="border-0 bg-secondary/30 hover:bg-secondary/30">
+                      <TableHead className="w-[45%]">章节/项目名称</TableHead>
+                      <TableHead className="w-[20%]">理论学时</TableHead>
+                      <TableHead className="w-[20%]">实践学时</TableHead>
+                      <TableHead className="w-[15%] text-center">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={addChapter}
+                          className="h-7 w-7 p-0 mx-auto hover:bg-primary/10"
+                          title="新增章节项目"
+                        >
+                          <Plus className="w-4 h-4 text-primary" />
+                        </Button>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="[&_tr]:border-0">
+                    {chapters.map((chapter, index) => (
+                      <TableRow key={chapter.id || `${index}`} className="border-0 hover:bg-secondary/20">
+                        <TableCell>
+                          <Input
+                            placeholder="例如：第1章 绪论"
+                            value={chapter.name}
+                            onChange={(e) => updateChapter(chapter.id, "name", e.target.value)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={chapter.theoryHours}
+                            onChange={(e) => updateChapter(chapter.id, "theoryHours", Number.parseInt(e.target.value) || 0)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={chapter.practiceHours}
+                            onChange={(e) => updateChapter(chapter.id, "practiceHours", Number.parseInt(e.target.value) || 0)}
+                          />
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {chapters.length > 1 && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => removeChapter(chapter.id)}
+                              className="h-7 w-7 p-0 mx-auto hover:bg-destructive/10"
+                              title="删除"
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           </TabsContent>
 

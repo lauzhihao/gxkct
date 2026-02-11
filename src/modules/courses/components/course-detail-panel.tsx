@@ -1,14 +1,15 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import type { DetailPanelProps } from "@/components/detail-panel/types"
 import { convertCourseToCanvasComplete } from "@/lib/utils/course-to-canvas"
-import { BookOpen, Calendar, Pencil, Trash2, User, Loader2 } from "lucide-react"
+import { BookOpen, Calendar, Pencil, Trash2, User } from "lucide-react"
 import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
 import { cn } from "@/shared/utils/utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
 import { Accordion } from "@/shared/components/ui/accordion"
+import { LoadingState } from "@/shared/components/ui/loading-state"
 import AddCourseForm from "@/components/add-course-form"
 import { api, type CombinedCourseDetail, type CourseGoal, type SaveCourseUnitRequest } from "@/lib/api"
 import { courseApiService } from "@/modules/courses/api"
@@ -73,6 +74,16 @@ interface CourseFormMetadata {
   scoreType?: string
   scoreTable?: unknown
   assessmentDescription?: string
+  chapters?: Array<{
+    id?: string | number
+    name?: string
+    title?: string
+    theoryHours?: number | string | null
+    theoryPeriod?: number | string | null
+    practiceHours?: number | string | null
+    practicePeriod?: number | string | null
+    courseUnitId?: number | string | null
+  }>
 }
 
 interface CourseFormData {
@@ -130,35 +141,44 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
     return () => window.removeEventListener("open-course-resources-tab", handleOpenResources)
   }, [])
 
-  // 加载课程详情数据
-  useEffect(() => {
-    const loadCourseDetail = async () => {
+  const loadCourseDetail = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false
+    if (!silent) {
       setIsLoading(true)
-      try {
-        // 直接使用 node.id 作为课程ID（兼容属性，从 nodeId 解析出的数字ID）
-        const courseId = courseNodeId
-        if (!courseId) {
-          console.error("[CourseDetail] 无法获取课程ID")
-          setIsLoading(false)
-          return
-        }
-        console.log(`[CourseDetail] 开始加载课程详情，courseId: ${courseId}`)
-        const response = await courseApiService.getCourseDetail(courseId)
-        if (response.data) {
-          console.log(`[CourseDetail] 课程详情加载成功`)
-          setCourseDetailData(response.data)
-        }
-      } catch (error) {
-        console.error("[CourseDetail] 加载课程详情失败:", error)
-      } finally {
+    }
+
+    try {
+      const courseId = courseNodeId
+      if (!courseId) {
+        console.error("[CourseDetail] 无法获取课程ID")
+        return false
+      }
+
+      console.log(`[CourseDetail] 开始加载课程详情，courseId: ${courseId}`)
+      const response = await courseApiService.getCourseDetail(courseId)
+      if (response.data) {
+        console.log("[CourseDetail] 课程详情加载成功")
+        setCourseDetailData(response.data)
+        return true
+      }
+
+      console.error("[CourseDetail] 课程详情返回为空")
+      return false
+    } catch (error) {
+      console.error("[CourseDetail] 加载课程详情失败:", error)
+      return false
+    } finally {
+      if (!silent) {
         setIsLoading(false)
       }
     }
-
-    if (courseNodeId) {
-      loadCourseDetail()
-    }
   }, [courseNodeId])
+
+  // 加载课程详情数据
+  useEffect(() => {
+    if (!courseNodeId) return
+    void loadCourseDetail()
+  }, [courseNodeId, loadCourseDetail])
 
   // 加载教学目标数据（课程详情加载完成后即加载）
   useEffect(() => {
@@ -200,6 +220,100 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
       const majorId = courseDetailData?.courseDetailData?.course?.majorId || 0
       const classId = courseDetailData?.courseDetailData?.course?.classId || 1
       const typeId = courseData.metadata?.courseNatureId || courseDetailData?.courseDetailData?.course?.typeId || 1
+      const normalizeChapterId = (value: unknown): number | null => {
+        const parsed = Number.parseInt(String(value ?? ""), 10)
+        return Number.isFinite(parsed) ? parsed : null
+      }
+      const normalizeChapterPeriod = (value: unknown): string => {
+        const parsed = Number(value)
+        return Number.isFinite(parsed) ? String(parsed) : "0"
+      }
+      const sourceCourseMatrix = Array.isArray(courseDetailData?.courseDetailData?.course?.courseMatrixVOS)
+        ? courseDetailData?.courseDetailData?.course?.courseMatrixVOS
+        : []
+      const sourceCourseMatrixById = new Map<number, {
+        id?: unknown
+        courseUnitId?: unknown
+        courseClassId?: unknown
+        courseTypeId?: unknown
+        name?: unknown
+        theoryPeriod?: unknown
+        practicePeriod?: unknown
+      }>()
+      const sourceCourseUnitIdMap = new Map<number, number>()
+      sourceCourseMatrix.forEach((item) => {
+        const itemId = normalizeChapterId((item as { id?: unknown })?.id)
+        const unitId = normalizeChapterId((item as { courseUnitId?: unknown })?.courseUnitId)
+        if (itemId !== null && unitId !== null) {
+          sourceCourseUnitIdMap.set(itemId, unitId)
+        }
+        if (itemId !== null) {
+          sourceCourseMatrixById.set(itemId, item as {
+            id?: unknown
+            courseUnitId?: unknown
+            courseClassId?: unknown
+            courseTypeId?: unknown
+            name?: unknown
+            theoryPeriod?: unknown
+            practicePeriod?: unknown
+          })
+        }
+      })
+      const chaptersFromForm = Array.isArray(courseData.metadata?.chapters) ? courseData.metadata.chapters : []
+      const courseMatrixVOS = Array.isArray(courseData.metadata?.chapters)
+        ? (() => {
+          const submittedExistingIds = new Set<number>()
+          const upsertItems = chaptersFromForm.map((chapter, index) => {
+            const parsedId = normalizeChapterId(chapter.id)
+            const sourceItem = parsedId !== null ? sourceCourseMatrixById.get(parsedId) : undefined
+            const isExistingRow = parsedId !== null && sourceItem !== undefined
+            if (isExistingRow && parsedId !== null) {
+              submittedExistingIds.add(parsedId)
+            }
+
+            const fallbackCourseUnitId = parsedId !== null ? sourceCourseUnitIdMap.get(parsedId) : undefined
+            const normalizedCourseUnitId = normalizeChapterId(chapter.courseUnitId)
+
+            return {
+              id: isExistingRow && parsedId !== null ? parsedId : 0,
+              courseUnitId: normalizedCourseUnitId ?? fallbackCourseUnitId ?? courseId,
+              courseClassId: normalizeChapterId((sourceItem as { courseClassId?: unknown } | undefined)?.courseClassId) ?? 0,
+              courseTypeId: normalizeChapterId((sourceItem as { courseTypeId?: unknown } | undefined)?.courseTypeId) ?? 0,
+              name: chapter.name || chapter.title || `章节${index + 1}`,
+              theoryPeriod: normalizeChapterPeriod(chapter.theoryHours ?? chapter.theoryPeriod),
+              practicePeriod: normalizeChapterPeriod(chapter.practiceHours ?? chapter.practicePeriod),
+            }
+          })
+
+          const deletedItems = sourceCourseMatrix
+            .filter((item) => {
+              const existingId = normalizeChapterId((item as { id?: unknown })?.id)
+              return existingId !== null && existingId > 0 && !submittedExistingIds.has(existingId)
+            })
+            .map((item) => {
+              const existing = item as {
+                id?: unknown
+                name?: unknown
+                courseClassId?: unknown
+                courseTypeId?: unknown
+                theoryPeriod?: unknown
+                practicePeriod?: unknown
+              }
+
+              return {
+                id: normalizeChapterId(existing.id) ?? 0,
+                courseUnitId: -1,
+                courseClassId: normalizeChapterId(existing.courseClassId) ?? 0,
+                courseTypeId: normalizeChapterId(existing.courseTypeId) ?? 0,
+                name: typeof existing.name === "string" ? existing.name : "",
+                theoryPeriod: normalizeChapterPeriod(existing.theoryPeriod),
+                practicePeriod: normalizeChapterPeriod(existing.practicePeriod),
+              }
+            })
+
+          return [...upsertItems, ...deletedItems]
+        })()
+        : (sourceCourseMatrix)
 
       const saveRequest: SaveCourseUnitRequest = {
         course: {
@@ -212,7 +326,7 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
           criterion: null,
           theoryPeriod: courseData.metadata?.theoryPeriod || 0,
           practicePeriod: courseData.metadata?.practicePeriod || 0,
-          courseMatrixVOS: courseDetailData?.courseDetailData?.course?.courseMatrixVOS || [],
+          courseMatrixVOS,
           position: null,
           // 扩展字段
           teachingClass: courseData.metadata?.teachingClass,
@@ -252,6 +366,12 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
       // 更新本地节点数据
       if (onUpdateNode) {
         onUpdateNode(courseNode.nodeId, courseData as Partial<TreeNode>)
+      }
+
+      // 保存后刷新详情数据，避免返回详情页显示旧数据
+      const refreshed = await loadCourseDetail({ silent: isAutoSave })
+      if (!refreshed) {
+        console.warn("[CourseDetail] 保存后刷新详情失败，页面可能显示旧数据")
       }
 
       // 手动保存时退出编辑模式，自动保存时不退出
@@ -421,14 +541,7 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
   if (isEditingCourse) {
     // 如果courseDetailData已加载，使用其中的majorId；否则等待加载
     if (isLoading) {
-      return (
-        <div className="flex items-center justify-center h-full">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">加载中</p>
-          </div>
-        </div>
-      )
+      return <LoadingState />
     }
 
     return (
@@ -444,14 +557,7 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
   }
 
   if (isLoading) {
-    return (
-      <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl p-6 flex items-center justify-center min-h-[500px]">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-3" />
-          <div className="text-lg text-muted-foreground">加载中</div>
-        </div>
-      </div>
-    )
+    return <LoadingState variant="card" />
   }
 
   if (!courseDetailData) {

@@ -8,7 +8,15 @@ type Setter<T> = Dispatch<SetStateAction<T>>
 
 export type SupportStrength = "strong" | "weak"
 
-export type CourseMatrixRecord = Record<string, Array<{ id: string; name: string; description: string; support: SupportStrength }>>
+export interface CourseMatrixPointItem {
+  id: string
+  matrixItemId: number
+  name: string
+  description: string
+  support: SupportStrength
+}
+
+export type CourseMatrixRecord = Record<string, CourseMatrixPointItem[]>
 
 export interface SelectedMatrixCell {
   objectiveId: string

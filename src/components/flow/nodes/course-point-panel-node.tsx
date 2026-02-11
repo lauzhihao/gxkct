@@ -14,6 +14,10 @@ interface CoursePointPanelNodeProps {
     onRefresh?: (nodeId: string) => void
     onEdit?: (nodeId: string) => void
     childCount?: number
+    totalChildCount?: number
+    visibleChildCount?: number
+    hiddenChildCount?: number
+    isExpanded?: boolean
     onAdd?: () => void
     progressMessage?: string | null
     // 展开/折叠相关
@@ -52,6 +56,20 @@ export const CoursePointPanelNode = memo(function CoursePointPanelNode({
     data.onAdd?.()
   }, [data])
 
+  const handleToggleExpand = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation()
+    if (data.isExpanded) {
+      data.onCollapse?.(id)
+      return
+    }
+    data.onExpand?.(id)
+  }, [data, id])
+
+  const totalCount = data.totalChildCount ?? data.childCount ?? 0
+  const visibleCount = data.visibleChildCount ?? data.childCount ?? 0
+  const hiddenCount = data.hiddenChildCount ?? 0
+  const showFoldBar = totalCount > visibleCount || Boolean(data.isExpanded)
+
   return (
     <BasePanelNode
       id={id}
@@ -72,7 +90,24 @@ export const CoursePointPanelNode = memo(function CoursePointPanelNode({
       onDelete={handleDelete}
       onRefresh={handleRefresh}
       progressMessage={data.progressMessage}
-    />
+    >
+      {showFoldBar ? (
+        <div className="relative h-full pointer-events-none">
+          <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-20 flex justify-center">
+            <div className="flex items-center gap-2 rounded bg-slate-50/90 px-2 py-0.5 text-xs text-slate-600">
+              <span>已显示 {visibleCount}/{totalCount} 条课点</span>
+              <button
+                type="button"
+                onClick={handleToggleExpand}
+                className="rounded border border-slate-300 bg-white px-2 py-0.5 text-xs text-slate-700 hover:bg-slate-100"
+              >
+                {data.isExpanded ? "收起详情" : `展开剩余 ${hiddenCount} 条`}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </BasePanelNode>
   )
 })
 

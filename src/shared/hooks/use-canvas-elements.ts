@@ -45,13 +45,18 @@ const DEFAULT_ELEMENT_SIZES: Record<CanvasComponentType, { width: number; height
   [CanvasComponentType.COURSE_POINT_CARD]: { width: 280, height: 140 },
   [CanvasComponentType.CHAPTER_PANEL]: { width: 320, height: 200 },      // 50 + 130 + 20 = 200
   [CanvasComponentType.CHAPTER_CARD]: { width: 280, height: 130 },
-  [CanvasComponentType.KSA_PANEL]: { width: 320, height: 200 },          // 75 + 110 + 10 = 195 → min 200
+  [CanvasComponentType.KSA_PANEL]: { width: 480, height: 220 },          // KSA 统计卡固定面板高度
   [CanvasComponentType.KSA_ITEM]: { width: 260, height: 110 },           // 头部37 + 内容区p-3(24) + 文字2行(40) + 边距 ≈ 110
   [CanvasComponentType.GRADUATION_SUPPORT]: { width: 580, height: 200 }, // 毕业要求支撑面板（5列布局，动态高度）
   [CanvasComponentType.COURSE_MATRIX]: { width: 1100, height: 680 },
   [CanvasComponentType.PROJECT_MATRIX_PANEL]: { width: 900, height: 200 },  // 最小高度，实际会动态计算
   [CanvasComponentType.PROJECT_MATRIX]: { width: 900, height: 200 },        // 最小高度，实际会动态计算
   [CanvasComponentType.COURSE_REPORT]: { width: 480, height: 180 },         // 开课报告
+}
+
+const KSA_PANEL_FIXED_SIZE = {
+  width: DEFAULT_ELEMENT_SIZES[CanvasComponentType.KSA_PANEL].width,
+  height: DEFAULT_ELEMENT_SIZES[CanvasComponentType.KSA_PANEL].height,
 }
 
 // 项目矩阵高度计算配置
@@ -322,6 +327,17 @@ const PANEL_GRID_COLUMNS: Partial<Record<CanvasComponentType, number>> = {
   [CanvasComponentType.KSA_PANEL]: 5,
 }
 
+const PANEL_GRID_GAP: Partial<Record<CanvasComponentType, { x: number; y: number }>> = {
+  [CanvasComponentType.COURSE_POINT_PANEL]: { x: 10, y: 10 },
+}
+
+function getPanelGridGap(panelType?: CanvasComponentType): { x: number; y: number } {
+  if (!panelType) {
+    return { x: CARD_GAP_X, y: CARD_GAP_Y }
+  }
+  return PANEL_GRID_GAP[panelType] || { x: CARD_GAP_X, y: CARD_GAP_Y }
+}
+
 /**
  * 计算网格布局中的位置
  * @param index 子节点索引（从0开始）
@@ -332,13 +348,15 @@ const PANEL_GRID_COLUMNS: Partial<Record<CanvasComponentType, number>> = {
 function calculateGridPosition(
   index: number,
   columns: number,
-  cardSize: { width: number; height: number }
+  cardSize: { width: number; height: number },
+  panelType?: CanvasComponentType
 ): ElementPosition {
+  const gap = getPanelGridGap(panelType)
   const col = index % columns
   const row = Math.floor(index / columns)
   return {
-    x: PANEL_PADDING.left + col * (cardSize.width + CARD_GAP_X),
-    y: PANEL_PADDING.top + row * (cardSize.height + CARD_GAP_Y),
+    x: PANEL_PADDING.left + col * (cardSize.width + gap.x),
+    y: PANEL_PADDING.top + row * (cardSize.height + gap.y),
   }
 }
 
@@ -356,19 +374,18 @@ function calculatePanelSize(
   panelType?: CanvasComponentType
 ): { width: number; height: number } {
   if (panelType === CanvasComponentType.KSA_PANEL) {
-    return {
-      width: DEFAULT_ELEMENT_SIZES[CanvasComponentType.KSA_PANEL].width,
-      height: 220,
-    }
+    return KSA_PANEL_FIXED_SIZE
   }
+
+  const gap = getPanelGridGap(panelType)
 
   // 至少显示一行
   const rows = Math.max(1, Math.ceil(childCount / columns))
   // 实际使用的列数（可能不满一行）
   const actualColumns = Math.min(childCount || 1, columns)
 
-  const width = PANEL_PADDING.left + actualColumns * cardSize.width + (actualColumns - 1) * CARD_GAP_X + PANEL_PADDING.right
-  const height = PANEL_PADDING.top + rows * cardSize.height + (rows - 1) * CARD_GAP_Y + PANEL_PADDING.bottom
+  const width = PANEL_PADDING.left + actualColumns * cardSize.width + (actualColumns - 1) * gap.x + PANEL_PADDING.right
+  const height = PANEL_PADDING.top + rows * cardSize.height + (rows - 1) * gap.y + PANEL_PADDING.bottom
 
   // 确保最小尺寸（高度最小 200px，与 BasePanelNode 的 minHeight 保持一致）
   return {
@@ -1013,7 +1030,7 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
 
       // 8. 创建新的子节点（使用 calculateGridPosition 保持一致性）
       const newChildren: CanvasElementData[] = childrenData.map((child, index) => {
-        const position = calculateGridPosition(index, columns, cardSize)
+        const position = calculateGridPosition(index, columns, cardSize, panelType)
 
         return {
           id: child.id,
@@ -1146,13 +1163,23 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
   ) => {
     // [MOD] 按 ID 去重，保留首次出现的元素（修复历史数据中可能存在的重复 ID 问题）
     const seenIds = new Set<string>()
-    const uniqueElements = (loadedElements || []).filter(el => {
+    const dedupedElements = (loadedElements || []).filter(el => {
       if (seenIds.has(el.id)) {
         console.warn("[画布加载] 检测到重复元素ID，已过滤:", el.id)
         return false
       }
       seenIds.add(el.id)
       return true
+    })
+
+    const uniqueElements = dedupedElements.map(el => {
+      if (el.type === CanvasComponentType.KSA_PANEL) {
+        return {
+          ...el,
+          size: KSA_PANEL_FIXED_SIZE,
+        }
+      }
+      return el
     })
 
     // 重新计算所有 Panel 的垂直位置，确保间距正确
@@ -1451,6 +1478,9 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
       const isPanel = PANEL_TYPES.includes(el.type)
       const nodeType = COMPONENT_TO_NODE_TYPE[el.type] || FlowNodeType.COURSE_INFO
       const isNonInteractiveCard = NON_INTERACTIVE_CARD_NODE_TYPES.has(nodeType)
+      const panelSize = el.type === CanvasComponentType.KSA_PANEL
+        ? KSA_PANEL_FIXED_SIZE
+        : el.size
 
       return {
         id: el.id,
@@ -1466,8 +1496,8 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
         parentId: el.parentId,
         extent: el.extent,
         // Panel 节点需要设置 style 宽高
-        ...(isPanel && el.size ? {
-          style: { width: el.size.width, height: el.size.height }
+        ...(isPanel && panelSize ? {
+          style: { width: panelSize.width, height: panelSize.height }
         } : {}),
       }
     })
@@ -1624,6 +1654,8 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
                 newSize = { width: existingEl.size?.width || 900, height: dynamicHeight }
               } else if (component === CanvasComponentType.GRADUATION_SUPPORT) {
                 newSize = calculateGraduationSupportSize(data)
+              } else if (component === CanvasComponentType.KSA_PANEL) {
+                newSize = KSA_PANEL_FIXED_SIZE
               }
 
               updated[existingIndex] = {
@@ -1767,7 +1799,7 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
                 const childCount = prev.filter(el => el.parentId === parentPanel.id).length
                 const cardSize = DEFAULT_ELEMENT_SIZES[component]
                 const columns = PANEL_GRID_COLUMNS[panelType] || 3
-                const relativePosition = calculateGridPosition(childCount, columns, cardSize)
+                const relativePosition = calculateGridPosition(childCount, columns, cardSize, panelType)
 
                 const cardElement: CanvasElementData = {
                   id: elementId,
@@ -2101,7 +2133,7 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
 
               // 创建新的子节点
               const newChildren: CanvasElementData[] = items.map((item, index) => {
-                const position = calculateGridPosition(index, columns, cardSize)
+                const position = calculateGridPosition(index, columns, cardSize, panelType)
                 return {
                   id: (item.data as { id?: string }).id || `${item.component}_${Date.now()}_${index}`,
                   type: item.component,

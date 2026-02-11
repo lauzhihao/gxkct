@@ -68,19 +68,22 @@ export const KsaPanelNode = memo(function KsaPanelNode({
   const statCards = [
     {
       key: "K",
-      label: "Knowledge",
+      labelCn: "知识",
+      labelEn: "Knowledge",
       value: stats.K,
       className: "border-amber-300 bg-amber-50/85 text-amber-900 hover:bg-amber-100",
     },
     {
       key: "S",
-      label: "Skill",
+      labelCn: "技能",
+      labelEn: "Skill",
       value: stats.S,
       className: "border-cyan-300 bg-cyan-50/85 text-cyan-900 hover:bg-cyan-100",
     },
     {
       key: "A",
-      label: "Attitude",
+      labelCn: "态度",
+      labelEn: "Attitude",
       value: stats.A,
       className: "border-rose-300 bg-rose-50/85 text-rose-900 hover:bg-rose-100",
     },
@@ -115,7 +118,8 @@ export const KsaPanelNode = memo(function KsaPanelNode({
             onClick={handleStatCardClick}
             className={`flex flex-col items-center justify-center rounded-lg border shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md nopan nodrag ${card.className}`}
           >
-            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] leading-none">{card.label}</span>
+            <span className="text-[12px] font-semibold leading-none">{card.labelCn}</span>
+            <span className="mt-1 text-[11px] font-medium uppercase tracking-[0.08em] leading-none opacity-80">{card.labelEn}</span>
             <span className="mt-2 text-[30px] font-bold leading-none tabular-nums">{card.value}</span>
           </button>
         ))}
