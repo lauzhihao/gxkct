@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/shared/components/ui/button"
-import { BookMarked, Pencil, X, Loader2, Check } from "lucide-react"
+import { BookMarked, Pencil, X, Check } from "lucide-react"
+import { LoadingState } from "@/shared/components/ui/loading-state"
+import { Spinner } from "@/shared/components/ui/spinner"
 import { cn } from "@/shared/utils/utils"
 import { courseDetailApi } from "@/modules/courses/api/courseDetailApi"
 import { api } from "@/lib/api"
@@ -201,10 +203,7 @@ export function CourseMajorMatrix({ node, majorNode, majorId }: CourseMajorMatri
   return (
     <div className="rounded-lg border border-border bg-white/40 backdrop-blur-md p-6 space-y-4">
       {!isDataReady ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-primary mr-2" />
-          <span className="text-muted-foreground">加载中</span>
-        </div>
+        <LoadingState title="加载中" variant="card" />
       ) : graduationRequirements.length > 0 ? (
         <div className="rounded-lg border border-border bg-card/50 overflow-hidden">
           <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
@@ -237,7 +236,7 @@ export function CourseMajorMatrix({ node, majorNode, majorId }: CourseMajorMatri
                 <Button size="sm" onClick={() => handleSaveMatrix(false)} className="gap-2" disabled={isSavingMatrix}>
                   {isSavingMatrix ? (
                     <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <Spinner className="w-3.5 h-3.5" />
                       保存中
                     </>
                   ) : (

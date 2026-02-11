@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useMemo } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/shared/components/ui/accordion"
-import { Check, Loader2, Plus, Search, Trash2, Star, ArrowLeft, XCircle } from "lucide-react"
+import { Check, Plus, Search, Trash2, Star, ArrowLeft, XCircle } from "lucide-react"
+import { Spinner } from "@/shared/components/ui/spinner"
 import { FileUpload } from "@/shared/components/ui/file-upload"
 import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 import type { TreeNode } from "@/types"
@@ -305,7 +306,7 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
                   </button>
                 )}
                 {isFilteringTeachingObjectives && (
-                  <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
+                  <Spinner className="w-4 h-4 text-muted-foreground" />
                 )}
               </div>
               <Button
@@ -346,7 +347,7 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
               >
                 {isSavingTeachingObjectives || isAutoSavingTeachingObjectives ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Spinner className="w-4 h-4" />
                     保存中
                   </>
                 ) : (
@@ -493,7 +494,7 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
             >
               {isSavingTeachingObjectives || isAutoSavingTeachingObjectives ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Spinner className="w-4 h-4" />
                   保存中
                 </>
               ) : (

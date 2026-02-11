@@ -1,6 +1,7 @@
 import { Input } from "@/shared/components/ui/input"
+import { LoadingState } from "@/shared/components/ui/loading-state"
 import { cn } from "@/shared/utils/utils"
-import { GripVertical, Loader2, Plus, Trash2, BookMarked } from "lucide-react"
+import { GripVertical, Plus, Trash2, BookMarked } from "lucide-react"
 import { SupportLabel } from "@/shared/components/support-label"
 import { useCourseMatrixContext } from "@/modules/courses/hooks/use-course-matrix-data"
 import type { ProjectTeachGoal } from "@/lib/api/project-teach-goal-api"
@@ -27,6 +28,10 @@ export const ProjectMatrixTable = () => {
     setEditingProjectNames,
   } = useCourseMatrixContext()
 
+  if (isLoadingProjectTeachGoal) {
+    return <LoadingState title="加载中" />
+  }
+
   if (
     !projectTeachGoalData ||
     !projectTeachGoalData.goals ||
@@ -37,17 +42,10 @@ export const ProjectMatrixTable = () => {
     return (
       <div className="text-center py-12 text-muted-foreground">
         <BookMarked className="w-12 h-12 mx-auto mb-3 opacity-50" />
-        {isLoadingProjectTeachGoal ? (
-          <>
-            <Loader2 className="w-6 h-6 mx-auto mb-3 animate-spin" />
-            <p className="text-sm mb-2">加载中</p>
-          </>
-        ) : (
-          <>
-            <p className="text-sm mb-2">暂无课程矩阵数据</p>
-            <p className="text-xs">请先在课程信息中添加教学目标和章节信息</p>
-          </>
-        )}
+        <>
+          <p className="text-sm mb-2">暂无课程矩阵数据</p>
+          <p className="text-xs">请先在课程信息中添加教学目标和章节信息</p>
+        </>
       </div>
     )
   }

@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { BookOpen, Loader2, ChevronRight } from "lucide-react"
+import { BookOpen, ChevronRight } from "lucide-react"
+import { LoadingState } from "@/shared/components/ui/loading-state"
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/shared/components/ui/breadcrumb"
 import type { TeachingSupervisoryTask, Long } from "@/types"
 import { courseTeachingTasksApi, type MajorCourseEvaluationItem } from "@/modules/courses/api/courseTeachingTasksApi"
@@ -179,10 +180,7 @@ export function CourseEvaluationList({ task, majorId, majorName, onBack, parentB
 
       {/* 课程卡片网格 */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-6 h-6 animate-spin text-primary" />
-            <span className="ml-2 text-muted-foreground">加载课程列表...</span>
-          </div>
+          <LoadingState variant="card" />
         ) : courses.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">该专业下暂无课程数据</div>
         ) : (

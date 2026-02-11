@@ -7,7 +7,7 @@
  */
 
 import { forwardRef } from "react"
-import { Send, Loader2, FileText, X, Square } from "lucide-react"
+import { Send, FileText, X, Square } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 import type { AttachedFile } from "@/types/ai-assistant"
@@ -149,12 +149,9 @@ export const ChatInputArea = forwardRef<HTMLTextAreaElement, ChatInputAreaProps>
               style={buttonPositionStyle}
               disabled={!inputMessage.trim() || isUploadingFile}
               onClick={onSend}
+              title={isUploadingFile ? "文件处理中" : "发送消息"}
             >
-              {isUploadingFile ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
+              <Send className={`h-4 w-4 ${isUploadingFile ? "opacity-60" : ""}`} />
             </Button>
           )}
         </div>
@@ -189,7 +186,9 @@ export const ChatInputArea = forwardRef<HTMLTextAreaElement, ChatInputAreaProps>
             </div>
           )}
           <p className="text-xs text-muted-foreground truncate ml-auto">
-            AI 可能会生成不准确的内容，请务必核对后再决定是否采纳。
+            {isUploadingFile
+              ? "文件处理中，请稍候..."
+              : "AI 可能会生成不准确的内容，请务必核对后再决定是否采纳。"}
           </p>
         </div>
       </div>

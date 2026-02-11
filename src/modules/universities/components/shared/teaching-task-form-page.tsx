@@ -1,12 +1,14 @@
 "use client"
 
-import { ArrowLeft, Plus, Trash2, Check, X, Loader2 } from "lucide-react"
+import { ArrowLeft, Plus, Trash2, Check, X } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
+import { LoadingState } from "@/shared/components/ui/loading-state"
+import { Spinner } from "@/shared/components/ui/spinner"
 import { useState, useEffect, useRef, useCallback } from "react"
 import type {
   TeachingSupervisoryTask,
@@ -450,10 +452,7 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
           </Button>
           <h2 className="text-xl font-bold text-foreground">编辑任务</h2>
         </div>
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-primary mr-2" />
-          <span className="text-muted-foreground">加载中...</span>
-        </div>
+        <LoadingState title="加载中..." className="py-12" />
       </div>
     )
   }
@@ -496,12 +495,12 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
             >
               {isSaving ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Spinner className="w-4 h-4" />
                   保存中
                 </>
               ) : autoSaveStatus === "saving" ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Spinner className="w-4 h-4" />
                   自动保存中
                 </>
               ) : autoSaveStatus === "saved" ? (
@@ -1293,12 +1292,12 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
           >
             {isSaving ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Spinner className="w-4 h-4" />
                 保存中
               </>
             ) : autoSaveStatus === "saving" ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Spinner className="w-4 h-4" />
                 自动保存中
               </>
             ) : autoSaveStatus === "saved" ? (

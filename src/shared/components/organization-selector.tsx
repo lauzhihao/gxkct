@@ -30,6 +30,7 @@ import { useTreeSearch } from "@/shared/hooks/use-tree-search"
 import { useDepartmentMajors } from "@/modules/departments/hooks/use-department-majors"
 import { useMajorCourses } from "@/modules/majors/hooks/use-major-courses"
 import { useOrganizationSelector } from "@/shared/hooks/use-organization-selector"
+import { Spinner } from "@/shared/components/ui/spinner"
 
 const getIcon = (type: string) => {
   switch (type) {
@@ -296,7 +297,7 @@ export function OrganizationSelector({
             )}
             {isSearching && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                <Spinner className="w-4 h-4" />
               </div>
             )}
           </div>

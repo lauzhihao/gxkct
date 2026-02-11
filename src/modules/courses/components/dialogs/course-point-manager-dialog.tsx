@@ -3,7 +3,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/compo
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { FileUpload } from "@/shared/components/ui/file-upload"
-import { Check, Loader2, Pencil, Plus, Search, Trash2, X } from "lucide-react"
+import { Check, Pencil, Plus, Search, Trash2, X } from "lucide-react"
+import { LoadingState } from "@/shared/components/ui/loading-state"
+import { Spinner } from "@/shared/components/ui/spinner"
 import { showError } from "@/shared/utils/toast-utils"
 import { useCourseMatrixContext } from "@/modules/courses/hooks/use-course-matrix-data"
 import { matchesCoursePointKeyword, sortCoursePointsByTitle } from "@/modules/courses/utils/course-matrix-utils"
@@ -160,9 +162,7 @@ export const CoursePointManagerDialog = () => {
 
         <div className="flex-1 overflow-hidden flex flex-col">
           {isLoadingCoursePoints ? (
-            <div className="flex items-center justify-center py-8 flex-1">
-              <Loader2 className="w-5 h-5 animate-spin text-primary" />
-            </div>
+            <LoadingState title="加载中..." className="flex-1" />
           ) : coursePointsList.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm flex-1 flex items-center justify-center">
               暂无课点数据
@@ -260,7 +260,7 @@ export const CoursePointManagerDialog = () => {
                                   title="提交"
                                 >
                                   {isSavingNewCoursePoint || isSavingEditingCoursePoint ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    <Spinner className="w-4 h-4" />
                                   ) : (
                                     <Check className="w-4 h-4" />
                                   )}
@@ -294,7 +294,7 @@ export const CoursePointManagerDialog = () => {
                                   title="删除"
                                 >
                                   {deletingCoursePointId === coursePoint.id ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    <Spinner className="w-4 h-4" />
                                   ) : (
                                     <Trash2 className="w-4 h-4" />
                                   )}
@@ -320,7 +320,7 @@ export const CoursePointManagerDialog = () => {
             disabled={selectedCoursePointIds.size === 0 || isDeletingCoursePoints}
             className="gap-2"
           >
-            {isDeletingCoursePoints ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+            {isDeletingCoursePoints ? <Spinner className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}
             删除选中 ({selectedCoursePointIds.size})
           </Button>
           <Button

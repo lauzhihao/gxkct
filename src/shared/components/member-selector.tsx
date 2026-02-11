@@ -10,6 +10,7 @@ import { Label } from "@/shared/components/ui/label"
 import { ScrollArea } from "@/shared/components/ui/scroll-area"
 import { Search, ChevronLeft, ChevronRight, X } from "lucide-react"
 import { cn } from "@/shared/utils/utils"
+import { LoadingState } from "@/shared/components/ui/loading-state"
 import type { NodeType, TaskMember, Long } from "@/types"
 import { api } from "@/lib/api"
 
@@ -253,7 +254,7 @@ export function MemberSelector({
             )}
             <ScrollArea className="h-72">
               {isLoading ? (
-                <div className="text-center py-8 text-muted-foreground">加载中...</div>
+                <LoadingState variant="card" />
               ) : displayedUsers.length > 0 ? (
                 mode === "single" ? (
                   <RadioGroup value={selectedIds[0]?.toString() || ""} onValueChange={(val) => setSelectedIds([parseInt(val)])}>

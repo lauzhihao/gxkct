@@ -562,11 +562,11 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
 
   if (!courseDetailData) {
     return (
-      <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl p-6 flex items-center justify-center min-h-[500px]">
-        <div className="text-center text-muted-foreground">
-          <div className="text-lg">课程详情加载失败</div>
-        </div>
-      </div>
+      <LoadingState
+        variant="card"
+        title="加载失败"
+        description="无法获取课程详情，请检查网络连接或刷新重试"
+      />
     )
   }
 

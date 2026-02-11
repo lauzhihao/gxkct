@@ -5,8 +5,10 @@
 
 "use client"
 
-import { Grid3x3, Edit, Check, X, Loader2, Settings } from "lucide-react"
+import { Grid3x3, Edit, Check, X, Settings } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
+import { Spinner } from "@/shared/components/ui/spinner"
+import { LoadingState } from "@/shared/components/ui/loading-state"
 import type { CourseProjectMatrixProps } from "@/modules/courses/types"
 import { useProjectMatrix } from "@/modules/courses/hooks/use-project-matrix"
 import { useTaskObjectives } from "@/modules/courses/hooks/use-task-objectives"
@@ -144,7 +146,7 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId }: CourseProjec
             >
               {isSavingProjectMatrix ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <Spinner className="w-3.5 h-3.5" />
                   保存中
                 </>
               ) : (
@@ -166,7 +168,7 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId }: CourseProjec
             >
               {isLoadingKsaList ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Spinner className="w-4 h-4" />
                   加载中
                 </>
               ) : (
@@ -185,10 +187,7 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId }: CourseProjec
       </div>
 
       {isLoadingProjectMatrix ? (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-5 h-5 animate-spin text-primary mr-2" />
-          <span className="text-muted-foreground">加载中</span>
-        </div>
+        <LoadingState title="加载中" />
       ) : (
         <ProjectMatrixTable
           projectMatrixData={projectMatrixData}

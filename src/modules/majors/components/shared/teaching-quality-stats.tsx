@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Card } from "@/shared/components/ui/card"
 import { Badge } from "@/shared/components/ui/badge"
+import { LoadingState } from "@/shared/components/ui/loading-state"
 import { api } from "@/lib/api"
 import type { TeachingSupervisoryTask, TreeNode, Long } from "@/types"
 import { CourseEvaluationList, MajorEvaluationList } from "@/shared/components/supervision"
@@ -107,11 +108,7 @@ export function TeachingQualityStats({ node, nodeType, treeData }: TeachingQuali
   }
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <p className="text-muted-foreground">加载中...</p>
-      </div>
-    )
+    return <LoadingState variant="card" />
   }
 
   if (tasks.length === 0) {

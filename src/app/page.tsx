@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { TreeView } from "@/components/tree-view"
 import { DetailPanel } from "@/components/detail-panel"
 import { Header } from "@/components/header"
+import { LoadingState } from "@/shared/components/ui/loading-state"
 import { useTreeData } from "@/shared/hooks/use-tree-data"
 import { useLocalStorage } from "@/shared/hooks/use-local-storage"
 import { api, getStoredAuthUser, getStoredAuthToken } from "@/lib/api"
@@ -199,15 +200,8 @@ export default function Page() {
 
   if (isLoading || !treeDataHook || !treeDataHook.treeData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[oklch(0.97_0.005_240)] via-[oklch(0.96_0.005_240)] to-[oklch(0.95_0.008_240)] flex items-center justify-center">
-        <div className="text-center">
-          <div className="mb-4">
-            <div className="inline-block">
-              <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-            </div>
-          </div>
-          <div className="text-lg text-muted-foreground">加载中...</div>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-[oklch(0.97_0.005_240)] via-[oklch(0.96_0.005_240)] to-[oklch(0.95_0.008_240)]">
+        <LoadingState title="加载中..." className="h-screen" />
       </div>
     )
   }

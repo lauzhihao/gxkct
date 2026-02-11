@@ -6,6 +6,8 @@ import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { Switch } from "@/shared/components/ui/switch"
+import { LoadingState } from "@/shared/components/ui/loading-state"
+import { Spinner } from "@/shared/components/ui/spinner"
 import { Plus, Search, User, Pencil, Trash2, RotateCcw } from "lucide-react"
 import {
   Dialog,
@@ -49,10 +51,13 @@ export function MajorUsers({ node }: MajorUsersProps) {
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
   const [userSearchQuery, setUserSearchQuery] = useState("")
   const [showAllUsers, setShowAllUsers] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const { users, persistUsers, isLoading } = useMajorUsers(node.id ?? "")
 
   const handleSaveUser = async () => {
     if (!node || !newUserEmail || !newUserName) return
+
+    setIsSaving(true)
 
     let updatedUsers
 
@@ -78,6 +83,7 @@ export function MajorUsers({ node }: MajorUsersProps) {
     setNewUserName("")
     setNewUserRole("专业管理员")
     setEditingUserId(null)
+    setIsSaving(false)
   }
 
   const handleToggleUserEnabled = async (userId: string) => {
@@ -115,7 +121,7 @@ export function MajorUsers({ node }: MajorUsersProps) {
   const displayedUsers = showAllUsers ? filteredUsers : filteredUsers.slice(0, 10)
 
   if (isLoading) {
-    return <div className="text-sm text-muted-foreground">成员数据加载中...</div>
+    return <LoadingState title="成员数据加载中..." className="min-h-[400px]" />
   }
 
   return (
@@ -330,7 +336,10 @@ export function MajorUsers({ node }: MajorUsersProps) {
             <Button variant="outline" onClick={() => setIsAddUserDialogOpen(false)}>
               取消
             </Button>
-            <Button onClick={handleSaveUser}>确认</Button>
+            <Button onClick={handleSaveUser} disabled={isSaving}>
+              {isSaving ? <Spinner className="mr-2" /> : null}
+              确认
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

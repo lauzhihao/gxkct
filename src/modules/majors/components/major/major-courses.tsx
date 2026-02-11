@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/shared/components/ui/button"
-import { BookMarked, Plus, Search, FileText, User, X, Loader2 } from "lucide-react"
+import { BookMarked, Plus, Search, FileText, User, X } from "lucide-react"
+import { LoadingState } from "@/shared/components/ui/loading-state"
 import { cn } from "@/shared/utils/utils"
 import type { TreeNode } from "@/types"
 import { useMajorCoursePreferences } from "@/modules/majors/hooks/use-major-course-preferences"
@@ -169,10 +170,7 @@ export function MajorCourses(props: MajorCoursesProps) {
       </div>
 
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
-          <p className="text-sm text-muted-foreground">加载课程列表中...</p>
-        </div>
+        <LoadingState title="加载课程列表中..." variant="card" />
       ) : !courses || courses.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="text-muted-foreground mb-4">

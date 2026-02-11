@@ -38,6 +38,7 @@ import {
   TooltipTrigger,
   TooltipProvider,
 } from "@/shared/components/ui/tooltip"
+import { Spinner } from "@/shared/components/ui/spinner"
 import type { TreeNode } from "@/types"
 import { useTreeSearch } from "@/shared/hooks/use-tree-search"
 import { useDepartmentMajors } from "@/modules/departments/hooks/use-department-majors"
@@ -333,10 +334,11 @@ function TreeNodeComponent({
               ))
             ) : isSearching && (node.nodeType === "department" || node.nodeType === "major") ? (
               <div
-                className="text-sm text-muted-foreground py-2"
+                className="flex items-center gap-2 text-sm text-muted-foreground py-2"
                 style={{ paddingLeft: `${16 + (level + 1) * 24}px` }}
               >
-                加载中...
+                <Spinner className="w-4 h-4" />
+                <span>加载中...</span>
               </div>
             ) : null}
 
@@ -857,7 +859,7 @@ export const TreeView = React.forwardRef<
               )}
               {isSearching && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center">
-                  <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                  <Spinner className="w-4 h-4 text-primary" />
                 </div>
               )}
             </div>
@@ -873,7 +875,7 @@ export const TreeView = React.forwardRef<
                     disabled={isDataLoading || isSearching}
                   >
                     {isDataLoading || isSearching ? (
-                      <div className="w-5 h-5 border-2 border-primary/40 border-t-primary rounded-full animate-spin" />
+                      <Spinner className="w-5 h-5 text-primary" />
                     ) : (
                       <Plus className="w-5 h-5 text-primary" />
                     )}

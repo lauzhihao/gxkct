@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Building2, Loader2, ChevronRight } from "lucide-react"
+import { Building2, ChevronRight } from "lucide-react"
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/shared/components/ui/breadcrumb"
+import { LoadingState } from "@/shared/components/ui/loading-state"
 import type { TeachingSupervisoryTask, Long } from "@/types"
 import { courseTeachingTasksApi, type CollegeDeptEvaluationItem } from "@/modules/courses/api/courseTeachingTasksApi"
 import { MajorEvaluationList } from "./MajorEvaluationList"
@@ -129,10 +130,7 @@ export function DeptEvaluationList({ task, collegeId, collegeName, onBack }: Dep
 
       {/* 院系卡片网格 */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-primary" />
-          <span className="ml-2 text-muted-foreground">加载院系列表...</span>
-        </div>
+        <LoadingState variant="card" />
       ) : depts.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">该学校下暂无院系数据</div>
       ) : (

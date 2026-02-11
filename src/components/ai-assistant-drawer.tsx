@@ -58,6 +58,7 @@ import {
 import { ChatMessageItem } from "./ai-assistant/chat-message-item"
 import { ChatInputArea } from "./ai-assistant/chat-input-area"
 import { createConnectionMenuHandler } from "./ai-assistant/connection-menu-handlers"
+import { useStartLoading, useStopLoading } from "@/shared/stores/loading-store"
 
 // CanvasComponentType 到 FlowNodeType 的映射（用于获取颜色配置）
 const CANVAS_TO_FLOW_TYPE: Record<CanvasComponentType, string> = {
@@ -604,6 +605,39 @@ export function AiAssistantDrawer({
 
   // 文件上传状态
   const [isUploadingFile, setIsUploadingFile] = useState(false)
+  const startLoading = useStartLoading()
+  const stopLoading = useStopLoading()
+
+  const hasElementLoading = useMemo(
+    () => Array.from(elementLoadingStates.values()).some(Boolean),
+    [elementLoadingStates]
+  )
+  const shouldShowGlobalLoading =
+    open && (streamingMessageId !== null || isUploadingFile || isRegenerating || hasElementLoading)
+  const globalLoadingRegisteredRef = useRef(false)
+
+  useEffect(() => {
+    if (shouldShowGlobalLoading && !globalLoadingRegisteredRef.current) {
+      startLoading()
+      globalLoadingRegisteredRef.current = true
+      return
+    }
+
+    if (!shouldShowGlobalLoading && globalLoadingRegisteredRef.current) {
+      stopLoading()
+      globalLoadingRegisteredRef.current = false
+    }
+  }, [shouldShowGlobalLoading, startLoading, stopLoading])
+
+  useEffect(
+    () => () => {
+      if (globalLoadingRegisteredRef.current) {
+        stopLoading()
+        globalLoadingRegisteredRef.current = false
+      }
+    },
+    [stopLoading]
+  )
 
   /**
    * 通用 SSE 请求执行函数

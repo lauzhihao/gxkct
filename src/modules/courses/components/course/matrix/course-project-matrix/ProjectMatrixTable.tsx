@@ -3,11 +3,12 @@
  * 负责渲染项目矩阵表格和交互
  */
 
-import { Plus, Flag, BookMarked } from "lucide-react"
+import { Plus, Flag } from "lucide-react"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/shared/components/ui/accordion"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/shared/components/ui/tooltip"
 import { Button } from "@/shared/components/ui/button"
 import { SupportLabel } from "@/shared/components/support-label"
+import { LoadingState } from "@/shared/components/ui/loading-state"
 import type {
   ProjectMatrixData,
   ProjectMatrixGoal,
@@ -35,11 +36,11 @@ export function ProjectMatrixTable({
 }: ProjectMatrixTableProps) {
   if (!projectMatrixData?.projects || projectMatrixData.projects.length === 0) {
     return (
-      <div className="text-center py-12 text-muted-foreground">
-        <BookMarked className="w-12 h-12 mx-auto mb-3 opacity-50" />
-        <p className="text-sm mb-2">暂无项目数据</p>
-        <p className="text-xs">项目矩阵数据加载中或暂无项目信息</p>
-      </div>
+      <LoadingState
+        title="暂无项目数据"
+        description="项目矩阵数据加载中或暂无项目信息"
+        variant="card"
+      />
     )
   }
 

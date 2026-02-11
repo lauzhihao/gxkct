@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { ClipboardCheck, Calendar } from "lucide-react"
 import type { TeachingSupervisoryTask, Long } from "@/types"
 import { Badge } from "@/shared/components/ui/badge"
+import { LoadingState } from "@/shared/components/ui/loading-state"
 import { CourseSupervisionDetail } from "./course-supervision-detail"
 import { courseTeachingTasksApi, type CourseTeachingTaskResponse } from "@/modules/courses/api/courseTeachingTasksApi"
 import { formatDate } from "@/shared/utils/date-utils"
@@ -132,7 +133,7 @@ export function CourseSupervision({ courseId, collegeId }: CourseSupervisionProp
       <div className="border-t border-dashed border-border" />
 
       {isLoading ? (
-        <div className="text-center py-8 text-muted-foreground">加载中...</div>
+        <LoadingState title="加载中..." description="正在获取督导任务数据" variant="card" />
       ) : tasks.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">暂无进行中的督导任务</div>
       ) : (

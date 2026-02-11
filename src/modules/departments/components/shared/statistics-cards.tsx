@@ -7,7 +7,8 @@ import { Badge } from "@/shared/components/ui/badge"
 import { Checkbox } from "@/shared/components/ui/checkbox"
 import { Label } from "@/shared/components/ui/label"
 import type { TreeNode } from "@/types"
-import { Building2, GraduationCap, BookOpen, FileText, Search, User, Loader2 } from "lucide-react"
+import { LoadingState } from "@/shared/components/ui/loading-state"
+import { Building2, GraduationCap, BookOpen, FileText, Search, User } from "lucide-react"
 import cn from "classnames"
 import { useDepartmentMajorsPreferences } from "@/modules/departments/hooks/use-department-majors-preferences"
 import { buildApiUrl } from "@/lib/api/config"
@@ -329,10 +330,7 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
             </div>
 
             {isLoadingMajors ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
-                <p className="text-sm text-muted-foreground">加载专业列表中...</p>
-              </div>
+              <LoadingState variant="card" />
             ) : filteredMajors.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <div className="text-muted-foreground">

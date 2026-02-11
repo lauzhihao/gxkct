@@ -3,6 +3,7 @@
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { useState } from "react"
 import type { TreeNode, TeachingSupervisoryTask, TaskEvaluationCriteria, Long } from "@/types"
+import { LoadingState } from "@/shared/components/ui/loading-state"
 
 // 定义通过 window 对象传递的复制任务数据类型
 interface CopiedTaskData {
@@ -200,13 +201,7 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
 
   // 加载状态
   if (isLoading) {
-    return (
-      <div className="flex-1 overflow-auto p-6">
-        <div className="text-center py-12 text-muted-foreground">
-          <p>加载中...</p>
-        </div>
-      </div>
-    )
+    return <LoadingState variant="card" />
   }
 
   return (

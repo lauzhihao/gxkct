@@ -4,7 +4,8 @@ import { useState, useRef, useEffect, useMemo } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
-import { Plus, X, Check, Loader2 } from "lucide-react"
+import { Plus, X, Check } from "lucide-react"
+import { Spinner } from "@/shared/components/ui/spinner"
 import { MemberSelector } from "@/shared/components/member-selector"
 import { useToast } from "@/shared/hooks/use-toast"
 import { buildApiUrl } from "@/lib/api/config"
@@ -224,7 +225,7 @@ export function QuickCreateCourseDialog({
               取消
             </Button>
             <Button onClick={handleSubmit} disabled={!courseName.trim() || !teacher || isSubmitting} className="gap-2">
-              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              {isSubmitting ? <Spinner className="w-4 h-4" /> : <Check className="w-4 h-4" />}
               保存
             </Button>
           </DialogFooter>

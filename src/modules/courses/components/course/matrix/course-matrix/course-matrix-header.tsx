@@ -1,5 +1,6 @@
 import { Button } from "@/shared/components/ui/button"
-import { BookMarked, Check, Flag, Loader2, Pencil, Settings, X } from "lucide-react"
+import { Spinner } from "@/shared/components/ui/spinner"
+import { BookMarked, Check, Flag, Pencil, Settings, X } from "lucide-react"
 import { useCourseMatrixContext } from "@/modules/courses/hooks/use-course-matrix-data"
 
 interface CourseMatrixHeaderProps {
@@ -50,7 +51,7 @@ export const CourseMatrixHeader = ({ onEditTeachingObjectives }: CourseMatrixHea
             >
               {isLoadingCoursePoints ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <Spinner className="w-3.5 h-3.5" />
                   加载中
                 </>
               ) : (
@@ -87,7 +88,7 @@ export const CourseMatrixHeader = ({ onEditTeachingObjectives }: CourseMatrixHea
             >
               {isSavingCourseMatrix ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <Spinner className="w-3.5 h-3.5" />
                   保存中
                 </>
               ) : (

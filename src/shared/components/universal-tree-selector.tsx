@@ -9,6 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@/shared/components/ui/radio-group"
 import { Checkbox } from "@/shared/components/ui/checkbox"
 import { ScrollArea } from "@/shared/components/ui/scroll-area"
 import { Search, ChevronRight, ChevronDown } from "lucide-react"
+import { Spinner } from "@/shared/components/ui/spinner"
 import { cn } from "@/shared/utils/utils"
 import type { NodeType, TreeNode } from "@/types"
 import { api } from "@/lib/api"
@@ -459,7 +460,7 @@ export function UniversalTreeSelector({
           <ScrollArea className="h-96 border rounded-lg p-4">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
-                <span className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                <Spinner className="w-5 h-5" />
               </div>
             ) : error ? (
               <div className="text-center py-8 text-destructive">{error}</div>

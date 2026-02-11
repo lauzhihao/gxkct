@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
-import { Search, Loader2, ChevronLeft, ChevronRight, Plus } from "lucide-react"
+import { Search, ChevronLeft, ChevronRight, Plus } from "lucide-react"
+import { Spinner } from "@/shared/components/ui/spinner"
 import { api } from "@/lib/api"
 import type { TreeNode } from "@/types"
 import { cn } from "@/shared/utils/utils"
@@ -130,7 +131,7 @@ export function CourseSelector({ open, onOpenChange, majorId, majorName, departm
 
             {isLoading ? (
               <div className="flex items-center justify-center py-8 flex-1">
-                <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                <Spinner className="w-5 h-5" />
               </div>
             ) : filteredCourses.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground flex-1 flex flex-col items-center justify-center gap-3">

@@ -5,7 +5,8 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
-import { ArrowLeft, Plus, Trash2, X, Check, Loader2, Calendar, ChevronDown } from "lucide-react"
+import { ArrowLeft, Plus, Trash2, X, Check, Calendar, ChevronDown } from "lucide-react"
+import { Spinner } from "@/shared/components/ui/spinner"
 import { Card } from "@/shared/components/ui/card"
 import { Tabs, TabsContent } from "@/shared/components/ui/tabs"
 import { UnderlineTabsList, UnderlineTabsTrigger } from "@/shared/components/ui/underline-tabs"
@@ -637,12 +638,12 @@ function AddCourseForm({
           >
             {isLoading ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Spinner />
                 保存中
               </>
             ) : autoSaveStatus === "saving" ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Spinner />
                 自动保存中
               </>
             ) : autoSaveStatus === "saved" ? (
@@ -1427,7 +1428,7 @@ function AddCourseForm({
           取消
         </Button>
         <Button onClick={() => handleSubmit(false)} className="gap-2" disabled={isLoading}>
-          {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+          {isLoading ? <Spinner /> : <Check className="w-4 h-4" />}
           保存
         </Button>
       </div>

@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { Button } from "@/shared/components/ui/button"
-import { BookMarked, Pencil, X, Loader2, Check, Search } from "lucide-react"
+import { BookMarked, Pencil, X, Check, Search } from "lucide-react"
+import { LoadingState } from "@/shared/components/ui/loading-state"
+import { Spinner } from "@/shared/components/ui/spinner"
 import { cn } from "@/shared/utils/utils"
 import type { TreeNode } from "@/types"
 import { TreeApi } from "@/lib/api/tree-api"
@@ -208,12 +210,7 @@ export function MajorMatrix(props: MajorMatrixProps) {
   }, [courses, courseSearchTerm])
 
   if (isLoadingMatrix) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-        <Loader2 className="w-8 h-8 animate-spin mb-3 text-primary" />
-        <p className="text-sm">Loading...</p>
-      </div>
-    )
+    return <LoadingState title="加载中..." />
   }
 
   return (
@@ -238,7 +235,7 @@ export function MajorMatrix(props: MajorMatrixProps) {
                 />
                 {searchInput && (
                   searchInput !== courseSearchTerm ? (
-                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground animate-spin" />
+                    <Spinner className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   ) : (
                     <button
                       onClick={handleSearchClear}
@@ -275,7 +272,7 @@ export function MajorMatrix(props: MajorMatrixProps) {
                   <Button size="sm" onClick={() => handleSaveMatrix(false)} className="gap-2" disabled={isSavingMatrix}>
                     {isSavingMatrix ? (
                       <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <Spinner className="w-3.5 h-3.5" />
                         保存中
                       </>
                     ) : (

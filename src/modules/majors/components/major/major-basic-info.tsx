@@ -1,9 +1,10 @@
 "use client"
 
-import { BookOpen, Briefcase, Award, ClipboardCheck, Loader2 } from "lucide-react"
+import { BookOpen, Briefcase, Award, ClipboardCheck } from "lucide-react"
 import { useEffect, useState, useRef } from "react"
 import type { TreeNode } from "@/types"
 import { TreeApi } from "@/lib/api/tree-api"
+import { LoadingState } from "@/shared/components/ui/loading-state"
 
 interface MajorBasicInfoProps {
   node: TreeNode
@@ -113,12 +114,7 @@ export function MajorBasicInfo({ node }: MajorBasicInfoProps) {
     requiresVOS: detailData?.requiresVOS || [],
   }
   if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-        <Loader2 className="w-8 h-8 animate-spin mb-3 text-primary" />
-        <p className="text-sm">Loading...</p>
-      </div>
-    )
+    return <LoadingState title="加载中..." variant="card" />
   }
 
   return (

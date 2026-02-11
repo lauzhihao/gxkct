@@ -1,12 +1,14 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Check, X as CloseIcon, Info, Plus, Loader2 } from "lucide-react"
+import { Check, X as CloseIcon, Info, Plus } from "lucide-react"
+import { Spinner } from "@/shared/components/ui/spinner"
 import { Button } from "@/shared/components/ui/button"
 import { Card } from "@/shared/components/ui/card"
 import { Label } from "@/shared/components/ui/label"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/components/ui/tooltip"
+import { LoadingState } from "@/shared/components/ui/loading-state"
 import type { EvaluationLevel, Long } from "@/types"
 import { courseTeachingTasksApi, type CourseEvaluationDetailResponse, type EvaluationItemDetail, type CourseEvaluationSubmitDTO, type EvaluationTypeSubmit } from "@/modules/courses/api/courseTeachingTasksApi"
 import { formatDate } from "@/shared/utils/date-utils"
@@ -429,12 +431,7 @@ export function EvaluationDetail({ taskId, courseId, onBack, breadcrumb }: Evalu
   }
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-primary" />
-        <span className="ml-2 text-muted-foreground">加载评分详情...</span>
-      </div>
-    )
+    return <LoadingState title="加载评分详情..." className="py-12" />
   }
 
   return (
@@ -449,7 +446,7 @@ export function EvaluationDetail({ taskId, courseId, onBack, breadcrumb }: Evalu
                 取消
               </Button>
               <Button onClick={handleSave} disabled={isSaving} className="gap-2">
-                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                {isSaving ? <Spinner className="w-4 h-4" /> : <Check className="w-4 h-4" />}
                 {isSaving ? "保存中..." : "保存"}
               </Button>
             </div>
@@ -837,7 +834,7 @@ export function EvaluationDetail({ taskId, courseId, onBack, breadcrumb }: Evalu
               取消
             </Button>
             <Button onClick={handleSave} disabled={isSaving} className="gap-2">
-              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              {isSaving ? <Spinner className="w-4 h-4" /> : <Check className="w-4 h-4" />}
               {isSaving ? "保存中..." : "保存"}
             </Button>
           </div>

@@ -1,10 +1,12 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Loader2, RefreshCw, FolderPlus, Copy, Scissors, Trash2, Search as SearchIcon } from "lucide-react"
+import { RefreshCw, FolderPlus, Copy, Scissors, Trash2, Search as SearchIcon } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Empty, EmptyDescription, EmptyTitle } from "@/shared/components/ui/empty"
 import { Input } from "@/shared/components/ui/input"
+import { Spinner } from "@/shared/components/ui/spinner"
+import { LoadingState } from "@/shared/components/ui/loading-state"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
 import { ResourceBreadcrumb } from "./ResourceBreadcrumb"
 import { ResourceSearchBar } from "./ResourceSearchBar"
@@ -337,15 +339,12 @@ export function CourseResourcesContainer({ nodeId }: CourseResourcesContainerPro
           <FolderPlus className="h-10 w-10 text-primary" />
           <p className="text-sm text-muted-foreground">当前课程尚未初始化资源目录</p>
           <Button onClick={initializeFolders} disabled={isInitializing} className="min-w-[160px]">
-            {isInitializing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isInitializing && <Spinner className="mr-2" />}
             初始化目录
           </Button>
         </div>
       ) : isLoading ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin" />
-          正在加载目录
-        </div>
+        <LoadingState title="正在加载目录" />
       ) : error ? (
         <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-6 text-center text-sm text-destructive">
           {error}
@@ -381,7 +380,7 @@ export function CourseResourcesContainer({ nodeId }: CourseResourcesContainerPro
                   disabled={selectedCount === 0 || isDeleting}
                   onClick={handleDeleteSelected}
                 >
-                  {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  {isDeleting ? <Spinner className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
                   删除
                 </Button>
               </div>
@@ -423,7 +422,7 @@ export function CourseResourcesContainer({ nodeId }: CourseResourcesContainerPro
               disabled={isCreateFolderConfirmDisabled}
               className="transition-colors hover:bg-primary hover:text-white"
             >
-              {isCreatingFolder && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isCreatingFolder && <Spinner className="mr-2" />}
               确认
             </Button>
           </DialogFooter>

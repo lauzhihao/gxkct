@@ -6,6 +6,7 @@
 "use client"
 
 import { Card } from "@/shared/components/ui/card"
+import { LoadingState } from "@/shared/components/ui/loading-state"
 import { FormHeader } from "./FormHeader"
 import {
   MajorBasicInfoSection,
@@ -48,15 +49,8 @@ export function AddMajorFormView({
   // 加载专业详情时显示加载状态
   if (isLoadingDetail) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="text-center">
-          <div className="mb-4">
-            <div className="inline-block">
-              <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-            </div>
-          </div>
-          <div className="text-sm text-muted-foreground">正在加载专业详情...</div>
-        </div>
+      <div className="py-20">
+        <LoadingState title="正在加载专业详情..." className="py-12" />
       </div>
     )
   }

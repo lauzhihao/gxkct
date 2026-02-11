@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { GraduationCap, Loader2, ChevronRight } from "lucide-react"
+import { GraduationCap, ChevronRight } from "lucide-react"
+import { LoadingState } from "@/shared/components/ui/loading-state"
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/shared/components/ui/breadcrumb"
 import type { TeachingSupervisoryTask, Long } from "@/types"
 import { courseTeachingTasksApi, type DeptMajorEvaluationItem } from "@/modules/courses/api/courseTeachingTasksApi"
@@ -158,10 +159,7 @@ export function MajorEvaluationList({ task, deptId, deptName, onBack, parentBrea
 
         {/* 专业卡片网格 */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-6 h-6 animate-spin text-primary" />
-            <span className="ml-2 text-muted-foreground">加载专业列表...</span>
-          </div>
+          <LoadingState variant="card" />
         ) : majors.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">该院系下暂无专业数据</div>
         ) : (

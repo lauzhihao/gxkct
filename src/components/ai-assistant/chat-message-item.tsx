@@ -9,7 +9,7 @@
 import { useRef, useEffect, useMemo } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { ChevronDown, ChevronUp, Loader2, FileText, LayoutGrid, MousePointerClick } from "lucide-react"
+import { ChevronDown, ChevronUp, FileText, LayoutGrid, MousePointerClick } from "lucide-react"
 import type { ChatMessage, LinkedElementInfo } from "@/types/ai-assistant"
 import { formatRelativeTime } from "@/shared/utils/date-utils"
 
@@ -86,11 +86,7 @@ function LinkedElementCard({ linkedElement, isLoading, isDeleted, onSelect }: Li
     >
       {/* 图标区域 */}
       <div className="flex-shrink-0 w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center">
-        {isLoading ? (
-          <Loader2 className="h-4 w-4 text-primary animate-spin" />
-        ) : (
-          <LayoutGrid className="h-4 w-4 text-primary" />
-        )}
+        <LayoutGrid className="h-4 w-4 text-primary" />
       </div>
       {/* 内容区域 */}
       <div className="flex-1 min-w-0">
@@ -185,7 +181,7 @@ function AssistantMessage({
             className="flex items-center gap-2 text-primary/80 hover:text-primary transition-colors w-full text-left min-w-0 overflow-hidden"
           >
             {isStreaming ? (
-              <span className="h-2 w-2 animate-pulse rounded-full bg-primary flex-shrink-0" />
+              <span className="h-2 w-2 rounded-full bg-primary flex-shrink-0" />
             ) : (
               <span className="h-2 w-2 rounded-full bg-primary/50 flex-shrink-0" />
             )}
@@ -223,8 +219,8 @@ function AssistantMessage({
 
       {/* 消息内容 */}
       {isStreaming && !streamingText ? (
-        <div className="py-4 grid place-items-center">
-          <Loader2 className="h-6 w-6 animate-spin text-primary/60" />
+        <div className="py-4 text-sm text-muted-foreground">
+          AI 正在生成响应...
         </div>
       ) : (
         <div className="border-t border-dashed border-border/60 pt-3 text-sm leading-relaxed prose-ai min-w-0 overflow-hidden">
@@ -276,7 +272,7 @@ function UserMessage({
               {hasLinkedElement ? (
                 <FileText className="h-5 w-5 text-primary" />
               ) : (
-                <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
+                <FileText className="h-5 w-5 text-muted-foreground" />
               )}
             </div>
             <div className="flex-1 min-w-0 text-left">

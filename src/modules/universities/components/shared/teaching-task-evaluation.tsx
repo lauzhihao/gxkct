@@ -2,6 +2,8 @@
 
 import { ArrowLeft, Edit, Copy, Info, Archive, Play, Square, Search } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
+import { LoadingState } from "@/shared/components/ui/loading-state"
+import { Spinner } from "@/shared/components/ui/spinner"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -224,8 +226,17 @@ export function TeachingTaskEvaluation({ task: initialTask, onBack, onEdit, onCo
                 disabled={disableArchive}
                 className="gap-2 bg-transparent"
               >
-                <Archive className="w-4 h-4" />
-                {isArchiving ? "归档中..." : "归档"}
+                {isArchiving ? (
+                  <>
+                    <Spinner className="w-4 h-4" />
+                    归档中...
+                  </>
+                ) : (
+                  <>
+                    <Archive className="w-4 h-4" />
+                    归档
+                  </>
+                )}
               </Button>
             )}
             {onEdit && (
@@ -419,9 +430,7 @@ export function TeachingTaskEvaluation({ task: initialTask, onBack, onEdit, onCo
           <div className="border-t border-dashed border-border" />
 
           {isLoading ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <p>加载中...</p>
-            </div>
+            <LoadingState title="加载中..." className="py-12" />
           ) : !criteria || criteria.items.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <p>暂无评价标准</p>

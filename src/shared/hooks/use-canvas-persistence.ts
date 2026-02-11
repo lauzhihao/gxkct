@@ -16,6 +16,47 @@ const DEFAULT_UPLOAD_INTERVAL = 30000 // 30秒
 const SAVE_TO_LOCAL_DEBOUNCE_MS = 400
 const AUTO_UPLOAD_MIN_INTERVAL_MS = 5000
 
+// 上传到 OSS 时需要排除的 UI 字段（不影响本地恢复）
+const UI_ONLY_DATA_KEYS = new Set([
+  "highlighted",
+  "isDeleting",
+  "onDelete",
+  "selected",
+  "isSelected",
+  "isHovered",
+  "isDragging",
+  "dragging",
+])
+
+function sanitizeDataForOss(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeDataForOss(item))
+  }
+
+  if (!value || typeof value !== "object") {
+    return value
+  }
+
+  const result: Record<string, unknown> = {}
+  for (const [key, currentValue] of Object.entries(value)) {
+    if (UI_ONLY_DATA_KEYS.has(key)) continue
+    // 函数和 UI 回调不进入 OSS，避免无效体积与序列化噪音
+    if (typeof currentValue === "function") continue
+    result[key] = sanitizeDataForOss(currentValue)
+  }
+
+  return result
+}
+
+function sanitizeElementsForOss(elements: CanvasElementData[]): unknown[] {
+  return elements.map((element) => ({
+    id: element.id,
+    type: element.type,
+    parentId: element.parentId,
+    data: sanitizeDataForOss(element.data),
+  }))
+}
+
 
 /**
  * 比较两个画布数据是否在数据层面有变化
@@ -188,6 +229,25 @@ export function useCanvasPersistence(options: UseCanvasPersistenceOptions) {
   }, [sessionId])
 
   /**
+   * 序列化为 OSS 上传专用 JSON：保留结构，移除 UI 字段
+   */
+  const serializeCanvasForOss = useCallback((): CanvasContentData | null => {
+    if (!canvasDataRef.current) return null
+
+    return {
+      version: CANVAS_VERSION,
+      sessionId,
+      timestamp: Date.now(),
+      elements: sanitizeElementsForOss(canvasDataRef.current.elements),
+      // 后端不消费连线，保持字段但不上传内容
+      edges: [],
+      specialComponents: sanitizeDataForOss(canvasDataRef.current.specialComponents) as Record<string, unknown>,
+      // 选中态属于纯 UI 状态，不进入 OSS
+      selectedIds: [],
+    }
+  }, [sessionId])
+
+  /**
    * 保存到本地存储
    */
   const saveToLocal = useCallback(() => {
@@ -228,7 +288,7 @@ export function useCanvasPersistence(options: UseCanvasPersistenceOptions) {
     if (!sessionId) return null
     if (isUploadingRef.current) return state.ossKey
 
-    const content = serializeCanvas()
+    const content = serializeCanvasForOss()
     if (!content) return null
 
     // 检查是否有实际内容需要上传
@@ -305,7 +365,7 @@ export function useCanvasPersistence(options: UseCanvasPersistenceOptions) {
       isUploadingRef.current = false
       setState(prev => ({ ...prev, isUploading: false }))
     }
-  }, [sessionId, serializeCanvas, state.ossKey, onUploadSuccess, onUploadError])
+  }, [sessionId, serializeCanvasForOss, state.ossKey, onUploadSuccess, onUploadError])
 
   /**
    * 更新画布数据（供外部调用）

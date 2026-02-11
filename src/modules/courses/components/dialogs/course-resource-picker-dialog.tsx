@@ -16,7 +16,8 @@ import { ResourceObjectList } from "@/modules/courses/components/course/resource
 import { useCourseResources } from "@/modules/courses/hooks/use-course-resources"
 import type { ResourceBreadcrumbNode } from "@/modules/courses/hooks/use-course-resources"
 import type { ResourceEntry } from "@/modules/courses/components/course/resources/types"
-import { Loader2, Search } from "lucide-react"
+import { Search } from "lucide-react"
+import { Spinner } from "@/shared/components/ui/spinner"
 import { Empty, EmptyDescription } from "@/shared/components/ui/empty"
 import { cn } from "@/shared/utils/utils"
 
@@ -177,7 +178,7 @@ export function CourseResourcePickerDialog({
             <div className="relative rounded-lg border border-border p-4">
               {(isLoading || isObjectsLoading) && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  <Spinner className="h-5 w-5" />
                 </div>
               )}
               {error && (

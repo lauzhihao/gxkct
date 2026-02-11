@@ -3,8 +3,9 @@
  * 包含标题和操作按钮
  */
 
-import { ArrowLeft, X, Check, Loader2 } from "lucide-react"
+import { ArrowLeft, X, Check } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
+import { Spinner } from "@/shared/components/ui/spinner"
 
 interface FormHeaderProps {
   isEditMode: boolean
@@ -42,12 +43,12 @@ export function FormHeader({ isEditMode, isLoading, autoSaveStatus, onCancel, on
         >
           {isLoading ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Spinner className="w-4 h-4" />
               保存中
             </>
           ) : autoSaveStatus === "saving" ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Spinner className="w-4 h-4" />
               自动保存中
             </>
           ) : autoSaveStatus === "saved" ? (
