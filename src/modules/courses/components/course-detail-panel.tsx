@@ -91,7 +91,169 @@ interface CourseFormData {
   metadata?: CourseFormMetadata
 }
 
-export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeData }: DetailPanelProps) {
+interface CourseOrganizationInfo {
+  universityId: string
+  universityName: string
+  departmentId: string
+  departmentName: string
+  majorId: string
+  majorName: string
+}
+
+const TREE_STORAGE_KEYS = ["education-api-tree-data", "education-tree-data"] as const
+
+const extractNumericId = (rawValue?: string): string => {
+  if (!rawValue) return ""
+  const match = rawValue.match(/\d+/)
+  return match ? match[0] : rawValue
+}
+
+const getNodeNumericId = (node?: TreeNode | null): string => {
+  if (!node) return ""
+  return node.id || extractNumericId(node.nodeId)
+}
+
+const resolveCourseOrganizationFromSelectedPath = (params: {
+  selectedNodePath?: TreeNode[]
+  courseNode?: TreeNode | null
+  majorIdFromDetail?: number
+  majorNameFallback?: string
+}): CourseOrganizationInfo | null => {
+  const { selectedNodePath, courseNode, majorIdFromDetail, majorNameFallback = "" } = params
+  if (!selectedNodePath || selectedNodePath.length === 0 || !courseNode) {
+    return null
+  }
+
+  const pathCourseNode = selectedNodePath[selectedNodePath.length - 1]
+  if (!pathCourseNode || pathCourseNode.nodeType !== "course") {
+    return null
+  }
+
+  const pathCourseNodeId = pathCourseNode.nodeId
+  const expectedCourseNodeId = courseNode.nodeId
+  const pathCourseNumericId = getNodeNumericId(pathCourseNode)
+  const expectedCourseNumericId = getNodeNumericId(courseNode)
+
+  const isSameCourse = (pathCourseNodeId && pathCourseNodeId === expectedCourseNodeId)
+    || (pathCourseNumericId && pathCourseNumericId === expectedCourseNumericId)
+
+  if (!isSameCourse) {
+    return null
+  }
+
+  const universityNode = selectedNodePath.find((item) => item.nodeType === "university")
+  const departmentNode = selectedNodePath.find((item) => item.nodeType === "department")
+  const majorNode = selectedNodePath.find((item) => item.nodeType === "major")
+
+  const fallbackMajorId = majorIdFromDetail ? String(majorIdFromDetail) : ""
+  const fallbackMajorName = majorNameFallback
+
+  return {
+    universityId: getNodeNumericId(universityNode),
+    universityName: universityNode?.nodeName || "",
+    departmentId: getNodeNumericId(departmentNode),
+    departmentName: departmentNode?.nodeName || "",
+    majorId: getNodeNumericId(majorNode) || fallbackMajorId,
+    majorName: majorNode?.nodeName || fallbackMajorName,
+  }
+}
+
+const findNodePath = (root: TreeNode, matcher: (node: TreeNode) => boolean, path: TreeNode[] = []): TreeNode[] | null => {
+  const currentPath = [...path, root]
+  if (matcher(root)) {
+    return currentPath
+  }
+
+  const children = root.children || []
+  for (const child of children) {
+    const result = findNodePath(child, matcher, currentPath)
+    if (result) {
+      return result
+    }
+  }
+
+  return null
+}
+
+const loadTreeFromLocalStorage = (): TreeNode | null => {
+  for (const storageKey of TREE_STORAGE_KEYS) {
+    const stored = localStorage.getItem(storageKey)
+    if (!stored) continue
+
+    try {
+      const parsed = JSON.parse(stored) as TreeNode
+      if (parsed && typeof parsed === "object") {
+        return parsed
+      }
+    } catch (error) {
+      console.warn(`[CourseDetail] 解析本地树数据失败，key=${storageKey}:`, error)
+    }
+  }
+
+  return null
+}
+
+const resolveCourseOrganizationFromTree = (params: {
+  treeRoot?: TreeNode | null
+  courseNode?: TreeNode | null
+  majorIdFromDetail?: number
+  majorNameFallback?: string
+}): CourseOrganizationInfo => {
+  const { treeRoot, courseNode, majorIdFromDetail, majorNameFallback = "" } = params
+  const sourceTree = treeRoot || loadTreeFromLocalStorage()
+
+  const fallbackMajorId = majorIdFromDetail ? String(majorIdFromDetail) : ""
+  const fallbackMajorName = majorNameFallback
+
+  if (!sourceTree || !courseNode) {
+    return {
+      universityId: "",
+      universityName: "",
+      departmentId: "",
+      departmentName: "",
+      majorId: fallbackMajorId,
+      majorName: fallbackMajorName,
+    }
+  }
+
+  const expectedCourseNumericId = getNodeNumericId(courseNode)
+  const expectedCourseNodeId = courseNode.nodeId
+
+  const path = findNodePath(sourceTree, (node) => {
+    if (node.nodeType !== "course") return false
+
+    const nodeNumericId = getNodeNumericId(node)
+    if (expectedCourseNumericId && nodeNumericId === expectedCourseNumericId) return true
+    if (expectedCourseNodeId && node.nodeId === expectedCourseNodeId) return true
+    return false
+  })
+
+  if (!path) {
+    return {
+      universityId: "",
+      universityName: "",
+      departmentId: "",
+      departmentName: "",
+      majorId: fallbackMajorId,
+      majorName: fallbackMajorName,
+    }
+  }
+
+  const universityNode = path.find((item) => item.nodeType === "university")
+  const departmentNode = path.find((item) => item.nodeType === "department")
+  const majorNode = path.find((item) => item.nodeType === "major")
+
+  return {
+    universityId: getNodeNumericId(universityNode),
+    universityName: universityNode?.nodeName || "",
+    departmentId: getNodeNumericId(departmentNode),
+    departmentName: departmentNode?.nodeName || "",
+    majorId: getNodeNumericId(majorNode) || fallbackMajorId,
+    majorName: majorNode?.nodeName || fallbackMajorName,
+  }
+}
+
+export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeData, selectedNodePath }: DetailPanelProps) {
   const courseNode = node?.nodeType === "course" ? node : null
   const courseNodeId = courseNode?.id
   const [isEditingCourse, setIsEditingCourse] = useState(false)
@@ -403,15 +565,29 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
     const prepareCanvasData = async () => {
       const courseId = courseNodeId
       const majorId = courseDetailData.courseDetailData.course.majorId
+      const courseCache = getCourseCache(courseNode?.id || "")
+      const organizationFromSelectedPath = resolveCourseOrganizationFromSelectedPath({
+        selectedNodePath,
+        courseNode,
+        majorIdFromDetail: majorId,
+        majorNameFallback: courseCache?.majorName || courseDetailData.courseNameData.major || "",
+      })
+      const organizationInfo = organizationFromSelectedPath || resolveCourseOrganizationFromTree({
+        treeRoot: treeData,
+        courseNode,
+        majorIdFromDetail: majorId,
+        majorNameFallback: courseCache?.majorName || courseDetailData.courseNameData.major || "",
+      })
       const prepareStart = performance.now()
       const matrixFetchStart = performance.now()
 
       // 并行获取课程矩阵、项目矩阵和专业指标点信息
       let matrixData: MatrixDataForCanvas | undefined
       try {
-        const [courseMatrixRes, projectMatrixRes, majorDetailRes, indicatorSupportLevelsRes] = await Promise.all([
+        const [courseMatrixRes, projectMatrixRes, majorMatrixRes, majorDetailRes, indicatorSupportLevelsRes] = await Promise.all([
           api.matrices.getCourseMatrix(String(courseId)),
           api.matrices.getProjectMatrixData(String(courseId)),
+          api.matrices.getMajorMatrix(String(courseId)),
           majorId
             ? api.tree.getMajorDetail(String(majorId))
             : Promise.resolve({ data: null, error: null, status: 200 }),
@@ -426,50 +602,164 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
         const projectMatrixApiData = projectMatrixRes.data
           ? (projectMatrixRes.data as unknown as ProjectMatrixApiData)
           : undefined
-        const indicatorIdsFromGoals = new Set(
-          (courseGoals || [])
-            .map(goal => Number(goal.id))
-            .filter(id => Number.isFinite(id) && id > 0)
-        )
         const indicatorSupportLevels: Record<string, "strong" | "weak"> = indicatorSupportLevelsRes.data || {}
+        const supportedIndicatorLevelById = new Map<number, "strong" | "weak">()
+        const majorMatrixItems = Array.isArray(majorMatrixRes.data) ? majorMatrixRes.data : []
+
+        console.log("[CourseDetail][Debug] 矩阵原始数据摘要:", {
+          courseId: String(courseId),
+          majorId: String(majorId || ""),
+          courseMatrixCount: courseMatrixItems?.length || 0,
+          graduateRequireIds: (courseMatrixItems || []).map((item) => Number(item.graduateRequireId)),
+          relates: (courseMatrixItems || []).map((item) => item.relate?.relate),
+          majorMatrixCount: majorMatrixItems.length,
+          majorMatrixGraduateRequireIds: majorMatrixItems.map((item) => Number(item.graduateRequireId)),
+          majorMatrixRelates: majorMatrixItems.map((item) => Number(item.relate)),
+        })
+
+        // 主路径：使用专业矩阵中的 graduateRequireId（即指标点ID）识别已建立支撑关系
+        majorMatrixItems.forEach((item) => {
+          const indicatorId = Number(item.graduateRequireId)
+          if (!Number.isFinite(indicatorId) || indicatorId <= 0) return
+
+          const level = Number(item.relate) === 0 ? "strong" : "weak"
+          const existing = supportedIndicatorLevelById.get(indicatorId)
+          if (level === "strong" || !existing) {
+            supportedIndicatorLevelById.set(indicatorId, level)
+          }
+        })
+        const hasLegacySupportKeys = Object.keys(indicatorSupportLevels).length > 0
+
+        // 严格校验：未配置任何毕业要求支撑关系时，禁止进入画布
+        if (supportedIndicatorLevelById.size === 0 && !hasLegacySupportKeys) {
+          console.warn("[CourseDetail] 当前课程未配置毕业要求支撑关系，阻止进入画布")
+          return null
+        }
+
+        console.log("[CourseDetail][Debug] 支撑指标点映射(按 indicatorId):", {
+          size: supportedIndicatorLevelById.size,
+          entries: Array.from(supportedIndicatorLevelById.entries()).map(([indicatorId, supportLevel]) => ({
+            indicatorId,
+            supportLevel,
+          })),
+          legacyKeyCount: Object.keys(indicatorSupportLevels).length,
+        })
 
         let graduationSupportData: GraduationSupportData | undefined
         const majorRequirements = majorDetailRes.data?.requiresVOS
-        if (Array.isArray(majorRequirements) && majorRequirements.length > 0 && indicatorIdsFromGoals.size > 0) {
+        if (Array.isArray(majorRequirements)) {
+          console.log("[CourseDetail][Debug] 专业毕业要求摘要:", {
+            requirementCount: majorRequirements.length,
+            requirements: majorRequirements.map((req: { id?: number; children?: Array<{ id?: number }> }) => ({
+              requirementId: Number(req.id) || 0,
+              childCount: req.children?.length || 0,
+              indicatorIds: (req.children || []).map((child) => Number(child.id)).filter(id => Number.isFinite(id) && id > 0),
+            })),
+          })
+        } else {
+          console.log("[CourseDetail][Debug] 专业毕业要求为空或非数组")
+        }
+
+        if (Array.isArray(majorRequirements) && majorRequirements.length > 0 && (supportedIndicatorLevelById.size > 0 || hasLegacySupportKeys)) {
+          let matchedByIndicatorId = 0
+          let matchedByLegacyKey = 0
+          let unmatchedCount = 0
+          const unmatchedExamples: number[] = []
+
           const requirements = majorRequirements
             .map((req: { id?: number; description?: string; children?: Array<{ id?: number; description?: string }> }) => ({
               id: Number(req.id) || 0,
               content: req.description || "",
               indicators: (req.children || [])
-                .map((indicator, index) => ({ indicator, index }))
-                .filter(({ indicator }) => {
+                .map((indicator, index) => {
+                  const requirementId = Number(req.id)
                   const indicatorId = Number(indicator.id)
-                  return Number.isFinite(indicatorId) && indicatorIdsFromGoals.has(indicatorId)
-                })
-                .map(({ indicator, index }) => {
-                  const supportKey = `${Number(req.id) || 0}-${index}`
-                  const supportLevel = indicatorSupportLevels[supportKey] || "strong"
+                  if (!Number.isFinite(requirementId) || requirementId <= 0) return null
+                  if (!Number.isFinite(indicatorId) || indicatorId <= 0) return null
+
+                  // 新数据路径：按指标点 ID 直接匹配
+                  let supportLevel = supportedIndicatorLevelById.get(indicatorId)
+                  let matchedFrom: "indicatorId" | "legacyKey" | "none" = "none"
+                  if (supportLevel) {
+                    matchedFrom = "indicatorId"
+                  }
+
+                  // 旧数据兼容：若未命中，再按 requirementId-indicatorIndex 匹配
+                  if (!supportLevel) {
+                    const supportKey = `${requirementId}-${index}`
+                    supportLevel = indicatorSupportLevels[supportKey]
+                    if (supportLevel) {
+                      matchedFrom = "legacyKey"
+                    }
+                  }
+
+                  if (supportLevel !== "strong" && supportLevel !== "weak") {
+                    unmatchedCount++
+                    if (unmatchedExamples.length < 20) {
+                      unmatchedExamples.push(indicatorId)
+                    }
+                    return null
+                  }
+
+                  if (matchedFrom === "indicatorId") {
+                    matchedByIndicatorId++
+                  } else if (matchedFrom === "legacyKey") {
+                    matchedByLegacyKey++
+                  }
+
                   return {
-                    id: Number(indicator.id) || 0,
+                    id: indicatorId,
                     description: indicator.description || "",
                     supportLevel,
                   }
-                }),
+                })
+                .filter((indicator): indicator is { id: number; description: string; supportLevel: "strong" | "weak" } => indicator !== null),
             }))
             .filter((req: { indicators: Array<unknown> }) => req.indicators.length > 0)
+
+          console.log("[CourseDetail][Debug] 指标点匹配结果:", {
+            matchedByIndicatorId,
+            matchedByLegacyKey,
+            unmatchedCount,
+            unmatchedExamples,
+          })
 
           if (requirements.length > 0) {
             graduationSupportData = {
               id: "graduation_support_loaded",
-              universityId: String(courseDetailData.courseNameData.college?.id || ""),
-              universityName: courseDetailData.courseNameData.college?.name,
-              departmentId: String(courseDetailData.courseNameData.department?.id || ""),
-              departmentName: courseDetailData.courseNameData.department?.name,
-              majorId: String(majorId),
-              majorName: courseDetailData.courseNameData.major,
+              universityId: organizationInfo.universityId,
+              universityName: organizationInfo.universityName,
+              departmentId: organizationInfo.departmentId,
+              departmentName: organizationInfo.departmentName,
+              majorId: organizationInfo.majorId,
+              majorName: organizationInfo.majorName,
               requirements,
             }
+
+            console.log("[CourseDetail][Debug] 写入画布前专业矩阵数据摘要:", {
+              organizationSource: organizationFromSelectedPath ? "selectedNodePath" : "treeTraversalFallback",
+              organizationInfo,
+              requirementCount: requirements.length,
+              indicatorCount: requirements.reduce((sum: number, req: { indicators?: Array<unknown> }) => sum + (req.indicators?.length || 0), 0),
+              indicatorsPreview: requirements
+                .flatMap((req: { id: number; indicators: Array<{ id: number; supportLevel: "strong" | "weak" }> }) =>
+                  req.indicators.map((ind) => ({
+                    requirementId: req.id,
+                    indicatorId: ind.id,
+                    supportLevel: ind.supportLevel,
+                  }))
+                )
+                .slice(0, 20),
+            })
+          } else {
+            console.log("[CourseDetail][Debug] 未生成 graduationSupportData: 匹配后 requirements 为空")
           }
+        } else {
+          console.log("[CourseDetail][Debug] 跳过生成 graduationSupportData:", {
+            hasMajorRequirements: Array.isArray(majorRequirements) && majorRequirements.length > 0,
+            supportedIndicatorByIdSize: supportedIndicatorLevelById.size,
+            hasLegacySupportKeys,
+          })
         }
 
         const matrixFetchDurationMs = performance.now() - matrixFetchStart
@@ -526,8 +816,11 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
     courseDetailData,
     courseGoals,
     courseNodeId,
+    courseNode,
     prefetchCanvasData,
     registerPrepareCanvasData,
+    selectedNodePath,
+    treeData,
     unregisterPrepareCanvasData,
   ])
 

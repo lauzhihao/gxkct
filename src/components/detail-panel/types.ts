@@ -3,6 +3,7 @@ import type { TreeNode } from "@/types"
 export interface DetailPanelProps {
   node: TreeNode | null
   treeData: TreeNode
+  selectedNodePath?: TreeNode[]
   onNodeSelect: (node: TreeNode | null) => void
   onAddDepartment?: (universityId: string, newDepartment: Omit<TreeNode, "id" | "nodeId">) => void
   onAddMajor?: (departmentId: string, newMajor: Omit<TreeNode, "id" | "nodeId">) => void

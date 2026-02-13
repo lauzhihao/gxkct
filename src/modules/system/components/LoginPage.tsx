@@ -28,7 +28,14 @@ export function LoginPage() {
         >
           {/* Logo 图片 */}
           <div className="text-center mb-6 flex justify-center">
-            <Image src={LOGIN_LOGO_SRC} alt="高校课程通" width={206} height={52} className="h-auto" unoptimized />
+            <Image
+              src={LOGIN_LOGO_SRC}
+              alt="高校课程通"
+              width={474}
+              height={142}
+              style={{ width: '206px', height: 'auto' }}
+              unoptimized
+            />
           </div>
 
           {/* 登陆表单 */}

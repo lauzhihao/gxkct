@@ -65,6 +65,7 @@ interface CanvasGraduationSupportEditorProps {
   onSave: (data: GraduationSupportData) => void
   onClose: () => void
   isSaving?: boolean
+  lockOrganizationSelection?: boolean
 }
 
 export function CanvasGraduationSupportEditor({
@@ -72,6 +73,7 @@ export function CanvasGraduationSupportEditor({
   onSave,
   onClose,
   isSaving = false,
+  lockOrganizationSelection = false,
 }: CanvasGraduationSupportEditorProps) {
   // 组织选择状态
   const [universities, setUniversities] = useState<TreeNode[]>([])
@@ -213,6 +215,10 @@ export function CanvasGraduationSupportEditor({
 
   // 处理支撑等级切换
   const handleSupportLevelChange = useCallback((reqIndex: number, indicatorIndex: number, level: "strong" | "weak") => {
+    if (lockOrganizationSelection) {
+      return
+    }
+
     setRequirements(prev => prev.map((req, ri) => {
       if (ri !== reqIndex) return req
       return {
@@ -226,7 +232,7 @@ export function CanvasGraduationSupportEditor({
         }),
       }
     }))
-  }, [])
+  }, [lockOrganizationSelection])
 
   // 折叠/展开切换
   const toggleExpand = useCallback((reqIndex: number) => {
@@ -273,6 +279,10 @@ export function CanvasGraduationSupportEditor({
 
   // 保存
   const handleSave = useCallback(() => {
+    if (lockOrganizationSelection) {
+      return
+    }
+
     const saveData: GraduationSupportData = {
       id: data.id,
       universityId: selectedUniversityId,
@@ -289,7 +299,7 @@ export function CanvasGraduationSupportEditor({
     selectedUniversityId, selectedUniversityName,
     selectedDepartmentId, selectedDepartmentName,
     selectedMajorId, selectedMajorName,
-    requirements, onSave,
+    requirements, onSave, lockOrganizationSelection,
   ])
 
   return (
@@ -311,6 +321,12 @@ export function CanvasGraduationSupportEditor({
           </div>
           <div className="border-t border-dashed border-border mb-4" />
 
+          {lockOrganizationSelection && (
+            <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              以下数据来自已确定的专业支撑关系，暂不支持在设计模式下编辑。
+            </div>
+          )}
+
           {/* 三级级联选择器 */}
           <div className="space-y-3 mb-4">
             {/* 学校选择 */}
@@ -319,7 +335,7 @@ export function CanvasGraduationSupportEditor({
               <Select
                 value={selectedUniversityId || undefined}
                 onValueChange={handleUniversityChange}
-                disabled={isLoadingTree}
+                disabled={isLoadingTree || lockOrganizationSelection}
               >
                 <SelectTrigger className="w-1/2">
                   <SelectValue placeholder={isLoadingTree ? "加载中..." : "请选择学校"} />
@@ -338,7 +354,7 @@ export function CanvasGraduationSupportEditor({
               <Select
                 value={selectedDepartmentId || undefined}
                 onValueChange={handleDepartmentChange}
-                disabled={!selectedUniversityId || departments.length === 0}
+                disabled={lockOrganizationSelection || !selectedUniversityId || departments.length === 0}
               >
                 <SelectTrigger className="w-1/2">
                   <SelectValue
@@ -361,7 +377,7 @@ export function CanvasGraduationSupportEditor({
               <Select
                 value={selectedMajorId || undefined}
                 onValueChange={handleMajorChange}
-                disabled={!selectedDepartmentId || majors.length === 0}
+                disabled={lockOrganizationSelection || !selectedDepartmentId || majors.length === 0}
               >
                 <SelectTrigger className="w-1/2">
                   <SelectValue
@@ -500,12 +516,16 @@ export function CanvasGraduationSupportEditor({
                                   <button
                                     type="button"
                                     onClick={() => handleSupportLevelChange(reqIndex, indIndex, "strong")}
+                                    disabled={lockOrganizationSelection}
                                     className={cn(
-                                      "px-2.5 py-1 rounded text-xs font-medium transition-all cursor-pointer",
-                                      "border hover:shadow-sm",
+                                      "px-2.5 py-1 rounded text-xs font-medium transition-all",
+                                      "border",
+                                      lockOrganizationSelection ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:shadow-sm",
                                       indicator.supportLevel === "strong"
                                         ? "bg-orange-500 text-white border-orange-500 shadow-sm"
-                                        : "bg-orange-50 text-orange-700 border-orange-200 hover:border-orange-400 hover:bg-orange-100",
+                                        : lockOrganizationSelection
+                                          ? "bg-orange-50 text-orange-700 border-orange-200"
+                                          : "bg-orange-50 text-orange-700 border-orange-200 hover:border-orange-400 hover:bg-orange-100",
                                     )}
                                   >
                                     强支撑
@@ -513,12 +533,16 @@ export function CanvasGraduationSupportEditor({
                                   <button
                                     type="button"
                                     onClick={() => handleSupportLevelChange(reqIndex, indIndex, "weak")}
+                                    disabled={lockOrganizationSelection}
                                     className={cn(
-                                      "px-2.5 py-1 rounded text-xs font-medium transition-all cursor-pointer",
-                                      "border hover:shadow-sm",
+                                      "px-2.5 py-1 rounded text-xs font-medium transition-all",
+                                      "border",
+                                      lockOrganizationSelection ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:shadow-sm",
                                       indicator.supportLevel === "weak"
                                         ? "bg-green-500 text-white border-green-500 shadow-sm"
-                                        : "bg-green-50 text-green-700 border-green-200 hover:border-green-400 hover:bg-green-100",
+                                        : lockOrganizationSelection
+                                          ? "bg-green-50 text-green-700 border-green-200"
+                                          : "bg-green-50 text-green-700 border-green-200 hover:border-green-400 hover:bg-green-100",
                                     )}
                                   >
                                     弱支撑
@@ -543,14 +567,14 @@ export function CanvasGraduationSupportEditor({
         <Button variant="outline" onClick={onClose} disabled={isSaving}>
           取消
         </Button>
-        <Button onClick={handleSave} disabled={isSaving}>
+        <Button onClick={handleSave} disabled={isSaving || lockOrganizationSelection}>
           {isSaving ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               保存中...
             </>
           ) : (
-            "保存"
+            lockOrganizationSelection ? "只读模式" : "保存"
           )}
         </Button>
       </div>

@@ -114,6 +114,7 @@ export interface CanvasDrawersProps {
   treeData?: TreeNode | null
   onSaveSuccess?: (majorId: string, courseId: string) => void
   onUpdateCourseInfo?: (updates: { courseId?: number; majorId?: number }) => void
+  lockGraduationSupportOrganization?: boolean
 }
 
 /**
@@ -167,6 +168,7 @@ export const CanvasDrawers = memo(function CanvasDrawers({
   treeData = null,
   onSaveSuccess,
   onUpdateCourseInfo,
+  lockGraduationSupportOrganization = false,
 }: CanvasDrawersProps) {
   // 获取课程信息数据
   const courseInfoData = editDialog.nodeData as CourseInfoData
@@ -470,6 +472,7 @@ export const CanvasDrawers = memo(function CanvasDrawers({
                 onSave={onGraduationSupportSave}
                 onClose={onGraduationSupportDrawerClose}
                 isSaving={isSavingGraduationSupport}
+                lockOrganizationSelection={lockGraduationSupportOrganization}
               />
             )}
           </div>

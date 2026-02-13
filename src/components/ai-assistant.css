@@ -218,6 +218,76 @@
   }
 }
 
+/* ============ AI 单指示器加载态 ============ */
+
+.ai-single-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  animation: ai-single-indicator-fade-in 0.16s ease-out;
+}
+
+.ai-single-indicator-sparkle {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+  opacity: 1;
+  animation: ai-sparkle-blink 0.5s ease-in-out infinite;
+}
+
+.ai-single-indicator-text {
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  background: linear-gradient(90deg, #f79533, #f37055, #ef4e7b, #a166ab, #5073b8, #1098ad, #07b39b, #f79533);
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: ai-loading-flow 2s linear infinite;
+}
+
+.ai-streaming-caret {
+  display: inline-block;
+  width: 0.5ch;
+  margin-left: 1px;
+  border-right: 2px solid color-mix(in srgb, var(--primary) 65%, transparent);
+  vertical-align: text-bottom;
+  animation: ai-caret-blink 1s step-end infinite;
+}
+
+@keyframes ai-single-indicator-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ai-sparkle-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes ai-caret-blink {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  46%,
+  100% {
+    opacity: 0;
+  }
+}
+
 /* ============ AI 助手抽屉动画 ============ */
 
 .ai-drawer-content[data-side="right"] {

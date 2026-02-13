@@ -4,6 +4,7 @@ import { memo } from "react"
 import type { Node } from "@xyflow/react"
 import { Plus, Grid3X3, Table, FileText, BookOpen } from "lucide-react"
 import { FlowNodeType } from "../flow/utils/types"
+import type { GraduationSupportData } from "@/components/canvas-elements/types"
 
 /**
  * 连接菜单选项类型
@@ -59,6 +60,9 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
   // 获取源节点类型
   const sourceNode = flowNodes.find(n => n.id === connectionMenu.sourceNodeId)
   const sourceNodeType = sourceNode?.type as FlowNodeType | undefined
+  const sourceGraduationSupportData = sourceNodeType === FlowNodeType.GRADUATION_SUPPORT_PANEL
+    ? (sourceNode?.data as GraduationSupportData | undefined)
+    : undefined
 
   // 判断是否从三个基础面板（教学目标/章节/课点）的右侧连接点拖出
   const isFromBasicPanel = [
@@ -91,6 +95,14 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
     objectiveChildCount > 0 &&
     chapterChildCount > 0 &&
     coursePointChildCount > 0
+
+  // 仅当毕业要求指标点组件内存在有效数据时，才允许创建教学目标
+  const hasGraduationSupportData = Boolean(
+    sourceGraduationSupportData?.requirements?.some(req =>
+      req.indicators?.length
+    )
+  )
+  const canCreateObjectiveFromGraduationSupport = !hasObjectivePanel && hasGraduationSupportData
 
   return (
     <div
@@ -170,16 +182,16 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
           {/* 从专业矩阵拖出时只显示教学目标选项 */}
           <button
             className={`group flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm canvas-menu-item ${
-              hasObjectivePanel
-                ? "text-muted-foreground/50 cursor-not-allowed"
-                : "hover:bg-accent hover:text-accent-foreground"
+              canCreateObjectiveFromGraduationSupport
+                ? "hover:bg-accent hover:text-accent-foreground"
+                : "text-muted-foreground/50 cursor-not-allowed"
             }`}
-            onClick={() => !hasObjectivePanel && onMenuSelect("objective")}
-            disabled={hasObjectivePanel}
-            title={hasObjectivePanel ? "画布中已存在教学目标面板" : ""}
+            onClick={() => canCreateObjectiveFromGraduationSupport && onMenuSelect("objective")}
+            disabled={!canCreateObjectiveFromGraduationSupport}
+            title={hasObjectivePanel ? "画布中已存在教学目标面板" : !hasGraduationSupportData ? "毕业要求指标点组件内部数据不能为空" : ""}
           >
             <Plus className={`h-4 w-4 transition-opacity ${
-              hasObjectivePanel ? "opacity-30" : "opacity-0 group-hover:opacity-100"
+              canCreateObjectiveFromGraduationSupport ? "opacity-0 group-hover:opacity-100" : "opacity-30"
             }`} />
             <span>+ 教学目标</span>
           </button>

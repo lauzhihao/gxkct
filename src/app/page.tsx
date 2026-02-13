@@ -21,6 +21,7 @@ export default function Page() {
   const [initialData, setInitialData] = useState<TreeNode | null>(null)
   const [currentSchoolId, setCurrentSchoolId] = useLocalStorage<string | null>(CURRENT_SCHOOL_STORAGE_KEY, null)
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null)
+  const [selectedNodePath, setSelectedNodePath] = useState<TreeNode[]>([])
   const [isTreeCollapsed, setIsTreeCollapsed] = useLocalStorage<boolean>(TREE_COLLAPSED_STORAGE_KEY, true)
   const [departmentMajors, setDepartmentMajors] = useState<Map<string, TreeNode[]>>(new Map())
   const [currentUser] = useState<{ username: string; role: string } | null>(() => {
@@ -228,6 +229,7 @@ export default function Page() {
               ref={treeViewRef}
               treeData={treeDataHook.treeData}
               onNodeSelect={setSelectedNode}
+              onSelectedNodePathChange={setSelectedNodePath}
               selectedNode={effectiveSelectedNode}
               onAddSchool={handleAddSchool}
               currentSchoolId={currentSchoolId}
@@ -248,6 +250,7 @@ export default function Page() {
             <DetailPanel
               node={effectiveSelectedNode}
               treeData={treeDataHook.treeData}
+              selectedNodePath={selectedNodePath}
               onNodeSelect={setSelectedNode}
               onAddDepartment={handleAddDepartment}
               onAddMajor={handleAddMajor}

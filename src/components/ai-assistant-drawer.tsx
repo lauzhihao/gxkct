@@ -11,6 +11,8 @@ import {
   CanvasAction,
   CanvasComponentType,
   ProgressEventMessage,
+  ProcessingEventMessage,
+  StatusEventMessage,
   ObjectiveCardData,
   ChapterCardData,
   CoursePointCardData,
@@ -58,7 +60,7 @@ import {
 import { ChatMessageItem } from "./ai-assistant/chat-message-item"
 import { ChatInputArea } from "./ai-assistant/chat-input-area"
 import { createConnectionMenuHandler } from "./ai-assistant/connection-menu-handlers"
-import { useStartLoading, useStopLoading } from "@/shared/stores/loading-store"
+import { GeminiDemoDrawer } from "./ai-assistant/gemini-demo-drawer"
 
 // CanvasComponentType 到 FlowNodeType 的映射（用于获取颜色配置）
 const CANVAS_TO_FLOW_TYPE: Record<CanvasComponentType, string> = {
@@ -80,6 +82,62 @@ const CANVAS_TO_FLOW_TYPE: Record<CanvasComponentType, string> = {
   [CanvasComponentType.COURSE_REPORT]: "courseReport",
 }
 
+const INDICATOR_DEFAULT_TEXT = "正在准备响应..."
+const INDICATOR_UPDATE_THROTTLE_MS = 220
+
+type IndicatorSource = "processing" | "status" | "thinking"
+
+const INDICATOR_SOURCE_PRIORITY: Record<IndicatorSource, number> = {
+  processing: 3,
+  status: 2,
+  thinking: 1,
+}
+
+function normalizeIndicatorText(rawText: string | undefined): string {
+  if (!rawText) return ""
+  const normalized = rawText.replace(/\s+/g, " ").trim()
+  if (!normalized) return ""
+  return normalized.length > 34 ? `${normalized.slice(0, 34)}...` : normalized
+}
+
+function formatStatusIndicator(status: StatusEventMessage): string {
+  const event = String(status.event ?? "")
+  const node = String(status.node ?? "")
+  const tool = status.tool?.trim()
+
+  if (event === "call") {
+    return tool ? `正在调用工具 ${tool}...` : "正在调用工具..."
+  }
+  if (event === "result") {
+    return tool ? `工具 ${tool} 执行完成` : "工具执行完成"
+  }
+  if (node === "tools" && event === "start") {
+    return "正在执行工具链..."
+  }
+  if (node === "tools" && event === "end") {
+    return "工具链执行完成"
+  }
+  if (event === "start") {
+    return node ? `正在执行 ${node}...` : "正在执行任务..."
+  }
+  if (event === "end") {
+    return node ? `${node} 执行完成` : "任务执行完成"
+  }
+
+  return "正在处理中..."
+}
+
+function formatProcessingIndicator(event: ProcessingEventMessage): string {
+  const message = normalizeIndicatorText(event.message)
+  if (message) return message
+
+  if (event.stage === "preparing") return "正在准备课程生成..."
+  if (event.stage === "generating") return "正在生成课程内容..."
+  if (event.stage === "classified") return "正在分析画布内容..."
+
+  return "正在处理中..."
+}
+
 export function AiAssistantDrawer({
   open,
   onOpenChange,
@@ -89,6 +147,8 @@ export function AiAssistantDrawer({
   treeData = null,
   initialCanvasData = null,
 }: AiAssistantDrawerProps) {
+  const isCourseDetailCanvas = initialCanvasData !== null
+  const [isGeminiDemoOpen, setIsGeminiDemoOpen] = useState(false)
   const [inputMessage, setInputMessage] = useState("")
   const [isInputExpanded, setIsInputExpanded] = useState(false)
 
@@ -123,6 +183,66 @@ export function AiAssistantDrawer({
   const [streamingThinking, setStreamingThinking] = useState("")
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
   const [isThinkingExpanded, setIsThinkingExpanded] = useState(false)
+  const [streamingIndicatorText, setStreamingIndicatorText] = useState(INDICATOR_DEFAULT_TEXT)
+  const [isPreContentIndicatorVisible, setIsPreContentIndicatorVisible] = useState(false)
+  const hasReceivedContentChunkRef = useRef(false)
+  const indicatorMetaRef = useRef<{ source: IndicatorSource; text: string; updatedAt: number }>({
+    source: "thinking",
+    text: "",
+    updatedAt: 0,
+  })
+
+  const resetStreamingIndicator = useCallback(() => {
+    hasReceivedContentChunkRef.current = false
+    setIsPreContentIndicatorVisible(false)
+    setStreamingIndicatorText(INDICATOR_DEFAULT_TEXT)
+    indicatorMetaRef.current = {
+      source: "thinking",
+      text: "",
+      updatedAt: 0,
+    }
+  }, [])
+
+  const beginStreamingIndicator = useCallback((initialText: string = INDICATOR_DEFAULT_TEXT) => {
+    hasReceivedContentChunkRef.current = false
+    setIsPreContentIndicatorVisible(true)
+    setStreamingIndicatorText(initialText)
+    indicatorMetaRef.current = {
+      source: "thinking",
+      text: initialText,
+      updatedAt: Date.now(),
+    }
+  }, [])
+
+  const markStreamingContentStarted = useCallback(() => {
+    if (hasReceivedContentChunkRef.current) return
+    hasReceivedContentChunkRef.current = true
+    setIsPreContentIndicatorVisible(false)
+  }, [])
+
+  const updateStreamingIndicator = useCallback((source: IndicatorSource, rawText: string) => {
+    if (hasReceivedContentChunkRef.current) return
+
+    const nextText = normalizeIndicatorText(rawText)
+    if (!nextText) return
+
+    const now = Date.now()
+    const previous = indicatorMetaRef.current
+    const prevPriority = INDICATOR_SOURCE_PRIORITY[previous.source] ?? 0
+    const nextPriority = INDICATOR_SOURCE_PRIORITY[source]
+    const withinThrottleWindow = now - previous.updatedAt < INDICATOR_UPDATE_THROTTLE_MS
+
+    if (nextText === previous.text) return
+    if (withinThrottleWindow && nextPriority <= prevPriority) return
+
+    setIsPreContentIndicatorVisible(true)
+    setStreamingIndicatorText(nextText)
+    indicatorMetaRef.current = {
+      source,
+      text: nextText,
+      updatedAt: now,
+    }
+  }, [])
 
   // [MOD] 流式输出时自动展开思考区域，完成后自动收起
   const prevStreamingMessageIdRef = useRef<string | null>(null)
@@ -133,13 +253,15 @@ export function AiAssistantDrawer({
     if (!wasStreaming && isStreaming) {
       // 开始流式输出时展开
       setIsThinkingExpanded(true)
+      beginStreamingIndicator()
     } else if (wasStreaming && !isStreaming) {
       // 流式输出完成时收起
       setIsThinkingExpanded(false)
+      resetStreamingIndicator()
     }
 
     prevStreamingMessageIdRef.current = streamingMessageId
-  }, [streamingMessageId])
+  }, [streamingMessageId, beginStreamingIndicator, resetStreamingIndicator])
   // 画布展开状态：收到第一条SSE时触发展开
   const [isCanvasExpanded, setIsCanvasExpanded] = useState(false)
   const hasTriggeredExpandRef = useRef(false) // 防止重复触发
@@ -605,39 +727,6 @@ export function AiAssistantDrawer({
 
   // 文件上传状态
   const [isUploadingFile, setIsUploadingFile] = useState(false)
-  const startLoading = useStartLoading()
-  const stopLoading = useStopLoading()
-
-  const hasElementLoading = useMemo(
-    () => Array.from(elementLoadingStates.values()).some(Boolean),
-    [elementLoadingStates]
-  )
-  const shouldShowGlobalLoading =
-    open && (streamingMessageId !== null || isUploadingFile || isRegenerating || hasElementLoading)
-  const globalLoadingRegisteredRef = useRef(false)
-
-  useEffect(() => {
-    if (shouldShowGlobalLoading && !globalLoadingRegisteredRef.current) {
-      startLoading()
-      globalLoadingRegisteredRef.current = true
-      return
-    }
-
-    if (!shouldShowGlobalLoading && globalLoadingRegisteredRef.current) {
-      stopLoading()
-      globalLoadingRegisteredRef.current = false
-    }
-  }, [shouldShowGlobalLoading, startLoading, stopLoading])
-
-  useEffect(
-    () => () => {
-      if (globalLoadingRegisteredRef.current) {
-        stopLoading()
-        globalLoadingRegisteredRef.current = false
-      }
-    },
-    [stopLoading]
-  )
 
   /**
    * 通用 SSE 请求执行函数
@@ -645,6 +734,7 @@ export function AiAssistantDrawer({
    */
   interface SSERequestConfig {
     userContent: string
+    displayUserContent?: string
     messageSuffix: string
     logPrefix: string
     defaultCompleteMessage: string
@@ -674,7 +764,7 @@ export function AiAssistantDrawer({
 
     // 创建消息对
     const { userMessage, assistantPlaceholder, aiMessageId } = createMessagePair(
-      config.userContent,
+      config.displayUserContent ?? config.userContent,
       config.messageSuffix
     )
 
@@ -838,12 +928,18 @@ export function AiAssistantDrawer({
         },
         onThinkingChunk: (content) => {
           // thinking 内容需要加上 progress 追加的部分
-          setStreamingThinking(progressThinking + content)
+          const fullThinking = progressThinking + content
+          setStreamingThinking(fullThinking)
+          updateStreamingIndicator("thinking", fullThinking)
+        },
+        onStatusEvent: (status) => {
+          updateStreamingIndicator("status", formatStatusIndicator(status))
         },
         onErrorEvent: (error) => {
           // 保存错误信息，用于最终消息内容
           sseErrorMessage = error.message || '服务出现异常，请稍后重试。'
           // 将错误信息显示在聊天区域
+          markStreamingContentStarted()
           setStreamingText(sseErrorMessage)
         },
         onProgressEvent: (progress) => {
@@ -851,10 +947,12 @@ export function AiAssistantDrawer({
           const progressLine = `[${progress.current}/${progress.total}] ${progress.message}\n`
           progressThinking += progressLine
           setStreamingThinking(progressThinking)
+          updateStreamingIndicator("processing", progress.message)
           // 调用自定义进度回调
           config.onProgress?.(progress)
         },
         onProcessingEvent: (event) => {
+          updateStreamingIndicator("processing", formatProcessingIndicator(event))
           // 处理 processing 事件（加载进度文案）
           if (event.stage === 'generating' && event.message) {
             // 根据 message 内容判断更新哪个面板的 fillProgress
@@ -870,6 +968,9 @@ export function AiAssistantDrawer({
           }
         },
         onContentChunk: (content) => {
+          if (content.trim()) {
+            markStreamingContentStarted()
+          }
           setStreamingText(content)
         },
         onAbort: () => {
@@ -906,6 +1007,7 @@ export function AiAssistantDrawer({
         setStreamingMessageId(null)
         setStreamingText('')
         setIsRegenerating(false)
+        setIsPreContentIndicatorVisible(false)
         // [MOD] 中止时也清除 loading 状态
         clearLinkedElementLoading()
         return
@@ -922,16 +1024,17 @@ export function AiAssistantDrawer({
       setStreamingMessageId(null)
       setStreamingText('')
       setIsRegenerating(false)
+      setIsPreContentIndicatorVisible(false)
       // [MOD] 错误时也清除 loading 状态
       clearLinkedElementLoading()
 
       console.error(`[${config.logPrefix}] 失败:`, error)
     }
-  }, [isRegenerating, streamingMessageId, isInitialized, sessionId, handleCanvasEvent, processStream, resetSSEController, forceCanvasUpload, updateFillProgress])
+  }, [isRegenerating, streamingMessageId, isInitialized, sessionId, handleCanvasEvent, processStream, resetSSEController, forceCanvasUpload, updateFillProgress, updateStreamingIndicator, markStreamingContentStarted])
 
   // 处理章节项目面板自动填充请求
   // [MOD] 增加 userPrompt 参数，支持重做时传入用户提示词
-  const handleFillChapterPanel = useCallback(async (targetPanelId?: string, userPrompt?: string) => {
+  const handleFillChapterPanel = useCallback(async (targetPanelId?: string, userPrompt?: string, displayUserContent?: string) => {
     // 判断面板是否有内容（子节点）
     const chapterPanel = targetPanelId
       ? canvasElements.find(el => el.id === targetPanelId)
@@ -945,6 +1048,7 @@ export function AiAssistantDrawer({
 
     await executeSSERequest({
       userContent: finalPrompt,
+      displayUserContent,
       messageSuffix: "fill-chapter-panel",
       logPrefix: `填充章节项目${targetPanelId ? ` 目标面板: ${targetPanelId}` : ""}`,
       defaultCompleteMessage: "章节项目已自动填充",
@@ -972,7 +1076,7 @@ export function AiAssistantDrawer({
 
   // 处理教学目标面板自动填充请求
   // [MOD] 增加 userPrompt 参数，支持重做时传入用户提示词
-  const handleFillObjectivePanel = useCallback(async (targetPanelId?: string, userPrompt?: string) => {
+  const handleFillObjectivePanel = useCallback(async (targetPanelId?: string, userPrompt?: string, displayUserContent?: string) => {
     // 判断面板是否有内容（子节点）
     const objectivePanel = targetPanelId
       ? canvasElements.find(el => el.id === targetPanelId)
@@ -986,6 +1090,7 @@ export function AiAssistantDrawer({
 
     await executeSSERequest({
       userContent: finalPrompt,
+      displayUserContent,
       messageSuffix: "fill-objective-panel",
       logPrefix: `填充教学目标${targetPanelId ? ` 目标面板: ${targetPanelId}` : ""}`,
       defaultCompleteMessage: "教学目标已自动填充",
@@ -1035,7 +1140,7 @@ export function AiAssistantDrawer({
 
   // 处理课程矩阵自动填充请求
   // [MOD] 添加可选参数 targetMatrixId，支持重做时指定目标矩阵
-  const handleFillCourseMatrix = useCallback(async (targetMatrixId?: string) => {
+  const handleFillCourseMatrix = useCallback(async (targetMatrixId?: string, userPrompt?: string, displayUserContent?: string) => {
     // 判断课程矩阵是否有内容
     const courseMatrix = targetMatrixId
       ? canvasElements.find(el => el.id === targetMatrixId)
@@ -1043,9 +1148,11 @@ export function AiAssistantDrawer({
     const matrixData = courseMatrix?.data as { rows?: unknown[] } | undefined
     const hasContent = matrixData?.rows && matrixData.rows.length > 0
     const promptPrefix = hasContent ? "请帮我重新完善" : "请帮我完善"
+    const finalPrompt = userPrompt || `${promptPrefix}${ELEMENT_TYPE_TITLES[CanvasComponentType.COURSE_MATRIX]}的内容`
 
     await executeSSERequest({
-      userContent: `${promptPrefix}${ELEMENT_TYPE_TITLES[CanvasComponentType.COURSE_MATRIX]}的内容`,
+      userContent: finalPrompt,
+      displayUserContent,
       messageSuffix: "fill-matrix",
       logPrefix: `填充课程矩阵${targetMatrixId ? ` 目标矩阵: ${targetMatrixId}` : ""}`,
       defaultCompleteMessage: "课程矩阵已自动填充支撑关系",
@@ -1079,7 +1186,7 @@ export function AiAssistantDrawer({
 
   // 处理项目矩阵自动填充请求
   // [MOD] 添加可选参数 targetMatrixId，支持重做时指定目标矩阵
-  const handleFillProjectMatrix = useCallback(async (targetMatrixId?: string) => {
+  const handleFillProjectMatrix = useCallback(async (targetMatrixId?: string, userPrompt?: string, displayUserContent?: string) => {
     // 判断项目矩阵是否有内容
     const projectMatrix = targetMatrixId
       ? canvasElements.find(el => el.id === targetMatrixId)
@@ -1087,9 +1194,11 @@ export function AiAssistantDrawer({
     const matrixData = projectMatrix?.data as { rows?: unknown[] } | undefined
     const hasContent = matrixData?.rows && matrixData.rows.length > 0
     const promptPrefix = hasContent ? "请帮我重新完善" : "请帮我完善"
+    const finalPrompt = userPrompt || `${promptPrefix}${ELEMENT_TYPE_TITLES[CanvasComponentType.PROJECT_MATRIX]}的内容`
 
     await executeSSERequest({
-      userContent: `${promptPrefix}${ELEMENT_TYPE_TITLES[CanvasComponentType.PROJECT_MATRIX]}的内容`,
+      userContent: finalPrompt,
+      displayUserContent,
       messageSuffix: "fill-project-matrix",
       logPrefix: `填充项目矩阵${targetMatrixId ? ` 目标矩阵: ${targetMatrixId}` : ""}`,
       defaultCompleteMessage: "项目矩阵已自动填充任务目标和支撑关系",
@@ -1121,7 +1230,7 @@ export function AiAssistantDrawer({
   }, [executeSSERequest, canvasElements, updateCanvasElementData, updateFillProgress, selectCanvasElement])
 
   // 处理课程信息自动填充请求（从源文档生成课程基本信息）
-  const handleFillCourseInfo = useCallback(async (courseInfoId: string) => {
+  const handleFillCourseInfo = useCallback(async (courseInfoId: string, userPrompt?: string, displayUserContent?: string) => {
     if (!sessionId) {
       console.warn("[填充课程信息] 缺少sessionId")
       return
@@ -1132,9 +1241,11 @@ export function AiAssistantDrawer({
     const courseData = courseInfo?.data as { name?: string; metadata?: Record<string, unknown> } | undefined
     const hasContent = !!(courseData?.name || (courseData?.metadata && Object.keys(courseData.metadata).length > 0))
     const promptPrefix = hasContent ? "请帮我重新完善" : "请帮我完善"
+    const finalPrompt = userPrompt || `${promptPrefix}${ELEMENT_TYPE_TITLES[CanvasComponentType.COURSE_INFO]}的内容`
 
     await executeSSERequest({
-      userContent: `${promptPrefix}${ELEMENT_TYPE_TITLES[CanvasComponentType.COURSE_INFO]}的内容`,
+      userContent: finalPrompt,
+      displayUserContent,
       messageSuffix: "fill-course-info",
       logPrefix: `填充课程信息 课程信息ID: ${courseInfoId}`,
       defaultCompleteMessage: "课程基本信息已自动填充",
@@ -1154,7 +1265,7 @@ export function AiAssistantDrawer({
 
   // 处理课点信息自动填充请求
   // [MOD] 增加 userPrompt 参数，支持重做时传入用户提示词
-  const handleFillCoursePoints = useCallback(async (targetPanelId?: string, userPrompt?: string) => {
+  const handleFillCoursePoints = useCallback(async (targetPanelId?: string, userPrompt?: string, displayUserContent?: string) => {
     // 判断课点面板是否有内容（子节点）
     const coursePointPanel = targetPanelId
       ? canvasElements.find(el => el.id === targetPanelId)
@@ -1168,6 +1279,7 @@ export function AiAssistantDrawer({
 
     await executeSSERequest({
       userContent: finalPrompt,
+      displayUserContent,
       messageSuffix: "fill-course-points",
       logPrefix: `填充课点信息${targetPanelId ? ` 目标面板: ${targetPanelId}` : ""}`,
       defaultCompleteMessage: "课点信息已自动生成",
@@ -1200,7 +1312,7 @@ export function AiAssistantDrawer({
 
   // 处理 KSA 面板自动填充请求
   // [MOD] 增加 userPrompt 参数，支持重做时传入用户提示词
-  const handleFillKsa = useCallback(async (targetPanelId?: string, userPrompt?: string) => {
+  const handleFillKsa = useCallback(async (targetPanelId?: string, userPrompt?: string, displayUserContent?: string) => {
     // 判断 KSA 面板是否有内容（子节点）
     const ksaPanel = targetPanelId
       ? canvasElements.find(el => el.id === targetPanelId)
@@ -1214,6 +1326,7 @@ export function AiAssistantDrawer({
 
     await executeSSERequest({
       userContent: finalPrompt,
+      displayUserContent,
       messageSuffix: "fill-ksa",
       logPrefix: `填充KSA${targetPanelId ? ` 目标面板: ${targetPanelId}` : ""}`,
       defaultCompleteMessage: "KSA三要素已自动生成",
@@ -1301,13 +1414,18 @@ export function AiAssistantDrawer({
 
   // 处理发送聊天消息
   const handleSendMessage = useCallback(async () => {
-    if (!inputMessage.trim() || !isInitialized || !sessionId) {
+    if ((!inputMessage.trim() && !regenerateTag) || !isInitialized || !sessionId) {
       return
     }
 
     // [MOD] 检测是否有重做标签，调用对应的 fill_xxx 函数
     if (regenerateTag) {
       const userPrompt = inputMessage.trim()
+      const regenerateInstruction = `请帮我重新设计${regenerateTag.node_name}`
+      const finalRegeneratePrompt = userPrompt
+        ? `${regenerateInstruction}：${userPrompt}`
+        : regenerateInstruction
+      const displayRegeneratePrompt = userPrompt || regenerateInstruction
       const targetId = regenerateTag.component_id
       const componentType = regenerateTag.component_type
 
@@ -1319,25 +1437,25 @@ export function AiAssistantDrawer({
       // 根据组件类型调用对应的 fill 函数
       switch (componentType) {
         case CanvasComponentType.COURSE_POINT_PANEL:
-          await handleFillCoursePoints(targetId, userPrompt)
+          await handleFillCoursePoints(targetId, finalRegeneratePrompt, displayRegeneratePrompt)
           break
         case CanvasComponentType.KSA_PANEL:
-          await handleFillKsa(targetId, userPrompt)
+          await handleFillKsa(targetId, finalRegeneratePrompt, displayRegeneratePrompt)
           break
         case CanvasComponentType.CHAPTER_PANEL:
-          await handleFillChapterPanel(targetId, userPrompt)
+          await handleFillChapterPanel(targetId, finalRegeneratePrompt, displayRegeneratePrompt)
           break
         case CanvasComponentType.OBJECTIVE_PANEL:
-          await handleFillObjectivePanel(targetId, userPrompt)
+          await handleFillObjectivePanel(targetId, finalRegeneratePrompt, displayRegeneratePrompt)
           break
         case CanvasComponentType.COURSE_MATRIX:
-          await handleFillCourseMatrix(targetId)
+          await handleFillCourseMatrix(targetId, finalRegeneratePrompt, displayRegeneratePrompt)
           break
         case CanvasComponentType.PROJECT_MATRIX:
-          await handleFillProjectMatrix(targetId)
+          await handleFillProjectMatrix(targetId, finalRegeneratePrompt, displayRegeneratePrompt)
           break
         case CanvasComponentType.COURSE_INFO:
-          await handleFillCourseInfo(targetId)
+          await handleFillCourseInfo(targetId, finalRegeneratePrompt, displayRegeneratePrompt)
           break
         default:
           console.warn("[重做] 不支持的组件类型:", componentType)
@@ -1536,6 +1654,10 @@ export function AiAssistantDrawer({
         },
         onThinkingChunk: (content) => {
           setStreamingThinking(content)
+          updateStreamingIndicator("thinking", content)
+        },
+        onStatusEvent: (status) => {
+          updateStreamingIndicator("status", formatStatusIndicator(status))
         },
         onUIEvent: (event) => {
           // show_panel 动作触发画布展开
@@ -1548,6 +1670,7 @@ export function AiAssistantDrawer({
           console.log('[UI事件]', event.action, event)
         },
         onProcessingEvent: (event) => {
+          updateStreamingIndicator("processing", formatProcessingIndicator(event))
           // 处理 processing 事件（加载进度文案）
           if (event.stage === 'generating' && event.message) {
             // 根据 message 内容判断更新哪个面板的 fillProgress
@@ -1573,9 +1696,13 @@ export function AiAssistantDrawer({
           // 保存错误信息，用于最终消息内容
           sseErrorMessage = error.message || '服务出现异常，请稍后重试。'
           // 将错误信息显示在聊天区域
+          markStreamingContentStarted()
           setStreamingText(sseErrorMessage)
         },
         onContentChunk: (content) => {
+          if (content.trim()) {
+            markStreamingContentStarted()
+          }
           setStreamingText(content)
         },
         onLegacyFormat: (legacy) => {
@@ -1611,6 +1738,7 @@ export function AiAssistantDrawer({
         }
         setStreamingMessageId(null)
         setStreamingText('')
+        setIsPreContentIndicatorVisible(false)
         // [MOD] 中止时也清除 loading 状态
         clearLinkedElementLoading()
         return
@@ -1625,10 +1753,11 @@ export function AiAssistantDrawer({
       }
       setStreamingMessageId(null)
       setStreamingText('')
+      setIsPreContentIndicatorVisible(false)
       // [MOD] 错误时也清除 loading 状态
       clearLinkedElementLoading()
     }
-  }, [inputMessage, isInitialized, sessionId, regenerateTag, attachedFiles, uploadFileToOss, handleCanvasEvent, processStream, resetSSEController, handleFillCoursePoints, handleFillKsa, handleFillChapterPanel, handleFillObjectivePanel, handleFillCourseMatrix, handleFillProjectMatrix, handleFillCourseInfo, clearAttachedFiles, forceCanvasUpload, updateFillProgress])
+  }, [inputMessage, isInitialized, sessionId, regenerateTag, attachedFiles, uploadFileToOss, handleCanvasEvent, processStream, resetSSEController, handleFillCoursePoints, handleFillKsa, handleFillChapterPanel, handleFillObjectivePanel, handleFillCourseMatrix, handleFillProjectMatrix, handleFillCourseInfo, clearAttachedFiles, forceCanvasUpload, updateFillProgress, updateStreamingIndicator, markStreamingContentStarted])
 
   // 连接菜单处理器
   const handleConnectionMenuSelect = useMemo(
@@ -1691,7 +1820,7 @@ export function AiAssistantDrawer({
                 alt="AI 助手"
                 width={32}
                 height={32}
-                className="h-8 w-8 object-contain"
+                className="object-contain"
                 unoptimized
               />
               课程开发AI助手
@@ -1700,15 +1829,35 @@ export function AiAssistantDrawer({
               <p className="text-sm text-muted-foreground">
                 灵感来自人工智能，实时协助你分析课程、生成摘要与行动建议。
               </p>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 rounded-full bg-primary/10 hover:bg-primary/20 text-primary shrink-0"
-                onClick={handleNewSession}
-                title="开始新会话"
-              >
-                <Plus className="h-5 w-5" />
-              </Button>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full bg-primary/10 hover:bg-primary/20 text-primary"
+                  onClick={() => {
+                    onOpenChange(false)
+                    setIsGeminiDemoOpen(true)
+                  }}
+                  title="切换到 Gemini 助手"
+                >
+                  <Image
+                    src="/assets/ai/gemini-sparkle.svg"
+                    alt="Gemini 助手"
+                    width={18}
+                    height={18}
+                    className="object-contain"
+                  />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full bg-primary/10 hover:bg-primary/20 text-primary"
+                  onClick={handleNewSession}
+                  title="开始新会话"
+                >
+                  <Plus className="h-5 w-5" />
+                </Button>
+              </div>
             </div>
             {(selectedNodeName || activeTabLabel) && (
               <Breadcrumb className="mt-3">
@@ -1777,6 +1926,8 @@ export function AiAssistantDrawer({
                     userName={userName}
                     isCanvasExpanded={isCanvasExpanded}
                     isLastAssistantMessage={isLastAssistantMessage}
+                    preContentIndicatorVisible={isCurrentStreaming ? isPreContentIndicatorVisible : false}
+                    streamingIndicatorText={isCurrentStreaming ? streamingIndicatorText : undefined}
                     onSelectCanvasElement={selectCanvasElement}
                     elementLoadingStates={elementLoadingStates}
                     deletedElementIds={deletedElementIds}
@@ -1811,12 +1962,13 @@ export function AiAssistantDrawer({
               {/* 垂直分割线 - [MOD] 仅在流式输出时启用动画 */}
               <div className={`ai-canvas-divider w-0.5 h-full shrink-0 ${streamingMessageId ? 'ai-canvas-divider-active' : ''}`} />
               {/* 右侧Canvas画布区域 - 使用绝对定位确保有明确的宽高 */}
-              <div className="flex-1 min-w-0 bg-background/50 relative">
+              <div className="flex-1 min-w-[1px] bg-background/50 relative">
                 <div className="absolute inset-0">
                   <AiCanvasPanel
                     className="w-full h-full"
                     nodes={flowNodes}
                     edges={toFlowEdges()}
+                    lockGraduationSupportOrganization={isCourseDetailCanvas}
                     disableAutoFocus={isCanvasHydrating}
                     disableAutoSelectNewNodes={isCanvasHydrating}
                     isBuilding={isCanvasInteractionLocked}
@@ -1930,6 +2082,11 @@ export function AiAssistantDrawer({
         </div>
 
       </SheetContent>
+      <GeminiDemoDrawer
+        open={isGeminiDemoOpen}
+        onOpenChange={setIsGeminiDemoOpen}
+        userName={userName}
+      />
     </Sheet>
   )
 }

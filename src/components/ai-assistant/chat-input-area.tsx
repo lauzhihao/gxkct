@@ -147,7 +147,7 @@ export const ChatInputArea = forwardRef<HTMLTextAreaElement, ChatInputAreaProps>
               size="icon"
               className="absolute right-3 h-7 w-7 rounded-full transition-[transform,top,bottom] duration-200 z-10"
               style={buttonPositionStyle}
-              disabled={!inputMessage.trim() || isUploadingFile}
+              disabled={(!inputMessage.trim() && !regenerateTag) || isUploadingFile}
               onClick={onSend}
               title={isUploadingFile ? "文件处理中" : "发送消息"}
             >

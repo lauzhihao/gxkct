@@ -416,6 +416,7 @@ interface TreeViewProps {
   treeData: TreeNode | null
   onNodeSelect: (node: TreeNode | null) => void
   selectedNode: TreeNode | null
+  onSelectedNodePathChange?: (path: TreeNode[]) => void
   onAddSchool?: (newSchool: Omit<TreeNode, "id" | "nodeId">) => void
   currentSchoolId?: string | null
   onSetCurrentSchool?: (schoolId: string) => void
@@ -435,6 +436,7 @@ export const TreeView = React.forwardRef<
   treeData,
   onNodeSelect,
   selectedNode,
+  onSelectedNodePathChange,
   onAddSchool,
   currentSchoolId,
   onSetCurrentSchool,
@@ -728,6 +730,10 @@ export const TreeView = React.forwardRef<
 
     return findPathWithNodes(treeData.children, selectedNode.nodeId, []) || []
   }, [selectedNode, treeData, departmentMajors])
+
+  useEffect(() => {
+    onSelectedNodePathChange?.(selectedNodePath)
+  }, [onSelectedNodePathChange, selectedNodePath])
 
   const matchingNodeIds = React.useMemo(() => {
     if (!searchTerm.trim() || searchResults.length === 0) return undefined

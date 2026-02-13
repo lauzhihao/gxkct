@@ -196,6 +196,8 @@ export interface AiCanvasPanelProps {
   isBuilding?: boolean
   // 构建进度
   buildingProgress?: { loaded: number; total: number; stage: string; etaSeconds?: number | null } | null
+  // 锁定专业矩阵抽屉中的组织选择（学校/院系/专业）
+  lockGraduationSupportOrganization?: boolean
 }
 
 /**
@@ -241,6 +243,7 @@ function AiCanvasPanelInner({
   disableAutoSelectNewNodes = false,
   isBuilding = false,
   buildingProgress = null,
+  lockGraduationSupportOrganization = false,
 }: AiCanvasPanelProps) {
   const stageLabelMap: Record<string, string> = {
     "base-ready": "骨架已就绪",
@@ -279,6 +282,30 @@ function AiCanvasPanelInner({
   const [deletingNodeIds, setDeletingNodeIds] = useState<Set<string>>(new Set())
   const [expandedCoursePointPanelIds, setExpandedCoursePointPanelIds] = useState<Set<string>>(new Set())
   const containerRef = useRef<HTMLDivElement>(null)
+  const [isContainerSizeReady, setIsContainerSizeReady] = useState(false)
+
+  useEffect(() => {
+    const containerEl = containerRef.current
+    if (!containerEl) return
+
+    const updateContainerReadyState = () => {
+      const { width, height } = containerEl.getBoundingClientRect()
+      setIsContainerSizeReady(width > 0 && height > 0)
+    }
+
+    updateContainerReadyState()
+
+    if (typeof ResizeObserver === "undefined") return
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateContainerReadyState()
+    })
+    resizeObserver.observe(containerEl)
+
+    return () => {
+      resizeObserver.disconnect()
+    }
+  }, [])
 
   // 使用抽屉状态管理 hook
   const {
@@ -877,75 +904,77 @@ function AiCanvasPanelInner({
 
   return (
     <div ref={containerRef} className={`w-full h-full relative ${className || ""}`}>
-      <CanvasLayoutProvider layoutMode={layoutMode}>
-      <ReactFlow
-        key={`canvas-flow-${layoutMode}-${flowRenderKey}`}
-        nodes={processedNodes}
-        edges={flowEdges}
-        onNodesChange={handleNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={handleConnect}
-        onConnectEnd={handleConnectEnd}
-        onNodeClick={handleNodeClick}
-        onNodeDragStop={handleNodeDragStop}
-        onEdgesDelete={handleEdgesDelete}
-        onSelectionChange={handleSelectionChange}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        defaultEdgeOptions={defaultEdgeOptions}
-        connectionLineComponent={RainbowConnectionLine}
-        connectionMode={ConnectionMode.Loose}
-        defaultViewport={{ x: 0, y: 0, zoom: 1 }}
-        minZoom={0.1}
-        maxZoom={2}
-        onlyRenderVisibleElements
-        deleteKeyCode={["Backspace", "Delete"]}
-        multiSelectionKeyCode={["Control", "Meta"]}
-        // 默认拖动模式：左键拖拽空白处平移视口，滚轮缩放
-        panOnScroll={false}
-        panOnDrag={true}
-        // 按住 Shift 键时才能框选，避免与拖拽平移冲突
-        selectionOnDrag={false}
-        selectionKeyCode="Shift"
-        selectNodesOnDrag={false}
-        proOptions={{ hideAttribution: true }}
-      >
-        {/* 虚线网格背景 */}
-        <Background
-          variant={BackgroundVariant.Lines}
-          gap={24}
-          color="#d1d5db"
-          lineWidth={1}
-          patternClassName="canvas-dashed-pattern"
-        />
+      {isContainerSizeReady && (
+        <CanvasLayoutProvider layoutMode={layoutMode}>
+          <ReactFlow
+            key={`canvas-flow-${layoutMode}-${flowRenderKey}`}
+            nodes={processedNodes}
+            edges={flowEdges}
+            onNodesChange={handleNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={handleConnect}
+            onConnectEnd={handleConnectEnd}
+            onNodeClick={handleNodeClick}
+            onNodeDragStop={handleNodeDragStop}
+            onEdgesDelete={handleEdgesDelete}
+            onSelectionChange={handleSelectionChange}
+            nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            defaultEdgeOptions={defaultEdgeOptions}
+            connectionLineComponent={RainbowConnectionLine}
+            connectionMode={ConnectionMode.Loose}
+            defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+            minZoom={0.1}
+            maxZoom={2}
+            onlyRenderVisibleElements
+            deleteKeyCode={["Backspace", "Delete"]}
+            multiSelectionKeyCode={["Control", "Meta"]}
+            // 默认拖动模式：左键拖拽空白处平移视口，滚轮缩放
+            panOnScroll={false}
+            panOnDrag={true}
+            // 按住 Shift 键时才能框选，避免与拖拽平移冲突
+            selectionOnDrag={false}
+            selectionKeyCode="Shift"
+            selectNodesOnDrag={false}
+            proOptions={{ hideAttribution: true }}
+          >
+            {/* 虚线网格背景 */}
+            <Background
+              variant={BackgroundVariant.Lines}
+              gap={24}
+              color="#d1d5db"
+              lineWidth={1}
+              patternClassName="canvas-dashed-pattern"
+            />
 
-        {/* 自定义缩放控制栏（含同步状态指示器） */}
-        {showControls && (
-          <CustomZoomControls
-            isUploading={isUploading}
-            isLoading={isRegenerating}
-            layoutMode={layoutMode}
-            onLayoutModeChange={onLayoutModeChange}
-          />
-        )}
+            {/* 自定义缩放控制栏（含同步状态指示器） */}
+            {showControls && (
+              <CustomZoomControls
+                isUploading={isUploading}
+                isLoading={isRegenerating}
+                layoutMode={layoutMode}
+                onLayoutModeChange={onLayoutModeChange}
+              />
+            )}
 
-        {/* 小地图 */}
-        {showMiniMap && !isBuilding && (
-          <MiniMap
-            nodeColor={nodeColor}
-            nodeStrokeWidth={3}
-            zoomable
-            pannable
-            position="bottom-left"
-            style={{
-              backgroundColor: "rgba(255, 255, 255, 0.9)",
-              border: "1px solid #e2e8f0",
-              borderRadius: "8px",
-            }}
-          />
-        )}
-      </ReactFlow>
-      </CanvasLayoutProvider>
+            {/* 小地图 */}
+            {showMiniMap && !isBuilding && (
+              <MiniMap
+                nodeColor={nodeColor}
+                nodeStrokeWidth={3}
+                zoomable
+                pannable
+                position="bottom-left"
+                style={{
+                  backgroundColor: "rgba(255, 255, 255, 0.9)",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "8px",
+                }}
+              />
+            )}
+          </ReactFlow>
+        </CanvasLayoutProvider>
+      )}
 
       {isLayoutSwitching && (
         <div className="absolute inset-0 z-[60] flex items-center justify-center canvas-loading-overlay">
@@ -1024,6 +1053,7 @@ function AiCanvasPanelInner({
         treeData={treeData}
         onSaveSuccess={onSaveSuccess}
         onUpdateCourseInfo={onUpdateCourseInfo}
+        lockGraduationSupportOrganization={lockGraduationSupportOrganization}
       />
     </div>
   )

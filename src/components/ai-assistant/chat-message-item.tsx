@@ -7,6 +7,7 @@
  */
 
 import { useRef, useEffect, useMemo } from "react"
+import Image from "next/image"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { ChevronDown, ChevronUp, FileText, LayoutGrid, MousePointerClick } from "lucide-react"
@@ -43,6 +44,10 @@ export interface ChatMessageItemProps {
   elementLoadingStates?: Map<string, boolean>
   /** [MOD] 已删除的画布元素ID集合 */
   deletedElementIds?: Set<string>
+  /** [MOD] 单指示器是否显示（首个正文 chunk 前） */
+  preContentIndicatorVisible?: boolean
+  /** [MOD] 单指示器短语 */
+  streamingIndicatorText?: string
 }
 
 /**
@@ -120,6 +125,8 @@ function AssistantMessage({
   onSelectCanvasElement,
   elementLoadingStates,
   deletedElementIds,
+  preContentIndicatorVisible,
+  streamingIndicatorText,
 }: ChatMessageItemProps & {
   thinkingScrollRef: React.RefObject<HTMLDivElement | null>
 }) {
@@ -152,9 +159,10 @@ function AssistantMessage({
     message.id === "welcome"
       ? message.content.replace("你好，", `${greetingForMessage} `)
       : message.content
-  const contentToRender = isStreaming ? streamingText || "AI 正在生成响应..." : displayContent
+  const contentToRender = isStreaming ? streamingText || "" : displayContent
   const timeDisplay = isStreaming ? "生成中" : formatRelativeTime(message.timestamp)
-  const showThinkingBlock = isLastAssistantMessage && thinkingContent
+  const showThinkingBlock = isLastAssistantMessage && !isStreaming && !!thinkingContent
+  const shouldShowSingleIndicator = isStreaming && preContentIndicatorVisible
 
   // [MOD] 缓存思考预览文本，避免每次渲染都执行字符串操作
   const thinkingPreviewLength = isCanvasExpanded ? 20 : 50
@@ -167,7 +175,7 @@ function AssistantMessage({
     <div className="space-y-2 text-left min-w-0 overflow-hidden">
       {/* 时间标签 */}
       {isStreaming ? (
-        <div className="text-xs ai-loading-text-gradient">简报 · 正在思考</div>
+        <div className="text-xs ai-loading-text-gradient">简报 · 处理中</div>
       ) : (
         <div className="text-xs text-muted-foreground">简报 · {timeDisplay}</div>
       )}
@@ -218,15 +226,29 @@ function AssistantMessage({
       )}
 
       {/* 消息内容 */}
-      {isStreaming && !streamingText ? (
-        <div className="py-4 text-sm text-muted-foreground">
-          AI 正在生成响应...
+      {shouldShowSingleIndicator ? (
+        <div className="ai-single-indicator" role="status" aria-live="polite">
+          <Image
+            src="/assets/ai/gemini-sparkle.svg"
+            alt=""
+            width={18}
+            height={18}
+            className="ai-single-indicator-sparkle"
+            aria-hidden="true"
+            unoptimized
+          />
+          <div className="ai-single-indicator-text">
+            {streamingIndicatorText || "正在准备响应..."}
+          </div>
         </div>
       ) : (
         <div className="border-t border-dashed border-border/60 pt-3 text-sm leading-relaxed prose-ai min-w-0 overflow-hidden">
           {/* [MOD] 流式输出时跳过 Markdown 解析，使用纯文本渲染以降低 CPU 开销 */}
           {isStreaming ? (
-            <div className="whitespace-pre-wrap">{contentToRender}</div>
+            <div className="whitespace-pre-wrap">
+              {contentToRender}
+              {streamingText ? <span className="ai-streaming-caret" aria-hidden="true" /> : null}
+            </div>
           ) : (
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{contentToRender}</ReactMarkdown>
           )}

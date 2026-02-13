@@ -19,6 +19,7 @@ import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
 import { AiAssistantDrawer } from "./ai-assistant-drawer"
 import { useLoadingStore } from "@/shared/stores/loading-store"
 import { useAiCanvasStore } from "@/shared/stores/ai-canvas-store"
+import { showWarning } from "@/shared/utils/toast-utils"
 import type { InitialCanvasData } from "@/types/ai-assistant"
 
 const EMPTY_INITIAL_CANVAS_DATA: InitialCanvasData = {
@@ -275,6 +276,9 @@ export function Header({ onResetData, currentPath, treeData }: HeaderProps) {
       const canvasData = await prepareOrGetCanvasData()
       if (canvasData) {
         setAiInitialCanvasData(canvasData)
+      } else {
+        setCourseDevDrawerOpen(false)
+        showWarning("请联系专业管理员为当前课程设置毕业要求支撑关系")
       }
     } catch (error) {
       console.error("[Header] 准备课程画布数据失败:", error)
@@ -470,7 +474,7 @@ export function Header({ onResetData, currentPath, treeData }: HeaderProps) {
               width={48}
               height={48}
               unoptimized
-              className="h-12 w-12 object-contain transition-transform duration-200 group-hover:scale-[1.5]"
+              className="object-contain transition-transform duration-200 group-hover:scale-[1.5]"
             />
           </Button>
         </div>
