@@ -31,6 +31,13 @@ export const GraduationSupportPanelNode = memo(function GraduationSupportPanelNo
   data,
   selected,
 }: GraduationSupportPanelNodeProps) {
+  const formatLabelTitle = useCallback((description: string) => {
+    const trimmedText = description.trim()
+    if (!trimmedText) return "未命名指标点"
+    const characters = Array.from(trimmedText)
+    return characters.length > 6 ? `${characters.slice(0, 6).join("")}...` : trimmedText
+  }, [])
+
   const handleDelete = useCallback(() => {
     data.onDelete?.(id)
   }, [data, id])
@@ -66,47 +73,47 @@ export const GraduationSupportPanelNode = memo(function GraduationSupportPanelNo
   const hasData = supportedIndicators.length > 0
 
   return (
-    <div className="relative">
-      <BasePanelNode
-        id={id}
-        selected={selected}
-        isDeleting={data.isDeleting}
-        isLoading={data.isLoading}
-        isRefreshing={data.isRefreshing}
-        icon={<Shield className="h-4 w-4" />}
-        title="毕业要求指标点"
-        headerColorClass="bg-emerald-100/90"
-        borderColorClass="border-emerald-300"
-        bgColorClass="bg-emerald-50/60 backdrop-blur-sm"
-        textColorClass="text-emerald-700"
-        handleColorClass="!bg-emerald-500"
-        showLeftHandle={true}
-        showRightHandle={true}
-        childCount={hasData ? supportedIndicators.length : 0}
-        onAdd={handleEdit}
-        onDelete={handleDelete}
-        onEdit={handleEdit}
-      />
+    <BasePanelNode
+      id={id}
+      selected={selected}
+      isDeleting={data.isDeleting}
+      isLoading={data.isLoading}
+      isRefreshing={data.isRefreshing}
+      icon={<Shield className="h-4 w-4" />}
+      title="毕业要求指标点"
+      headerColorClass="bg-emerald-100/90"
+      borderColorClass="border-emerald-300"
+      bgColorClass="bg-emerald-50/60 backdrop-blur-sm"
+      textColorClass="text-emerald-700"
+      handleColorClass="!bg-emerald-500"
+      showLeftHandle={true}
+      showRightHandle={true}
+      childCount={hasData ? supportedIndicators.length : 0}
+      onAdd={handleEdit}
+      onDelete={handleDelete}
+      onEdit={handleEdit}
+    >
       {/* 支撑标签展示区域：1.4倍缩放，一行5个 */}
-      {hasData && (
-        <div className="absolute top-[45px] left-2 right-2 bottom-2 overflow-auto pointer-events-none">
+      {hasData ? (
+        <div className="h-full overflow-auto pointer-events-none">
           <div
-            className="grid grid-cols-5 gap-1.5 p-2 pointer-events-auto"
+            className="grid grid-cols-3 gap-1.5 p-2 pointer-events-auto"
             style={{ transform: "scale(1.4)", transformOrigin: "top left", width: "calc(100% / 1.4)" }}
           >
             {supportedIndicators.map((item) => (
               <SupportLabel
                 key={`${item.reqIndex}-${item.indicatorIndex}`}
-                title={`${item.reqIndex}.${item.indicatorIndex}`}
+                title={formatLabelTitle(item.description)}
                 desc={item.description}
                 type={item.supportLevel}
                 size="sm"
+                disableInnerTruncate={true}
               />
             ))}
           </div>
         </div>
-      )}
-    </div>
+      ) : null}
+    </BasePanelNode>
   )
 })
 

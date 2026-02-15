@@ -161,8 +161,18 @@ export interface ObjectiveCardData {
   index: number
   content: string
   originalId?: number
+  supports?: ObjectiveSupportLabel[]
   // 索引签名，满足 @xyflow/react Node 泛型约束
   [key: string]: unknown
+}
+
+/**
+ * 教学目标卡片中的指标点支撑标签
+ */
+export interface ObjectiveSupportLabel {
+  title: string
+  desc?: string
+  type?: "strong" | "weak"
 }
 
 /**

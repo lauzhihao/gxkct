@@ -5,6 +5,7 @@ import { type NodeProps } from "@xyflow/react"
 import { Target } from "lucide-react"
 import { BaseStaticCardNode } from "./base-static-card-node"
 import type { ObjectiveCardData } from "@/components/canvas-elements/types"
+import { SupportLabel } from "@/shared/components/support-label"
 
 /**
  * 教学目标节点数据类型
@@ -43,6 +44,21 @@ export const ObjectiveNode = memo(function ObjectiveNode({
       width={280}
     >
       <p className="text-sm text-gray-700 line-clamp-3">{nodeData.content}</p>
+      {Array.isArray(nodeData.supports) && nodeData.supports.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {nodeData.supports
+            .filter((item) => typeof item?.title === "string" && item.title.trim().length > 0)
+            .map((item, index) => (
+              <SupportLabel
+                key={`${item.title}-${index}`}
+                title={item.title}
+                desc={item.desc}
+                type={item.type === "strong" ? "strong" : "weak"}
+                size="sm"
+              />
+            ))}
+        </div>
+      )}
     </BaseStaticCardNode>
   )
 })

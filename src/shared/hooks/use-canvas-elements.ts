@@ -40,11 +40,11 @@ const DEFAULT_ELEMENT_SIZES: Record<CanvasComponentType, { width: number; height
   // 课程相关
   [CanvasComponentType.COURSE_INFO]: { width: 480, height: 300 },
   [CanvasComponentType.OBJECTIVE_PANEL]: { width: 320, height: 200 },    // 50 + 130 + 20 = 200
-  [CanvasComponentType.OBJECTIVE_CARD]: { width: 280, height: 130 },
+  [CanvasComponentType.OBJECTIVE_CARD]: { width: 280, height: 156 },
   [CanvasComponentType.COURSE_POINT_PANEL]: { width: 320, height: 210 }, // 50 + 140 + 20 = 210
   [CanvasComponentType.COURSE_POINT_CARD]: { width: 280, height: 140 },
   [CanvasComponentType.CHAPTER_PANEL]: { width: 320, height: 200 },      // 50 + 130 + 20 = 200
-  [CanvasComponentType.CHAPTER_CARD]: { width: 280, height: 130 },
+  [CanvasComponentType.CHAPTER_CARD]: { width: 280, height: 156 },
   [CanvasComponentType.KSA_PANEL]: { width: 480, height: 220 },          // KSA 统计卡固定面板高度
   [CanvasComponentType.KSA_ITEM]: { width: 260, height: 110 },           // 头部37 + 内容区p-3(24) + 文字2行(40) + 边距 ≈ 110
   [CanvasComponentType.GRADUATION_SUPPORT]: { width: 580, height: 200 }, // 毕业要求支撑面板（5列布局，动态高度）
@@ -331,11 +331,20 @@ const PANEL_GRID_GAP: Partial<Record<CanvasComponentType, { x: number; y: number
   [CanvasComponentType.COURSE_POINT_PANEL]: { x: 10, y: 10 },
 }
 
+const PANEL_BOTTOM_EXTRA: Partial<Record<CanvasComponentType, number>> = {
+  [CanvasComponentType.OBJECTIVE_PANEL]: 24,
+  [CanvasComponentType.CHAPTER_PANEL]: 24,
+}
+
 function getPanelGridGap(panelType?: CanvasComponentType): { x: number; y: number } {
   if (!panelType) {
     return { x: CARD_GAP_X, y: CARD_GAP_Y }
   }
   return PANEL_GRID_GAP[panelType] || { x: CARD_GAP_X, y: CARD_GAP_Y }
+}
+
+function getPanelBottomPadding(panelType?: CanvasComponentType): number {
+  return PANEL_PADDING.bottom + (panelType ? (PANEL_BOTTOM_EXTRA[panelType] || 0) : 0)
 }
 
 /**
@@ -385,7 +394,8 @@ function calculatePanelSize(
   const actualColumns = Math.min(childCount || 1, columns)
 
   const width = PANEL_PADDING.left + actualColumns * cardSize.width + (actualColumns - 1) * gap.x + PANEL_PADDING.right
-  const height = PANEL_PADDING.top + rows * cardSize.height + (rows - 1) * gap.y + PANEL_PADDING.bottom
+  const bottomPadding = getPanelBottomPadding(panelType)
+  const height = PANEL_PADDING.top + rows * cardSize.height + (rows - 1) * gap.y + bottomPadding
 
   // 确保最小尺寸（高度最小 200px，与 BasePanelNode 的 minHeight 保持一致）
   return {

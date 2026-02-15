@@ -25,6 +25,7 @@ import {
   type ProjectMatrixObjectiveSupport,
   type ProjectMatrixKsaItem,
   type GraduationSupportData,
+  type ObjectiveSupportLabel,
 } from "@/components/canvas-elements/types"
 import { generateEdgeId } from "@/components/flow/utils/layout"
 import { CANVAS_LAYOUT_POSITION_CONFIG } from "@/components/flow/utils/canvas-layout"
@@ -54,11 +55,11 @@ const ELEMENT_SIZES: Record<CanvasComponentType, { width: number; height: number
   [CanvasComponentType.COURSE_INFO]: { width: 480, height: 300 },
   [CanvasComponentType.GRADUATION_SUPPORT]: { width: 320, height: 200 },
   [CanvasComponentType.OBJECTIVE_PANEL]: { width: 320, height: 200 },
-  [CanvasComponentType.OBJECTIVE_CARD]: { width: 280, height: 130 },
+  [CanvasComponentType.OBJECTIVE_CARD]: { width: 280, height: 156 },
   [CanvasComponentType.COURSE_POINT_PANEL]: { width: 320, height: 210 },
   [CanvasComponentType.COURSE_POINT_CARD]: { width: 280, height: 140 },
   [CanvasComponentType.CHAPTER_PANEL]: { width: 320, height: 200 },
-  [CanvasComponentType.CHAPTER_CARD]: { width: 280, height: 130 },
+  [CanvasComponentType.CHAPTER_CARD]: { width: 280, height: 156 },
   [CanvasComponentType.KSA_PANEL]: { width: 320, height: 200 },
   [CanvasComponentType.KSA_ITEM]: { width: 260, height: 110 },
   [CanvasComponentType.COURSE_MATRIX]: { width: 1100, height: 680 },
@@ -73,6 +74,11 @@ const PANEL_GRID_COLUMNS: Partial<Record<CanvasComponentType, number>> = {
   [CanvasComponentType.COURSE_POINT_PANEL]: 5,
   [CanvasComponentType.CHAPTER_PANEL]: 5,
   [CanvasComponentType.KSA_PANEL]: 5,
+}
+
+const PANEL_BOTTOM_EXTRA: Partial<Record<CanvasComponentType, number>> = {
+  [CanvasComponentType.OBJECTIVE_PANEL]: 24,
+  [CanvasComponentType.CHAPTER_PANEL]: 24,
 }
 
 // ============ 面板ID常量 ============
@@ -158,7 +164,8 @@ function calculateCardPosition(
 function calculatePanelSize(
   childCount: number,
   columns: number,
-  cardSize: { width: number; height: number }
+  cardSize: { width: number; height: number },
+  panelType?: CanvasComponentType
 ): { width: number; height: number } {
   const rows = Math.max(1, Math.ceil(childCount / columns))
   const actualColumns = Math.min(childCount || 1, columns)
@@ -168,11 +175,12 @@ function calculatePanelSize(
     actualColumns * cardSize.width +
     (actualColumns - 1) * CARD_GAP_X +
     PANEL_PADDING.right
+  const bottomPadding = PANEL_PADDING.bottom + (panelType ? (PANEL_BOTTOM_EXTRA[panelType] || 0) : 0)
   const height =
     PANEL_PADDING.top +
     rows * cardSize.height +
     (rows - 1) * CARD_GAP_Y +
-    PANEL_PADDING.bottom
+    bottomPadding
 
   return {
     width: Math.max(width, 320),
@@ -243,7 +251,7 @@ function createAutoSizedPanelElement(
 ): CanvasElementData {
   const panelColumns = getPanelColumns(panelType)
   const cardSize = ELEMENT_SIZES[cardType]
-  const panelSize = calculatePanelSize(childCount, panelColumns, cardSize)
+  const panelSize = calculatePanelSize(childCount, panelColumns, cardSize, panelType)
 
   return createPanelElement(id, panelType, position, panelSize, data)
 }
@@ -1128,56 +1136,108 @@ export function convertCourseToCanvasComplete(
 
   currentY = graduationSupportElement.position.y + (graduationSupportElement.size?.height || DEFAULT_SIZES.PANEL_HEIGHT) + ROW_GAP
 
+  // 教学目标是后续链路的前置条件；缺失时仅展示前置基础信息
+  const teachingObjectives = (courseGoals || []).flatMap((goal) => goal.children || [])
+  if (teachingObjectives.length === 0) {
+    return {
+      elements,
+      edges,
+    }
+  }
+
   // 3. 创建 objective_panel 和 objective_card 元素（第2列，独立列）
   // 注意：courseGoals 是指标点数组，children 才是真正的教学目标
   if (courseGoals && courseGoals.length > 0) {
-    // 从指标点中提取所有教学目标（children）
-    const teachingObjectives = courseGoals.flatMap((goal) => goal.children || [])
-
-    if (teachingObjectives.length > 0) {
-      // 更新 Panel 数据，添加 items
-      const objectiveItems = teachingObjectives.map((obj, idx) => ({
-        id: `objective_${idx + 1}`,
-        description: obj.description || obj.content || "",
-      }))
-
-      const objectivePanelElement = createAutoSizedPanelElement(
-        PANEL_IDS.OBJECTIVE_PANEL,
-        CanvasComponentType.OBJECTIVE_PANEL,
-        CanvasComponentType.OBJECTIVE_CARD,
-        teachingObjectives.length,
-        {
-          x: COLUMN_X_POSITIONS[2],
-          y: START_Y,
-        },
-        { id: PANEL_IDS.OBJECTIVE_PANEL, items: objectiveItems }
-      )
-      elements.push(objectivePanelElement)
-
-      // 创建子卡片（使用真正的教学目标）
-      teachingObjectives.forEach((obj, idx) => {
-        const cardData: ObjectiveCardData = {
-          id: `objective_${idx + 1}`,
-          index: idx + 1,
-          content: obj.description || obj.content || "",
-          originalId: obj.id ?? undefined,
-        }
-
-        elements.push(
-          createPanelChildElement(
-            `objective_${idx + 1}`,
-            CanvasComponentType.OBJECTIVE_CARD,
-            CanvasComponentType.OBJECTIVE_PANEL,
-            idx,
-            PANEL_IDS.OBJECTIVE_PANEL,
-            cardData
-          )
-        )
+    const indicatorMetaById = new Map<number, { title: string; supportLevel?: "strong" | "weak"; description?: string }>()
+    const requirements = matrixData?.graduationSupportData?.requirements || []
+    requirements.forEach((req, reqIdx) => {
+      req.indicators.forEach((indicator, indicatorIdx) => {
+        indicatorMetaById.set(indicator.id, {
+          title: `${reqIdx + 1}.${indicatorIdx + 1}`,
+          supportLevel: indicator.supportLevel,
+          description: indicator.description,
+        })
       })
+    })
 
-      // 连线：graduation_support → objective_panel
-      edges.push(createSupportEdge(graduationSupportElement.id, objectivePanelElement.id))
+    const objectiveSupportsMap = new Map<string, ObjectiveSupportLabel[]>()
+    const buildObjectiveKey = (objective: { id?: number; description?: string; content?: string }): string => {
+      if (objective.id !== undefined && objective.id !== null) {
+        return `id:${objective.id}`
+      }
+      return `content:${(objective.description || objective.content || "").trim()}`
     }
+
+    courseGoals.forEach((goal) => {
+      const indicatorId = goal.id
+      const indicatorMeta = typeof indicatorId === "number" ? indicatorMetaById.get(indicatorId) : undefined
+      const labelTitle = indicatorMeta?.title || (typeof indicatorId === "number" ? String(indicatorId) : "")
+      if (!labelTitle) return
+
+      const labelDesc = goal.description || goal.content || indicatorMeta?.description || ""
+      const labelType = indicatorMeta?.supportLevel
+
+      const children = goal.children || []
+      children.forEach((child) => {
+        const objectiveKey = buildObjectiveKey(child)
+        const currentSupports = objectiveSupportsMap.get(objectiveKey) || []
+        const exists = currentSupports.some((item) => item.title === labelTitle)
+        if (!exists) {
+          currentSupports.push({
+            title: labelTitle,
+            desc: labelDesc,
+            type: labelType,
+          })
+          objectiveSupportsMap.set(objectiveKey, currentSupports)
+        }
+      })
+    })
+
+    // 更新 Panel 数据，添加 items
+    const objectiveItems = teachingObjectives.map((obj, idx) => ({
+      id: `objective_${idx + 1}`,
+      description: obj.description || obj.content || "",
+    }))
+
+    const objectivePanelElement = createAutoSizedPanelElement(
+      PANEL_IDS.OBJECTIVE_PANEL,
+      CanvasComponentType.OBJECTIVE_PANEL,
+      CanvasComponentType.OBJECTIVE_CARD,
+      teachingObjectives.length,
+      {
+        x: COLUMN_X_POSITIONS[2],
+        y: START_Y,
+      },
+      { id: PANEL_IDS.OBJECTIVE_PANEL, items: objectiveItems }
+    )
+    elements.push(objectivePanelElement)
+
+    // 创建子卡片（使用真正的教学目标）
+    teachingObjectives.forEach((obj, idx) => {
+      const objectiveKey = buildObjectiveKey(obj)
+      const supports = objectiveSupportsMap.get(objectiveKey)
+      const cardData: ObjectiveCardData = {
+        id: `objective_${idx + 1}`,
+        index: idx + 1,
+        content: obj.description || obj.content || "",
+        originalId: obj.id ?? undefined,
+        supports: supports && supports.length > 0 ? supports : undefined,
+      }
+
+      elements.push(
+        createPanelChildElement(
+          `objective_${idx + 1}`,
+          CanvasComponentType.OBJECTIVE_CARD,
+          CanvasComponentType.OBJECTIVE_PANEL,
+          idx,
+          PANEL_IDS.OBJECTIVE_PANEL,
+          cardData
+        )
+      )
+    })
+
+    // 连线：graduation_support → objective_panel
+    edges.push(createSupportEdge(graduationSupportElement.id, objectivePanelElement.id))
   }
 
   // 4. 创建 chapter_panel 和 chapter_card 元素

@@ -12,6 +12,7 @@ interface SupportLabelProps {
   onRemove?: () => void
   size?: "sm" | "md"
   tipsPosition?: "top" | "bottom" | "left" | "right"
+  disableInnerTruncate?: boolean
 }
 
 export function SupportLabel({
@@ -22,6 +23,7 @@ export function SupportLabel({
   onRemove,
   size = "md",
   tipsPosition = "bottom",
+  disableInnerTruncate = false,
 }: SupportLabelProps) {
   const isStrong = type === "strong"
   const labelSize = size === "sm" ? "text-xs" : "text-sm"
@@ -57,7 +59,7 @@ export function SupportLabel({
     >
       <Star className={cn(iconSize, "flex-shrink-0", isStrong && "fill-current")} />
       {/* 固定宽度截断，hover 时通过 Tooltip 显示完整内容 */}
-      <span className="max-w-[80px] truncate inline-block">{title}</span>
+      <span className={cn("inline-block", !disableInnerTruncate && "max-w-[80px] truncate")}>{title}</span>
       {showRemoveButton && (
         <button
           onClick={onRemove}
@@ -90,4 +92,3 @@ export function SupportLabel({
     </Tooltip>
   )
 }
-

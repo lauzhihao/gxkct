@@ -163,7 +163,7 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
             <Plus className={`h-4 w-4 transition-opacity ${
               hasKsaPanel ? "opacity-30" : "opacity-0 group-hover:opacity-100"
             }`} />
-            <span>+ KSA</span>
+            <span>KSA</span>
           </button>
         </>
       ) : sourceNodeType === FlowNodeType.KSA_PANEL ? (
@@ -193,7 +193,7 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
             <Plus className={`h-4 w-4 transition-opacity ${
               canCreateObjectiveFromGraduationSupport ? "opacity-0 group-hover:opacity-100" : "opacity-30"
             }`} />
-            <span>+ 教学目标</span>
+            <span>教学目标</span>
           </button>
         </>
       ) : sourceNodeType === FlowNodeType.OBJECTIVE_PANEL ? (
@@ -212,7 +212,7 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
             <Plus className={`h-4 w-4 transition-opacity ${
               hasChapterPanel ? "opacity-30" : "opacity-0 group-hover:opacity-100"
             }`} />
-            <span>+ 章节项目</span>
+            <span>章节项目</span>
           </button>
         </>
       ) : sourceNodeType === FlowNodeType.CHAPTER_PANEL ? (
@@ -231,7 +231,7 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
             <Plus className={`h-4 w-4 transition-opacity ${
               hasCoursePointPanel ? "opacity-30" : "opacity-0 group-hover:opacity-100"
             }`} />
-            <span>+ 课点信息</span>
+            <span>课点信息</span>
           </button>
         </>
       ) : connectionMenu.sourceHandle === "matrix" ? (
@@ -291,7 +291,7 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
             <Plus className={`h-4 w-4 transition-opacity ${
               !hasGraduationSupportPanel ? "opacity-0 group-hover:opacity-100" : "opacity-30"
             }`} />
-            <span>+ 专业矩阵</span>
+            <span>专业矩阵</span>
           </button>
         </>
       )}

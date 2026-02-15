@@ -101,7 +101,7 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
       title={hasCourseReport ? "画布中已存在开课报告" : ""}
     >
       <FileText className={`h-4 w-4 transition-colors ${hasCourseReport ? "text-rose-300" : "text-rose-500 group-hover:text-accent-foreground"}`} />
-      <span>+ 开课报告</span>
+      <span>开课报告</span>
     </button>
   )
 
@@ -120,7 +120,7 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
       <Plus className={`h-4 w-4 transition-opacity ${
         hasKsaPanel ? "opacity-30" : "opacity-0 group-hover:opacity-100"
       }`} />
-      <span>+ KSA</span>
+      <span>KSA</span>
     </button>
   )
 
@@ -131,7 +131,7 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
       onClick={() => onSelect("projectMatrix")}
     >
       <Table className="h-4 w-4 text-slate-500 group-hover:text-accent-foreground transition-colors" />
-      <span>+ 项目矩阵</span>
+      <span>项目矩阵</span>
     </button>
   )
 
@@ -149,14 +149,14 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
         title={hasCourseMatrix ? "画布中已存在课程矩阵" : ""}
       >
         <Grid3X3 className={`h-4 w-4 transition-colors ${hasCourseMatrix ? "text-indigo-300" : "text-indigo-500 group-hover:text-accent-foreground"}`} />
-        <span>+ 课程矩阵</span>
+        <span>课程矩阵</span>
       </button>
       <button
         className="group flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground canvas-menu-item"
         onClick={() => onSelect("projectMatrix")}
       >
         <Table className="h-4 w-4 text-slate-500 group-hover:text-accent-foreground transition-colors" />
-        <span>+ 项目矩阵</span>
+        <span>项目矩阵</span>
       </button>
     </>
   )
@@ -174,7 +174,7 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
       title={!canCreateCourseMatrix ? (hasCourseMatrix ? "画布中已存在课程矩阵" : "需要教学目标、章节列表、课点列表三个面板都存在且不为空") : ""}
     >
       <Grid3X3 className={`h-4 w-4 transition-colors ${canCreateCourseMatrix ? "text-indigo-500 group-hover:text-accent-foreground" : "text-indigo-300"}`} />
-      <span>+ 课程矩阵</span>
+      <span>课程矩阵</span>
     </button>
   )
 
