@@ -39,8 +39,28 @@ export function UniversityDetail({ node, onNodeSelect, onSetCurrentSchool, curre
   const [newDeptDesc, setNewDeptDesc] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
+  const [canCreateDepartment, setCanCreateDepartment] = useState(false)
   const { setActivePage } = useActivePageTracker()
   const { toast } = useToast()
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return
+    }
+
+    try {
+      const authUserJson = localStorage.getItem("education-api-auth-user")
+      if (!authUserJson) {
+        setCanCreateDepartment(false)
+        return
+      }
+
+      const authUser = JSON.parse(authUserJson) as { permissionId?: number }
+      setCanCreateDepartment(authUser.permissionId === 1)
+    } catch {
+      setCanCreateDepartment(false)
+    }
+  }, [])
 
   useEffect(() => {
     if (!node) return
@@ -142,6 +162,7 @@ export function UniversityDetail({ node, onNodeSelect, onSetCurrentSchool, curre
                 onNodeSelect={onNodeSelect}
                 currentUser={currentUser}
                 headerAction={
+                canCreateDepartment &&
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm" variant="ghost" className="gap-2 hover:bg-primary/10">
