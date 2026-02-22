@@ -3,6 +3,12 @@ import type { ApiResponse } from "./types"
 import { HttpAdapter } from "./http-adapter"
 import { setStoredAuthToken, setStoredAuthUser, type AuthResponse } from "./auth-config"
 
+interface CurrentDepartmentResponse {
+  college?: {
+    id?: number
+  }
+}
+
 export interface User {
   id: string
   name: string
@@ -33,9 +39,29 @@ export class UserApi {
         return response
       }
 
-      // 保存token和用户信息到localStorage
+      // 先保存 token，确保后续接口请求携带 authToken
       setStoredAuthToken(response.data.authToken)
-      setStoredAuthUser(response.data.user)
+
+      let resolvedUser = response.data.user
+      const currentDepartmentResponse = await this.httpAdapter.get<CurrentDepartmentResponse>(
+        `/api/manage/getcurrentdepartment?collegeId=${response.data.user.collegeId}&userId=${response.data.user.id}`
+      )
+
+      const resolvedCollegeId = currentDepartmentResponse.data?.college?.id
+      if (typeof resolvedCollegeId === "number") {
+        resolvedUser = {
+          ...response.data.user,
+          collegeId: resolvedCollegeId,
+        }
+      }
+
+      // 保存用户信息到localStorage
+      setStoredAuthUser(resolvedUser)
+
+      response.data = {
+        ...response.data,
+        user: resolvedUser,
+      }
 
       console.log(`[UserApi] 登录成功，用户: ${response.data.user.userName}`)
       return response

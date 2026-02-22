@@ -1,6 +1,7 @@
 import type { TaskMember, TreeNode } from "@/types"
 import { StorageAdapter } from "./storage-adapter"
 import type { ApiResponse } from "./types"
+import { getStoredAuthUser } from "./auth-config"
 
 /**
  * 从 nodeId 中提取数字 ID
@@ -59,7 +60,18 @@ export class TreeApi {
 
   async getTree(keywords?: string): Promise<ApiResponse<TreeNode>> {
     try {
-      const query = keywords ? `?keywords=${encodeURIComponent(keywords)}` : ""
+      const queryParams = new URLSearchParams()
+
+      if (keywords) {
+        queryParams.set("keywords", keywords)
+      }
+
+      const authUser = getStoredAuthUser()
+      if (typeof authUser?.collegeId === "number") {
+        queryParams.set("rid", String(authUser.collegeId))
+      }
+
+      const query = queryParams.toString() ? `?${queryParams.toString()}` : ""
       const response = await this.storage.getFromApi<TreeNode[]>(`/api/v5/tree${query}`)
 
       if (response.error || !response.data) {
