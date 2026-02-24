@@ -35,13 +35,6 @@ interface DepartmentMember extends TaskMember {
   relative?: number
 }
 
-interface DepartmentUsersPayload {
-  id: number
-  guiders?: DepartmentMember[]
-  users?: DepartmentMember[]
-  [key: string]: unknown
-}
-
 interface UniversityMember {
   id: number
   account: string
@@ -348,7 +341,7 @@ export class TreeApi {
 
   /**
    * 获取院系的成员列表
-   * 通过 /api/v3/manage/getCollegeDepartment 获取真实成员数据
+   * 通过 /api/v5/manage/users 获取院系成员数据
    * @param departmentId 院系ID（可带有前缀的字符串）
    * @returns 成员数组
    */
@@ -357,8 +350,14 @@ export class TreeApi {
     console.log(`[TreeApi] getDepartmentUsers(${resolvedDepartmentId}) 开始加载成员数据`)
 
     try {
-      const response = await this.storage.getFromApi<DepartmentUsersPayload>(
-        `/api/v3/manage/getCollegeDepartment?id=${resolvedDepartmentId}`
+      const authUser = getStoredAuthUser()
+      if (typeof authUser?.collegeId !== "number") {
+        console.warn("[TreeApi] 获取院系成员失败: 缺少有效的 collegeId")
+        return { data: null, error: "Missing collegeId for department users request", status: 400 }
+      }
+
+      const response = await this.storage.getFromApi<DepartmentMember[]>(
+        `/api/v5/manage/users?collegeId=${authUser.collegeId}&departmentId=${resolvedDepartmentId}`
       )
 
       if (response.error || !response.data) {
@@ -366,23 +365,11 @@ export class TreeApi {
         return { data: null, error: response.error, status: response.status }
       }
 
-      const deptData = response.data
-      const requestedId = parseInt(resolvedDepartmentId, 10)
-      if (!Number.isNaN(requestedId) && deptData.id !== requestedId) {
-        console.warn(`[TreeApi] 院系ID不匹配: 查询${resolvedDepartmentId}, 返回${deptData.id}`)
-        return { data: [], error: null, status: 200 }
-      }
-
-      const allUsers: DepartmentMember[] = [
-        ...(deptData.guiders || []),
-        ...(deptData.users || []),
-      ]
-
       console.log(
-        `[TreeApi] getDepartmentUsers(${resolvedDepartmentId}) 返回 ${allUsers.length} 个成员 (系部管理员: ${deptData.guiders?.length || 0}, 其他成员: ${deptData.users?.length || 0})`
+        `[TreeApi] getDepartmentUsers(${resolvedDepartmentId}) 返回 ${response.data.length} 个成员`
       )
 
-      return { data: allUsers, error: null, status: 200 }
+      return { data: response.data, error: null, status: 200 }
     } catch (error) {
       console.error(`[TreeApi] getDepartmentUsers(${resolvedDepartmentId}) 错误:`, error)
       return { data: null, error: String(error), status: 500 }

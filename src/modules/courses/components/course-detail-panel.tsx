@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from "react"
 import type { DetailPanelProps } from "@/components/detail-panel/types"
 import { convertCourseToCanvasComplete } from "@/lib/utils/course-to-canvas"
-import { BookOpen, Calendar, Pencil, Trash2, User } from "lucide-react"
+import { BookOpen, Calendar, Pencil, User } from "lucide-react"
 import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
@@ -14,16 +14,6 @@ import AddCourseForm from "@/components/add-course-form"
 import { api, type CombinedCourseDetail, type CourseGoal, type SaveCourseUnitRequest } from "@/lib/api"
 import { courseApiService } from "@/modules/courses/api"
 import { courseGoalsApi } from "@/modules/courses/api/courseGoalsApi"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/shared/components/ui/alert-dialog"
 import { CourseBasicInfo } from "@/modules/courses/components/course/course-basic-info"
 import { CourseGoals } from "@/modules/courses/components/course/course-goals"
 import { CoursePoints } from "@/modules/courses/components/course/course-points"
@@ -36,6 +26,7 @@ import { TeachingObjectivesEditor } from "@/modules/courses/components/shared/te
 import { getCourseCache } from "@/shared/utils/course-cache"
 import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
 import { useAiCanvasStore } from "@/shared/stores/ai-canvas-store"
+import { useCourseEditPermission } from "@/modules/courses/hooks/use-course-edit-permission"
 import type { TreeNode } from "@/types"
 import type { MatrixDataForCanvas, ProjectMatrixApiData } from "@/lib/utils/course-to-canvas"
 import type { GraduationSupportData } from "@/components/canvas-elements/types"
@@ -253,11 +244,11 @@ const resolveCourseOrganizationFromTree = (params: {
   }
 }
 
-export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeData, selectedNodePath }: DetailPanelProps) {
+export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }: DetailPanelProps) {
   const courseNode = node?.nodeType === "course" ? node : null
+  const courseEditable = useCourseEditPermission(courseNode)
   const courseNodeId = courseNode?.id
   const [isEditingCourse, setIsEditingCourse] = useState(false)
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isEditingTeachingObjectives, setIsEditingTeachingObjectives] = useState(false)
   const [courseDetailData, setCourseDetailData] = useState<CombinedCourseDetail | null>(null)
   const [courseGoals, setCourseGoals] = useState<CourseGoal[]>([])
@@ -294,7 +285,6 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
   // 当节点改变时，退出编辑模式
   useEffect(() => {
     setIsEditingCourse(false)
-    setIsDeleteDialogOpen(false)
   }, [courseNode?.nodeId])
 
   useEffect(() => {
@@ -545,19 +535,18 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
     }
   }
 
-  const handleDeleteNode = (nodeId: string) => {
-    if (onDelete) {
-      onDelete(nodeId)
+  const handleStartEditCourse = () => {
+    if (!courseEditable) {
+      console.warn("[CourseDetail] edit course blocked by permission or ownership")
+      return
     }
-    if (courseNode?.nodeId === nodeId && onNodeSelect) {
-      onNodeSelect(null)
-    }
-    setIsDeleteDialogOpen(false)
+
+    setIsEditingCourse(true)
   }
 
   // 注册画布数据准备回调到全局 store，供 Header AI 按钮调用
   useEffect(() => {
-    if (!courseDetailData || !courseNodeId) {
+    if (!courseEditable || !courseDetailData || !courseNodeId) {
       unregisterPrepareCanvasData()
       return
     }
@@ -813,6 +802,7 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
     return () => unregisterPrepareCanvasData()
   }, [
     clearPreparedCanvasData,
+    courseEditable,
     courseDetailData,
     courseGoals,
     courseNodeId,
@@ -961,24 +951,14 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
           </div>
           <div className="flex flex-col gap-2 absolute top-6 right-6">
             <div className="flex gap-2 justify-end">
-              {onUpdateNode && (
+              {onUpdateNode && courseEditable && (
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => setIsEditingCourse(true)}
+                  onClick={handleStartEditCourse}
                   className="gap-2 hover:bg-primary/10"
                 >
                   <Pencil className="w-4 h-4 text-primary" />
-                </Button>
-              )}
-              {onDelete && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setIsDeleteDialogOpen(true)}
-                  className="gap-2 hover:bg-red-500/10 text-red-500"
-                >
-                  <Trash2 className="w-4 h-4" />
                 </Button>
               )}
             </div>
@@ -1039,11 +1019,11 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
             </TabsContent>
 
             <TabsContent value="resources" className="space-y-4 mt-4 px-6">
-              <CourseResources nodeId={courseNode.id || courseNode.nodeId} />
+              <CourseResources nodeId={courseNode.id || courseNode.nodeId} courseEditable={courseEditable} />
             </TabsContent>
 
             <TabsContent value="matrix" className="space-y-4 mt-2 px-6">
-              <CourseThreeLevelMatrix node={courseNode} onUpdateNode={onUpdateNode} treeData={treeData} majorId={majorId} onEditTeachingObjectives={() => setIsEditingTeachingObjectives(true)} activeMatrixTab={activeMatrixTab} onActiveMatrixTabChange={setActiveMatrixTab} />
+              <CourseThreeLevelMatrix node={courseNode} onUpdateNode={onUpdateNode} treeData={treeData} majorId={majorId} courseEditable={courseEditable} onEditTeachingObjectives={() => setIsEditingTeachingObjectives(true)} activeMatrixTab={activeMatrixTab} onActiveMatrixTabChange={setActiveMatrixTab} />
             </TabsContent>
 
             <TabsContent value="supervision" className="space-y-4 mt-4 px-6">
@@ -1053,21 +1033,6 @@ export function CourseDetail({ node, onDelete, onUpdateNode, onNodeSelect, treeD
         </div>
       </div>
 
-      {/* Delete confirmation dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认删除</AlertDialogTitle>
-            <AlertDialogDescription>确定要删除课程&quot;{courseNameData.name}&quot;吗？此操作不可撤销。</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={() => handleDeleteNode(courseNode.nodeId)} className="bg-red-500 hover:bg-red-600">
-              确认删除
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   )
 }

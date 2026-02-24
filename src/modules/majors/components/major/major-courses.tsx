@@ -5,11 +5,16 @@ import { Button } from "@/shared/components/ui/button"
 import { BookMarked, Plus, Search, FileText, User, X } from "lucide-react"
 import { LoadingState } from "@/shared/components/ui/loading-state"
 import { cn } from "@/shared/utils/utils"
+import { usePermission } from "@/shared/hooks/use-permission"
+import type { PermissionAction } from "@/shared/permissions/types"
 import type { TreeNode } from "@/types"
 import { useMajorCoursePreferences } from "@/modules/majors/hooks/use-major-course-preferences"
 import { buildApiUrl } from "@/lib/api/config"
 import { getStoredAuthToken } from "@/lib/api/auth-config"
 import { setCourseCacheBatch, type CourseCacheItem } from "@/shared/utils/course-cache"
+
+const MANAGE_MAJOR_COURSE_ACTION: PermissionAction = "major.course.create"
+const MANAGE_MAJOR_COURSE_CONTEXT = { scope: "major" as const }
 
 // 右侧课程列表数据结构（接口返回格式）
 interface CourseItem {
@@ -38,6 +43,8 @@ export function MajorCourses(props: MajorCoursesProps) {
   const { node, currentUser, onNodeSelect, onAddCourse, refreshKey } = props
   const [courseSearchTerm, setCourseSearchTerm] = useState("")
   const { showMyCourses, setShowMyCourses } = useMajorCoursePreferences()
+  const { can } = usePermission()
+  const canManageMajorCourse = can(MANAGE_MAJOR_COURSE_ACTION, MANAGE_MAJOR_COURSE_CONTEXT)
 
   // 右侧组件内部独立获取课程数据，与左侧树完全隔离
   const [courses, setCourses] = useState<CourseItem[]>([])
@@ -123,6 +130,11 @@ export function MajorCourses(props: MajorCoursesProps) {
     return matchesSearch && matchesMyCourses
   })
 
+  const handleAddCourse = () => {
+    if (!can(MANAGE_MAJOR_COURSE_ACTION, MANAGE_MAJOR_COURSE_CONTEXT)) return
+    onAddCourse()
+  }
+
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -162,10 +174,12 @@ export function MajorCourses(props: MajorCoursesProps) {
               我的课程
             </label>
           </div>
-          <Button size="sm" variant="ghost" onClick={onAddCourse} className="gap-2 hover:bg-primary/10">
-            <Plus className="w-4 h-4 text-primary" />
-            <span className="text-primary font-medium">开设课程</span>
-          </Button>
+          {canManageMajorCourse && (
+            <Button size="sm" variant="ghost" onClick={handleAddCourse} className="gap-2 hover:bg-primary/10">
+              <Plus className="w-4 h-4 text-primary" />
+              <span className="text-primary font-medium">开设课程</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -178,10 +192,12 @@ export function MajorCourses(props: MajorCoursesProps) {
             <p className="text-sm mb-1">暂未设置课程</p>
             <p className="text-xs text-muted-foreground">开始创建课程，完善专业课程体系</p>
           </div>
-          <Button size="sm" variant="ghost" onClick={onAddCourse} className="gap-2 hover:bg-primary/10">
-            <Plus className="w-4 h-4 text-primary" />
-            <span className="text-primary font-medium">开设课程</span>
-          </Button>
+          {canManageMajorCourse && (
+            <Button size="sm" variant="ghost" onClick={handleAddCourse} className="gap-2 hover:bg-primary/10">
+              <Plus className="w-4 h-4 text-primary" />
+              <span className="text-primary font-medium">开设课程</span>
+            </Button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-3 gap-4 mb-[20px]">

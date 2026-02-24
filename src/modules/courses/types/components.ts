@@ -9,6 +9,7 @@ export interface CourseProjectMatrixProps {
   node: TreeNode
   onUpdate: (updates: Record<string, unknown>) => void
   majorId?: string | number
+  courseEditable?: boolean
 }
 
 // 其他组件Props可在此添加

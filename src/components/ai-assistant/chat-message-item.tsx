@@ -62,6 +62,10 @@ interface LinkedElementCardProps {
 }
 
 function LinkedElementCard({ linkedElement, isLoading, isDeleted, onSelect }: LinkedElementCardProps) {
+  const handleSelectLinkedElement = () => {
+    onSelect(linkedElement.elementId)
+  }
+
   // [MOD] 已删除状态：禁用点击，显示灰色样式
   if (isDeleted) {
     return (
@@ -86,7 +90,7 @@ function LinkedElementCard({ linkedElement, isLoading, isDeleted, onSelect }: Li
   return (
     <button
       type="button"
-      onClick={() => onSelect(linkedElement.elementId)}
+      onClick={handleSelectLinkedElement}
       className="group flex items-center gap-3 w-full px-3 py-2.5 rounded-lg border border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/40 transition-all text-left"
     >
       {/* 图标区域 */}
@@ -171,6 +175,14 @@ function AssistantMessage({
     return thinkingContent.replace(/\n/g, " ").slice(0, thinkingPreviewLength)
   }, [isStreaming, thinkingContent, thinkingPreviewLength])
 
+  const handleToggleThinking = () => {
+    onThinkingToggle()
+  }
+
+  const handleSelectCanvasElement = (elementId: string) => {
+    onSelectCanvasElement?.(elementId)
+  }
+
   return (
     <div className="space-y-2 text-left min-w-0 overflow-hidden">
       {/* 时间标签 */}
@@ -185,7 +197,7 @@ function AssistantMessage({
         <div className="text-xs min-w-0 w-full overflow-hidden">
           <button
             type="button"
-            onClick={onThinkingToggle}
+            onClick={handleToggleThinking}
             className="flex items-center gap-2 text-primary/80 hover:text-primary transition-colors w-full text-left min-w-0 overflow-hidden"
           >
             {isStreaming ? (
@@ -221,7 +233,7 @@ function AssistantMessage({
           linkedElement={message.linkedElement}
           isLoading={elementLoadingStates?.get(message.linkedElement.elementId) ?? false}
           isDeleted={deletedElementIds?.has(message.linkedElement.elementId) ?? false}
-          onSelect={onSelectCanvasElement}
+          onSelect={handleSelectCanvasElement}
         />
       )}
 
@@ -269,6 +281,11 @@ function UserMessage({
   const attachment = message.attachment
   const hasLinkedElement = attachment?.linkedElementId
 
+  const handleSelectAttachment = () => {
+    if (!hasLinkedElement) return
+    onSelectCanvasElement?.(attachment.linkedElementId!)
+  }
+
   return (
     <div className="flex items-start justify-end text-right w-full min-w-0 overflow-hidden">
       <div className="space-y-2 max-w-[80%] min-w-0">
@@ -280,7 +297,7 @@ function UserMessage({
         {attachment && (
           <button
             type="button"
-            onClick={() => hasLinkedElement && onSelectCanvasElement?.(attachment.linkedElementId!)}
+            onClick={handleSelectAttachment}
             disabled={!hasLinkedElement}
             className={`ai-message-file-card flex items-center gap-3 px-4 py-3 rounded-xl border w-full text-left transition-all ${
               hasLinkedElement

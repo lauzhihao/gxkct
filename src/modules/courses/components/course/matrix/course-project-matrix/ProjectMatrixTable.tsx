@@ -18,6 +18,7 @@ import type {
 } from "@/modules/courses/hooks/use-project-matrix"
 
 interface ProjectMatrixTableProps {
+  courseEditable: boolean
   projectMatrixData: ProjectMatrixData | null
   isEditingProjectMatrix: boolean
   focusedCell: string | null
@@ -27,6 +28,7 @@ interface ProjectMatrixTableProps {
 }
 
 export function ProjectMatrixTable({
+  courseEditable,
   projectMatrixData,
   isEditingProjectMatrix,
   focusedCell,
@@ -34,6 +36,18 @@ export function ProjectMatrixTable({
   onOpenKsaDialog,
   onFocusCell,
 }: ProjectMatrixTableProps) {
+  const canManageProjectMatrix = courseEditable
+
+  const handleOpenTaskObjectivesDialogWithPermission = (projectId: string, goals: ProjectMatrixGoal[]) => {
+    if (!canManageProjectMatrix) return
+    onOpenTaskObjectivesDialog(projectId, goals)
+  }
+
+  const handleOpenKsaDialogWithPermission = (projectId: string, coursePointId: string, taskId: string) => {
+    if (!canManageProjectMatrix) return
+    onOpenKsaDialog(projectId, coursePointId, taskId)
+  }
+
   if (!projectMatrixData?.projects || projectMatrixData.projects.length === 0) {
     return (
       <LoadingState
@@ -66,12 +80,12 @@ export function ProjectMatrixTable({
                 </div>
               </AccordionTrigger>
               <div className="absolute right-5 top-1/2 -translate-y-1/2 z-10 flex gap-2">
-                {!isEditingProjectMatrix && (
+                {!isEditingProjectMatrix && canManageProjectMatrix && (
                   <Button
                     size="sm"
                     onClick={(e) => {
                       e.stopPropagation()
-                      onOpenTaskObjectivesDialog(projectId, goals)
+                      handleOpenTaskObjectivesDialogWithPermission(projectId, goals)
                     }}
                     className="gap-2"
                   >
@@ -192,19 +206,21 @@ export function ProjectMatrixTable({
                                             size="md"
                                           />
                                         ))}
-                                        <button
-                                          onClick={() =>
-                                            onOpenKsaDialog(
-                                              projectId,
-                                              String(item.courseMatrix?.point?.id ?? ""),
-                                              String(goal.id)
-                                            )
-                                          }
-                                          className="w-4 h-4 rounded-full border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/10 flex items-center justify-center transition-all group flex-shrink-0"
-                                          title="添加KSA支撑关系"
-                                        >
-                                          <Plus className="w-2 h-2 text-primary/60 group-hover:text-primary" />
-                                        </button>
+                                        {canManageProjectMatrix && (
+                                          <button
+                                            onClick={() =>
+                                              handleOpenKsaDialogWithPermission(
+                                                projectId,
+                                                String(item.courseMatrix?.point?.id ?? ""),
+                                                String(goal.id)
+                                              )
+                                            }
+                                            className="w-4 h-4 rounded-full border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/10 flex items-center justify-center transition-all group flex-shrink-0"
+                                            title="添加KSA支撑关系"
+                                          >
+                                            <Plus className="w-2 h-2 text-primary/60 group-hover:text-primary" />
+                                          </button>
+                                        )}
                                       </div>
                                     ) : (
                                       <div className="flex items-center justify-center gap-2 flex-wrap min-h-[32px]">

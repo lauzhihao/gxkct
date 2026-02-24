@@ -15,9 +15,11 @@ interface CourseMajorMatrixProps {
   node: TreeNode
   majorNode?: TreeNode
   majorId?: string | number
+  courseEditable?: boolean
 }
 
-export function CourseMajorMatrix({ node, majorNode, majorId }: CourseMajorMatrixProps) {
+export function CourseMajorMatrix({ node, majorNode, majorId, courseEditable = false }: CourseMajorMatrixProps) {
+  const canManageMatrix = courseEditable
   const [isEditingMatrix, setIsEditingMatrix] = useState(false)
   const [matrixData, setMatrixData] = useState<MajorMatrixItemResponse[]>([])
   const [isSavingMatrix, setIsSavingMatrix] = useState(false)
@@ -84,6 +86,8 @@ export function CourseMajorMatrix({ node, majorNode, majorId }: CourseMajorMatri
   }, [loadAllData])
 
   const handleSaveMatrix = useCallback(async (isAutoSave = false) => {
+    if (!canManageMatrix) return
+
     setIsSavingMatrix(true)
 
     try {
@@ -108,17 +112,22 @@ export function CourseMajorMatrix({ node, majorNode, majorId }: CourseMajorMatri
         setIsEditingMatrix(false)
       }
     }
-  }, [matrixData, node.id])
+  }, [canManageMatrix, matrixData, node.id])
 
   useEffect(() => {
-    if (!isEditingMatrix) return
+    if (!canManageMatrix || !isEditingMatrix) return
 
     const autoSaveInterval = setInterval(() => {
       handleSaveMatrix(true)
     }, 10000)
 
     return () => clearInterval(autoSaveInterval)
-  }, [isEditingMatrix, matrixData, handleSaveMatrix])
+  }, [canManageMatrix, isEditingMatrix, matrixData, handleSaveMatrix])
+
+  const handleStartEditMatrix = () => {
+    if (!canManageMatrix) return
+    setIsEditingMatrix(true)
+  }
 
   // 检测毕业要求文本是否被截断
   useEffect(() => {
@@ -158,6 +167,8 @@ export function CourseMajorMatrix({ node, majorNode, majorId }: CourseMajorMatri
 
   // 处理支撑级别变更（编辑模式），支持点击切换选中/取消选中
   const handleSupportLevelChange = (reqId: number, indicatorIdx: number, value: number) => {
+    if (!canManageMatrix) return
+
     const req = majorDetailData?.requiresVOS?.find((r: any) => r.id === reqId)
     if (!req?.children?.[indicatorIdx]) return
 
@@ -193,6 +204,8 @@ export function CourseMajorMatrix({ node, majorNode, majorId }: CourseMajorMatri
 
   // 取消编辑
   const handleCancelMatrix = () => {
+    if (!canManageMatrix) return
+
     // 重新从API加载数据
     loadAllData()
     setIsEditingMatrix(false)
@@ -211,17 +224,17 @@ export function CourseMajorMatrix({ node, majorNode, majorId }: CourseMajorMatri
               <BookMarked className="w-5 h-5 text-primary" />
               专业矩阵
             </h3>
-            {!isEditingMatrix ? (
+            {!isEditingMatrix && canManageMatrix ? (
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setIsEditingMatrix(true)}
+                onClick={handleStartEditMatrix}
                 className="gap-2 bg-transparent"
               >
                 <Pencil className="w-3.5 h-3.5" />
                 编辑
               </Button>
-            ) : (
+            ) : isEditingMatrix && canManageMatrix ? (
               <div className="flex gap-2">
                 <Button
                   size="sm"
@@ -247,7 +260,7 @@ export function CourseMajorMatrix({ node, majorNode, majorId }: CourseMajorMatri
                   )}
                 </Button>
               </div>
-            )}
+            ) : null}
           </div>
 
           <div className="overflow-x-auto">
@@ -372,7 +385,7 @@ export function CourseMajorMatrix({ node, majorNode, majorId }: CourseMajorMatri
 
                       return (
                         <td key={key} className="p-3 text-center border-r border-border">
-                          {isEditingMatrix ? (
+                          {isEditingMatrix && canManageMatrix ? (
                             <div className="flex items-center justify-center gap-2">
                               <button
                                 onClick={() => handleSupportLevelChange(req.id, indicatorIdx, 0)}

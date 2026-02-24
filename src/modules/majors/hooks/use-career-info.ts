@@ -4,7 +4,7 @@
  */
 
 import { useState, useCallback } from "react"
-import type { CareerInfo, WorkCategory, SearchResult } from "@/modules/majors/types"
+import type { CareerInfo, MajorMetadata, SearchResult, WorkCategory } from "@/modules/majors/types"
 import { api } from "@/lib/api"
 
 export interface UseCareerInfoResult {
@@ -45,14 +45,14 @@ export function useCareerInfo(initialData: MajorMetadata | undefined, worksData:
     if (initialData?.professionsVOS && initialData.professionsVOS.length > 0) {
       return initialData.professionsVOS.map((professionVO, index: number) => ({
         id: String(professionVO.id || index + 1),
-        level: "中级",
+        level: professionVO.level || "中级",
         direction: {
-          category1: professionVO.profession?.[0]?.name || "",
-          category2: professionVO.profession?.[1]?.name || "",
-          category3: professionVO.profession?.[2]?.name || "",
-          category4: professionVO.profession?.[3]?.name || "",
+          category1: professionVO.direction?.category1 || professionVO.profession?.[0]?.name || "",
+          category2: professionVO.direction?.category2 || professionVO.profession?.[1]?.name || "",
+          category3: professionVO.direction?.category3 || professionVO.profession?.[2]?.name || "",
+          category4: professionVO.direction?.category4 || professionVO.profession?.[3]?.name || "",
         },
-        tasks: professionVO.task || "",
+        tasks: professionVO.tasks || professionVO.task || "",
       }))
     } else if (initialData?.careerInfo) {
       return initialData.careerInfo

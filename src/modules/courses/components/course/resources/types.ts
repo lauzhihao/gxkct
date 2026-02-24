@@ -11,6 +11,7 @@ export interface ResourceBreadcrumbProps {
 }
 
 export interface ResourceSearchBarProps {
+  courseEditable?: boolean
   searchTerm: string
   onSearchChange: (term: string) => void
   placeholder: string

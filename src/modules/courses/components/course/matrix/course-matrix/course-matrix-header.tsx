@@ -4,10 +4,11 @@ import { BookMarked, Check, Flag, Pencil, Settings, X } from "lucide-react"
 import { useCourseMatrixContext } from "@/modules/courses/hooks/use-course-matrix-data"
 
 interface CourseMatrixHeaderProps {
+  courseEditable: boolean
   onEditTeachingObjectives?: () => void
 }
 
-export const CourseMatrixHeader = ({ onEditTeachingObjectives }: CourseMatrixHeaderProps) => {
+export const CourseMatrixHeader = ({ courseEditable, onEditTeachingObjectives }: CourseMatrixHeaderProps) => {
   const {
     isEditingCourseMatrix,
     isSavingCourseMatrix,
@@ -18,6 +19,30 @@ export const CourseMatrixHeader = ({ onEditTeachingObjectives }: CourseMatrixHea
     handleSaveCourseMatrix,
     handleOpenCoursePointsDialog,
   } = useCourseMatrixContext()
+  const handleEditTeachingObjectives = () => {
+    if (!courseEditable) return
+    onEditTeachingObjectives?.()
+  }
+
+  const handleManageCoursePoints = () => {
+    if (!courseEditable) return
+    handleOpenCoursePointsDialog()
+  }
+
+  const handleStartEditingCourseMatrix = () => {
+    if (!courseEditable) return
+    startEditingCourseMatrix()
+  }
+
+  const handleExitEditingCourseMatrix = () => {
+    if (!courseEditable) return
+    handleCancelCourseMatrix()
+  }
+
+  const handleSaveEditingCourseMatrix = () => {
+    if (!courseEditable) return
+    handleSaveCourseMatrix(false)
+  }
 
   return (
     <div className="flex items-center justify-between mb-6">
@@ -31,12 +56,12 @@ export const CourseMatrixHeader = ({ onEditTeachingObjectives }: CourseMatrixHea
         </div>
       </div>
       <div className="flex items-center gap-3">
-        {!isEditingCourseMatrix && (
+        {courseEditable && !isEditingCourseMatrix && (
           <>
             <Button
               size="sm"
               variant="outline"
-              onClick={() => onEditTeachingObjectives?.()}
+              onClick={handleEditTeachingObjectives}
               className="gap-2 bg-transparent"
             >
               <Flag className="w-3.5 h-3.5" />
@@ -45,7 +70,7 @@ export const CourseMatrixHeader = ({ onEditTeachingObjectives }: CourseMatrixHea
             <Button
               size="sm"
               variant="outline"
-              onClick={handleOpenCoursePointsDialog}
+              onClick={handleManageCoursePoints}
               disabled={isLoadingCoursePoints || coursePointsList.length === 0}
               className="gap-2 bg-transparent"
             >
@@ -63,17 +88,17 @@ export const CourseMatrixHeader = ({ onEditTeachingObjectives }: CourseMatrixHea
             </Button>
           </>
         )}
-        {!isEditingCourseMatrix ? (
-          <Button size="sm" variant="outline" onClick={startEditingCourseMatrix} className="gap-2 bg-transparent">
+        {courseEditable && !isEditingCourseMatrix ? (
+          <Button size="sm" variant="outline" onClick={handleStartEditingCourseMatrix} className="gap-2 bg-transparent">
             <Pencil className="w-3.5 h-3.5" />
             编辑矩阵
           </Button>
-        ) : (
+        ) : courseEditable ? (
           <div className="flex gap-2">
             <Button
               size="sm"
               variant="outline"
-              onClick={handleCancelCourseMatrix}
+              onClick={handleExitEditingCourseMatrix}
               className="gap-2 bg-transparent"
               disabled={isSavingCourseMatrix}
             >
@@ -82,7 +107,7 @@ export const CourseMatrixHeader = ({ onEditTeachingObjectives }: CourseMatrixHea
             </Button>
             <Button
               size="sm"
-              onClick={() => handleSaveCourseMatrix(false)}
+              onClick={handleSaveEditingCourseMatrix}
               className="gap-2"
               disabled={isSavingCourseMatrix}
             >
@@ -99,7 +124,7 @@ export const CourseMatrixHeader = ({ onEditTeachingObjectives }: CourseMatrixHea
               )}
             </Button>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   )

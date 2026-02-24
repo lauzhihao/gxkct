@@ -12,7 +12,12 @@ import { Label } from "@/shared/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover"
 import { Plus, Trash2, ChevronRight, Search, X } from "lucide-react"
 import type { UseCareerInfoResult } from "@/modules/majors/hooks/use-career-info"
+import { usePermission } from "@/shared/hooks/use-permission"
+import type { PermissionAction } from "@/shared/permissions/types"
 import type { WorkCategory } from "../types"
+
+const MANAGE_MAJOR_ACTION: PermissionAction = "department.major.create"
+const MANAGE_MAJOR_CONTEXT = { scope: "department" as const }
 
 interface CareerInfoSectionProps {
   careerInfo: UseCareerInfoResult
@@ -20,6 +25,9 @@ interface CareerInfoSectionProps {
 }
 
 export function CareerInfoSection({ careerInfo, worksData }: CareerInfoSectionProps) {
+  const { can } = usePermission()
+  const canManageMajor = can(MANAGE_MAJOR_ACTION, MANAGE_MAJOR_CONTEXT)
+
   const {
     careerInfoList,
     careerSearchMap,
@@ -126,6 +134,16 @@ export function CareerInfoSection({ careerInfo, worksData }: CareerInfoSectionPr
     )
   }
 
+  const handleAddCareerInfo = () => {
+    if (!can(MANAGE_MAJOR_ACTION, MANAGE_MAJOR_CONTEXT)) return
+    addCareerInfo()
+  }
+
+  const handleRemoveCareerInfo = (id: string) => {
+    if (!can(MANAGE_MAJOR_ACTION, MANAGE_MAJOR_CONTEXT)) return
+    removeCareerInfo(id)
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -133,10 +151,12 @@ export function CareerInfoSection({ careerInfo, worksData }: CareerInfoSectionPr
           <div className="w-2 h-2 rounded-sm bg-[var(--naive-primary)]" />
           <h3 className="text-base font-semibold text-foreground">职业信息</h3>
         </div>
-        <Button size="sm" variant="outline" onClick={addCareerInfo} className="gap-2 bg-transparent">
-          <Plus className="w-4 h-4" />
-          添加职业信息
-        </Button>
+        {canManageMajor && (
+          <Button size="sm" variant="outline" onClick={handleAddCareerInfo} className="gap-2 bg-transparent">
+            <Plus className="w-4 h-4" />
+            添加职业信息
+          </Button>
+        )}
       </div>
       <div className="border-t border-dashed border-border" />
       <div className="space-y-4">
@@ -144,11 +164,11 @@ export function CareerInfoSection({ careerInfo, worksData }: CareerInfoSectionPr
           <div key={careerInfoItem.id} className="p-4 rounded-lg border border-border bg-card/50 space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-foreground">职业信息 {index + 1}</span>
-              {careerInfoList.length > 1 && (
+              {canManageMajor && careerInfoList.length > 1 && (
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => removeCareerInfo(careerInfoItem.id)}
+                  onClick={() => handleRemoveCareerInfo(careerInfoItem.id)}
                   className="gap-2 text-red-500 hover:text-red-600 hover:bg-red-50"
                 >
                   <Trash2 className="w-4 h-4" />

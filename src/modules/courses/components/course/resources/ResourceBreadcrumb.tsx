@@ -18,6 +18,7 @@ export function ResourceBreadcrumb({ path, onCrumbClick }: ResourceBreadcrumbPro
   const middle = shouldCollapse ? path.slice(1, -2) : []
   const tail = shouldCollapse ? path.slice(-2) : path.slice(1)
 
+  // 面包屑与折叠菜单仅用于路径导航，不属于管理类操作，不接入 PermissionAction 白名单
   const handleClick = (index: number) => {
     if (index === path.length - 1) return
     onCrumbClick(index)

@@ -23,12 +23,17 @@ import { TeachingQualityStats } from "@/modules/majors/components/shared/teachin
 import { QuickCreateMajorDialog } from "@/modules/departments/components/shared/quick-create-major-dialog"
 import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
 import { PermissionGate } from "@/shared/components/permission-gate"
+import { usePermission } from "@/shared/hooks/use-permission"
+import type { PermissionAction } from "@/shared/permissions/types"
 
 const DEPARTMENT_TABS = {
   overview: "院系概览",
   members: "成员管理",
   "teaching-quality": "质量评价",
 } as const
+
+const EDIT_DEPARTMENT_ACTION: PermissionAction = "college.department.create"
+const CREATE_MAJOR_ACTION: PermissionAction = "department.major.create"
 
 type DepartmentTabKey = keyof typeof DEPARTMENT_TABS
 const DEFAULT_DEPARTMENT_TAB: DepartmentTabKey = "overview"
@@ -44,6 +49,7 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
   // 用于触发重新获取专业列表
   const [refreshMajorsKey, setRefreshMajorsKey] = useState(0)
   const { setActivePage } = useActivePageTracker()
+  const { can } = usePermission()
 
   useEffect(() => {
     if (!node) return
@@ -57,6 +63,7 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
   }
 
   const handleEditDepartment = () => {
+    if (!can(EDIT_DEPARTMENT_ACTION, { scope: "college" })) return
     if (!node) return
     setNewDeptName(node.nodeName)
     setNewDeptDesc(node.description || "")
@@ -65,6 +72,7 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
   }
 
   const handleSaveDepartment = () => {
+    if (!can(EDIT_DEPARTMENT_ACTION, { scope: "college" })) return
     if (!newDeptName.trim() || !onUpdateNode || !node) return
 
     onUpdateNode(node.nodeId, {
@@ -79,6 +87,7 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
   }
 
   const handleQuickCreateMajor = (data: { name: string; directors: Array<{ name: string }> }) => {
+    if (!can(CREATE_MAJOR_ACTION, { scope: "department" })) return
     if (onAddMajor && node) {
       const departmentId = extractNumericId(node.nodeId).toString()
       onAddMajor(departmentId, {
@@ -97,6 +106,11 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
     setIsQuickCreateMajorOpen(false)
   }
 
+  const handleOpenQuickCreateMajor = () => {
+    if (!can(CREATE_MAJOR_ACTION, { scope: "department" })) return
+    setIsQuickCreateMajorOpen(true)
+  }
+
   return (
     <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl overflow-hidden">
       {/* Header */}
@@ -112,9 +126,11 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
             </div>
           </div>
           <div className="flex gap-2">
-            <Button size="sm" variant="ghost" onClick={handleEditDepartment} className="gap-2 hover:bg-primary/10">
-              <Pencil className="w-4 h-4 text-primary" />
-            </Button>
+            <PermissionGate action={EDIT_DEPARTMENT_ACTION} context={{ scope: "college" }}>
+              <Button size="sm" variant="ghost" onClick={handleEditDepartment} className="gap-2 hover:bg-primary/10">
+                <Pencil className="w-4 h-4 text-primary" />
+              </Button>
+            </PermissionGate>
           </div>
         </div>
       </div>
@@ -143,11 +159,11 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
                 initialMajorSearch={majorSearchFilter}
                 refreshKey={refreshMajorsKey}
                 headerAction={
-                  <PermissionGate action="department.major.create" context={{ scope: "department" }}>
+                  <PermissionGate action={CREATE_MAJOR_ACTION} context={{ scope: "department" }}>
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => setIsQuickCreateMajorOpen(true)}
+                      onClick={handleOpenQuickCreateMajor}
                       className="gap-2 hover:bg-primary/10"
                     >
                       <Plus className="w-4 h-4 text-primary" />

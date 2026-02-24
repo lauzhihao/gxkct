@@ -27,6 +27,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shar
 import type { TeachingSupervisoryTask, TaskEvaluationCriteria } from "@/types"
 import { useEffect, useState } from "react"
 import { api } from "@/lib/api"
+import { usePermission } from "@/shared/hooks/use-permission"
+import type { PermissionAction } from "@/shared/permissions/types"
+
+const CREATE_TEACHING_TASK_ACTION: PermissionAction = "college.qa.create"
+const MANAGE_TEACHING_TASK_ACTION: PermissionAction = "college.qa.manage"
 
 interface TeachingTaskEvaluationProps {
   task: TeachingSupervisoryTask
@@ -41,6 +46,9 @@ interface TeachingTaskEvaluationProps {
 }
 
 export function TeachingTaskEvaluation({ task: initialTask, onBack, onEdit, onCopy, onArchive, onStatusChange }: TeachingTaskEvaluationProps) {
+  const { can } = usePermission()
+  const canCreateTeachingTask = can(CREATE_TEACHING_TASK_ACTION, { scope: "college" })
+  const canManageTeachingTask = can(MANAGE_TEACHING_TASK_ACTION, { scope: "college" })
   const [task, setTask] = useState<TeachingSupervisoryTask>(initialTask)
   const [criteria, setCriteria] = useState<TaskEvaluationCriteria | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -104,6 +112,11 @@ export function TeachingTaskEvaluation({ task: initialTask, onBack, onEdit, onCo
   }, [initialTask])
 
   const handleArchive = async () => {
+    if (!canManageTeachingTask) {
+      console.warn("[TeachingTaskEvaluation] archive blocked by whitelist")
+      return
+    }
+
     if (!onArchive || typeof task.id !== "number") return
     try {
       setIsArchiving(true)
@@ -115,6 +128,11 @@ export function TeachingTaskEvaluation({ task: initialTask, onBack, onEdit, onCo
   }
 
   const handleStatusAction = async (status: "not_started" | "in_progress" | "completed") => {
+    if (!canManageTeachingTask) {
+      console.warn("[TeachingTaskEvaluation] status update blocked by whitelist")
+      return
+    }
+
     if (!onStatusChange || typeof task.id !== "number") return
     try {
       setStatusUpdating(status)
@@ -127,8 +145,30 @@ export function TeachingTaskEvaluation({ task: initialTask, onBack, onEdit, onCo
   }
 
   const handleConfirmStop = async () => {
+    if (!canManageTeachingTask) {
+      return
+    }
+
     await handleStatusAction("not_started")
     setIsStopDialogOpen(false)
+  }
+
+  const handleEditClick = () => {
+    if (!canManageTeachingTask) {
+      console.warn("[TeachingTaskEvaluation] edit blocked by whitelist")
+      return
+    }
+
+    onEdit?.()
+  }
+
+  const handleCopyClick = () => {
+    if (!canCreateTeachingTask) {
+      console.warn("[TeachingTaskEvaluation] copy blocked by whitelist")
+      return
+    }
+
+    onCopy?.(task, criteria)
   }
 
   const isNotStarted = task.status === "not_started"
@@ -193,7 +233,7 @@ export function TeachingTaskEvaluation({ task: initialTask, onBack, onEdit, onCo
             <h2 className="text-xl font-bold text-foreground">{task.title}</h2>
           </div>
           <div className="flex items-center gap-2">
-            {onStatusChange && !task.archived && (
+            {onStatusChange && canManageTeachingTask && !task.archived && (
               <>
                 {/* 状态控制按钮 */}
                 <Button
@@ -210,7 +250,13 @@ export function TeachingTaskEvaluation({ task: initialTask, onBack, onEdit, onCo
                   size="sm"
                   variant="outline"
                   disabled={disableStop}
-                  onClick={() => setIsStopDialogOpen(true)}
+                  onClick={() => {
+                    if (!canManageTeachingTask) {
+                      return
+                    }
+
+                    setIsStopDialogOpen(true)
+                  }}
                   className="gap-2 bg-transparent"
                 >
                   <Square className="w-4 h-4" />
@@ -218,7 +264,7 @@ export function TeachingTaskEvaluation({ task: initialTask, onBack, onEdit, onCo
                 </Button>
               </>
             )}
-            {onArchive && !task.archived && (
+            {onArchive && canManageTeachingTask && !task.archived && (
               <Button
                 size="sm"
                 variant="outline"
@@ -239,11 +285,11 @@ export function TeachingTaskEvaluation({ task: initialTask, onBack, onEdit, onCo
                 )}
               </Button>
             )}
-            {onEdit && (
+            {onEdit && canManageTeachingTask && (
               <Button
                 size="sm"
                 variant="outline"
-                onClick={onEdit}
+                onClick={handleEditClick}
                 disabled={disableEdit}
                 className="gap-2 bg-transparent"
               >
@@ -251,11 +297,11 @@ export function TeachingTaskEvaluation({ task: initialTask, onBack, onEdit, onCo
                 编辑
               </Button>
             )}
-            {onCopy && (
+            {onCopy && canCreateTeachingTask && (
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => onCopy(task, criteria)}
+                onClick={handleCopyClick}
                 className="gap-2 bg-transparent"
               >
                 <Copy className="w-4 h-4" />
@@ -540,7 +586,7 @@ export function TeachingTaskEvaluation({ task: initialTask, onBack, onEdit, onCo
             </div>
           )}
       </div>
-      {onStatusChange && (
+      {onStatusChange && canManageTeachingTask && (
         <AlertDialog open={isStopDialogOpen} onOpenChange={setIsStopDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>

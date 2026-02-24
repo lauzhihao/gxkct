@@ -1,7 +1,7 @@
 "use client"
 
 import { Card, CardContent } from "@/shared/components/ui/card"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import type { TreeNode, TeachingSupervisoryTask, TaskEvaluationCriteria, Long } from "@/types"
 import { LoadingState } from "@/shared/components/ui/loading-state"
 
@@ -35,8 +35,8 @@ type TeachingTaskDraft = Omit<TeachingSupervisoryTask, "id" | "createdAt" | "upd
 
 export function TeachingQuality({ node }: TeachingQualityProps) {
   const { can } = usePermission()
-  const canCreateTeachingTask = can("college.teachingTask.create", { scope: "college" })
-  const canManageTeachingTask = can("college.teachingTask.manage", { scope: "college" })
+  const canCreateTeachingTask = can("college.qa.create", { scope: "college" })
+  const canManageTeachingTask = can("college.qa.manage", { scope: "college" })
   // 从 node.id 中提取数字部分（处理 "univ_86" 格式）
   const nodeId = node.id || node.nodeId || ""
   const idMatch = nodeId.match(/\d+/)
@@ -60,6 +60,11 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
   const completedCount = tasks.filter((t) => t.status === "completed").length
 
   const handleCreateTask = async (taskData: TeachingTaskDraft) => {
+    if (!canCreateTeachingTask) {
+      console.warn("[TeachingQuality] create teaching task blocked by whitelist")
+      return null
+    }
+
     const taskWithStatus = {
       ...taskData,
       status: "not_started" as const,
@@ -72,6 +77,11 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
   }
 
   const handleUpdateTask = async (taskData: TeachingSupervisoryTask) => {
+    if (!canManageTeachingTask) {
+      console.warn("[TeachingQuality] update teaching task blocked by whitelist")
+      return null
+    }
+
     const updated = await updateTaskRecord(taskData)
     if (updated) {
       setSelectedTask(updated)
@@ -81,6 +91,10 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
   }
 
   const handleAutoSaveTask = async (taskData: TeachingSupervisoryTask) => {
+    if (!canManageTeachingTask) {
+      return
+    }
+
     await autoSaveTask(taskData)
   }
 
@@ -88,6 +102,11 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
     taskId: NonNullable<TeachingSupervisoryTask["id"]>,
     newStatus: "not_started" | "in_progress" | "completed",
   ) => {
+    if (!canManageTeachingTask) {
+      console.warn("[TeachingQuality] update task status blocked by whitelist")
+      return
+    }
+
     const updated = await updateTaskStatus(taskId, newStatus)
     if (updated && selectedTask?.id === updated.id) {
       setSelectedTask(updated)
@@ -98,6 +117,11 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
     task: TeachingSupervisoryTask,
     criteria: TaskEvaluationCriteria | null,
   ) => {
+    if (!canCreateTeachingTask) {
+      console.warn("[TeachingQuality] copy teaching task blocked by whitelist")
+      return
+    }
+
     // 创建新任务，不包含 id 和 createdAt
     const newTask: TeachingTaskDraft = {
       universityId: task.universityId,
@@ -130,8 +154,33 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
   }
 
   const handleArchiveTask = async (taskId: NonNullable<TeachingSupervisoryTask["id"]>) => {
+    if (!canManageTeachingTask) {
+      console.warn("[TeachingQuality] archive teaching task blocked by whitelist")
+      return
+    }
+
     await archiveTask(taskId)
   }
+
+  const handleOpenCreatePage = () => {
+    if (!canCreateTeachingTask) {
+      console.warn("[TeachingQuality] open create page blocked by whitelist")
+      return
+    }
+
+    setPageState("create")
+  }
+
+  useEffect(() => {
+    if (pageState === "create" && !canCreateTeachingTask) {
+      setPageState("list")
+      return
+    }
+
+    if (pageState === "edit" && !canManageTeachingTask) {
+      setPageState("view")
+    }
+  }, [canCreateTeachingTask, canManageTeachingTask, pageState])
 
   // 页面状态路由
   if (pageState === "create") {
@@ -178,10 +227,10 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
           setSelectedTask(null)
           setPageState("list")
         }}
-        onEdit={() => setPageState("edit")}
-        onCopy={handleCopyTask}
-        onArchive={handleArchiveTask}
-        onStatusChange={handleStatusChange}
+        onEdit={canManageTeachingTask ? () => setPageState("edit") : undefined}
+        onCopy={canCreateTeachingTask ? handleCopyTask : undefined}
+        onArchive={canManageTeachingTask ? handleArchiveTask : undefined}
+        onStatusChange={canManageTeachingTask ? handleStatusChange : undefined}
       />
     )
   }
@@ -218,7 +267,7 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => setPageState("create")}
+              onClick={handleOpenCreatePage}
               className="gap-2 hover:bg-primary/10"
             >
               <Plus className="w-4 h-4 text-primary" />

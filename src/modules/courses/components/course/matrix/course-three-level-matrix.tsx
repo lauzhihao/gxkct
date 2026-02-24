@@ -13,12 +13,13 @@ interface CourseThreeLevelMatrixProps {
   onUpdateNode?: (nodeId: string, updates: Partial<TreeNode>) => void
   treeData?: TreeNode
   majorId?: string | number
+  courseEditable?: boolean
   onEditTeachingObjectives?: () => void
   activeMatrixTab?: string
   onActiveMatrixTabChange?: (tab: string) => void
 }
 
-export function CourseThreeLevelMatrix({ node, onUpdateNode, treeData, majorId, onEditTeachingObjectives, activeMatrixTab = "majorMatrix", onActiveMatrixTabChange }: CourseThreeLevelMatrixProps) {
+export function CourseThreeLevelMatrix({ node, onUpdateNode, treeData, majorId, courseEditable = false, onEditTeachingObjectives, activeMatrixTab = "majorMatrix", onActiveMatrixTabChange }: CourseThreeLevelMatrixProps) {
   const [majorNode, setMajorNode] = useState<TreeNode | undefined>(undefined)
 
   // 处理项目矩阵更新回调（空实现，因为 metadata 已移除）
@@ -63,15 +64,15 @@ export function CourseThreeLevelMatrix({ node, onUpdateNode, treeData, majorId, 
         </UnderlineTabsList>
 
         <TabsContent value="majorMatrix" className="mt-2 pb-2.5">
-          <CourseMajorMatrix node={node} majorNode={majorNode} majorId={majorId} onUpdateNode={onUpdateNode} />
+          <CourseMajorMatrix node={node} majorNode={majorNode} majorId={majorId} courseEditable={courseEditable} />
         </TabsContent>
 
         <TabsContent value="courseMatrix" className="mt-2 pb-2.5">
-          <CourseMatrix node={node} onUpdateNode={onUpdateNode} majorId={majorId} onEditTeachingObjectives={onEditTeachingObjectives} />
+          <CourseMatrix node={node} onUpdateNode={onUpdateNode} majorId={majorId} courseEditable={courseEditable} onEditTeachingObjectives={onEditTeachingObjectives} />
         </TabsContent>
 
         <TabsContent value="projectMatrix" className="mt-2 pb-2.5">
-          <CourseProjectMatrix node={node} onUpdate={handleUpdateMetadata} majorId={majorId} />
+          <CourseProjectMatrix node={node} onUpdate={handleUpdateMetadata} majorId={majorId} courseEditable={courseEditable} />
         </TabsContent>
       </Tabs>
     </>

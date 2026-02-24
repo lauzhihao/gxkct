@@ -16,16 +16,20 @@ import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar"
 import { cn } from "@/shared/utils/utils"
 import { api, getStoredAuthUser, clearAllAuthData } from "@/lib/api"
 import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
+import { usePermission } from "@/shared/hooks/use-permission"
 import { AiAssistantDrawer } from "./ai-assistant-drawer"
 import { useLoadingStore } from "@/shared/stores/loading-store"
 import { useAiCanvasStore } from "@/shared/stores/ai-canvas-store"
 import { showWarning } from "@/shared/utils/toast-utils"
 import type { InitialCanvasData } from "@/types/ai-assistant"
+import type { PermissionAction } from "@/shared/permissions/types"
 
 const EMPTY_INITIAL_CANVAS_DATA: InitialCanvasData = {
   elements: [],
   edges: [],
 }
+
+const RESET_DATA_ACTION: PermissionAction = "root.college.create"
 
 const COLOR_THEMES = {
   green: {
@@ -213,6 +217,7 @@ const mockNotifications: Notification[] = [
 
 export function Header({ onResetData, currentPath, treeData }: HeaderProps) {
   const router = useRouter()
+  const { can } = usePermission()
   const [courseDevDrawerOpen, setCourseDevDrawerOpen] = useState(false)
   const [currentTheme, setCurrentTheme] = useState<keyof typeof COLOR_THEMES>("vercelBlue")
   const [notifications, setNotifications] = useState<Notification[]>(mockNotifications)
@@ -230,6 +235,7 @@ export function Header({ onResetData, currentPath, treeData }: HeaderProps) {
   const prepareOrGetCanvasData = useAiCanvasStore((state) => state.prepareOrGetCanvasData)
 
   const unreadCount = notifications.filter((n) => !n.read).length
+  const canResetData = can(RESET_DATA_ACTION, { scope: "root" })
   const avatarText = userName.trim().charAt(0).toUpperCase() || "U"
   const notificationMenuItemClassName =
     "cursor-pointer flex flex-col items-start gap-1 py-3 px-3 border-b border-border/50 last:border-0 focus:text-primary data-[highlighted]:text-primary"
@@ -241,6 +247,12 @@ export function Header({ onResetData, currentPath, treeData }: HeaderProps) {
     clearAllAuthData()
     router.push('/login')
   }
+
+  const handleResetData = useCallback(() => {
+    if (!onResetData) return
+    if (!can(RESET_DATA_ACTION, { scope: "root" })) return
+    onResetData()
+  }, [can, onResetData])
 
   useEffect(() => {
     // 从认证系统获取用户信息
@@ -445,11 +457,11 @@ export function Header({ onResetData, currentPath, treeData }: HeaderProps) {
               <DropdownMenuItem className={userMenuItemClassName}>个人信息</DropdownMenuItem>
               <DropdownMenuItem className={userMenuItemClassName}>系统设置</DropdownMenuItem>
               <DropdownMenuSeparator />
-              {onResetData && (
+              {onResetData && canResetData && (
                 <>
                   <DropdownMenuItem
                     className={cn("text-orange-600", userMenuItemClassName)}
-                    onClick={onResetData}
+                    onClick={handleResetData}
                   >
                     重置数据
                   </DropdownMenuItem>

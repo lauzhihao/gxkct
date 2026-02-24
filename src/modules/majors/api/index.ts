@@ -8,4 +8,3 @@ export { majorApiService, type CreateMajorRequest } from "./MajorApiService"
 // 旧的 API 对象（向后兼容，保留以避免破坏现有代码）
 export { majorCoursesApi } from "./majorCoursesApi"
 export { majorPreferencesApi } from "./majorPreferencesApi"
-export { majorUsersApi } from "./majorUsersApi"

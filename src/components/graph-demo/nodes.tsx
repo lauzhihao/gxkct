@@ -1,9 +1,11 @@
 "use client"
 
 import { memo } from "react"
-import { Handle, Position, type NodeProps } from "@xyflow/react"
+import { Handle, Position, type Node, type NodeProps } from "@xyflow/react"
 
 import type { DemoNodeData } from "./mock-data"
+
+type DemoGraphNode = Node<DemoNodeData, "courseHex" | "supportHex" | "majorRing">
 
 const handleStyle = {
   width: 12,
@@ -12,7 +14,7 @@ const handleStyle = {
   background: "#f8fafc",
 }
 
-const CourseHexNode = memo(function CourseHexNode({ data }: NodeProps<DemoNodeData>) {
+const CourseHexNode = memo(function CourseHexNode({ data }: NodeProps<DemoGraphNode>) {
   return (
     <div className="graph-hex graph-hex-course">
       <Handle id="top" type="target" position={Position.Top} style={handleStyle} />
@@ -26,7 +28,7 @@ const CourseHexNode = memo(function CourseHexNode({ data }: NodeProps<DemoNodeDa
   )
 })
 
-const SupportHexNode = memo(function SupportHexNode({ data }: NodeProps<DemoNodeData>) {
+const SupportHexNode = memo(function SupportHexNode({ data }: NodeProps<DemoGraphNode>) {
   return (
     <div className="graph-hex graph-hex-support">
       <div className="graph-hex-content graph-hex-content-compact">
@@ -38,7 +40,7 @@ const SupportHexNode = memo(function SupportHexNode({ data }: NodeProps<DemoNode
   )
 })
 
-const MajorRingNode = memo(function MajorRingNode({ data }: NodeProps<DemoNodeData>) {
+const MajorRingNode = memo(function MajorRingNode({ data }: NodeProps<DemoGraphNode>) {
   return (
     <div className="graph-major-ring">
       <Handle id="top" type="target" position={Position.Top} style={handleStyle} />

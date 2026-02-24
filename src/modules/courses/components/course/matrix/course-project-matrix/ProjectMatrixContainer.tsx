@@ -17,7 +17,9 @@ import { ProjectMatrixTable } from "./ProjectMatrixTable"
 import { TaskObjectivesDialog } from "../../../dialogs/task-objectives-dialog"
 import { KsaDialog } from "../../../dialogs/ksa-dialog"
 
-export function ProjectMatrixContainer({ node, onUpdate, majorId }: CourseProjectMatrixProps) {
+export function ProjectMatrixContainer({ node, onUpdate, majorId, courseEditable = false }: CourseProjectMatrixProps) {
+  const canManageProjectMatrix = courseEditable
+
   // 使用项目矩阵数据管理hook
   const {
     projectMatrixData,
@@ -84,6 +86,8 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId }: CourseProjec
 
   // 保存项目矩阵
   const handleSaveProjectMatrix = async (isAutoSave = false) => {
+    if (!courseEditable) return
+
     setIsSavingProjectMatrix(true)
     await new Promise((resolve) => setTimeout(resolve, 500))
 
@@ -101,6 +105,8 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId }: CourseProjec
 
   // 取消编辑项目矩阵
   const handleCancelProjectMatrix = () => {
+    if (!courseEditable) return
+
     // 取消编辑时重新加载数据
     loadProjectMatrixData()
     setIsEditingProjectMatrix(false)
@@ -108,10 +114,17 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId }: CourseProjec
 
   // 打开全局KSA管理
   const handleOpenGlobalKsaDialog = () => {
+    if (!courseEditable) return
+
     setKsaSearchK("")
     setKsaSearchS("")
     setKsaSearchA("")
     openKsaDialog("global", "global", "global")
+  }
+
+  const handleStartEditProjectMatrix = () => {
+    if (!courseEditable) return
+    setIsEditingProjectMatrix(true)
   }
 
   return (
@@ -127,6 +140,7 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId }: CourseProjec
           </div>
         </div>
         {isEditingProjectMatrix ? (
+          canManageProjectMatrix && (
           <div className="flex gap-2">
             <Button
               size="sm"
@@ -157,7 +171,9 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId }: CourseProjec
               )}
             </Button>
           </div>
+          )
         ) : (
+          canManageProjectMatrix && (
           <div className="flex gap-2">
             <Button
               size="sm"
@@ -178,11 +194,12 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId }: CourseProjec
                 </>
               )}
             </Button>
-            <Button size="sm" onClick={() => setIsEditingProjectMatrix(true)} className="gap-2">
+            <Button size="sm" onClick={handleStartEditProjectMatrix} className="gap-2">
               <Edit className="w-4 h-4" />
               编辑矩阵
             </Button>
           </div>
+          )
         )}
       </div>
 
@@ -190,6 +207,7 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId }: CourseProjec
         <LoadingState title="加载中" />
       ) : (
         <ProjectMatrixTable
+          courseEditable={courseEditable}
           projectMatrixData={projectMatrixData}
           isEditingProjectMatrix={isEditingProjectMatrix}
           focusedCell={focusedCell}

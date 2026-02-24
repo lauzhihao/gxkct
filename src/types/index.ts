@@ -27,6 +27,11 @@ export type SupportStrength = "strong" | "weak"
 // 发布范围成员信息
 export type Long = number
 
+export interface TreeNodeManager {
+  value: string
+  label: string
+}
+
 export interface TaskMember {
   id: Long
   account: string
@@ -148,6 +153,7 @@ export interface TreeNode {
   parentId?: string
   nodeLevel?: number
   children?: TreeNode[]
+  manager?: TreeNodeManager[] | null
   isStarred?: boolean
   // 兼容属性：从 nodeId 解析出的数字 ID（右侧组件使用）
   id?: string

@@ -9,7 +9,12 @@ import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { Label } from "@/shared/components/ui/label"
+import { usePermission } from "@/shared/hooks/use-permission"
+import type { PermissionAction } from "@/shared/permissions/types"
 import { X } from "lucide-react"
+
+const MANAGE_MAJOR_ACTION: PermissionAction = "department.major.create"
+const MANAGE_MAJOR_CONTEXT = { scope: "department" as const }
 
 interface MajorBasicInfoSectionProps {
   majorCode: string
@@ -32,6 +37,29 @@ export function MajorBasicInfoSection({
   setMajorLevel,
   setEducationalFeatures,
 }: MajorBasicInfoSectionProps) {
+  const { can } = usePermission()
+  const canManageMajor = can(MANAGE_MAJOR_ACTION, MANAGE_MAJOR_CONTEXT)
+
+  const handleClearMajorCode = () => {
+    if (!can(MANAGE_MAJOR_ACTION, MANAGE_MAJOR_CONTEXT)) return
+    setMajorCode("")
+  }
+
+  const handleClearMajorName = () => {
+    if (!can(MANAGE_MAJOR_ACTION, MANAGE_MAJOR_CONTEXT)) return
+    setMajorName("")
+  }
+
+  const handleSetMajorLevel = (level: string) => {
+    if (!can(MANAGE_MAJOR_ACTION, MANAGE_MAJOR_CONTEXT)) return
+    setMajorLevel(level)
+  }
+
+  const handleClearEducationalFeatures = () => {
+    if (!can(MANAGE_MAJOR_ACTION, MANAGE_MAJOR_CONTEXT)) return
+    setEducationalFeatures("")
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
@@ -55,10 +83,10 @@ export function MajorBasicInfoSection({
             />
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
               <span className="text-xs text-muted-foreground">{majorCode.length}/20</span>
-              {majorCode && (
+              {canManageMajor && majorCode && (
                 <button
                   type="button"
-                  onClick={() => setMajorCode("")}
+                  onClick={handleClearMajorCode}
                   className="text-muted-foreground hover:text-foreground"
                 >
                   <X className="w-3 h-3" />
@@ -83,10 +111,10 @@ export function MajorBasicInfoSection({
             />
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
               <span className="text-xs text-muted-foreground">{majorName.length}/20</span>
-              {majorName && (
+              {canManageMajor && majorName && (
                 <button
                   type="button"
-                  onClick={() => setMajorName("")}
+                  onClick={handleClearMajorName}
                   className="text-muted-foreground hover:text-foreground"
                 >
                   <X className="w-3 h-3" />
@@ -101,30 +129,34 @@ export function MajorBasicInfoSection({
             专业层次 <span className="text-red-500">*</span>
           </Label>
           <div className="flex flex-col gap-2">
-            <Button
-              type="button"
-              variant={majorLevel === "1" ? "default" : "outline"}
-              className="justify-center"
-              onClick={() => setMajorLevel("1")}
-            >
-              本科
-            </Button>
-            <Button
-              type="button"
-              variant={majorLevel === "2" ? "default" : "outline"}
-              className="justify-center"
-              onClick={() => setMajorLevel("2")}
-            >
-              高职
-            </Button>
-            <Button
-              type="button"
-              variant={majorLevel === "3" ? "default" : "outline"}
-              className="justify-center"
-              onClick={() => setMajorLevel("3")}
-            >
-              中职
-            </Button>
+            {canManageMajor && (
+              <>
+                <Button
+                  type="button"
+                  variant={majorLevel === "1" ? "default" : "outline"}
+                  className="justify-center"
+                  onClick={() => handleSetMajorLevel("1")}
+                >
+                  本科
+                </Button>
+                <Button
+                  type="button"
+                  variant={majorLevel === "2" ? "default" : "outline"}
+                  className="justify-center"
+                  onClick={() => handleSetMajorLevel("2")}
+                >
+                  高职
+                </Button>
+                <Button
+                  type="button"
+                  variant={majorLevel === "3" ? "default" : "outline"}
+                  className="justify-center"
+                  onClick={() => handleSetMajorLevel("3")}
+                >
+                  中职
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
@@ -143,10 +175,10 @@ export function MajorBasicInfoSection({
             />
             <div className="absolute right-2 top-2 flex items-center gap-2">
               <span className="text-xs text-muted-foreground">{educationalFeatures.length}/200</span>
-              {educationalFeatures && (
+              {canManageMajor && educationalFeatures && (
                 <button
                   type="button"
-                  onClick={() => setEducationalFeatures("")}
+                  onClick={handleClearEducationalFeatures}
                   className="text-muted-foreground hover:text-foreground"
                 >
                   <X className="w-3 h-3" />

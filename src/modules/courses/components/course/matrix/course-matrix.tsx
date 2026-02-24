@@ -11,16 +11,17 @@ interface CourseMatrixProps {
   node: TreeNode
   onUpdateNode?: (nodeId: string, updates: Partial<TreeNode>) => void
   majorId?: string | number
+  courseEditable?: boolean
   onEditTeachingObjectives?: () => void
 }
 
-export function CourseMatrix({ node, onUpdateNode, majorId, onEditTeachingObjectives }: CourseMatrixProps) {
+export function CourseMatrix({ node, onUpdateNode, majorId, courseEditable = false, onEditTeachingObjectives }: CourseMatrixProps) {
   const courseMatrix = useCourseMatrixData({ node, onUpdateNode, majorId })
 
   return (
     <CourseMatrixProvider value={courseMatrix}>
-      <CourseMatrixHeader onEditTeachingObjectives={onEditTeachingObjectives} />
-      <ProjectMatrixTable />
+      <CourseMatrixHeader courseEditable={courseEditable} onEditTeachingObjectives={onEditTeachingObjectives} />
+      <ProjectMatrixTable courseEditable={courseEditable} />
       <CoursePointManagerDialog />
       <CoursePointSelectionDialog />
     </CourseMatrixProvider>

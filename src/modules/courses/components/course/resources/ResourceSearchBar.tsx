@@ -7,6 +7,7 @@ import { cn } from "@/shared/utils/utils"
 import type { ResourceSearchBarProps } from "./types"
 
 export function ResourceSearchBar({
+  courseEditable = false,
   searchTerm,
   onSearchChange,
   placeholder,
@@ -17,7 +18,23 @@ export function ResourceSearchBar({
   onCreateFolderClick,
   disableCreateFolder,
 }: ResourceSearchBarProps) {
+  const canManageCourseResource = courseEditable
   const buttonHoverClass = "transition-colors hover:bg-primary hover:text-white hover:[&>svg]:text-white"
+
+  const handleCreateFolderClick = () => {
+    if (!courseEditable) return
+    onCreateFolderClick?.()
+  }
+
+  const handleUploadFiles = async (files: File[]) => {
+    if (!courseEditable) {
+      return []
+    }
+    if (!uploadProps) {
+      return []
+    }
+    return uploadProps.onUpload(files)
+  }
 
   return (
     <div className={cn("flex flex-wrap items-center gap-2", className)}>
@@ -58,22 +75,27 @@ export function ResourceSearchBar({
           <Rows className="h-4 w-4" />
         </Button>
       </div>
-      <Button
-        size="sm"
-        className={cn("gap-2", buttonHoverClass)}
-        onClick={onCreateFolderClick}
-        disabled={disableCreateFolder || !onCreateFolderClick}
-      >
-        <Plus className="h-4 w-4" />
-        新建文件夹
-      </Button>
-      <Button size="sm" className={cn("gap-2", buttonHoverClass)} disabled>
-        <Download className="h-4 w-4" />
-        批量下载
-      </Button>
-      {uploadProps && (
+      {canManageCourseResource && (
+        <Button
+          size="sm"
+          className={cn("gap-2", buttonHoverClass)}
+          onClick={handleCreateFolderClick}
+          disabled={disableCreateFolder || !onCreateFolderClick}
+        >
+          <Plus className="h-4 w-4" />
+          新建文件夹
+        </Button>
+      )}
+      {canManageCourseResource && (
+        <Button size="sm" className={cn("gap-2", buttonHoverClass)} disabled>
+          <Download className="h-4 w-4" />
+          批量下载
+        </Button>
+      )}
+      {canManageCourseResource && uploadProps && (
         <FileUpload
           {...uploadProps}
+          onUpload={handleUploadFiles}
           containerClassName={cn("w-auto flex-shrink-0", uploadProps.containerClassName)}
           buttonClassName={cn("gap-2", buttonHoverClass, uploadProps.buttonClassName)}
           buttonText={uploadProps.buttonText ?? "上传"}

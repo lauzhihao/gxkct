@@ -18,3 +18,8 @@ export function hasPermission(
 export function getPermissionRole(permissionId: number | null): PermissionRoleMeta {
   return getPermissionRoleMeta(permissionId)
 }
+
+export function getAllowedActions(permissionId: number | null): PermissionAction[] {
+  if (permissionId === null) return []
+  return PERMISSION_MATRIX[permissionId] ?? []
+}

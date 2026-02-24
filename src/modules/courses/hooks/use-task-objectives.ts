@@ -4,6 +4,7 @@
  */
 
 import { useState } from "react"
+import type { ProjectMatrixGoal } from "@/modules/courses/hooks/use-project-matrix"
 
 export interface TaskObjective {
   id: string
@@ -15,7 +16,7 @@ export interface TaskObjective {
   }>
 }
 
-type ProjectGoal = Record<string, unknown>
+type ProjectGoal = ProjectMatrixGoal
 
 export interface UseTaskObjectivesResult {
   // 对话框状态

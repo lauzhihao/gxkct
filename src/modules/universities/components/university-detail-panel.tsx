@@ -25,6 +25,7 @@ import { Members } from "@/shared/components/members"
 import { TeachingQuality } from "@/modules/universities/components/shared/teaching-quality"
 import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
 import { PermissionGate } from "@/shared/components/permission-gate"
+import { usePermission } from "@/shared/hooks/use-permission"
 
 const UNIVERSITY_TABS = {
   overview: "学校概览",
@@ -34,8 +35,11 @@ const UNIVERSITY_TABS = {
 
 type UniversityTabKey = keyof typeof UNIVERSITY_TABS
 const DEFAULT_UNIVERSITY_TAB: UniversityTabKey = "overview"
+const CREATE_DEPARTMENT_ACTION = "college.department.create"
+const CREATE_DEPARTMENT_CONTEXT = { scope: "college" } as const
 
 export function UniversityDetail({ node, onNodeSelect, onSetCurrentSchool, currentUser }: DetailPanelProps) {
+  const { can } = usePermission()
   const [newDeptName, setNewDeptName] = useState("")
   const [newDeptDesc, setNewDeptDesc] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -56,6 +60,9 @@ export function UniversityDetail({ node, onNodeSelect, onSetCurrentSchool, curre
 
   const handleCreateDepartment = async () => {
     if (!newDeptName.trim() || !node) return
+    if (!can(CREATE_DEPARTMENT_ACTION, CREATE_DEPARTMENT_CONTEXT)) {
+      return
+    }
 
     setIsCreating(true)
     try {
@@ -143,7 +150,7 @@ export function UniversityDetail({ node, onNodeSelect, onSetCurrentSchool, curre
                 onNodeSelect={onNodeSelect}
                 currentUser={currentUser}
                 headerAction={
-                  <PermissionGate action="college.department.create" context={{ scope: "college" }}>
+                  <PermissionGate action={CREATE_DEPARTMENT_ACTION} context={CREATE_DEPARTMENT_CONTEXT}>
                     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                       <DialogTrigger asChild>
                         <Button size="sm" variant="ghost" className="gap-2 hover:bg-primary/10">

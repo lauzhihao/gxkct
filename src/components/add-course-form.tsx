@@ -15,6 +15,10 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { useToast } from "@/shared/hooks/use-toast"
 import { api } from "@/lib/api"
 import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
+import { usePermission } from "@/shared/hooks/use-permission"
+import type { PermissionAction } from "@/shared/permissions/types"
+
+const MANAGE_COURSE_ACTION: PermissionAction = "major.course.create"
 
 interface CoursePoint {
   id: string
@@ -87,6 +91,8 @@ function AddCourseForm({
   hideChapterSectionInEdit = false,
 }: AddCourseFormProps) {
   const { toast } = useToast()
+  const { can } = usePermission()
+  const canManageCourse = can(MANAGE_COURSE_ACTION, { scope: "major" })
   const [isLoading, setIsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState("basic")
   const [courseNaturePopoverOpen, setCourseNaturePopoverOpen] = useState(false)
@@ -157,11 +163,28 @@ function AddCourseForm({
   const [scheduleFieldsExpanded, setScheduleFieldsExpanded] = useState<Record<string, boolean>>({})
 
   // 课程表操作函数
+  const notifyNoPermission = useCallback(() => {
+    toast({
+      variant: "destructive",
+      title: "无权限",
+      description: "当前账号没有课程管理权限",
+      duration: 3000,
+    })
+  }, [toast])
+
   const addScheduleRow = () => {
+    if (!canManageCourse) {
+      notifyNoPermission()
+      return
+    }
     setTeachingScheduleRows([...teachingScheduleRows, DEFAULT_SCHEDULE_ROW])
   }
 
   const deleteScheduleRow = (index: number) => {
+    if (!canManageCourse) {
+      notifyNoPermission()
+      return
+    }
     if (teachingScheduleRows.length > 1) {
       setTeachingScheduleRows(teachingScheduleRows.filter((_, i) => i !== index))
     }
@@ -309,10 +332,18 @@ function AddCourseForm({
   }, [activeTab, showChapterTab])
 
   const addChapter = () => {
+    if (!canManageCourse) {
+      notifyNoPermission()
+      return
+    }
     setChapters(prev => ([...prev, { id: Date.now().toString(), name: "", theoryHours: 0, practiceHours: 0 }]))
   }
 
   const removeChapter = (id: string) => {
+    if (!canManageCourse) {
+      notifyNoPermission()
+      return
+    }
     setChapters(prev => {
       if (prev.length <= 1) return prev
       return prev.filter(chapter => chapter.id !== id)
@@ -499,6 +530,13 @@ function AddCourseForm({
   }, [getCurrentSnapshot])
 
   const handleSubmit = useCallback(async (isAutoSave: boolean = false) => {
+    if (!canManageCourse) {
+      if (!isAutoSave) {
+        notifyNoPermission()
+      }
+      return
+    }
+
     const currentSnapshot = getCurrentSnapshot()
     pendingSnapshotRef.current = currentSnapshot
 
@@ -598,13 +636,80 @@ function AddCourseForm({
     }
   }, [
     buildCourseData,
+    canManageCourse,
     getCurrentSnapshot,
     isEditMode,
+    notifyNoPermission,
     onSubmit,
     toast,
     courseName,
     courseNatureId,
   ])
+
+  const handleManualSubmit = useCallback(() => {
+    if (!canManageCourse) {
+      notifyNoPermission()
+      return
+    }
+    void handleSubmit(false)
+  }, [canManageCourse, handleSubmit, notifyNoPermission])
+
+  const removeScoreHeader = useCallback((index: number, header: string) => {
+    if (!canManageCourse) {
+      notifyNoPermission()
+      return
+    }
+
+    setScoreTable((prev) => {
+      const newHeaders = prev.headers.filter((_, i) => i !== index)
+      const newRows = prev.rows.map((row) => {
+        const newRow = { ...row }
+        delete newRow[header]
+        return newRow
+      })
+      return { headers: newHeaders, rows: newRows }
+    })
+  }, [canManageCourse, notifyNoPermission])
+
+  const addScoreHeader = useCallback(() => {
+    if (!canManageCourse) {
+      notifyNoPermission()
+      return
+    }
+
+    setScoreTable((prev) => {
+      const newHeader = `列${prev.headers.length + 1}`
+      return {
+        ...prev,
+        headers: [...prev.headers, newHeader],
+        rows: prev.rows.map((row) => ({ ...row, [newHeader]: "" })),
+      }
+    })
+  }, [canManageCourse, notifyNoPermission])
+
+  const removeScoreRow = useCallback((index: number) => {
+    if (!canManageCourse) {
+      notifyNoPermission()
+      return
+    }
+
+    setScoreTable((prev) => ({ ...prev, rows: prev.rows.filter((_, i) => i !== index) }))
+  }, [canManageCourse, notifyNoPermission])
+
+  const addScoreRow = useCallback(() => {
+    if (!canManageCourse) {
+      notifyNoPermission()
+      return
+    }
+
+    setScoreTable((prev) => {
+      const newRow: { [key: string]: string } = {}
+      prev.headers.forEach((header) => {
+        newRow[header] = ""
+      })
+      return { ...prev, rows: [...prev.rows, newRow] }
+    })
+  }, [canManageCourse, notifyNoPermission])
 
   useEffect(() => {
     handleSubmitRef.current = handleSubmit
@@ -630,39 +735,41 @@ function AddCourseForm({
             <X className="w-4 h-4" />
             取消
           </Button>
-          <Button
-            onClick={() => handleSubmit(false)}
-            className="gap-2"
-            disabled={isLoading || autoSaveStatus === "saving" || autoSaveStatus === "saved"}
-            variant={autoSaveStatus === "saved" ? "default" : autoSaveStatus === "failed" ? "destructive" : "default"}
-          >
-            {isLoading ? (
-              <>
-                <Spinner />
-                保存中
-              </>
-            ) : autoSaveStatus === "saving" ? (
-              <>
-                <Spinner />
-                自动保存中
-              </>
-            ) : autoSaveStatus === "saved" ? (
-              <>
-                <Check className="w-4 h-4" />
-                已保存
-              </>
-            ) : autoSaveStatus === "failed" ? (
-              <>
-                <X className="w-4 h-4" />
-                保存失败
-              </>
-            ) : (
-              <>
-                <Check className="w-4 h-4" />
-                保存
-              </>
-            )}
-          </Button>
+          {canManageCourse && (
+            <Button
+              onClick={handleManualSubmit}
+              className="gap-2"
+              disabled={isLoading || autoSaveStatus === "saving" || autoSaveStatus === "saved"}
+              variant={autoSaveStatus === "saved" ? "default" : autoSaveStatus === "failed" ? "destructive" : "default"}
+            >
+              {isLoading ? (
+                <>
+                  <Spinner />
+                  保存中
+                </>
+              ) : autoSaveStatus === "saving" ? (
+                <>
+                  <Spinner />
+                  自动保存中
+                </>
+              ) : autoSaveStatus === "saved" ? (
+                <>
+                  <Check className="w-4 h-4" />
+                  已保存
+                </>
+              ) : autoSaveStatus === "failed" ? (
+                <>
+                  <X className="w-4 h-4" />
+                  保存失败
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4" />
+                  保存
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -925,15 +1032,17 @@ function AddCourseForm({
                           <TableHead className="w-8 text-center p-2 font-medium">周六</TableHead>
                           <TableHead className="w-8 text-center p-2 font-medium">周日</TableHead>
                           <TableHead className="w-16 text-center p-2 font-medium">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={addScheduleRow}
-                              className="h-6 w-6 p-0 hover:bg-primary/10 mx-auto"
-                              title="新增行"
-                            >
-                              <Plus className="w-4 h-4 text-primary" />
-                            </Button>
+                            {canManageCourse && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={addScheduleRow}
+                                className="h-6 w-6 p-0 hover:bg-primary/10 mx-auto"
+                                title="新增行"
+                              >
+                                <Plus className="w-4 h-4 text-primary" />
+                              </Button>
+                            )}
                           </TableHead>
                         </TableRow>
                       </TableHeader>
@@ -1016,7 +1125,7 @@ function AddCourseForm({
 
                               {/* 操作列 */}
                               <TableCell className="p-1 text-center w-16">
-                                {teachingScheduleRows.length > 1 && (
+                                {canManageCourse && teachingScheduleRows.length > 1 && (
                                   <Button
                                     size="sm"
                                     variant="ghost"
@@ -1240,39 +1349,24 @@ function AddCourseForm({
                                 placeholder="表头"
                                 className="text-center text-sm h-8"
                               />
-                              {scoreTable.headers.length > 1 && (
-                                <button
-                                  onClick={() => {
-                                    const newHeaders = scoreTable.headers.filter((_, i) => i !== idx)
-                                    const newRows = scoreTable.rows.map((row) => {
-                                      const newRow = { ...row }
-                                      delete newRow[header]
-                                      return newRow
-                                    })
-                                    setScoreTable({ headers: newHeaders, rows: newRows })
-                                  }}
-                                  className="text-destructive hover:text-destructive/80"
-                                >
-                                  <Trash2 className="w-3 h-3" />
+                          {canManageCourse && scoreTable.headers.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeScoreHeader(idx, header)}
+                              className="text-destructive hover:text-destructive/80"
+                            >
+                              <Trash2 className="w-3 h-3" />
                                 </button>
                               )}
                             </div>
                           </th>
                         ))}
                         <th className="p-2 text-center">
-                          <button
-                            onClick={() => {
-                              const newHeader = `列${scoreTable.headers.length + 1}`
-                              setScoreTable({
-                                ...scoreTable,
-                                headers: [...scoreTable.headers, newHeader],
-                                rows: scoreTable.rows.map((row) => ({ ...row, [newHeader]: "" })),
-                              })
-                            }}
-                            className="text-primary hover:text-primary/80"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </button>
+                          {canManageCourse && (
+                            <button type="button" onClick={addScoreHeader} className="text-primary hover:text-primary/80">
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          )}
                         </th>
                       </tr>
                     </thead>
@@ -1294,12 +1388,10 @@ function AddCourseForm({
                             </td>
                           ))}
                           <td className="p-2 text-center">
-                            {scoreTable.rows.length > 1 && (
+                            {canManageCourse && scoreTable.rows.length > 1 && (
                               <button
-                                onClick={() => {
-                                  const newRows = scoreTable.rows.filter((_, i) => i !== rowIdx)
-                                  setScoreTable({ ...scoreTable, rows: newRows })
-                                }}
+                                type="button"
+                                onClick={() => removeScoreRow(rowIdx)}
                                 className="text-destructive hover:text-destructive/80"
                               >
                                 <Trash2 className="w-3 h-3" />
@@ -1310,19 +1402,16 @@ function AddCourseForm({
                       ))}
                       <tr className="border-t border-input">
                         <td colSpan={scoreTable.headers.length + 1} className="p-2 text-center">
-                          <button
-                            onClick={() => {
-                              const newRow: { [key: string]: string } = {}
-                              scoreTable.headers.forEach((header) => {
-                                newRow[header] = ""
-                              })
-                              setScoreTable({ ...scoreTable, rows: [...scoreTable.rows, newRow] })
-                            }}
-                            className="text-primary hover:text-primary/80 flex items-center justify-center gap-1 mx-auto"
-                          >
-                            <Plus className="w-4 h-4" />
-                            <span>添加行</span>
-                          </button>
+                          {canManageCourse && (
+                            <button
+                              type="button"
+                              onClick={addScoreRow}
+                              className="text-primary hover:text-primary/80 flex items-center justify-center gap-1 mx-auto"
+                            >
+                              <Plus className="w-4 h-4" />
+                              <span>添加行</span>
+                            </button>
+                          )}
                         </td>
                       </tr>
                     </tbody>
@@ -1358,16 +1447,18 @@ function AddCourseForm({
                       <TableHead className="w-[20%]">理论学时</TableHead>
                       <TableHead className="w-[20%]">实践学时</TableHead>
                       <TableHead className="w-[15%] text-center">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          onClick={addChapter}
-                          className="h-7 w-7 p-0 mx-auto hover:bg-primary/10"
-                          title="新增章节项目"
-                        >
-                          <Plus className="w-4 h-4 text-primary" />
-                        </Button>
+                        {canManageCourse && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={addChapter}
+                            className="h-7 w-7 p-0 mx-auto hover:bg-primary/10"
+                            title="新增章节项目"
+                          >
+                            <Plus className="w-4 h-4 text-primary" />
+                          </Button>
+                        )}
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1398,7 +1489,7 @@ function AddCourseForm({
                           />
                         </TableCell>
                         <TableCell className="text-center">
-                          {chapters.length > 1 && (
+                          {canManageCourse && chapters.length > 1 && (
                             <Button
                               type="button"
                               size="sm"
@@ -1427,10 +1518,12 @@ function AddCourseForm({
           <X className="w-4 h-4" />
           取消
         </Button>
-        <Button onClick={() => handleSubmit(false)} className="gap-2" disabled={isLoading}>
-          {isLoading ? <Spinner /> : <Check className="w-4 h-4" />}
-          保存
-        </Button>
+        {canManageCourse && (
+          <Button onClick={handleManualSubmit} className="gap-2" disabled={isLoading}>
+            {isLoading ? <Spinner /> : <Check className="w-4 h-4" />}
+            保存
+          </Button>
+        )}
       </div>
     </div>
   )

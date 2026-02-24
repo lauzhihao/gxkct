@@ -6,7 +6,12 @@ import { SupportLabel } from "@/shared/components/support-label"
 import { useCourseMatrixContext } from "@/modules/courses/hooks/use-course-matrix-data"
 import type { ProjectTeachGoal } from "@/lib/api/project-teach-goal-api"
 
-export const ProjectMatrixTable = () => {
+interface ProjectMatrixTableProps {
+  courseEditable: boolean
+}
+
+export const ProjectMatrixTable = ({ courseEditable }: ProjectMatrixTableProps) => {
+
   const {
     projectTeachGoalData,
     isLoadingProjectTeachGoal,
@@ -27,6 +32,26 @@ export const ProjectMatrixTable = () => {
     editingProjectNames,
     setEditingProjectNames,
   } = useCourseMatrixContext()
+
+  const handleDeleteProjectWithPermission = (projectId: number | string) => {
+    if (!courseEditable) return
+    handleDeleteProject(projectId)
+  }
+
+  const handleAddProjectWithPermission = () => {
+    if (!courseEditable) return
+    handleAddProject()
+  }
+
+  const handleAddCoursePointWithPermission = (projectId: string, childId: string) => {
+    if (!courseEditable) return
+    handleAddCoursePoint(projectId, childId)
+  }
+
+  const handleRemoveCoursePointWithPermission = (projectId: string, childId: string, coursePointId: string) => {
+    if (!courseEditable) return
+    handleRemoveCoursePoint(projectId, childId, coursePointId)
+  }
 
   if (isLoadingProjectTeachGoal) {
     return <LoadingState title="加载中" />
@@ -110,12 +135,21 @@ export const ProjectMatrixTable = () => {
           {projectTeachGoalData.projects.map((project, projectIdx) => (
             <tr
               key={project.id}
-              draggable={isEditingCourseMatrix}
-              onDragStart={() => handleDragStart(project.id)}
+              draggable={isEditingCourseMatrix && courseEditable}
+              onDragStart={() => {
+                if (!courseEditable) return
+                handleDragStart(project.id)
+              }}
               onDragEnd={handleDragEnd}
-              onDragOver={(e) => handleDragOver(e, projectIdx)}
+              onDragOver={(e) => {
+                if (!courseEditable) return
+                handleDragOver(e, projectIdx)
+              }}
               onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, projectIdx)}
+              onDrop={(e) => {
+                if (!courseEditable) return
+                handleDrop(e, projectIdx)
+              }}
               className={cn(
                 "border-b border-border transition-colors",
                 isEditingCourseMatrix ? "cursor-move hover:bg-blue-50/50" : "hover:bg-white/50",
@@ -134,6 +168,7 @@ export const ProjectMatrixTable = () => {
                           : project.name
                       }
                       onChange={(e) =>
+                        courseEditable &&
                         setEditingProjectNames((prev) => ({
                           ...prev,
                           [project.id]: e.target.value,
@@ -141,25 +176,31 @@ export const ProjectMatrixTable = () => {
                       }
                       placeholder="输入项目/章节名称"
                       className="h-9 flex-1"
+                      disabled={!courseEditable}
                     />
-                    <button
-                      onClick={() => handleDeleteProject(project.id)}
-                      className="flex-shrink-0 p-1 text-muted-foreground hover:text-red-600 transition-colors"
-                      title="删除项目"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      draggable
-                      onDragStart={(e) => {
-                        e.stopPropagation()
-                        handleDragStart(project.id)
-                      }}
-                      className="flex-shrink-0 p-1 text-muted-foreground hover:text-primary transition-colors cursor-grab active:cursor-grabbing"
-                      title="拖动调整顺序"
-                    >
-                      <GripVertical className="w-4 h-4" />
-                    </button>
+                    {courseEditable && (
+                      <button
+                        onClick={() => handleDeleteProjectWithPermission(project.id)}
+                        className="flex-shrink-0 p-1 text-muted-foreground hover:text-red-600 transition-colors"
+                        title="删除项目"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                    {courseEditable && (
+                      <button
+                        draggable
+                        onDragStart={(e) => {
+                          if (!courseEditable) return
+                          e.stopPropagation()
+                          handleDragStart(project.id)
+                        }}
+                        className="flex-shrink-0 p-1 text-muted-foreground hover:text-primary transition-colors cursor-grab active:cursor-grabbing"
+                        title="拖动调整顺序"
+                      >
+                        <GripVertical className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="text-base text-foreground">{project.name}</div>
@@ -186,9 +227,9 @@ export const ProjectMatrixTable = () => {
                                     title={coursePointTitleMap.get(cp.id) || cp.name || cp.id}
                                     desc={cp.description}
                                     type={cp.support}
-                                    showRemoveButton
+                                    showRemoveButton={courseEditable}
                                     onRemove={() =>
-                                      handleRemoveCoursePoint(String(project.id), String(child.id), cp.id)
+                                      handleRemoveCoursePointWithPermission(String(project.id), String(child.id), cp.id)
                                     }
                                     size="md"
                                   />
@@ -196,12 +237,14 @@ export const ProjectMatrixTable = () => {
                               ))}
                             </div>
                           )}
-                          <button
-                            onClick={() => handleAddCoursePoint(String(project.id), String(child.id))}
-                            className="w-4 h-4 rounded-full border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/10 flex items-center justify-center transition-all group"
-                          >
-                            <Plus className="w-2 h-2 text-primary/60 group-hover:text-primary" />
-                          </button>
+                          {courseEditable && (
+                            <button
+                              onClick={() => handleAddCoursePointWithPermission(String(project.id), String(child.id))}
+                              className="w-4 h-4 rounded-full border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/10 flex items-center justify-center transition-all group"
+                            >
+                              <Plus className="w-2 h-2 text-primary/60 group-hover:text-primary" />
+                            </button>
+                          )}
                         </div>
                       ) : (
                         <div className="flex flex-wrap gap-2 justify-center">
@@ -226,12 +269,12 @@ export const ProjectMatrixTable = () => {
               })}
             </tr>
           ))}
-          {isEditingCourseMatrix && (
+           {isEditingCourseMatrix && courseEditable && (
             <tr className="border-b border-border hover:bg-white/50 transition-colors">
               <td className="p-3 text-center border-r border-border bg-secondary/20" style={{ width: "60px" }}></td>
               <td className="p-3 text-center border-r border-border bg-white/80" style={{ minWidth: "300px" }}>
                 <button
-                  onClick={handleAddProject}
+                  onClick={handleAddProjectWithPermission}
                   className="inline-flex items-center justify-center w-8 h-8 rounded-full border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/10 transition-all group"
                 >
                   <Plus className="w-4 h-4 text-primary/60 group-hover:text-primary" />

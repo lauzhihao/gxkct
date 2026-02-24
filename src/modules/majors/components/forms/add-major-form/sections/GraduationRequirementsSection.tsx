@@ -12,8 +12,13 @@ import { FileUpload } from "@/shared/components/ui/file-upload"
 import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 import { Popover, PopoverTrigger, PopoverContent } from "@/shared/components/ui/popover"
 import { SupportLabel } from "@/shared/components/support-label"
+import { usePermission } from "@/shared/hooks/use-permission"
+import type { PermissionAction } from "@/shared/permissions/types"
 import type { UseGraduationRequirementsResult } from "@/modules/majors/hooks/use-graduation-requirements"
 import type { UseMajorFormStateResult } from "@/modules/majors/hooks/use-major-form-state"
+
+const MANAGE_GRADUATION_REQUIREMENT_ACTION: PermissionAction = "major.course.create"
+const MANAGE_GRADUATION_REQUIREMENT_CONTEXT = { scope: "major" as const }
 
 type ToastInvoker = (options: {
   title: string
@@ -80,6 +85,32 @@ export function GraduationRequirementsSection({
   void focusedRequirementId
   void focusedIndicatorKey
 
+  const { can } = usePermission()
+  const canManageGraduationRequirement = can(
+    MANAGE_GRADUATION_REQUIREMENT_ACTION,
+    MANAGE_GRADUATION_REQUIREMENT_CONTEXT,
+  )
+
+  const handleAddGraduationRequirement = () => {
+    if (!can(MANAGE_GRADUATION_REQUIREMENT_ACTION, MANAGE_GRADUATION_REQUIREMENT_CONTEXT)) return
+    addGraduationRequirement()
+  }
+
+  const handleRemoveGraduationRequirement = (requirementId: string) => {
+    if (!can(MANAGE_GRADUATION_REQUIREMENT_ACTION, MANAGE_GRADUATION_REQUIREMENT_CONTEXT)) return
+    removeGraduationRequirement(requirementId)
+  }
+
+  const handleAddIndicator = (requirementId: string) => {
+    if (!can(MANAGE_GRADUATION_REQUIREMENT_ACTION, MANAGE_GRADUATION_REQUIREMENT_CONTEXT)) return
+    addIndicator(requirementId)
+  }
+
+  const handleRemoveIndicator = (requirementId: string, indicatorIndex: number) => {
+    if (!can(MANAGE_GRADUATION_REQUIREMENT_ACTION, MANAGE_GRADUATION_REQUIREMENT_CONTEXT)) return
+    removeIndicator(requirementId, indicatorIndex)
+  }
+
   return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -92,6 +123,7 @@ export function GraduationRequirementsSection({
               size="sm"
               className="gap-2 bg-primary text-white hover:bg-primary/90"
               onClick={() => {
+                // 非管理类交互: 当前仅提示，不执行数据管理操作
                 toast({
                   title: "提示",
                   description: "功能开发中，敬请期待！",
@@ -102,15 +134,17 @@ export function GraduationRequirementsSection({
               <Star className="w-4 h-4" />
               AI一键生成
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={addGraduationRequirement}
-              className="gap-2 bg-transparent"
-            >
-              <Plus className="w-4 h-4" />
-              添加毕业要求
-            </Button>
+            {canManageGraduationRequirement && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleAddGraduationRequirement}
+                className="gap-2 bg-transparent"
+              >
+                <Plus className="w-4 h-4" />
+                添加毕业要求
+              </Button>
+            )}
             <FileUpload
               buttonText="上传Excel"
               fileType="Excel文件"
@@ -164,11 +198,11 @@ export function GraduationRequirementsSection({
                         rows={4}
                       />
                     </div>
-                    {graduationRequirements.length > 1 && (
+                    {canManageGraduationRequirement && graduationRequirements.length > 1 && (
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => removeGraduationRequirement(requirement.id)}
+                        onClick={() => handleRemoveGraduationRequirement(requirement.id)}
                         className="gap-2 text-red-500 hover:text-red-600 hover:bg-red-50"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -179,15 +213,17 @@ export function GraduationRequirementsSection({
                   <div className="pl-4 border-l-2 border-primary/30 space-y-2">
                     <div className="flex items-center justify-between">
                       <Label className="text-xs text-muted-foreground">指标点</Label>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => addIndicator(requirement.id)}
-                        className="gap-1 h-7 text-xs"
-                      >
-                        <Plus className="w-3 h-3" />
-                        添加指标点
-                      </Button>
+                      {canManageGraduationRequirement && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleAddIndicator(requirement.id)}
+                          className="gap-1 h-7 text-xs"
+                        >
+                          <Plus className="w-3 h-3" />
+                          添加指标点
+                        </Button>
+                      )}
                     </div>
                     {requirement.indicators.map((indicator, indIndex) => {
                       const supportKey = `${requirement.id}-${indIndex}`
@@ -248,11 +284,11 @@ export function GraduationRequirementsSection({
                                     )}
                                   </PopoverContent>
                                 </Popover>
-                                {requirement.indicators.length > 1 && (
+                                {canManageGraduationRequirement && requirement.indicators.length > 1 && (
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    onClick={() => removeIndicator(requirement.id, indIndex)}
+                                    onClick={() => handleRemoveIndicator(requirement.id, indIndex)}
                                     className="gap-2 text-red-500 hover:text-red-600 hover:bg-red-50"
                                   >
                                     <Trash2 className="w-4 h-4" />

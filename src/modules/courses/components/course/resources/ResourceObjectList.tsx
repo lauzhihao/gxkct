@@ -35,10 +35,19 @@ export function ResourceObjectList({
   onFolderClick,
   isRootLevel,
 }: ResourceObjectListProps) {
+  const handleFolderTileClick = (onClick: () => void) => {
+    onClick()
+  }
+
+  const handleObjectToggleSelect = (objectId: string) => {
+    onToggleSelect(objectId)
+  }
+
   const renderFolderTile = (id: string, name: string, onClick: () => void) => (
     <button
+      type="button"
       key={id}
-      onClick={onClick}
+      onClick={() => handleFolderTileClick(onClick)}
       className={cn(baseTileClass, "hover:border-primary hover:bg-primary/80 group")}
     >
       <Folder className="h-10 w-10 text-primary transition-colors group-hover:text-white" />
@@ -82,8 +91,9 @@ export function ResourceObjectList({
         const Icon = getObjectIcon(entry.object.mimeType, entry.object.name)
         return (
           <button
+            type="button"
             key={entry.object.id}
-            onClick={() => onToggleSelect(entry.object.id)}
+            onClick={() => handleObjectToggleSelect(entry.object.id)}
             className={cn(
               baseTileClass,
               checked

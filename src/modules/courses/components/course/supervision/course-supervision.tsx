@@ -89,6 +89,11 @@ export function CourseSupervision({ courseId, collegeId }: CourseSupervisionProp
   const [isLoading, setIsLoading] = useState(false)
   const [selectedTask, setSelectedTask] = useState<TeachingSupervisoryTask | null>(null)
 
+  // 任务卡片点击仅用于页面内导航到详情，不属于管理类操作，不接入 PermissionAction 白名单
+  const handleOpenTaskDetail = (task: TeachingSupervisoryTask) => {
+    setSelectedTask(task)
+  }
+
   // 加载进行中的督导任务
   useEffect(() => {
     const loadSupervisionTasks = async () => {
@@ -143,7 +148,7 @@ export function CourseSupervision({ courseId, collegeId }: CourseSupervisionProp
             return (
               <button
                 key={task.id}
-                onClick={() => setSelectedTask(task)}
+                onClick={() => handleOpenTaskDetail(task)}
                 className="relative rounded-lg border border-border px-4 py-3 text-left hover:border-primary/50 hover:bg-accent/5 transition-colors group flex flex-col"
               >
                 {/* 左上角日期区间 + 右上角状态 */}

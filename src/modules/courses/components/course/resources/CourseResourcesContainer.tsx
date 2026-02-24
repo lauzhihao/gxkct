@@ -18,9 +18,12 @@ import { showError, showSuccess } from "@/shared/utils/toast-utils"
 
 interface CourseResourcesContainerProps {
   nodeId: string | null
+  courseEditable?: boolean
 }
 
-export function CourseResourcesContainer({ nodeId }: CourseResourcesContainerProps) {
+export function CourseResourcesContainer({ nodeId, courseEditable = false }: CourseResourcesContainerProps) {
+  const canManageCourseResource = courseEditable
+
   const {
     breadcrumbs,
     directories,
@@ -84,6 +87,7 @@ export function CourseResourcesContainer({ nodeId }: CourseResourcesContainerPro
   }, [])
 
   const handleDeleteSelected = useCallback(async () => {
+    if (!courseEditable) return
     if (!nodeId || !currentParentId || selectedIds.size === 0) return
     setIsDeleting(true)
     try {
@@ -105,7 +109,7 @@ export function CourseResourcesContainer({ nodeId }: CourseResourcesContainerPro
     } finally {
       setIsDeleting(false)
     }
-  }, [nodeId, currentParentId, selectedIds, refreshCurrentLevel])
+  }, [courseEditable, nodeId, currentParentId, selectedIds, refreshCurrentLevel])
 
   const calculateChecksum = useCallback(async (file: File) => {
     const buffer = await file.arrayBuffer()
@@ -116,6 +120,9 @@ export function CourseResourcesContainer({ nodeId }: CourseResourcesContainerPro
 
   const handleUploadFiles = useCallback(
     async (files: File[]) => {
+      if (!courseEditable) {
+        return []
+      }
       if (!nodeId || !currentParentId) {
         showError("请先进入具体目录再上传文件")
         return []
@@ -166,7 +173,7 @@ export function CourseResourcesContainer({ nodeId }: CourseResourcesContainerPro
       refreshCurrentLevel()
       return uploadedPaths
     },
-    [calculateChecksum, currentParentId, nodeId, refreshCurrentLevel],
+    [calculateChecksum, courseEditable, currentParentId, nodeId, refreshCurrentLevel],
   )
 
   const resetFolderForm = useCallback(() => {
@@ -175,10 +182,11 @@ export function CourseResourcesContainer({ nodeId }: CourseResourcesContainerPro
   }, [])
 
   const handleOpenCreateFolder = useCallback(() => {
+    if (!courseEditable) return
     resetFolderForm()
     setIsCreatingFolder(false)
     setIsCreateFolderOpen(true)
-  }, [resetFolderForm])
+  }, [courseEditable, resetFolderForm])
 
   const validateFolderName = useCallback((value: string) => {
     const trimmed = value.trim()
@@ -203,6 +211,7 @@ export function CourseResourcesContainer({ nodeId }: CourseResourcesContainerPro
   )
 
   const handleCreateFolderConfirm = useCallback(async () => {
+    if (!courseEditable) return
     const error = validateFolderName(newFolderName)
     if (error) {
       setFolderNameError(error)
@@ -231,7 +240,12 @@ export function CourseResourcesContainer({ nodeId }: CourseResourcesContainerPro
     } finally {
       setIsCreatingFolder(false)
     }
-  }, [currentParentId, newFolderName, nodeId, refreshCurrentLevel, resetFolderForm, validateFolderName])
+  }, [courseEditable, currentParentId, newFolderName, nodeId, refreshCurrentLevel, resetFolderForm, validateFolderName])
+
+  const handleInitializeFoldersWithPermission = useCallback(() => {
+    if (!courseEditable) return
+    initializeFolders()
+  }, [courseEditable, initializeFolders])
 
   const handleCreateFolderOpenChange = useCallback(
     (open: boolean) => {
@@ -289,6 +303,7 @@ export function CourseResourcesContainer({ nodeId }: CourseResourcesContainerPro
         {showActions ? (
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
             <ResourceSearchBar
+              courseEditable={courseEditable}
               searchTerm={searchTerm}
               onSearchChange={setSearchTerm}
               placeholder="搜索当前目录下的文件"
@@ -338,10 +353,12 @@ export function CourseResourcesContainer({ nodeId }: CourseResourcesContainerPro
         <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-primary/40 py-12 text-center">
           <FolderPlus className="h-10 w-10 text-primary" />
           <p className="text-sm text-muted-foreground">当前课程尚未初始化资源目录</p>
-          <Button onClick={initializeFolders} disabled={isInitializing} className="min-w-[160px]">
-            {isInitializing && <Spinner className="mr-2" />}
-            初始化目录
-          </Button>
+          {canManageCourseResource && (
+            <Button onClick={handleInitializeFoldersWithPermission} disabled={isInitializing} className="min-w-[160px]">
+              {isInitializing && <Spinner className="mr-2" />}
+              初始化目录
+            </Button>
+          )}
         </div>
       ) : isLoading ? (
         <LoadingState title="正在加载目录" />
@@ -373,16 +390,18 @@ export function CourseResourcesContainer({ nodeId }: CourseResourcesContainerPro
                   <Scissors className="h-4 w-4" />
                   剪切
                 </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="gap-1 transition-colors hover:bg-primary hover:text-white hover:[&>svg]:text-white"
-                  disabled={selectedCount === 0 || isDeleting}
-                  onClick={handleDeleteSelected}
-                >
-                  {isDeleting ? <Spinner className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
-                  删除
-                </Button>
+                {canManageCourseResource && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="gap-1 transition-colors hover:bg-primary hover:text-white hover:[&>svg]:text-white"
+                    disabled={selectedCount === 0 || isDeleting}
+                    onClick={handleDeleteSelected}
+                  >
+                    {isDeleting ? <Spinner className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
+                    删除
+                  </Button>
+                )}
               </div>
             </div>
           )}
@@ -417,14 +436,16 @@ export function CourseResourcesContainer({ nodeId }: CourseResourcesContainerPro
             >
               取消
             </Button>
-            <Button
-              onClick={handleCreateFolderConfirm}
-              disabled={isCreateFolderConfirmDisabled}
-              className="transition-colors hover:bg-primary hover:text-white"
-            >
-              {isCreatingFolder && <Spinner className="mr-2" />}
-              确认
-            </Button>
+            {canManageCourseResource && (
+              <Button
+                onClick={handleCreateFolderConfirm}
+                disabled={isCreateFolderConfirmDisabled}
+                className="transition-colors hover:bg-primary hover:text-white"
+              >
+                {isCreatingFolder && <Spinner className="mr-2" />}
+                确认
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -11,8 +11,12 @@ import { TreeApi } from "@/lib/api/tree-api"
 import { api } from "@/lib/api"
 import type { MajorMatrixItemResponse } from "@/lib/api/matrix-api"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip"
+import { usePermission } from "@/shared/hooks/use-permission"
+import type { PermissionAction } from "@/shared/permissions/types"
 
 const treeApiInstance = new TreeApi()
+const MATRIX_MANAGE_ACTION: PermissionAction = "major.course.create"
+const MATRIX_MANAGE_CONTEXT = { scope: "major" } as const
 
 // 课程项（从接口提取的精简结构）
 interface CourseInfo {
@@ -27,6 +31,8 @@ interface MajorMatrixProps {
 
 export function MajorMatrix(props: MajorMatrixProps) {
   const { node } = props
+  const { can } = usePermission()
+  const canManageMatrix = can(MATRIX_MANAGE_ACTION, MATRIX_MANAGE_CONTEXT)
   const [isEditingMatrix, setIsEditingMatrix] = useState(false)
   const [matrixSupportLevels, setMatrixSupportLevels] = useState<Record<string, string>>({})
   const [isSavingMatrix, setIsSavingMatrix] = useState(false)
@@ -119,16 +125,6 @@ export function MajorMatrix(props: MajorMatrixProps) {
     return []
   }
 
-  useEffect(() => {
-    if (!isEditingMatrix) return
-
-    const autoSaveInterval = setInterval(() => {
-      handleSaveMatrix(true)
-    }, 10000)
-
-    return () => clearInterval(autoSaveInterval)
-  }, [isEditingMatrix, matrixSupportLevels])
-
   // 检测毕业要求文本是否被截断
   useEffect(() => {
     const newClampedReqs = new Set<number>()
@@ -177,6 +173,8 @@ export function MajorMatrix(props: MajorMatrixProps) {
   }
 
   const handleSupportLevelChange = (courseId: string, reqId: number, indicatorIdx: number, value: string) => {
+    if (!canManageMatrix) return
+
     const key = `${courseId}-${reqId}-${indicatorIdx}`
     setMatrixSupportLevels((prev) => ({
       ...prev,
@@ -184,7 +182,9 @@ export function MajorMatrix(props: MajorMatrixProps) {
     }))
   }
 
-  const handleSaveMatrix = async (isAutoSave = false) => {
+  const handleSaveMatrix = useCallback(async (isAutoSave = false) => {
+    if (!canManageMatrix) return
+
     setIsSavingMatrix(true)
 
     // TODO: 调用API保存矩阵数据
@@ -194,12 +194,29 @@ export function MajorMatrix(props: MajorMatrixProps) {
     if (!isAutoSave) {
       setIsEditingMatrix(false)
     }
-  }
+  }, [canManageMatrix])
 
   const handleCancelMatrix = () => {
+    if (!canManageMatrix) return
+
     setMatrixSupportLevels({})
     setIsEditingMatrix(false)
   }
+
+  const handleStartEditMatrix = () => {
+    if (!canManageMatrix) return
+    setIsEditingMatrix(true)
+  }
+
+  useEffect(() => {
+    if (!canManageMatrix || !isEditingMatrix) return
+
+    const autoSaveInterval = setInterval(() => {
+      handleSaveMatrix(true)
+    }, 10000)
+
+    return () => clearInterval(autoSaveInterval)
+  }, [canManageMatrix, isEditingMatrix, matrixSupportLevels, handleSaveMatrix])
 
   const graduationRequirements = getGraduationRequirements()
 
@@ -247,17 +264,17 @@ export function MajorMatrix(props: MajorMatrixProps) {
                   )
                 )}
               </div>
-              {!isEditingMatrix ? (
+              {!isEditingMatrix && canManageMatrix ? (
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => setIsEditingMatrix(true)}
+                  onClick={handleStartEditMatrix}
                   className="gap-2 bg-transparent"
                 >
                   <Pencil className="w-3.5 h-3.5" />
                   编辑
                 </Button>
-              ) : (
+              ) : isEditingMatrix && canManageMatrix ? (
                 <div className="flex gap-2">
                   <Button
                     size="sm"
@@ -283,7 +300,7 @@ export function MajorMatrix(props: MajorMatrixProps) {
                     )}
                   </Button>
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
 
@@ -443,7 +460,7 @@ export function MajorMatrix(props: MajorMatrixProps) {
 
                           return (
                             <td key={key} className="p-3 text-center border-r border-border">
-                              {isEditingMatrix ? (
+                              {isEditingMatrix && canManageMatrix ? (
                                 <div className="flex items-center justify-center gap-2">
                                   <button
                                     onClick={() => handleSupportLevelChange(course.courseId, req.id, indicatorIdx, "强支撑")}

@@ -43,6 +43,10 @@ import type { TreeNode } from "@/types"
 import { useTreeSearch } from "@/shared/hooks/use-tree-search"
 import { useDepartmentMajors } from "@/modules/departments/hooks/use-department-majors"
 import { PermissionGate } from "@/shared/components/permission-gate"
+import { usePermission } from "@/shared/hooks/use-permission"
+
+const CREATE_SCHOOL_ACTION = "root.college.create"
+const CREATE_SCHOOL_CONTEXT = { scope: "root" } as const
 
 function highlightText(text: string, searchTerm: string): React.ReactNode {
   if (!searchTerm.trim()) {
@@ -447,6 +451,7 @@ export const TreeView = React.forwardRef<
   onDepartmentMajorsChange,
   onToggleExpand,
 }: TreeViewProps, ref): ReactElement {
+  const { can } = usePermission()
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(["root"]))
   const [visibleCourseCounts, setVisibleCourseCounts] = useState<Map<string, number>>(new Map())
   const { searchTerm, setSearchTerm, isSearching, searchResults, clearSearch } = useTreeSearch()
@@ -550,6 +555,7 @@ export const TreeView = React.forwardRef<
 
   const handleCreateSchool = () => {
     if (!newSchoolName.trim() || !onAddSchool) return
+    if (!can(CREATE_SCHOOL_ACTION, CREATE_SCHOOL_CONTEXT)) return
 
     onAddSchool({
       nodeName: newSchoolName,
@@ -872,7 +878,7 @@ export const TreeView = React.forwardRef<
             </div>
 
             {onAddSchool && (
-              <PermissionGate action="root.college.create" context={{ scope: "root" }}>
+              <PermissionGate action={CREATE_SCHOOL_ACTION} context={CREATE_SCHOOL_CONTEXT}>
                 <Dialog open={isAddSchoolDialogOpen} onOpenChange={setIsAddSchoolDialogOpen}>
                   <DialogTrigger asChild>
                     <Button

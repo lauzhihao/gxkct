@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import type { TreeNode } from "@/types"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
 import { Button } from "@/shared/components/ui/button"
@@ -29,6 +29,10 @@ import {
 } from "@/shared/components/ui/alert-dialog"
 import React from "react"
 import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
+import { usePermission } from "@/shared/hooks/use-permission"
+import type { PermissionAction } from "@/shared/permissions/types"
+import { getStoredAuthUser } from "@/lib/api/auth-config"
+import { extractNumericId } from "@/shared/utils/utils"
 
 const MAJOR_TABS = {
   courses: "课程管理",
@@ -36,6 +40,23 @@ const MAJOR_TABS = {
   matrix: "专业矩阵",
   "teaching-quality": "质量评价",
 } as const
+
+const EDIT_MAJOR_ACTION: PermissionAction = "major.detail.edit"
+const DELETE_MAJOR_ACTION: PermissionAction = "department.major.create"
+const MANAGE_MAJOR_COURSE_ACTION: PermissionAction = "major.course.create"
+
+interface ManagerIdentity {
+  value: string
+  label: string
+}
+
+interface NodeMetadataWithManagers {
+  managers?: Array<Partial<ManagerIdentity>>
+}
+
+function normalizeIdentity(value: string | number | null | undefined): string {
+  return String(value ?? "").trim().toLowerCase()
+}
 
 type MajorTabKey = keyof typeof MAJOR_TABS
 const DEFAULT_MAJOR_TAB: MajorTabKey = "courses"
@@ -46,25 +67,29 @@ const SemesterSelector = React.memo(({
   onChange,
   semesters,
   onAddSemester,
-  generateDefaultSemesterName
+  generateDefaultSemesterName,
+  canManageMajorCourse
 }: {
   value: string
   onChange: (value: string) => void
   semesters: Array<{ value: string; label: string }>
   onAddSemester: (semesterName: string, shouldSwitch?: boolean) => void
   generateDefaultSemesterName: () => string
+  canManageMajorCourse: boolean
 }) => {
   const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false)
   const [newSemesterName, setNewSemesterName] = React.useState("")
   const [shouldSwitchImmediately, setShouldSwitchImmediately] = React.useState(false)
 
   const handleOpenDialog = () => {
+    if (!canManageMajorCourse) return
     setNewSemesterName(generateDefaultSemesterName())
     setShouldSwitchImmediately(false)
     setIsAddDialogOpen(true)
   }
 
   const handleConfirmAdd = () => {
+    if (!canManageMajorCourse) return
     if (newSemesterName.trim()) {
       onAddSemester(newSemesterName, shouldSwitchImmediately)
       setIsAddDialogOpen(false)
@@ -98,15 +123,17 @@ const SemesterSelector = React.memo(({
             ))}
           </SelectContent>
         </Select>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="gap-2 hover:bg-primary/10"
-          onClick={handleOpenDialog}
-          title="添加新学期"
-        >
-          <Plus className="w-4 h-4 text-primary" />
-        </Button>
+        {canManageMajorCourse && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="gap-2 hover:bg-primary/10"
+            onClick={handleOpenDialog}
+            title="添加新学期"
+          >
+            <Plus className="w-4 h-4 text-primary" />
+          </Button>
+        )}
       </div>
 
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -202,7 +229,47 @@ export function MajorDetail(props: MajorDetailProps) {
   ])
   const [isConfirmingSemesterChange, setIsConfirmingSemesterChange] = useState(false)
   const [pendingSemesterValue, setPendingSemesterValue] = useState<string | null>(null)
+  const [isMajorOwner, setIsMajorOwner] = useState(false)
   const { setActivePage } = useActivePageTracker()
+  const { can } = usePermission()
+
+  const authUser = getStoredAuthUser()
+  const currentMajorId = node.id ? Number(node.id) : extractNumericId(node.nodeId ?? "")
+  const managerIdentities = useMemo(() => {
+    const metadataManagers = ((node.metadata as NodeMetadataWithManagers | undefined)?.managers ?? [])
+    const rawManagerList = [...(node.manager ?? []), ...metadataManagers]
+
+    return rawManagerList
+      .filter((manager): manager is ManagerIdentity => Boolean(manager?.label || manager?.value))
+      .map((manager) => ({
+        label: normalizeIdentity(manager.label),
+        value: normalizeIdentity(manager.value),
+      }))
+  }, [node.manager, node.metadata])
+  const currentUserIdentities = useMemo(
+    () => new Set([
+      normalizeIdentity(authUser?.userName),
+      normalizeIdentity(authUser?.email),
+      normalizeIdentity(authUser?.id),
+    ].filter(Boolean)),
+    [authUser?.email, authUser?.id, authUser?.userName],
+  )
+
+  useEffect(() => {
+    if (!authUser || authUser.permissionId !== 2001 || !currentMajorId || managerIdentities.length === 0) {
+      setIsMajorOwner(false)
+      return
+    }
+
+    const matchedByTreeNode = managerIdentities.some((manager) =>
+      currentUserIdentities.has(manager.label) || currentUserIdentities.has(manager.value),
+    )
+    setIsMajorOwner(matchedByTreeNode)
+  }, [authUser, currentMajorId, currentUserIdentities, managerIdentities])
+
+  const canEditMajor = can(EDIT_MAJOR_ACTION, { scope: "major" }) && isMajorOwner
+  const canDeleteMajor = can(DELETE_MAJOR_ACTION, { scope: "department" })
+  const canManageMajorCourse = can(MANAGE_MAJOR_COURSE_ACTION, { scope: "major" })
 
   useEffect(() => {
     if (!node) return
@@ -246,6 +313,7 @@ export function MajorDetail(props: MajorDetailProps) {
 
   // 处理添加新学期
   const handleAddSemester = useCallback((semesterName: string, shouldSwitch: boolean = false) => {
+    if (!canManageMajorCourse) return
     // 生成学期值（基于名称）
     const yearMatch = semesterName.match(/(\d{4})年/)
     const isFall = semesterName.includes("秋季")
@@ -268,7 +336,7 @@ export function MajorDetail(props: MajorDetailProps) {
     if (shouldSwitch) {
       setSelectedSemester(newValue)
     }
-  }, [semesters])
+  }, [canManageMajorCourse, semesters])
 
   // 学期选择处理器 - 使用 useCallback 避免重复创建
   const handleSemesterChange = useCallback((value: string) => {
@@ -312,6 +380,7 @@ export function MajorDetail(props: MajorDetailProps) {
   }, [node?.id])
 
   const handleDeleteNode = (nodeId: string) => {
+    if (!canDeleteMajor) return
     const currentNodeId = node.id ?? node.nodeId
     if (onDeleteNode) {
       onDeleteNode(nodeId)
@@ -323,6 +392,7 @@ export function MajorDetail(props: MajorDetailProps) {
   }
 
   const handleEditMajorFormSubmit = (majorData: any) => {
+    if (!canEditMajor) return
     const currentNodeId = node.id ?? node.nodeId
     if (onUpdateNode && currentNodeId) {
       onUpdateNode(currentNodeId, majorData)
@@ -331,6 +401,7 @@ export function MajorDetail(props: MajorDetailProps) {
   }
 
   const handleAddCourseSubmit = (data: any) => {
+    if (!canManageMajorCourse) return
     const currentNodeId = node.id ?? node.nodeId
     if (onAddCourse && currentNodeId) {
       onAddCourse(currentNodeId, data)
@@ -341,6 +412,21 @@ export function MajorDetail(props: MajorDetailProps) {
   // 课程创建成功后的回调，刷新课程列表
   const handleQuickCreateCourseSuccess = () => {
     setCoursesRefreshKey((prev) => prev + 1)
+  }
+
+  const handleOpenEditMajor = () => {
+    if (!canEditMajor) return
+    setIsEditingMajor(true)
+  }
+
+  const handleOpenQuickCreateCourse = () => {
+    if (!canManageMajorCourse) return
+    setIsQuickCreateCourseOpen(true)
+  }
+
+  const handleQuickCreateCourseOpenChange = (open: boolean) => {
+    if (open && !canManageMajorCourse) return
+    setIsQuickCreateCourseOpen(open)
   }
 
   if (isEditingMajor && node.type === "major") {
@@ -383,11 +469,11 @@ export function MajorDetail(props: MajorDetailProps) {
             </div>
             <div className="flex flex-col gap-2 items-end flex-shrink-0">
               <div className="flex gap-2 justify-end">
-                {onUpdateNode && (
+                {onUpdateNode && canEditMajor && (
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => setIsEditingMajor(true)}
+                    onClick={handleOpenEditMajor}
                     className="gap-2 hover:bg-primary/10"
                   >
                     <Pencil className="w-4 h-4 text-primary" />
@@ -400,6 +486,7 @@ export function MajorDetail(props: MajorDetailProps) {
                 semesters={semesters}
                 onAddSemester={handleAddSemester}
                 generateDefaultSemesterName={generateDefaultSemesterName}
+                canManageMajorCourse={canManageMajorCourse}
               />
             </div>
           </div>
@@ -435,7 +522,7 @@ export function MajorDetail(props: MajorDetailProps) {
                 node={node}
                 currentUser={currentUser}
                 onNodeSelect={onNodeSelect}
-                onAddCourse={() => setIsQuickCreateCourseOpen(true)}
+                onAddCourse={handleOpenQuickCreateCourse}
                 majorCourses={majorCourses}
                 departmentId={node.parentId?.replace("dept_", "")}
                 refreshKey={coursesRefreshKey}
@@ -451,7 +538,7 @@ export function MajorDetail(props: MajorDetailProps) {
 
       <QuickCreateCourseDialog
         open={isQuickCreateCourseOpen}
-        onOpenChange={setIsQuickCreateCourseOpen}
+        onOpenChange={handleQuickCreateCourseOpenChange}
         onSuccess={handleQuickCreateCourseSuccess}
         majorId={node.id ?? node.nodeId ?? ""}
         majorName={node.name ?? node.nodeName ?? ""}
@@ -487,9 +574,11 @@ export function MajorDetail(props: MajorDetailProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={() => handleDeleteNode(node.id ?? node.nodeId ?? "")} className="bg-red-500 hover:bg-red-600">
-              确认删除
-            </AlertDialogAction>
+            {canDeleteMajor && (
+              <AlertDialogAction onClick={() => handleDeleteNode(node.id ?? node.nodeId ?? "")} className="bg-red-500 hover:bg-red-600">
+                确认删除
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -62,6 +62,8 @@ import { ChatInputArea } from "./ai-assistant/chat-input-area"
 import { createConnectionMenuHandler } from "./ai-assistant/connection-menu-handlers"
 import { GeminiDemoDrawer } from "./ai-assistant/gemini-demo-drawer"
 import { useDebugMode } from "@/shared/hooks/use-debug-mode"
+import { usePermission } from "@/shared/hooks/use-permission"
+import type { PermissionAction } from "@/shared/permissions/types"
 
 // CanvasComponentType 到 FlowNodeType 的映射（用于获取颜色配置）
 const CANVAS_TO_FLOW_TYPE: Record<CanvasComponentType, string> = {
@@ -85,6 +87,7 @@ const CANVAS_TO_FLOW_TYPE: Record<CanvasComponentType, string> = {
 
 const INDICATOR_DEFAULT_TEXT = "正在准备响应..."
 const INDICATOR_UPDATE_THROTTLE_MS = 220
+const GEMINI_ENTRY_ACTION: PermissionAction = "major.course.create"
 
 type IndicatorSource = "processing" | "status" | "thinking"
 
@@ -148,7 +151,8 @@ export function AiAssistantDrawer({
   treeData = null,
   initialCanvasData = null,
 }: AiAssistantDrawerProps) {
-  const showGeminiEntry = useDebugMode()
+  const { can } = usePermission()
+  const showGeminiEntry = useDebugMode() && can(GEMINI_ENTRY_ACTION, { scope: "major" })
   const isCourseDetailCanvas = initialCanvasData !== null
   const [isGeminiDemoOpen, setIsGeminiDemoOpen] = useState(false)
   const [inputMessage, setInputMessage] = useState("")
@@ -1838,6 +1842,9 @@ export function AiAssistantDrawer({
                     size="icon"
                     className="h-8 w-8 rounded-full bg-primary/10 hover:bg-primary/20 text-primary"
                     onClick={() => {
+                      if (!showGeminiEntry) {
+                        return
+                      }
                       onOpenChange(false)
                       setIsGeminiDemoOpen(true)
                     }}

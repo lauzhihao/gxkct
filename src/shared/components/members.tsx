@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo, useRef } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
-import { Card, CardContent } from "@/shared/components/ui/card"
 import { Switch } from "@/shared/components/ui/switch"
 import { Plus, Search, User, Pencil, Trash2, RotateCcw, Loader2, Check } from "lucide-react"
 import {
@@ -40,8 +39,10 @@ import { ChevronDown } from "lucide-react"
 import { cn, extractNumericId } from "@/shared/utils/utils"
 import type { TreeNode, NodeType } from "@/types"
 import { api } from "@/lib/api"
+import { getStoredAuthUser } from "@/lib/api/auth-config"
 import { Skeleton } from "@/shared/components/ui/skeleton"
 import { PermissionGate } from "@/shared/components/permission-gate"
+import { usePermission } from "@/shared/hooks/use-permission"
 import type { PermissionAction, PermissionContext } from "@/shared/permissions/types"
 import { getAllPermissionRoleNames, getMemberRoleConfig } from "@/shared/permissions/roles"
 
@@ -74,18 +75,22 @@ interface OrganizationOption {
   parentDepartmentNodeId?: string
 }
 
+interface CreatedUserFeedback {
+  name: string
+  account: string
+  password: string
+}
+
 type MemberScope = Exclude<PermissionContext["scope"], "root" | undefined>
 type MemberOperation = "create" | "edit" | "delete" | "toggle" | "resetPassword"
 
 const UNIVERSITY_ROLE_PERMISSION_MAP: Record<string, number> = {
-  学校管理员: 1,
   校级管理员: 1,
-  院系管理员: 1001,
+  系部管理员: 1001,
   质量督导员: 1031,
-  质检管理员: 1039,
-  指导老师: 1901,
+  质量管理员: 1039,
   专业管理员: 2001,
-  课程管理员: 3001,
+  任课教师: 3001,
   高级管理员: 88,
 }
 
@@ -114,12 +119,14 @@ export function Members({ node }: MembersProps) {
   const deleteMemberAction = getMemberAction(memberScope, "delete")
   const toggleMemberAction = getMemberAction(memberScope, "toggle")
   const resetPasswordMemberAction = getMemberAction(memberScope, "resetPassword")
+  const { can } = usePermission()
   const nodeId = node.id ?? node.nodeId
   const roleConfig = getMemberRoleConfig(nodeType)
   const availableRoles = nodeType === "university" ? getAllPermissionRoleNames() : roleConfig.roles
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false)
   const [userRolePopoverOpen, setUserRolePopoverOpen] = useState(false)
   const [newUserAccount, setNewUserAccount] = useState("")
+  const [accountFieldError, setAccountFieldError] = useState<string | null>(null)
   const [newUserName, setNewUserName] = useState("")
   const [newUserRole, setNewUserRole] = useState(roleConfig.defaultRole)
   const [newUserUniversity, setNewUserUniversity] = useState("")
@@ -141,11 +148,23 @@ export function Members({ node }: MembersProps) {
   const [resetPasswordStatusByUserId, setResetPasswordStatusByUserId] = useState<Record<number, ResetPasswordStatus>>({})
   const [toggleStatusLoadingByUserId, setToggleStatusLoadingByUserId] = useState<Record<number, boolean>>({})
   const [deleteLoadingByUserId, setDeleteLoadingByUserId] = useState<Record<number, boolean>>({})
+  const [createdUserFeedback, setCreatedUserFeedback] = useState<CreatedUserFeedback | null>(null)
   const resetPasswordTimerRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({})
 
-  const resetDialogForm = () => {
-    setIsAddUserDialogOpen(false)
+  const canPerformMemberAction = (action: PermissionAction | null): boolean => {
+    if (!action || !memberScope) return false
+    return can(action, { scope: memberScope })
+  }
+
+  const canCreateMember = canPerformMemberAction(createMemberAction)
+  const canEditMember = canPerformMemberAction(editMemberAction)
+  const canDeleteMember = canPerformMemberAction(deleteMemberAction)
+  const canToggleMember = canPerformMemberAction(toggleMemberAction)
+  const canResetMemberPassword = canPerformMemberAction(resetPasswordMemberAction)
+
+  const resetAddUserFormState = () => {
     setNewUserAccount("")
+    setAccountFieldError(null)
     setNewUserName("")
     setNewUserRole(roleConfig.defaultRole)
     setNewUserUniversity("")
@@ -159,6 +178,24 @@ export function Members({ node }: MembersProps) {
     setSelectedDepartmentNodeId(null)
     setSelectedOrganizationNodeId(null)
     setEditingRelativeId(null)
+    setCreatedUserFeedback(null)
+  }
+
+  const resetDialogForm = () => {
+    setIsAddUserDialogOpen(false)
+    resetAddUserFormState()
+  }
+
+  const handleAddUserDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      resetDialogForm()
+      return
+    }
+    if (!editingUserId && !canCreateMember) {
+      console.warn("[Members] open create member dialog blocked by whitelist")
+      return
+    }
+    setIsAddUserDialogOpen(true)
   }
 
   useEffect(() => {
@@ -230,7 +267,7 @@ export function Members({ node }: MembersProps) {
     }
 
     loadOrganizationOptions()
-  }, [isAddUserDialogOpen, node.nodeId, nodeType])
+  }, [isAddUserDialogOpen, node.nodeId, nodeId, nodeType])
 
   useEffect(() => {
     setDepartmentSearch("")
@@ -242,8 +279,10 @@ export function Members({ node }: MembersProps) {
   }, [newUserRole])
 
   useEffect(() => {
+    const timerMap = resetPasswordTimerRef.current
+
     return () => {
-      Object.values(resetPasswordTimerRef.current).forEach((timer) => {
+      Object.values(timerMap).forEach((timer) => {
         clearTimeout(timer)
       })
     }
@@ -252,7 +291,7 @@ export function Members({ node }: MembersProps) {
   useEffect(() => {
     if (!isAddUserDialogOpen || nodeType !== "university" || !editingUserId || editingRelativeId === null) return
 
-    if (newUserRole === "院系管理员") {
+    if (newUserRole === "系部管理员") {
       const department = organizationOptions.find(
         (item) => item.nodeType === "department" && extractNumericId(item.nodeId) === editingRelativeId
       )
@@ -328,21 +367,7 @@ export function Members({ node }: MembersProps) {
           }))
           setUsers(deptUsers)
         } else {
-          // 其他节点类型使用本地存储的用户数据
-          const response = await api.users.getUsers(nodeId)
-          // 数据类型转换：user-api.ts 的 User -> MemberUser
-          const otherUsers: MemberUser[] = (response.data ?? []).map((user) => ({
-            id: Number(user.id),
-            account: "",
-            name: user.name,
-            belong: "",
-            relative: 0,
-            auth: user.role === "admin" ? "高级管理员" : "指导老师",
-            permission: user.role === "admin" ? 1 : 0,
-            old: false,
-            disabled: false,
-          }))
-          setUsers(otherUsers)
+          setUsers([])
         }
       } catch (error) {
         console.error("[Members] 加载成员失败:", error)
@@ -377,21 +402,63 @@ export function Members({ node }: MembersProps) {
     return true
   }
 
+  const refreshDepartmentUsers = async (): Promise<boolean> => {
+    const refreshResponse = await api.tree.getDepartmentUsers(nodeId)
+    if (refreshResponse.error) {
+      console.error("[Members] refresh department users failed:", refreshResponse.error)
+      return false
+    }
+
+    const deptUsers: MemberUser[] = (refreshResponse.data ?? []).map((user) => ({
+      id: Number(user.id),
+      account: user.account ?? "",
+      name: user.name,
+      belong: user.belong ?? "",
+      relative: user.relative ?? 0,
+      auth: user.auth,
+      permission: user.permission ?? 0,
+      old: user.old ?? false,
+      disabled: user.disabled ?? false,
+      university: undefined,
+      department: undefined,
+      major: undefined,
+      courseCount: undefined,
+      courses: undefined,
+    }))
+
+    setUsers(deptUsers)
+    return true
+  }
+
   const handleSaveUser = async () => {
     if (!node || !newUserAccount || !newUserName) return
 
-    if (nodeType === "university") {
+    if (!editingUserId && !canCreateMember) {
+      console.warn("[Members] create member blocked by whitelist")
+      return
+    }
+
+    if (editingUserId && !canEditMember) {
+      console.warn("[Members] edit member blocked by whitelist")
+      return
+    }
+
+    if (nodeType === "university" || nodeType === "department") {
       const editingUser = editingUserId ? users.find((user) => user.id === editingUserId) : null
       const permissionId = UNIVERSITY_ROLE_PERMISSION_MAP[newUserRole] ?? editingUser?.permission
       const parsedCollegeId = extractNumericId(nodeId)
-      const collegeId = parsedCollegeId || Number(nodeId)
+      const authUser = getStoredAuthUser()
+      const collegeId =
+        nodeType === "university"
+          ? parsedCollegeId || Number(nodeId)
+          : authUser?.collegeId ?? 0
       const selectedDepartment = organizationOptions.find(
         (item) => item.nodeType === "department" && item.nodeId === selectedDepartmentNodeId
       )
       const selectedMajor = organizationOptions.find(
         (item) => item.nodeType === "major" && item.nodeId === selectedOrganizationNodeId
       )
-      const isDepartmentAdmin = newUserRole === "院系管理员"
+      const isDepartmentAdmin = newUserRole === "系部管理员"
       const isMajorAdmin = newUserRole === "专业管理员"
       const requiresRelativeNode = isDepartmentAdmin || isMajorAdmin
 
@@ -405,13 +472,18 @@ export function Members({ node }: MembersProps) {
         return
       }
 
-      const relativeId = isDepartmentAdmin
-        ? extractNumericId(selectedDepartment?.nodeId ?? "")
-        : isMajorAdmin
-          ? extractNumericId(selectedMajor?.nodeId ?? "")
-          : 0
+      const relativeId =
+        nodeType === "department"
+          ? extractNumericId(nodeId)
+          : isDepartmentAdmin
+            ? extractNumericId(selectedDepartment?.nodeId ?? "")
+            : isMajorAdmin
+              ? extractNumericId(selectedMajor?.nodeId ?? "")
+              : 0
 
-      if (!permissionId || Number.isNaN(collegeId) || collegeId <= 0 || (requiresRelativeNode && !relativeId)) {
+      const shouldValidateRelativeId = nodeType === "department" || requiresRelativeNode
+
+      if (!permissionId || Number.isNaN(collegeId) || collegeId <= 0 || (shouldValidateRelativeId && !relativeId)) {
         console.error("[Members] invalid university member payload", {
           editingUserId,
           newUserRole,
@@ -435,9 +507,38 @@ export function Members({ node }: MembersProps) {
         ])
 
         if (createResponse.error) {
-          console.error("[Members] create university user failed:", createResponse.error)
+          const errorMessage = createResponse.error || "新增失败，请检查账号是否重复"
+          const normalizedErrorMessage = errorMessage.toLowerCase()
+          const isBusinessValidationError =
+            errorMessage.includes("已存在") ||
+            errorMessage.includes("重复") ||
+            errorMessage.includes("不合法") ||
+            errorMessage.includes("无效")
+          const isSystemError =
+            normalizedErrorMessage.includes("failed to fetch") ||
+            normalizedErrorMessage.includes("timeout") ||
+            normalizedErrorMessage.includes("network") ||
+            /http\s5\d\d/.test(normalizedErrorMessage)
+
+          if (isSystemError) {
+            console.error("[Members] create managed user failed:", errorMessage)
+          } else if (!isBusinessValidationError) {
+            console.warn("[Members] create managed user rejected:", errorMessage)
+          }
+
+          setAccountFieldError(errorMessage)
           return
         }
+
+        const createdUser = createResponse.data?.[0]
+        const createdUserName = createdUser?.userName ?? newUserName
+        const createdUserAccount = createdUser?.email ?? newUserAccount
+        const initialPassword = createdUser?.password ?? ""
+        setCreatedUserFeedback({
+          name: createdUserName,
+          account: createdUserAccount,
+          password: initialPassword,
+        })
       } else {
         if (!editingUser) {
           console.error("[Members] editing user not found")
@@ -459,12 +560,17 @@ export function Members({ node }: MembersProps) {
         }
       }
 
-      const refreshed = await refreshUniversityUsers()
+      const refreshed =
+        nodeType === "university"
+          ? await refreshUniversityUsers()
+          : await refreshDepartmentUsers()
       if (!refreshed) {
         return
       }
 
-      resetDialogForm()
+      if (editingUserId) {
+        resetDialogForm()
+      }
       return
     }
 
@@ -509,8 +615,12 @@ export function Members({ node }: MembersProps) {
 
   const handleToggleUserEnabled = async (userId: number) => {
     if (!node) return
+    if (!canToggleMember) {
+      console.warn("[Members] toggle member blocked by whitelist")
+      return
+    }
 
-    if (nodeType === "university") {
+    if (nodeType === "university" || nodeType === "department") {
       const targetUser = users.find((user) => user.id === userId)
       if (!targetUser) return
       if (toggleStatusLoadingByUserId[userId]) return
@@ -530,7 +640,11 @@ export function Members({ node }: MembersProps) {
         return
       }
 
-      await refreshUniversityUsers()
+      if (nodeType === "university") {
+        await refreshUniversityUsers()
+      } else {
+        await refreshDepartmentUsers()
+      }
       return
     }
 
@@ -540,6 +654,12 @@ export function Members({ node }: MembersProps) {
   }
 
   const handleEditUser = (user: MemberUser) => {
+    if (!canEditMember) {
+      console.warn("[Members] edit member dialog blocked by whitelist")
+      return
+    }
+
+    setCreatedUserFeedback(null)
     setEditingUserId(user.id)
     setNewUserAccount(user.account)
     setNewUserName(user.name)
@@ -553,8 +673,12 @@ export function Members({ node }: MembersProps) {
 
   const handleDeleteUser = async (userId: number) => {
     if (!node) return
+    if (!canDeleteMember) {
+      console.warn("[Members] delete member blocked by whitelist")
+      return
+    }
 
-    if (nodeType === "university") {
+    if (nodeType === "university" || nodeType === "department") {
       if (deleteLoadingByUserId[userId]) return
 
       setDeleteLoadingByUserId((prev) => ({ ...prev, [userId]: true }))
@@ -568,7 +692,11 @@ export function Members({ node }: MembersProps) {
         return
       }
 
-      await refreshUniversityUsers()
+      if (nodeType === "university") {
+        await refreshUniversityUsers()
+      } else {
+        await refreshDepartmentUsers()
+      }
       return
     }
 
@@ -578,6 +706,11 @@ export function Members({ node }: MembersProps) {
   }
 
   const handleResetPassword = async (userId: number) => {
+    if (!canResetMemberPassword) {
+      console.warn("[Members] reset password blocked by whitelist")
+      return
+    }
+
     if (resetPasswordStatusByUserId[userId] === "loading") return
 
     const existingTimer = resetPasswordTimerRef.current[userId]
@@ -642,7 +775,7 @@ export function Members({ node }: MembersProps) {
     return matchesSearch && matchesRole
   })
 
-  const isDepartmentAdmin = newUserRole === "院系管理员"
+  const isDepartmentAdmin = newUserRole === "系部管理员"
   const isMajorAdmin = newUserRole === "专业管理员"
   const shouldRequireOrganization = nodeType === "university" && (isDepartmentAdmin || isMajorAdmin)
 
@@ -674,8 +807,11 @@ export function Members({ node }: MembersProps) {
     (!requiresDepartmentSelection || Boolean(selectedDepartmentOption)) &&
     (!requiresMajorSelection || (Boolean(selectedDepartmentOption) && Boolean(selectedMajorOption))) &&
     hasDepartmentResult &&
-    hasMajorResult
+    hasMajorResult &&
+    (editingUserId ? canEditMember : canCreateMember)
+  const canSaveCurrentForm = editingUserId ? canEditMember : canCreateMember
   const editingResetPasswordStatus = editingUserId ? resetPasswordStatusByUserId[editingUserId] ?? "idle" : "idle"
+  const isCreateSuccessView = Boolean(createdUserFeedback && !editingUserId)
 
   // 分页相关状态
   const [currentPage, setCurrentPage] = useState(1)
@@ -685,77 +821,8 @@ export function Members({ node }: MembersProps) {
   const endIndex = startIndex + pageSize
   const displayedUsers = filteredUsers.slice(startIndex, endIndex)
 
-  // 根据节点类型计算统计数据
-  const getStatistics = () => {
-    if (nodeType === "department") {
-      // 院系级：统计院系管理员、专业管理员、指导老师
-      return [
-        {
-          count: users.filter((u) => u.auth === "院系管理员").length,
-          label: "院系管理员",
-          color: "primary",
-        },
-        {
-          count: users.filter((u) => u.auth === "专业管理员").length,
-          label: "专业管理员",
-          color: "accent",
-        },
-        {
-          count: users.filter((u) => u.auth === "指导老师").length,
-          label: "指导老师",
-          color: "chart-3",
-        },
-      ]
-    } else {
-      // 其他级别：使用原有逻辑
-      const firstRole = roleConfig.roles[0] ?? roleConfig.defaultRole
-      const secondRole = roleConfig.roles[1]
-      const adminCount = users.filter((u) => u.auth === firstRole).length
-      const secondRoleCount = secondRole ? users.filter((u) => u.auth === secondRole).length : 0
-
-      return [
-        {
-          count: users.length,
-          label: "总成员数",
-          color: "primary",
-        },
-        {
-          count: adminCount,
-          label: roleConfig.labels[firstRole] ?? roleConfig.defaultRole,
-          color: "accent",
-        },
-        {
-          count: secondRoleCount,
-          label: secondRole ? roleConfig.labels[secondRole] ?? secondRole : "其他成员",
-          color: "chart-3",
-        },
-      ]
-    }
-  }
-
-  const statistics = getStatistics()
-
   return (
     <div className="space-y-6">
-      {/* 院系级显示统计卡片 */}
-      {nodeType === "department" && (
-        <div className="grid grid-cols-3 gap-4">
-          {statistics.map((stat, index) => (
-            <Card
-              key={index}
-              className={`bg-gradient-to-br from-${stat.color}/10 to-${stat.color}/5 border-${stat.color}/20`}
-            >
-              <CardContent className="p-4">
-                <div className="flex flex-col items-center justify-center gap-2">
-                  <div className={`text-3xl font-bold text-${stat.color}`}>{stat.count}</div>
-                  <div className={`text-sm text-${stat.color}/80`}>{stat.label}</div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -772,7 +839,7 @@ export function Members({ node }: MembersProps) {
               />
             </div>
             {/* 角色快速筛选按钮组 */}
-            {nodeType === "university" && uniqueRoles.length > 1 && (
+            {uniqueRoles.length > 1 && (
               <div className="flex items-center gap-1 flex-wrap">
                 {uniqueRoles.map((role) => (
                   <Button
@@ -802,18 +869,7 @@ export function Members({ node }: MembersProps) {
                 size="sm"
                 variant="ghost"
                 onClick={() => {
-                  setEditingUserId(null)
-                  setNewUserAccount("")
-                  setNewUserName("")
-                  setNewUserRole(roleConfig.defaultRole)
-                  setNewUserUniversity("")
-                  setNewUserDepartment("")
-                  setNewUserMajor("")
-                  setEditingRelativeId(null)
-                  setDepartmentSearch("")
-                  setMajorSearch("")
-                  setSelectedDepartmentNodeId(null)
-                  setSelectedOrganizationNodeId(null)
+                  resetAddUserFormState()
                   setIsAddUserDialogOpen(true)
                 }}
                 className="gap-2 hover:bg-primary/10 whitespace-nowrap"
@@ -873,8 +929,8 @@ export function Members({ node }: MembersProps) {
             // 根据节点类型和角色显示对应的机构归属标签
             let affiliationTag = null
 
-            if (nodeType === "university") {
-              // 学校级：显示所属单位（使用与角色标签相同的样式）
+            if (nodeType === "university" || nodeType === "department") {
+              // 学校级与院系级：显示所属单位（使用与角色标签相同的样式）
               if (user.belong) {
                 affiliationTag = (
                   <span className="px-2 py-1 rounded bg-primary/20 border border-primary/30 text-xs font-medium text-primary whitespace-nowrap">
@@ -882,18 +938,15 @@ export function Members({ node }: MembersProps) {
                   </span>
                 )
               }
-            } else if (nodeType === "department") {
-              // 院系级：不显示机构归属
-              affiliationTag = null
             } else {
               // 其他级别：根据角色显示机构归属
-              if (user.auth === "学校管理员" && user.university) {
+              if (user.auth === "校级管理员" && user.university) {
                 affiliationTag = (
                   <span className="px-2 py-1 rounded bg-blue-100 border border-blue-200 text-xs font-medium text-blue-700 whitespace-nowrap">
                     {user.university}
                   </span>
                 )
-              } else if (user.auth === "院系管理员" && user.department) {
+              } else if (user.auth === "系部管理员" && user.department) {
                 affiliationTag = (
                   <span className="px-2 py-1 rounded bg-green-100 border border-green-200 text-xs font-medium text-green-700 whitespace-nowrap">
                     {user.department}
@@ -905,7 +958,7 @@ export function Members({ node }: MembersProps) {
                     {user.major}
                   </span>
                 )
-              } else if (user.auth === "指导老师" && user.courseCount !== undefined) {
+              } else if (user.auth === "任课教师" && user.courseCount !== undefined) {
                 affiliationTag = (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -1017,7 +1070,7 @@ export function Members({ node }: MembersProps) {
                             <AlertDialogHeader>
                               <AlertDialogTitle>确认重置密码</AlertDialogTitle>
                               <AlertDialogDescription>
-                                确认要重置用户 {user.name} 的密码？新密码将发送至用户邮箱。
+                                确认要重置用户 {user.name} 的密码？默认密码为6个1。
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -1120,23 +1173,42 @@ export function Members({ node }: MembersProps) {
         )}
       </div>
 
-      <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
+      <Dialog open={isAddUserDialogOpen} onOpenChange={handleAddUserDialogOpenChange}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingUserId ? "编辑用户" : "添加用户"}</DialogTitle>
-            <DialogDescription>填写用户信息</DialogDescription>
+            <DialogTitle>{isCreateSuccessView ? "添加成功" : editingUserId ? "编辑用户" : "添加用户"}</DialogTitle>
+            <DialogDescription>
+              {isCreateSuccessView ? "请在弹窗内确认并保存新增用户信息" : "填写用户信息"}
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          {isCreateSuccessView ? (
+            <div className="space-y-2 rounded-md border border-primary/30 bg-primary/20 p-4 text-[1.05rem] text-primary">
+              <div>用户姓名：{createdUserFeedback?.name}</div>
+              <div>登录账号：{createdUserFeedback?.account}</div>
+              {createdUserFeedback?.password ? <div>初始密码：{createdUserFeedback.password}</div> : null}
+            </div>
+          ) : (
+            <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="user-account">登录账号</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="user-account"
-                  value={newUserAccount}
-                  onChange={(e) => setNewUserAccount(e.target.value)}
-                  placeholder="请输入账号"
-                  readOnly={Boolean(editingUserId)}
-                />
+              <div className="flex items-start gap-2">
+                <div className="flex-1 min-w-0">
+                  <Input
+                    id="user-account"
+                    value={newUserAccount}
+                    onChange={(e) => {
+                      setNewUserAccount(e.target.value)
+                      if (accountFieldError) {
+                        setAccountFieldError(null)
+                      }
+                    }}
+                    placeholder="请输入账号"
+                    readOnly={Boolean(editingUserId)}
+                    maxLength={32}
+                    className={cn(accountFieldError && "border-destructive focus-visible:ring-destructive")}
+                  />
+                  {accountFieldError && <div className="text-xs text-destructive text-right mt-1">{accountFieldError}</div>}
+                </div>
                 {resetPasswordMemberAction && memberScope && (
                   <PermissionGate action={resetPasswordMemberAction} context={{ scope: memberScope }}>
                     <Button
@@ -1144,7 +1216,7 @@ export function Members({ node }: MembersProps) {
                       size="sm"
                       variant="ghost"
                       className={cn(
-                        "shrink-0",
+                        "shrink-0 mt-0.5",
                         editingResetPasswordStatus === "success"
                           ? "text-green-600 hover:text-white"
                           : "text-orange-600 hover:text-white"
@@ -1176,6 +1248,7 @@ export function Members({ node }: MembersProps) {
                 onChange={(e) => setNewUserName(e.target.value)}
                 placeholder="请输入姓名"
                 autoFocus={Boolean(editingUserId)}
+                maxLength={32}
               />
             </div>
             <div className="space-y-2">
@@ -1322,14 +1395,56 @@ export function Members({ node }: MembersProps) {
                 )}
               </div>
             )}
-          </div>
+            </div>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddUserDialogOpen(false)}>
-              取消
-            </Button>
-            <Button onClick={handleSaveUser} disabled={!canSubmit}>
-              确认
-            </Button>
+            {isCreateSuccessView ? (
+              <>
+                {createMemberAction && memberScope && (
+                  <PermissionGate action={createMemberAction} context={{ scope: memberScope }}>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        if (!canCreateMember) {
+                          console.warn("[Members] continue create member blocked by whitelist")
+                          return
+                        }
+                        resetAddUserFormState()
+                        setIsAddUserDialogOpen(true)
+                      }}
+                    >
+                      继续添加
+                    </Button>
+                  </PermissionGate>
+                )}
+                <Button
+                  onClick={() => {
+                    if (createdUserFeedback) {
+                      const copyText = [
+                        `用户姓名：${createdUserFeedback.name}`,
+                        `登录账号：${createdUserFeedback.account}`,
+                        `初始密码：${createdUserFeedback.password || "无"}`,
+                      ].join("\n")
+                      void navigator.clipboard.writeText(copyText)
+                    }
+                    resetDialogForm()
+                  }}
+                >
+                  复制关闭
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={resetDialogForm}>
+                  取消
+                </Button>
+                {canSaveCurrentForm && (
+                  <Button onClick={handleSaveUser} disabled={!canSubmit}>
+                    确认
+                  </Button>
+                )}
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

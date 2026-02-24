@@ -66,14 +66,19 @@ export interface MajorMetadata {
   professionsVOS: Array<{
     id: string
     level: string
+    profession?: Array<{
+      name?: string
+    }>
     direction: {
       category1: string
       category2: string
       category3: string
       category4: string
     }
+    task?: string
     tasks: string
   }>
+  careerInfo?: CareerInfo[]
   position: string
   requiresVOS: Array<{
     id: string

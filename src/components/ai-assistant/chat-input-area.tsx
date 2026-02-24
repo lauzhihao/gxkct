@@ -10,8 +10,13 @@ import { forwardRef } from "react"
 import { Send, FileText, X, Square } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
+import { usePermission } from "@/shared/hooks/use-permission"
+import type { PermissionAction } from "@/shared/permissions/types"
 import type { AttachedFile } from "@/types/ai-assistant"
 import type { RegenerateTag } from "@/components/canvas-elements"
+
+const AI_CHAT_MANAGE_ACTION: PermissionAction = "major.course.create"
+const AI_CHAT_MANAGE_CONTEXT = { scope: "major" as const }
 
 /**
  * 聊天输入区域 Props
@@ -70,6 +75,33 @@ export const ChatInputArea = forwardRef<HTMLTextAreaElement, ChatInputAreaProps>
     },
     ref
   ) {
+    const { can } = usePermission()
+    const canManageChatInput = can(AI_CHAT_MANAGE_ACTION, AI_CHAT_MANAGE_CONTEXT)
+
+    const handleSend = () => {
+      if (!canManageChatInput) return
+      if (isGenerating) return
+      if ((!inputMessage.trim() && !regenerateTag) || isUploadingFile) return
+      onSend()
+    }
+
+    const handleStop = () => {
+      if (!canManageChatInput) return
+      if (!isGenerating) return
+      onStop()
+    }
+
+    const handleRemoveRegenerateTag = () => {
+      if (!canManageChatInput) return
+      if (!onRemoveRegenerateTag) return
+      onRemoveRegenerateTag()
+    }
+
+    const handleRemoveFile = (fileId: string) => {
+      if (!canManageChatInput) return
+      onRemoveFile(fileId)
+    }
+
     // 按钮位置样式
     const buttonPositionStyle = isInputExpanded
       ? { bottom: "12px", top: "auto", transform: "translateY(0)" }
@@ -89,14 +121,16 @@ export const ChatInputArea = forwardRef<HTMLTextAreaElement, ChatInputAreaProps>
             <span className={`text-sm truncate ${regenerateTag.color_config.text}`}>
               请帮我重新设计{regenerateTag.node_name}
             </span>
-            <button
-              type="button"
-              onClick={onRemoveRegenerateTag}
-              className={`flex-shrink-0 p-0.5 rounded hover:bg-black/5 ${regenerateTag.color_config.text} hover:text-opacity-80 transition-colors ml-2`}
-              title="移除标签"
-            >
-              <X className="h-3 w-3" />
-            </button>
+            {canManageChatInput && (
+              <button
+                type="button"
+                onClick={handleRemoveRegenerateTag}
+                className={`flex-shrink-0 p-0.5 rounded hover:bg-black/5 ${regenerateTag.color_config.text} hover:text-opacity-80 transition-colors ml-2`}
+                title="移除标签"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
           </div>
         )}
 
@@ -120,10 +154,7 @@ export const ChatInputArea = forwardRef<HTMLTextAreaElement, ChatInputAreaProps>
                     !event.nativeEvent.isComposing
                   ) {
                     event.preventDefault()
-                    // 生成中时不发送新消息
-                    if (!isGenerating) {
-                      onSend()
-                    }
+                    handleSend()
                   }
                 }}
               />
@@ -131,29 +162,30 @@ export const ChatInputArea = forwardRef<HTMLTextAreaElement, ChatInputAreaProps>
           </div>
 
           {/* 发送/停止按钮 */}
-          {isGenerating ? (
-            <Button
-              size="icon"
-              variant="destructive"
-              className="absolute right-3 h-7 w-7 rounded-full transition-[transform,top,bottom] duration-200 z-10"
-              style={buttonPositionStyle}
-              onClick={onStop}
-              title="停止生成"
-            >
-              <Square className="h-3.5 w-3.5 fill-current" />
-            </Button>
-          ) : (
-            <Button
-              size="icon"
-              className="absolute right-3 h-7 w-7 rounded-full transition-[transform,top,bottom] duration-200 z-10"
-              style={buttonPositionStyle}
-              disabled={(!inputMessage.trim() && !regenerateTag) || isUploadingFile}
-              onClick={onSend}
-              title={isUploadingFile ? "文件处理中" : "发送消息"}
-            >
-              <Send className={`h-4 w-4 ${isUploadingFile ? "opacity-60" : ""}`} />
-            </Button>
-          )}
+          {canManageChatInput &&
+            (isGenerating ? (
+              <Button
+                size="icon"
+                variant="destructive"
+                className="absolute right-3 h-7 w-7 rounded-full transition-[transform,top,bottom] duration-200 z-10"
+                style={buttonPositionStyle}
+                onClick={handleStop}
+                title="停止生成"
+              >
+                <Square className="h-3.5 w-3.5 fill-current" />
+              </Button>
+            ) : (
+              <Button
+                size="icon"
+                className="absolute right-3 h-7 w-7 rounded-full transition-[transform,top,bottom] duration-200 z-10"
+                style={buttonPositionStyle}
+                disabled={(!inputMessage.trim() && !regenerateTag) || isUploadingFile}
+                onClick={handleSend}
+                title={isUploadingFile ? "文件处理中" : "发送消息"}
+              >
+                <Send className={`h-4 w-4 ${isUploadingFile ? "opacity-60" : ""}`} />
+              </Button>
+            ))}
         </div>
 
         {/* 底部信息区域 */}
@@ -173,14 +205,16 @@ export const ChatInputArea = forwardRef<HTMLTextAreaElement, ChatInputAreaProps>
                   >
                     {file.name}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => onRemoveFile(file.id)}
-                    className="flex-shrink-0 p-0.5 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
-                    title="移除文件"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
+                  {canManageChatInput && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveFile(file.id)}
+                      className="flex-shrink-0 p-0.5 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
+                      title="移除文件"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

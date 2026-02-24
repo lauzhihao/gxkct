@@ -57,6 +57,11 @@ export function CoursePoints({ objectives }: CoursePointsProps) {
     setExpandedIndex(newExpanded)
   }
 
+  const handleExpandToggle = (index: number) => {
+    // 该交互仅用于内容展开，不属于管理类操作，不接入权限白名单
+    toggleExpanded(index)
+  }
+
   // 检测文本是否超过3行
   const isTextOverflow = (text: string): boolean => {
     if (!text) return false
@@ -129,7 +134,7 @@ export function CoursePoints({ objectives }: CoursePointsProps) {
                       size="sm"
                       variant="ghost"
                       className="w-full h-7 text-sm mt-auto"
-                      onClick={() => toggleExpanded(objIndex)}
+                      onClick={() => handleExpandToggle(objIndex)}
                     >
                       <ChevronDown className="w-4 h-4 mr-1" />
                       展开

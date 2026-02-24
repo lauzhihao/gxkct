@@ -67,6 +67,11 @@ export function LoginForm() {
     handleLogin()
   }
 
+  // 该交互仅用于表单可用性，不属于管理类权限动作
+  const handleTogglePasswordVisibility = () => {
+    setShowPassword((prev) => !prev)
+  }
+
   const labelLeftOffset = 'calc(1rem + 1.5rem + 2px)'
 
   return (
@@ -141,7 +146,7 @@ export function LoginForm() {
             />
             <button
               type="button"
-              onClick={() => setShowPassword(!showPassword)}
+              onClick={handleTogglePasswordVisibility}
               className="ml-3 text-gray-400 hover:text-gray-600"
             >
               {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}

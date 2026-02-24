@@ -9,7 +9,6 @@ export { MajorDetail } from "./major-detail-panel"
 export { MajorBasicInfo } from "./major/major-basic-info"
 export { MajorMatrix } from "./major/major-matrix"
 export { MajorCourses } from "./major/major-courses"
-export { MajorUsers } from "./major/major-users"
 
 // 表单组件
 export { AddMajorForm } from "./forms/add-major-form"

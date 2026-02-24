@@ -8,6 +8,6 @@
 import type { CourseProjectMatrixProps } from "@/modules/courses/types"
 import { ProjectMatrixContainer } from "./course-project-matrix/ProjectMatrixContainer"
 
-export function CourseProjectMatrix({ node, onUpdate, majorId }: CourseProjectMatrixProps) {
-  return <ProjectMatrixContainer node={node} onUpdate={onUpdate} majorId={majorId} />
+export function CourseProjectMatrix({ node, onUpdate, majorId, courseEditable = false }: CourseProjectMatrixProps) {
+  return <ProjectMatrixContainer node={node} onUpdate={onUpdate} majorId={majorId} courseEditable={courseEditable} />
 }

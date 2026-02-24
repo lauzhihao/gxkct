@@ -10,12 +10,12 @@ const UNKNOWN_ROLE: PermissionRoleMeta = {
 export const PERMISSION_ROLES: PermissionRoleMap = {
   1: {
     key: "schoolAdmin",
-    name: "学校管理员",
+    name: "校级管理员",
     description: "学校级管理员，可管理院系、成员与教学任务",
   },
   1001: {
     key: "departmentAdmin",
-    name: "院系管理员",
+    name: "系部管理员",
     description: "院系级管理员，可管理院系成员与专业信息",
   },
   1031: {
@@ -25,7 +25,7 @@ export const PERMISSION_ROLES: PermissionRoleMap = {
   },
   1039: {
     key: "qualityInspectorAdmin",
-    name: "质检管理员",
+    name: "质量管理员",
     description: "质检管理角色，负责教学任务创建与管理",
   },
   1901: {
@@ -40,7 +40,7 @@ export const PERMISSION_ROLES: PermissionRoleMap = {
   },
   3001: {
     key: "courseAdmin",
-    name: "课程管理员",
+    name: "任课教师",
     description: "课程级管理员，可管理课程相关成员与教学内容",
   },
   88: {
@@ -58,35 +58,34 @@ export interface MemberRoleConfig {
 
 export const MEMBER_ROLE_CONFIG_BY_NODE_TYPE: Record<NodeType, MemberRoleConfig> = {
   university: {
-    roles: ["学校管理员"],
-    defaultRole: "学校管理员",
+    roles: ["校级管理员"],
+    defaultRole: "校级管理员",
     labels: {
-      学校管理员: "学校管理员",
+      校级管理员: "校级管理员",
     },
   },
   department: {
-    roles: ["院系管理员", "专业管理员", "指导老师"],
-    defaultRole: "院系管理员",
+    roles: ["系部管理员", "专业管理员", "任课教师"],
+    defaultRole: "系部管理员",
     labels: {
-      院系管理员: "院系管理员",
+      系部管理员: "系部管理员",
       专业管理员: "专业管理员",
-      指导老师: "指导老师",
+      任课教师: "任课教师",
     },
   },
   major: {
-    roles: ["专业管理员", "指导老师"],
+    roles: ["专业管理员", "任课教师"],
     defaultRole: "专业管理员",
     labels: {
       专业管理员: "专业管理员",
-      指导老师: "指导老师",
+      任课教师: "任课教师",
     },
   },
   course: {
-    roles: ["课程管理员", "指导老师"],
-    defaultRole: "课程管理员",
+    roles: ["任课教师"],
+    defaultRole: "任课教师",
     labels: {
-      课程管理员: "课程管理员",
-      指导老师: "指导老师",
+      任课教师: "任课教师",
     },
   },
   root: {
