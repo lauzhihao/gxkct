@@ -2,8 +2,38 @@ import type { ApiResponse, BackendResponse } from "./types"
 import { handleBackendResponse } from "./response-handler"
 import { buildApiUrl, getApiConfig } from "./config"
 import { getStoredAuthToken } from "./auth-config"
+import { clearAllAuthData } from "./auth-config"
 
 export class HttpAdapter {
+  private forceLogoutOnUnauthorized(): void {
+    if (typeof window === "undefined") return
+    clearAllAuthData()
+    if (window.location.pathname !== "/login") {
+      window.location.href = "/login"
+    }
+  }
+
+  private async handleHttpError<T>(response: Response): Promise<ApiResponse<T | null>> {
+    try {
+      const rawBody = (await response.json()) as Partial<BackendResponse<T>>
+      if (rawBody && typeof rawBody.code === "string") {
+        return handleBackendResponse(rawBody as BackendResponse<T>)
+      }
+    } catch {
+      // ignore JSON parse failure and use fallback error below
+    }
+
+    if (response.status === 401) {
+      this.forceLogoutOnUnauthorized()
+    }
+
+    return {
+      data: null,
+      error: `HTTP ${response.status}: ${response.statusText}`,
+      status: response.status,
+    }
+  }
+
   private getHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -32,11 +62,7 @@ export class HttpAdapter {
 
       if (!response.ok) {
         console.error(`[HttpAdapter] HTTP错误: ${response.status}`)
-        return {
-          data: null,
-          error: `HTTP ${response.status}: ${response.statusText}`,
-          status: response.status,
-        }
+        return this.handleHttpError<T>(response)
       }
 
       const backendResponse: BackendResponse<T> = await response.json()
@@ -67,11 +93,7 @@ export class HttpAdapter {
 
       if (!response.ok) {
         console.error(`[HttpAdapter] HTTP错误: ${response.status}`)
-        return {
-          data: null,
-          error: `HTTP ${response.status}: ${response.statusText}`,
-          status: response.status,
-        }
+        return this.handleHttpError<T>(response)
       }
 
       const backendResponse: BackendResponse<T> = await response.json()
@@ -102,11 +124,7 @@ export class HttpAdapter {
 
       if (!response.ok) {
         console.error(`[HttpAdapter] HTTP错误: ${response.status}`)
-        return {
-          data: null,
-          error: `HTTP ${response.status}: ${response.statusText}`,
-          status: response.status,
-        }
+        return this.handleHttpError<T>(response)
       }
 
       const backendResponse: BackendResponse<T> = await response.json()
@@ -137,11 +155,7 @@ export class HttpAdapter {
 
       if (!response.ok) {
         console.error(`[HttpAdapter] HTTP错误: ${response.status}`)
-        return {
-          data: null,
-          error: `HTTP ${response.status}: ${response.statusText}`,
-          status: response.status,
-        }
+        return this.handleHttpError<T>(response)
       }
 
       const backendResponse: BackendResponse<T> = await response.json()
@@ -171,11 +185,7 @@ export class HttpAdapter {
 
       if (!response.ok) {
         console.error(`[HttpAdapter] HTTP错误: ${response.status}`)
-        return {
-          data: null,
-          error: `HTTP ${response.status}: ${response.statusText}`,
-          status: response.status,
-        }
+        return this.handleHttpError<T>(response)
       }
 
       const backendResponse: BackendResponse<T> = await response.json()

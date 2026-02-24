@@ -15,6 +15,26 @@ export function handleBackendResponse<T>(
 ): ApiResponse<T> {
   const { code, message, data } = backendResponse
 
+  const forceLogoutWithMessage = (defaultMessage: string): ApiResponse<T> => {
+    const finalMessage = message || defaultMessage
+    if (showErrorToast !== false) {
+      toast.error(finalMessage)
+    }
+    clearAllAuthData()
+    if (typeof window !== "undefined") {
+      const currentPath = window.location.pathname
+      const isLoginPage = currentPath === "/login"
+      if (!isLoginPage) {
+        window.location.href = "/login"
+      }
+    }
+    return {
+      data: null as T,
+      error: finalMessage,
+      status: 401,
+    }
+  }
+
   // code为"0"表示成功
   if (code === "0") {
     return {
@@ -24,17 +44,14 @@ export function handleBackendResponse<T>(
     }
   }
 
+  // 账号被禁用：code "20019"，提示并强制退出登录
+  if (code === "20019") {
+    return forceLogoutWithMessage("账号已被禁用，请联系管理员")
+  }
+
   // TOKEN 失效处理：code "20024" 表示 TOKEN 解析失败，强制跳转登录页
   if (code === "20024") {
-    clearAllAuthData()
-    if (typeof window !== "undefined") {
-      window.location.href = "/login"
-    }
-    return {
-      data: null as T,
-      error: message || "TOKEN已失效，请重新登录",
-      status: 401,
-    }
+    return forceLogoutWithMessage("TOKEN已失效，请重新登录")
   }
 
   // code非"0"表示失败，根据参数决定是否显示错误消息
@@ -73,4 +90,3 @@ export function createErrorResponse(message: string, code: string = "500"): Back
     success: false,
   }
 }
-

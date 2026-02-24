@@ -24,6 +24,70 @@ export interface User {
   avatar?: string
 }
 
+export interface InsertNewUserPayload {
+  id: number
+  collegeId: number
+  permissionId: number
+  relativeId: number
+  userName: string
+  email: string
+}
+
+export interface InsertNewUserResult {
+  id: number
+  collegeId: number
+  permissionId: number
+  relativeId: number
+  userName: string
+  email: string
+  password?: string
+}
+
+export interface UpdateManagedUserPayload {
+  id: number
+  account: string
+  name: string
+  auth: number
+  relative: string
+  status: boolean
+}
+
+export interface UpdateManagedUserResult {
+  id: number
+  account: string
+  name: string
+  auth: number
+  relative: string
+  status: boolean
+}
+
+export interface ResetPasswordPayload {
+  id: number
+  password: string
+}
+
+export interface ResetPasswordResult {
+  success?: boolean
+}
+
+export interface DeleteManagedUserPayload {
+  id: number
+}
+
+export interface DeleteManagedUserResult {
+  success?: boolean
+}
+
+export interface UpdateManagedUserStatusPayload {
+  id: number
+  status: boolean
+}
+
+export interface UpdateManagedUserStatusResult {
+  id: number
+  status: boolean
+}
+
 export class UserApi {
   private storage = new StorageAdapter()
   private httpAdapter = new HttpAdapter()
@@ -139,5 +203,29 @@ export class UserApi {
     } catch (error) {
       return { data: null, error: String(error), status: 500 }
     }
+  }
+
+  async insertNewUser(payload: InsertNewUserPayload[]): Promise<ApiResponse<InsertNewUserResult[] | null>> {
+    return this.httpAdapter.post<InsertNewUserResult[]>("/api/manage/insertNewUser", payload)
+  }
+
+  async updateManagedUser(payload: UpdateManagedUserPayload): Promise<ApiResponse<UpdateManagedUserResult | null>> {
+    return this.httpAdapter.post<UpdateManagedUserResult>("/api/v3/manage/updateUser", payload)
+  }
+
+  async resetPassword(payload: ResetPasswordPayload): Promise<ApiResponse<ResetPasswordResult | null>> {
+    return this.httpAdapter.post<ResetPasswordResult>("/api/manage/resetpassword", payload)
+  }
+
+  async deleteManagedUser(payload: DeleteManagedUserPayload): Promise<ApiResponse<DeleteManagedUserResult | null>> {
+    return this.httpAdapter.post<DeleteManagedUserResult>("/api/manage/deleteuser", payload)
+  }
+
+  async updateManagedUserStatus(
+    payload: UpdateManagedUserStatusPayload
+  ): Promise<ApiResponse<UpdateManagedUserStatusResult | null>> {
+    return this.httpAdapter.put<UpdateManagedUserStatusResult>(
+      `/api/v5/manage/user/${payload.id}/status/${payload.status}`
+    )
   }
 }

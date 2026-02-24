@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { Switch } from "@/shared/components/ui/switch"
-import { Plus, Search, User, Pencil, Trash2, RotateCcw } from "lucide-react"
+import { Plus, Search, User, Pencil, Trash2, RotateCcw, Loader2, Check } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -37,12 +37,13 @@ import {
   PopoverTrigger,
 } from "@/shared/components/ui/popover"
 import { ChevronDown } from "lucide-react"
-import { cn } from "@/shared/utils/utils"
+import { cn, extractNumericId } from "@/shared/utils/utils"
 import type { TreeNode, NodeType } from "@/types"
 import { api } from "@/lib/api"
 import { Skeleton } from "@/shared/components/ui/skeleton"
 import { PermissionGate } from "@/shared/components/permission-gate"
 import type { PermissionAction, PermissionContext } from "@/shared/permissions/types"
+import { getAllPermissionRoleNames, getMemberRoleConfig } from "@/shared/permissions/roles"
 
 interface MembersProps {
   node: TreeNode
@@ -66,8 +67,31 @@ interface MemberUser {
   courses?: string[]
 }
 
+interface OrganizationOption {
+  nodeId: string
+  nodeName: string
+  nodeType: NodeType
+  parentDepartmentNodeId?: string
+}
+
 type MemberScope = Exclude<PermissionContext["scope"], "root" | undefined>
 type MemberOperation = "create" | "edit" | "delete" | "toggle" | "resetPassword"
+
+const UNIVERSITY_ROLE_PERMISSION_MAP: Record<string, number> = {
+  学校管理员: 1,
+  校级管理员: 1,
+  院系管理员: 1001,
+  质量督导员: 1031,
+  质检管理员: 1039,
+  指导老师: 1901,
+  专业管理员: 2001,
+  课程管理员: 3001,
+  高级管理员: 88,
+}
+
+const DEFAULT_RESET_PASSWORD = "111111"
+
+type ResetPasswordStatus = "idle" | "loading" | "success"
 
 const MEMBER_SCOPE_BY_NODE_TYPE: Partial<Record<NodeType, MemberScope>> = {
   university: "college",
@@ -81,63 +105,6 @@ function getMemberAction(scope: MemberScope | undefined, operation: MemberOperat
   return `${scope}.member.${operation}` as PermissionAction
 }
 
-// 根据节点类型获取角色配置
-const getRoleConfig = (
-  nodeType: NodeType
-): {
-  roles: string[]
-  defaultRole: string
-  labels: Record<string, string>
-} => {
-  const roleConfigs: Record<
-    NodeType,
-    { roles: string[]; defaultRole: string; labels: Record<string, string> }
-  > = {
-    university: {
-      roles: ["管理员"],
-      defaultRole: "管理员",
-      labels: {
-        管理员: "管理员",
-      },
-    },
-    department: {
-      roles: ["系部管理员", "专业管理员", "任课教师"],
-      defaultRole: "系部管理员",
-      labels: {
-        系部管理员: "系部管理员",
-        专业管理员: "专业管理员",
-        任课教师: "任课教师",
-      },
-    },
-    major: {
-      roles: ["专业管理员", "授课教师"],
-      defaultRole: "专业管理员",
-      labels: {
-        专业管理员: "专业管理员",
-        授课教师: "授课教师",
-      },
-    },
-    course: {
-      roles: ["课程负责人", "主讲教师", "助教"],
-      defaultRole: "课程负责人",
-      labels: {
-        课程负责人: "课程负责人",
-        主讲教师: "主讲教师",
-        助教: "助教",
-      },
-    },
-    root: {
-      roles: ["系统管理员"],
-      defaultRole: "系统管理员",
-      labels: {
-        系统管理员: "系统管理员",
-      },
-    },
-  }
-
-  return roleConfigs[nodeType] || roleConfigs.major
-}
-
 export function Members({ node }: MembersProps) {
   // 使用兼容属性，确保 type 总是有值
   const nodeType = node.type ?? node.nodeType
@@ -148,7 +115,8 @@ export function Members({ node }: MembersProps) {
   const toggleMemberAction = getMemberAction(memberScope, "toggle")
   const resetPasswordMemberAction = getMemberAction(memberScope, "resetPassword")
   const nodeId = node.id ?? node.nodeId
-  const roleConfig = getRoleConfig(nodeType)
+  const roleConfig = getMemberRoleConfig(nodeType)
+  const availableRoles = nodeType === "university" ? getAllPermissionRoleNames() : roleConfig.roles
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false)
   const [userRolePopoverOpen, setUserRolePopoverOpen] = useState(false)
   const [newUserAccount, setNewUserAccount] = useState("")
@@ -162,6 +130,163 @@ export function Members({ node }: MembersProps) {
   const [users, setUsers] = useState<MemberUser[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>("全部")
+  const [departmentSearch, setDepartmentSearch] = useState("")
+  const [majorSearch, setMajorSearch] = useState("")
+  const [departmentPopoverOpen, setDepartmentPopoverOpen] = useState(false)
+  const [majorPopoverOpen, setMajorPopoverOpen] = useState(false)
+  const [selectedDepartmentNodeId, setSelectedDepartmentNodeId] = useState<string | null>(null)
+  const [selectedOrganizationNodeId, setSelectedOrganizationNodeId] = useState<string | null>(null)
+  const [editingRelativeId, setEditingRelativeId] = useState<number | null>(null)
+  const [organizationOptions, setOrganizationOptions] = useState<OrganizationOption[]>([])
+  const [resetPasswordStatusByUserId, setResetPasswordStatusByUserId] = useState<Record<number, ResetPasswordStatus>>({})
+  const [toggleStatusLoadingByUserId, setToggleStatusLoadingByUserId] = useState<Record<number, boolean>>({})
+  const [deleteLoadingByUserId, setDeleteLoadingByUserId] = useState<Record<number, boolean>>({})
+  const resetPasswordTimerRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({})
+
+  const resetDialogForm = () => {
+    setIsAddUserDialogOpen(false)
+    setNewUserAccount("")
+    setNewUserName("")
+    setNewUserRole(roleConfig.defaultRole)
+    setNewUserUniversity("")
+    setNewUserDepartment("")
+    setNewUserMajor("")
+    setEditingUserId(null)
+    setDepartmentSearch("")
+    setMajorSearch("")
+    setDepartmentPopoverOpen(false)
+    setMajorPopoverOpen(false)
+    setSelectedDepartmentNodeId(null)
+    setSelectedOrganizationNodeId(null)
+    setEditingRelativeId(null)
+  }
+
+  useEffect(() => {
+    if (!isAddUserDialogOpen || nodeType !== "university") return
+
+    const collectOptions = (treeNode: TreeNode, currentDepartmentNodeId: string | null, result: OrganizationOption[]) => {
+      let nextDepartmentNodeId = currentDepartmentNodeId
+
+      if (treeNode.nodeType === "department") {
+        nextDepartmentNodeId = treeNode.nodeId
+        result.push({
+          nodeId: treeNode.nodeId,
+          nodeName: treeNode.nodeName,
+          nodeType: treeNode.nodeType,
+        })
+      } else if (treeNode.nodeType === "major") {
+        result.push({
+          nodeId: treeNode.nodeId,
+          nodeName: treeNode.nodeName,
+          nodeType: treeNode.nodeType,
+          parentDepartmentNodeId: nextDepartmentNodeId ?? undefined,
+        })
+      }
+
+      treeNode.children?.forEach((child) => collectOptions(child, nextDepartmentNodeId, result))
+    }
+
+    const findNodeById = (treeNode: TreeNode, targetNodeId: string): TreeNode | null => {
+      if (treeNode.nodeId === targetNodeId) return treeNode
+      if (!treeNode.children) return null
+
+      for (const child of treeNode.children) {
+        const matched = findNodeById(child, targetNodeId)
+        if (matched) return matched
+      }
+
+      return null
+    }
+
+    const findUniversityByNumericId = (treeNode: TreeNode, targetUniversityId: number): TreeNode | null => {
+      if (treeNode.nodeType === "university" && extractNumericId(treeNode.nodeId) === targetUniversityId) {
+        return treeNode
+      }
+
+      if (!treeNode.children) return null
+      for (const child of treeNode.children) {
+        const matched = findUniversityByNumericId(child, targetUniversityId)
+        if (matched) return matched
+      }
+
+      return null
+    }
+
+    const loadOrganizationOptions = async () => {
+      const treeResponse = await api.tree.getTree()
+      if (treeResponse.error || !treeResponse.data) {
+        setOrganizationOptions([])
+        return
+      }
+
+      const targetUniversityId = extractNumericId(nodeId)
+      const scopedRoot =
+        findNodeById(treeResponse.data, node.nodeId) ??
+        findUniversityByNumericId(treeResponse.data, targetUniversityId) ??
+        treeResponse.data
+      const nextOptions: OrganizationOption[] = []
+      collectOptions(scopedRoot, null, nextOptions)
+      setOrganizationOptions(nextOptions)
+    }
+
+    loadOrganizationOptions()
+  }, [isAddUserDialogOpen, node.nodeId, nodeType])
+
+  useEffect(() => {
+    setDepartmentSearch("")
+    setMajorSearch("")
+    setSelectedDepartmentNodeId(null)
+    setSelectedOrganizationNodeId(null)
+    setDepartmentPopoverOpen(false)
+    setMajorPopoverOpen(false)
+  }, [newUserRole])
+
+  useEffect(() => {
+    return () => {
+      Object.values(resetPasswordTimerRef.current).forEach((timer) => {
+        clearTimeout(timer)
+      })
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isAddUserDialogOpen || nodeType !== "university" || !editingUserId || editingRelativeId === null) return
+
+    if (newUserRole === "院系管理员") {
+      const department = organizationOptions.find(
+        (item) => item.nodeType === "department" && extractNumericId(item.nodeId) === editingRelativeId
+      )
+      if (department) {
+        setSelectedDepartmentNodeId(department.nodeId)
+        setDepartmentSearch(department.nodeName)
+      }
+      setEditingRelativeId(null)
+      return
+    }
+
+    if (newUserRole === "专业管理员") {
+      const major = organizationOptions.find(
+        (item) => item.nodeType === "major" && extractNumericId(item.nodeId) === editingRelativeId
+      )
+      if (major) {
+        setSelectedOrganizationNodeId(major.nodeId)
+        setMajorSearch(major.nodeName)
+        if (major.parentDepartmentNodeId) {
+          const department = organizationOptions.find(
+            (item) => item.nodeType === "department" && item.nodeId === major.parentDepartmentNodeId
+          )
+          if (department) {
+            setSelectedDepartmentNodeId(department.nodeId)
+            setDepartmentSearch(department.nodeName)
+          }
+        }
+      }
+      setEditingRelativeId(null)
+      return
+    }
+
+    setEditingRelativeId(null)
+  }, [editingRelativeId, editingUserId, isAddUserDialogOpen, newUserRole, nodeType, organizationOptions])
 
   useEffect(() => {
     if (!node) return
@@ -212,7 +337,7 @@ export function Members({ node }: MembersProps) {
             name: user.name,
             belong: "",
             relative: 0,
-            auth: user.role === "admin" ? "系统管理员" : user.role === "teacher" ? "主讲教师" : "教师",
+            auth: user.role === "admin" ? "高级管理员" : "指导老师",
             permission: user.role === "admin" ? 1 : 0,
             old: false,
             disabled: false,
@@ -231,8 +356,117 @@ export function Members({ node }: MembersProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodeId, nodeType])
 
+  const refreshUniversityUsers = async (): Promise<boolean> => {
+    const refreshResponse = await api.tree.getUniversityUsers(nodeId)
+    if (refreshResponse.error) {
+      console.error("[Members] refresh university users failed:", refreshResponse.error)
+      return false
+    }
+
+    const universityUsers: MemberUser[] = (refreshResponse.data ?? []).map((user) => ({
+      ...user,
+      id: Number(user.id),
+      university: undefined,
+      department: undefined,
+      major: undefined,
+      courseCount: undefined,
+      courses: undefined,
+    }))
+
+    setUsers(universityUsers)
+    return true
+  }
+
   const handleSaveUser = async () => {
     if (!node || !newUserAccount || !newUserName) return
+
+    if (nodeType === "university") {
+      const editingUser = editingUserId ? users.find((user) => user.id === editingUserId) : null
+      const permissionId = UNIVERSITY_ROLE_PERMISSION_MAP[newUserRole] ?? editingUser?.permission
+      const parsedCollegeId = extractNumericId(nodeId)
+      const collegeId = parsedCollegeId || Number(nodeId)
+      const selectedDepartment = organizationOptions.find(
+        (item) => item.nodeType === "department" && item.nodeId === selectedDepartmentNodeId
+      )
+      const selectedMajor = organizationOptions.find(
+        (item) => item.nodeType === "major" && item.nodeId === selectedOrganizationNodeId
+      )
+      const isDepartmentAdmin = newUserRole === "院系管理员"
+      const isMajorAdmin = newUserRole === "专业管理员"
+      const requiresRelativeNode = isDepartmentAdmin || isMajorAdmin
+
+      if (isDepartmentAdmin && !selectedDepartment) {
+        console.error("[Members] department selection is required")
+        return
+      }
+
+      if (isMajorAdmin && (!selectedDepartment || !selectedMajor)) {
+        console.error("[Members] department and major selections are required")
+        return
+      }
+
+      const relativeId = isDepartmentAdmin
+        ? extractNumericId(selectedDepartment?.nodeId ?? "")
+        : isMajorAdmin
+          ? extractNumericId(selectedMajor?.nodeId ?? "")
+          : 0
+
+      if (!permissionId || Number.isNaN(collegeId) || collegeId <= 0 || (requiresRelativeNode && !relativeId)) {
+        console.error("[Members] invalid university member payload", {
+          editingUserId,
+          newUserRole,
+          permissionId,
+          collegeId,
+          relativeId,
+        })
+        return
+      }
+
+      if (!editingUserId) {
+        const createResponse = await api.users.insertNewUser([
+          {
+            id: -1,
+            collegeId,
+            permissionId,
+            relativeId,
+            userName: newUserAccount,
+            email: newUserAccount,
+          },
+        ])
+
+        if (createResponse.error) {
+          console.error("[Members] create university user failed:", createResponse.error)
+          return
+        }
+      } else {
+        if (!editingUser) {
+          console.error("[Members] editing user not found")
+          return
+        }
+
+        const updateResponse = await api.users.updateManagedUser({
+          id: editingUserId,
+          account: newUserAccount,
+          name: newUserName,
+          auth: permissionId,
+          relative: String(relativeId),
+          status: !editingUser.disabled,
+        })
+
+        if (updateResponse.error) {
+          console.error("[Members] update university user failed:", updateResponse.error)
+          return
+        }
+      }
+
+      const refreshed = await refreshUniversityUsers()
+      if (!refreshed) {
+        return
+      }
+
+      resetDialogForm()
+      return
+    }
 
     let updatedUsers: MemberUser[]
 
@@ -270,19 +504,35 @@ export function Members({ node }: MembersProps) {
 
     setUsers(updatedUsers)
     await api.users.updateUsers(nodeId, updatedUsers)
-
-    setIsAddUserDialogOpen(false)
-    setNewUserAccount("")
-    setNewUserName("")
-    setNewUserRole(roleConfig.defaultRole)
-    setNewUserUniversity("")
-    setNewUserDepartment("")
-    setNewUserMajor("")
-    setEditingUserId(null)
+    resetDialogForm()
   }
 
   const handleToggleUserEnabled = async (userId: number) => {
     if (!node) return
+
+    if (nodeType === "university") {
+      const targetUser = users.find((user) => user.id === userId)
+      if (!targetUser) return
+      if (toggleStatusLoadingByUserId[userId]) return
+
+      setToggleStatusLoadingByUserId((prev) => ({ ...prev, [userId]: true }))
+
+      const nextStatus = targetUser.disabled
+      const updateResponse = await api.users.updateManagedUserStatus({
+        id: userId,
+        status: nextStatus,
+      })
+
+      setToggleStatusLoadingByUserId((prev) => ({ ...prev, [userId]: false }))
+
+      if (updateResponse.error) {
+        console.error("[Members] toggle user status failed:", updateResponse.error)
+        return
+      }
+
+      await refreshUniversityUsers()
+      return
+    }
 
     const updatedUsers = users.map((user) => (user.id === userId ? { ...user, disabled: !user.disabled } : user))
     setUsers(updatedUsers)
@@ -297,19 +547,78 @@ export function Members({ node }: MembersProps) {
     setNewUserUniversity(user.university || "")
     setNewUserDepartment(user.department || "")
     setNewUserMajor(user.major || "")
+    setEditingRelativeId(user.relative || 0)
     setIsAddUserDialogOpen(true)
   }
 
   const handleDeleteUser = async (userId: number) => {
     if (!node) return
 
+    if (nodeType === "university") {
+      if (deleteLoadingByUserId[userId]) return
+
+      setDeleteLoadingByUserId((prev) => ({ ...prev, [userId]: true }))
+
+      const deleteResponse = await api.users.deleteManagedUser({ id: userId })
+
+      setDeleteLoadingByUserId((prev) => ({ ...prev, [userId]: false }))
+
+      if (deleteResponse.error) {
+        console.error("[Members] delete user failed:", deleteResponse.error)
+        return
+      }
+
+      await refreshUniversityUsers()
+      return
+    }
+
     const updatedUsers = users.filter((user) => user.id !== userId)
     setUsers(updatedUsers)
     await api.users.updateUsers(nodeId, updatedUsers)
   }
 
-  const handleResetPassword = (userId: number) => {
-    console.log("Password reset for user:", userId)
+  const handleResetPassword = async (userId: number) => {
+    if (resetPasswordStatusByUserId[userId] === "loading") return
+
+    const existingTimer = resetPasswordTimerRef.current[userId]
+    if (existingTimer) {
+      clearTimeout(existingTimer)
+      delete resetPasswordTimerRef.current[userId]
+    }
+
+    setResetPasswordStatusByUserId((prev) => ({
+      ...prev,
+      [userId]: "loading",
+    }))
+
+    const resetResponse = await api.users.resetPassword({
+      id: userId,
+      password: DEFAULT_RESET_PASSWORD,
+    })
+
+    if (resetResponse.error) {
+      console.error("[Members] reset password failed:", resetResponse.error)
+      setResetPasswordStatusByUserId((prev) => ({
+        ...prev,
+        [userId]: "idle",
+      }))
+      return
+    }
+
+    setResetPasswordStatusByUserId((prev) => ({
+      ...prev,
+      [userId]: "success",
+    }))
+
+    resetPasswordTimerRef.current[userId] = setTimeout(() => {
+      setResetPasswordStatusByUserId((prev) => ({
+        ...prev,
+        [userId]: "idle",
+      }))
+      delete resetPasswordTimerRef.current[userId]
+    }, 1200)
+
+    console.log("[Members] reset password success", { userId })
   }
 
   // 从用户数据中提取唯一的角色列表
@@ -333,6 +642,41 @@ export function Members({ node }: MembersProps) {
     return matchesSearch && matchesRole
   })
 
+  const isDepartmentAdmin = newUserRole === "院系管理员"
+  const isMajorAdmin = newUserRole === "专业管理员"
+  const shouldRequireOrganization = nodeType === "university" && (isDepartmentAdmin || isMajorAdmin)
+
+  const departmentOptions = organizationOptions.filter((item) => item.nodeType === "department")
+  const filteredDepartmentOptions = departmentOptions.filter((item) => item.nodeName.includes(departmentSearch.trim()))
+  const selectedDepartmentOption =
+    selectedDepartmentNodeId === null
+      ? null
+      : departmentOptions.find((item) => item.nodeId === selectedDepartmentNodeId) ?? null
+
+  const majorOptionsByDepartment =
+    selectedDepartmentNodeId === null
+      ? []
+      : organizationOptions.filter(
+          (item) => item.nodeType === "major" && item.parentDepartmentNodeId === selectedDepartmentNodeId
+        )
+  const filteredMajorOptions = majorOptionsByDepartment.filter((item) => item.nodeName.includes(majorSearch.trim()))
+  const selectedMajorOption =
+    selectedOrganizationNodeId === null
+      ? null
+      : majorOptionsByDepartment.find((item) => item.nodeId === selectedOrganizationNodeId) ?? null
+
+  const requiresDepartmentSelection = shouldRequireOrganization
+  const requiresMajorSelection = shouldRequireOrganization && isMajorAdmin
+  const hasDepartmentResult = !requiresDepartmentSelection || filteredDepartmentOptions.length > 0
+  const hasMajorResult = !requiresMajorSelection || filteredMajorOptions.length > 0
+  const canSubmit =
+    Boolean(newUserAccount && newUserName) &&
+    (!requiresDepartmentSelection || Boolean(selectedDepartmentOption)) &&
+    (!requiresMajorSelection || (Boolean(selectedDepartmentOption) && Boolean(selectedMajorOption))) &&
+    hasDepartmentResult &&
+    hasMajorResult
+  const editingResetPasswordStatus = editingUserId ? resetPasswordStatusByUserId[editingUserId] ?? "idle" : "idle"
+
   // 分页相关状态
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 20
@@ -344,11 +688,11 @@ export function Members({ node }: MembersProps) {
   // 根据节点类型计算统计数据
   const getStatistics = () => {
     if (nodeType === "department") {
-      // 院系级：统计系部管理员、专业管理员、任课教师
+      // 院系级：统计院系管理员、专业管理员、指导老师
       return [
         {
-          count: users.filter((u) => u.auth === "系部管理员").length,
-          label: "系部管理员",
+          count: users.filter((u) => u.auth === "院系管理员").length,
+          label: "院系管理员",
           color: "primary",
         },
         {
@@ -357,8 +701,8 @@ export function Members({ node }: MembersProps) {
           color: "accent",
         },
         {
-          count: users.filter((u) => u.auth === "任课教师").length,
-          label: "任课教师",
+          count: users.filter((u) => u.auth === "指导老师").length,
+          label: "指导老师",
           color: "chart-3",
         },
       ]
@@ -465,6 +809,11 @@ export function Members({ node }: MembersProps) {
                   setNewUserUniversity("")
                   setNewUserDepartment("")
                   setNewUserMajor("")
+                  setEditingRelativeId(null)
+                  setDepartmentSearch("")
+                  setMajorSearch("")
+                  setSelectedDepartmentNodeId(null)
+                  setSelectedOrganizationNodeId(null)
                   setIsAddUserDialogOpen(true)
                 }}
                 className="gap-2 hover:bg-primary/10 whitespace-nowrap"
@@ -518,6 +867,9 @@ export function Members({ node }: MembersProps) {
           ) : (
             // 数据列表
             displayedUsers.map((user, index) => {
+            const resetPasswordStatus = resetPasswordStatusByUserId[user.id] ?? "idle"
+            const isToggleStatusLoading = toggleStatusLoadingByUserId[user.id] ?? false
+            const isDeleteLoading = deleteLoadingByUserId[user.id] ?? false
             // 根据节点类型和角色显示对应的机构归属标签
             let affiliationTag = null
 
@@ -535,7 +887,7 @@ export function Members({ node }: MembersProps) {
               affiliationTag = null
             } else {
               // 其他级别：根据角色显示机构归属
-              if (user.auth === "校级管理员" && user.university) {
+              if (user.auth === "学校管理员" && user.university) {
                 affiliationTag = (
                   <span className="px-2 py-1 rounded bg-blue-100 border border-blue-200 text-xs font-medium text-blue-700 whitespace-nowrap">
                     {user.university}
@@ -553,7 +905,7 @@ export function Members({ node }: MembersProps) {
                     {user.major}
                   </span>
                 )
-              } else if (user.auth === "授课教师" && user.courseCount !== undefined) {
+              } else if (user.auth === "指导老师" && user.courseCount !== undefined) {
                 affiliationTag = (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -618,8 +970,9 @@ export function Members({ node }: MembersProps) {
                           </span>
                           <Switch
                             checked={!user.disabled}
-                            onCheckedChange={() => handleToggleUserEnabled(user.id)}
+                            onCheckedChange={() => void handleToggleUserEnabled(user.id)}
                             className="cursor-pointer"
+                            disabled={isToggleStatusLoading}
                           />
                           <span
                             className={cn("text-xs font-medium", !user.disabled ? "text-green-600" : "text-muted-foreground")}
@@ -640,8 +993,24 @@ export function Members({ node }: MembersProps) {
                       <PermissionGate action={resetPasswordMemberAction} context={{ scope: memberScope }}>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button size="sm" variant="ghost" className="gap-2 text-orange-600 hover:text-orange-700">
-                              <RotateCcw className="w-3.5 h-3.5" />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className={cn(
+                                "gap-2",
+                                resetPasswordStatus === "success"
+                                  ? "text-green-600 hover:text-white"
+                                  : "text-orange-600 hover:text-white"
+                              )}
+                              disabled={resetPasswordStatus === "loading"}
+                            >
+                              {resetPasswordStatus === "loading" ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : resetPasswordStatus === "success" ? (
+                                <Check className="w-3.5 h-3.5" />
+                              ) : (
+                                <RotateCcw className="w-3.5 h-3.5" />
+                              )}
                             </Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
@@ -653,7 +1022,12 @@ export function Members({ node }: MembersProps) {
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>取消</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleResetPassword(user.id)}>确认重置</AlertDialogAction>
+                              <AlertDialogAction
+                                onClick={() => void handleResetPassword(user.id)}
+                                disabled={resetPasswordStatus === "loading"}
+                              >
+                                确认重置
+                              </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
@@ -663,8 +1037,17 @@ export function Members({ node }: MembersProps) {
                       <PermissionGate action={deleteMemberAction} context={{ scope: memberScope }}>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button size="sm" variant="ghost" className="gap-2 text-destructive hover:text-destructive">
-                              <Trash2 className="w-3.5 h-3.5" />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="gap-2 text-destructive hover:text-white"
+                              disabled={isDeleteLoading}
+                            >
+                              {isDeleteLoading ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-3.5 h-3.5" />
+                              )}
                             </Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
@@ -674,7 +1057,12 @@ export function Members({ node }: MembersProps) {
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>取消</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDeleteUser(user.id)}>确认删除</AlertDialogAction>
+                              <AlertDialogAction
+                                onClick={() => void handleDeleteUser(user.id)}
+                                disabled={isDeleteLoading}
+                              >
+                                确认删除
+                              </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
@@ -740,21 +1128,54 @@ export function Members({ node }: MembersProps) {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
+              <Label htmlFor="user-account">登录账号</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="user-account"
+                  value={newUserAccount}
+                  onChange={(e) => setNewUserAccount(e.target.value)}
+                  placeholder="请输入账号"
+                  readOnly={Boolean(editingUserId)}
+                />
+                {resetPasswordMemberAction && memberScope && (
+                  <PermissionGate action={resetPasswordMemberAction} context={{ scope: memberScope }}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className={cn(
+                        "shrink-0",
+                        editingResetPasswordStatus === "success"
+                          ? "text-green-600 hover:text-white"
+                          : "text-orange-600 hover:text-white"
+                      )}
+                      disabled={!editingUserId || editingResetPasswordStatus === "loading"}
+                      onClick={() => {
+                        if (!editingUserId) return
+                        void handleResetPassword(editingUserId)
+                      }}
+                      aria-label="重置密码"
+                    >
+                      {editingResetPasswordStatus === "loading" ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : editingResetPasswordStatus === "success" ? (
+                        <Check className="w-4 h-4" />
+                      ) : (
+                        <RotateCcw className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </PermissionGate>
+                )}
+              </div>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="user-name">姓名</Label>
               <Input
                 id="user-name"
                 value={newUserName}
                 onChange={(e) => setNewUserName(e.target.value)}
                 placeholder="请输入姓名"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="user-account">账号</Label>
-              <Input
-                id="user-account"
-                value={newUserAccount}
-                onChange={(e) => setNewUserAccount(e.target.value)}
-                placeholder="请输入账号"
+                autoFocus={Boolean(editingUserId)}
               />
             </div>
             <div className="space-y-2">
@@ -768,7 +1189,7 @@ export function Members({ node }: MembersProps) {
                 </PopoverTrigger>
                 <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
                   <div className="max-h-[300px] overflow-y-auto p-2">
-                    {roleConfig.roles.map((role) => (
+                    {availableRoles.map((role) => (
                       <button
                         key={role}
                         onClick={() => {
@@ -787,40 +1208,118 @@ export function Members({ node }: MembersProps) {
               </Popover>
             </div>
 
-            {/* 根据角色显示对应的机构归属字段 */}
-            {newUserRole === "校级管理员" && (
+            {shouldRequireOrganization && (
               <div className="space-y-2">
-                <Label htmlFor="user-university">学校名称</Label>
-                <Input
-                  id="user-university"
-                  value={newUserUniversity}
-                  onChange={(e) => setNewUserUniversity(e.target.value)}
-                  placeholder="请输入学校名称"
-                />
+                <Label htmlFor="user-department-search">院系</Label>
+                <Popover open={departmentPopoverOpen} onOpenChange={setDepartmentPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between bg-transparent">
+                      <span className="truncate">
+                        {selectedDepartmentOption?.nodeName || "请选择院系"}
+                      </span>
+                      <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-2" align="start">
+                    <div className="space-y-2">
+                      <Input
+                        id="user-department-search"
+                        value={departmentSearch}
+                        onChange={(e) => {
+                          setDepartmentSearch(e.target.value)
+                          setSelectedDepartmentNodeId(null)
+                          setSelectedOrganizationNodeId(null)
+                          setMajorSearch("")
+                        }}
+                        placeholder="请输入院系关键字"
+                      />
+                      <div className="max-h-[220px] overflow-y-auto rounded border border-border">
+                        {filteredDepartmentOptions.length > 0 ? (
+                          filteredDepartmentOptions.map((item) => (
+                            <button
+                              key={item.nodeId}
+                              type="button"
+                              onClick={() => {
+                                setSelectedDepartmentNodeId(item.nodeId)
+                                setDepartmentSearch(item.nodeName)
+                                setSelectedOrganizationNodeId(null)
+                                setMajorSearch("")
+                                setDepartmentPopoverOpen(false)
+                              }}
+                              className={cn(
+                                "w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-white",
+                                selectedDepartmentNodeId === item.nodeId && "bg-[var(--naive-primary)] text-white"
+                              )}
+                            >
+                              {item.nodeName}
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-3 py-2 text-sm text-destructive">无匹配结果，请更换关键字</div>
+                        )}
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                {!selectedDepartmentOption && (
+                  <div className="text-xs text-destructive">必须从筛选结果中选择院系后才能提交</div>
+                )}
               </div>
             )}
 
-            {newUserRole === "院系管理员" && (
+            {isMajorAdmin && shouldRequireOrganization && (
               <div className="space-y-2">
-                <Label htmlFor="user-department">院系名称</Label>
-                <Input
-                  id="user-department"
-                  value={newUserDepartment}
-                  onChange={(e) => setNewUserDepartment(e.target.value)}
-                  placeholder="请输入院系名称"
-                />
-              </div>
-            )}
-
-            {newUserRole === "专业管理员" && (
-              <div className="space-y-2">
-                <Label htmlFor="user-major">专业名称</Label>
-                <Input
-                  id="user-major"
-                  value={newUserMajor}
-                  onChange={(e) => setNewUserMajor(e.target.value)}
-                  placeholder="请输入专业名称"
-                />
+                <Label htmlFor="user-major-search">专业</Label>
+                <Popover open={majorPopoverOpen} onOpenChange={setMajorPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between bg-transparent" disabled={!selectedDepartmentOption}>
+                      <span className="truncate">{selectedMajorOption?.nodeName || "请选择专业"}</span>
+                      <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-2" align="start">
+                    <div className="space-y-2">
+                      <Input
+                        id="user-major-search"
+                        value={majorSearch}
+                        onChange={(e) => {
+                          setMajorSearch(e.target.value)
+                          setSelectedOrganizationNodeId(null)
+                        }}
+                        placeholder="请输入专业关键字"
+                        disabled={!selectedDepartmentOption}
+                      />
+                      <div className="max-h-[220px] overflow-y-auto rounded border border-border">
+                        {filteredMajorOptions.length > 0 ? (
+                          filteredMajorOptions.map((item) => (
+                            <button
+                              key={item.nodeId}
+                              type="button"
+                              onClick={() => {
+                                setSelectedOrganizationNodeId(item.nodeId)
+                                setMajorSearch(item.nodeName)
+                                setMajorPopoverOpen(false)
+                              }}
+                              className={cn(
+                                "w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-white",
+                                selectedOrganizationNodeId === item.nodeId && "bg-[var(--naive-primary)] text-white"
+                              )}
+                            >
+                              {item.nodeName}
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-3 py-2 text-sm text-destructive">
+                            {!selectedDepartmentOption ? "请先选择院系" : "无匹配结果，请更换关键字"}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                {!selectedMajorOption && (
+                  <div className="text-xs text-destructive">必须在已选院系下选择专业后才能提交</div>
+                )}
               </div>
             )}
           </div>
@@ -828,7 +1327,9 @@ export function Members({ node }: MembersProps) {
             <Button variant="outline" onClick={() => setIsAddUserDialogOpen(false)}>
               取消
             </Button>
-            <Button onClick={handleSaveUser}>确认</Button>
+            <Button onClick={handleSaveUser} disabled={!canSubmit}>
+              确认
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

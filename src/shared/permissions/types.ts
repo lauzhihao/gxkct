@@ -33,11 +33,14 @@ export interface PermissionContext {
 export type PermissionMatrix = Record<number, PermissionAction[]>
 
 export type PermissionRoleKey =
-  | "systemAdmin"
-  | "collegeAdmin"
+  | "seniorAdmin"
+  | "schoolAdmin"
   | "departmentAdmin"
+  | "qualitySupervisor"
+  | "qualityInspectorAdmin"
+  | "mentor"
   | "majorAdmin"
-  | "teacher"
+  | "courseAdmin"
   | "guest"
 
 export interface PermissionRoleMeta {
