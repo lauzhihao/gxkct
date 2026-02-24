@@ -1,0 +1,32 @@
+import type { PermissionMatrix } from "@/shared/permissions/types"
+
+export const PERMISSION_MATRIX: PermissionMatrix = {
+  1: [
+    "root.college.create",
+    "college.department.create",
+    "department.major.create",
+    "major.course.create",
+    "college.member.create",
+    "college.member.edit",
+    "college.member.delete",
+    "college.member.toggle",
+    "college.member.resetPassword",
+    "department.member.create",
+    "department.member.edit",
+    "department.member.delete",
+    "department.member.toggle",
+    "department.member.resetPassword",
+    "major.member.create",
+    "major.member.edit",
+    "major.member.delete",
+    "major.member.toggle",
+    "major.member.resetPassword",
+    "course.member.create",
+    "course.member.edit",
+    "course.member.delete",
+    "course.member.toggle",
+    "course.member.resetPassword",
+    "college.teachingTask.create",
+    "college.teachingTask.manage",
+  ],
+}

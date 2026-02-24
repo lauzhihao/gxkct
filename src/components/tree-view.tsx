@@ -42,7 +42,7 @@ import { Spinner } from "@/shared/components/ui/spinner"
 import type { TreeNode } from "@/types"
 import { useTreeSearch } from "@/shared/hooks/use-tree-search"
 import { useDepartmentMajors } from "@/modules/departments/hooks/use-department-majors"
-import { usePermission } from "@/shared/hooks/use-permission"
+import { PermissionGate } from "@/shared/components/permission-gate"
 
 function highlightText(text: string, searchTerm: string): React.ReactNode {
   if (!searchTerm.trim()) {
@@ -453,7 +453,6 @@ export const TreeView = React.forwardRef<
   const [isAddSchoolDialogOpen, setIsAddSchoolDialogOpen] = useState(false)
   const [newSchoolName, setNewSchoolName] = useState("")
   const [newSchoolDesc, setNewSchoolDesc] = useState("")
-  const { canManage } = usePermission()
   const { departmentMajors, loadedDepartments, loadDepartmentMajors } = useDepartmentMajors(onDepartmentMajorsChange)
   // 跟踪是否正在加载数据（搜索或动态加载）
   const [isDataLoading, setIsDataLoading] = useState(false)
@@ -872,57 +871,59 @@ export const TreeView = React.forwardRef<
               )}
             </div>
 
-            {onAddSchool && canManage && (
-              <Dialog open={isAddSchoolDialogOpen} onOpenChange={setIsAddSchoolDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="flex-shrink-0 hover:bg-primary/10 disabled:opacity-100 disabled:cursor-not-allowed"
-                    aria-label="新增学校/工作坊"
-                    disabled={isDataLoading || isSearching}
-                  >
-                    {isDataLoading || isSearching ? (
-                      <Spinner className="w-5 h-5 text-primary" />
-                    ) : (
-                      <Plus className="w-5 h-5 text-primary" />
-                    )}
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[500px]">
-                  <DialogHeader>
-                    <DialogTitle>新增学校/工作坊</DialogTitle>
-                    <DialogDescription>填写基本信息，创建新的学校或工作坊节点</DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="school-name">名称</Label>
-                      <Input
-                        id="school-name"
-                        placeholder="例如：齐齐哈尔工程学院"
-                        value={newSchoolName}
-                        onChange={(e) => setNewSchoolName(e.target.value)}
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="school-desc">简介</Label>
-                      <Textarea
-                        id="school-desc"
-                        placeholder="简要描述学校或工作坊的特色"
-                        rows={3}
-                        value={newSchoolDesc}
-                        onChange={(e) => setNewSchoolDesc(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button type="submit" className="gap-2" onClick={handleCreateSchool} disabled={!newSchoolName.trim()}>
-                      <Plus className="w-4 h-4" />
-                      创建
+            {onAddSchool && (
+              <PermissionGate action="root.college.create" context={{ scope: "root" }}>
+                <Dialog open={isAddSchoolDialogOpen} onOpenChange={setIsAddSchoolDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="flex-shrink-0 hover:bg-primary/10 disabled:opacity-100 disabled:cursor-not-allowed"
+                      aria-label="新增学校/工作坊"
+                      disabled={isDataLoading || isSearching}
+                    >
+                      {isDataLoading || isSearching ? (
+                        <Spinner className="w-5 h-5 text-primary" />
+                      ) : (
+                        <Plus className="w-5 h-5 text-primary" />
+                      )}
                     </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                      <DialogTitle>新增学校/工作坊</DialogTitle>
+                      <DialogDescription>填写基本信息，创建新的学校或工作坊节点</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="school-name">名称</Label>
+                        <Input
+                          id="school-name"
+                          placeholder="例如：齐齐哈尔工程学院"
+                          value={newSchoolName}
+                          onChange={(e) => setNewSchoolName(e.target.value)}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="school-desc">简介</Label>
+                        <Textarea
+                          id="school-desc"
+                          placeholder="简要描述学校或工作坊的特色"
+                          rows={3}
+                          value={newSchoolDesc}
+                          onChange={(e) => setNewSchoolDesc(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button type="submit" className="gap-2" onClick={handleCreateSchool} disabled={!newSchoolName.trim()}>
+                        <Plus className="w-4 h-4" />
+                        创建
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </PermissionGate>
             )}
           </div>
 

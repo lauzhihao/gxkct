@@ -22,7 +22,7 @@ import { Members } from "@/shared/components/members"
 import { TeachingQualityStats } from "@/modules/majors/components/shared/teaching-quality-stats"
 import { QuickCreateMajorDialog } from "@/modules/departments/components/shared/quick-create-major-dialog"
 import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
-import { usePermission } from "@/shared/hooks/use-permission"
+import { PermissionGate } from "@/shared/components/permission-gate"
 
 const DEPARTMENT_TABS = {
   overview: "院系概览",
@@ -43,7 +43,6 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
   const [majorSearchFilter, setMajorSearchFilter] = useState<string | undefined>(undefined)
   // 用于触发重新获取专业列表
   const [refreshMajorsKey, setRefreshMajorsKey] = useState(0)
-  const { canManage } = usePermission()
   const { setActivePage } = useActivePageTracker()
 
   useEffect(() => {
@@ -144,16 +143,17 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
                 initialMajorSearch={majorSearchFilter}
                 refreshKey={refreshMajorsKey}
                 headerAction={
-                  canManage &&
-                  <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setIsQuickCreateMajorOpen(true)}
-                  className="gap-2 hover:bg-primary/10"
-                >
-                  <Plus className="w-4 h-4 text-primary" />
-                  <span className="text-primary font-medium">开设专业</span>
-                </Button>
+                  <PermissionGate action="department.major.create" context={{ scope: "department" }}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setIsQuickCreateMajorOpen(true)}
+                      className="gap-2 hover:bg-primary/10"
+                    >
+                      <Plus className="w-4 h-4 text-primary" />
+                      <span className="text-primary font-medium">开设专业</span>
+                    </Button>
+                  </PermissionGate>
                 }
               />
             )}

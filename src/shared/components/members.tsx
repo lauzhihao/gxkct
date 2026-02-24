@@ -41,10 +41,11 @@ import { cn } from "@/shared/utils/utils"
 import type { TreeNode, NodeType } from "@/types"
 import { api } from "@/lib/api"
 import { Skeleton } from "@/shared/components/ui/skeleton"
+import { PermissionGate } from "@/shared/components/permission-gate"
+import type { PermissionAction, PermissionContext } from "@/shared/permissions/types"
 
 interface MembersProps {
   node: TreeNode
-  canManageMembers?: boolean
 }
 
 interface MemberUser {
@@ -63,6 +64,21 @@ interface MemberUser {
   major?: string
   courseCount?: number
   courses?: string[]
+}
+
+type MemberScope = Exclude<PermissionContext["scope"], "root" | undefined>
+type MemberOperation = "create" | "edit" | "delete" | "toggle" | "resetPassword"
+
+const MEMBER_SCOPE_BY_NODE_TYPE: Partial<Record<NodeType, MemberScope>> = {
+  university: "college",
+  department: "department",
+  major: "major",
+  course: "course",
+}
+
+function getMemberAction(scope: MemberScope | undefined, operation: MemberOperation): PermissionAction | null {
+  if (!scope) return null
+  return `${scope}.member.${operation}` as PermissionAction
 }
 
 // 根据节点类型获取角色配置
@@ -122,9 +138,15 @@ const getRoleConfig = (
   return roleConfigs[nodeType] || roleConfigs.major
 }
 
-export function Members({ node, canManageMembers = true }: MembersProps) {
+export function Members({ node }: MembersProps) {
   // 使用兼容属性，确保 type 总是有值
   const nodeType = node.type ?? node.nodeType
+  const memberScope = MEMBER_SCOPE_BY_NODE_TYPE[nodeType]
+  const createMemberAction = getMemberAction(memberScope, "create")
+  const editMemberAction = getMemberAction(memberScope, "edit")
+  const deleteMemberAction = getMemberAction(memberScope, "delete")
+  const toggleMemberAction = getMemberAction(memberScope, "toggle")
+  const resetPasswordMemberAction = getMemberAction(memberScope, "resetPassword")
   const nodeId = node.id ?? node.nodeId
   const roleConfig = getRoleConfig(nodeType)
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false)
@@ -430,25 +452,27 @@ export function Members({ node, canManageMembers = true }: MembersProps) {
               </div>
             )}
           </div>
-          {canManageMembers && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                setEditingUserId(null)
-                setNewUserAccount("")
-                setNewUserName("")
-                setNewUserRole(roleConfig.defaultRole)
-                setNewUserUniversity("")
-                setNewUserDepartment("")
-                setNewUserMajor("")
-                setIsAddUserDialogOpen(true)
-              }}
-              className="gap-2 hover:bg-primary/10 whitespace-nowrap"
-            >
-              <Plus className="w-4 h-4 text-primary" />
-              <span className="text-primary font-medium">新增成员</span>
-            </Button>
+          {createMemberAction && memberScope && (
+            <PermissionGate action={createMemberAction} context={{ scope: memberScope }}>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setEditingUserId(null)
+                  setNewUserAccount("")
+                  setNewUserName("")
+                  setNewUserRole(roleConfig.defaultRole)
+                  setNewUserUniversity("")
+                  setNewUserDepartment("")
+                  setNewUserMajor("")
+                  setIsAddUserDialogOpen(true)
+                }}
+                className="gap-2 hover:bg-primary/10 whitespace-nowrap"
+              >
+                <Plus className="w-4 h-4 text-primary" />
+                <span className="text-primary font-medium">新增成员</span>
+              </Button>
+            </PermissionGate>
           )}
         </div>
         <div className="rounded-lg border border-border overflow-hidden bg-white/50">
@@ -584,62 +608,78 @@ export function Members({ node, canManageMembers = true }: MembersProps) {
                 </div>
 
                 {/* 操作列 */}
-                {canManageMembers && (
+                {memberScope && (
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className={cn("text-xs font-medium", !user.disabled ? "text-muted-foreground" : "text-red-600")}>
-                        禁用
-                      </span>
-                      <Switch
-                        checked={!user.disabled}
-                        onCheckedChange={() => handleToggleUserEnabled(user.id)}
-                        className="cursor-pointer"
-                      />
-                      <span
-                        className={cn("text-xs font-medium", !user.disabled ? "text-green-600" : "text-muted-foreground")}
-                      >
-                        启用
-                      </span>
-                    </div>
-                    <Button size="sm" variant="ghost" onClick={() => handleEditUser(user)} className="gap-2">
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button size="sm" variant="ghost" className="gap-2 text-orange-600 hover:text-orange-700">
-                          <RotateCcw className="w-3.5 h-3.5" />
+                    {toggleMemberAction && (
+                      <PermissionGate action={toggleMemberAction} context={{ scope: memberScope }}>
+                        <div className="flex items-center gap-2">
+                          <span className={cn("text-xs font-medium", !user.disabled ? "text-muted-foreground" : "text-red-600")}>
+                            禁用
+                          </span>
+                          <Switch
+                            checked={!user.disabled}
+                            onCheckedChange={() => handleToggleUserEnabled(user.id)}
+                            className="cursor-pointer"
+                          />
+                          <span
+                            className={cn("text-xs font-medium", !user.disabled ? "text-green-600" : "text-muted-foreground")}
+                          >
+                            启用
+                          </span>
+                        </div>
+                      </PermissionGate>
+                    )}
+                    {editMemberAction && (
+                      <PermissionGate action={editMemberAction} context={{ scope: memberScope }}>
+                        <Button size="sm" variant="ghost" onClick={() => handleEditUser(user)} className="gap-2">
+                          <Pencil className="w-3.5 h-3.5" />
                         </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>确认重置密码</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            确认要重置用户 {user.name} 的密码？新密码将发送至用户邮箱。
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>取消</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleResetPassword(user.id)}>确认重置</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button size="sm" variant="ghost" className="gap-2 text-destructive hover:text-destructive">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>确认删除用户</AlertDialogTitle>
-                          <AlertDialogDescription>确认要删除用户 {user.name}？此操作无法撤销。</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>取消</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDeleteUser(user.id)}>确认删除</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                      </PermissionGate>
+                    )}
+                    {resetPasswordMemberAction && (
+                      <PermissionGate action={resetPasswordMemberAction} context={{ scope: memberScope }}>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="ghost" className="gap-2 text-orange-600 hover:text-orange-700">
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>确认重置密码</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                确认要重置用户 {user.name} 的密码？新密码将发送至用户邮箱。
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>取消</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleResetPassword(user.id)}>确认重置</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </PermissionGate>
+                    )}
+                    {deleteMemberAction && (
+                      <PermissionGate action={deleteMemberAction} context={{ scope: memberScope }}>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="ghost" className="gap-2 text-destructive hover:text-destructive">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>确认删除用户</AlertDialogTitle>
+                              <AlertDialogDescription>确认要删除用户 {user.name}？此操作无法撤销。</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>取消</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteUser(user.id)}>确认删除</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </PermissionGate>
+                    )}
                   </div>
                 )}
             </div>

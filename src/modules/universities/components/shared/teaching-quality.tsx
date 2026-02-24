@@ -34,7 +34,9 @@ type PageState = "list" | "view" | "create" | "edit" | "depts"
 type TeachingTaskDraft = Omit<TeachingSupervisoryTask, "id" | "createdAt" | "updatedAt">
 
 export function TeachingQuality({ node }: TeachingQualityProps) {
-  const { canManage } = usePermission()
+  const { can } = usePermission()
+  const canCreateTeachingTask = can("college.teachingTask.create", { scope: "college" })
+  const canManageTeachingTask = can("college.teachingTask.manage", { scope: "college" })
   // 从 node.id 中提取数字部分（处理 "univ_86" 格式）
   const nodeId = node.id || node.nodeId || ""
   const idMatch = nodeId.match(/\d+/)
@@ -212,7 +214,7 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
         {/* Header with action button */}
         <div className="flex items-center justify-between">
           <h3 className="text-base font-medium text-foreground">数据统计</h3>
-          {canManage && (
+          {canCreateTeachingTask && (
             <Button
               size="sm"
               variant="ghost"
@@ -282,7 +284,7 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
               setSelectedTask(task)
               setPageState("depts")
             }}
-            onSettingsClick={canManage
+            onSettingsClick={canManageTeachingTask
               ? (task) => {
                 setSelectedTask(task)
                 setPageState("view")

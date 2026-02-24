@@ -24,7 +24,7 @@ import { StatisticsCards } from "@/modules/departments/components/shared/statist
 import { Members } from "@/shared/components/members"
 import { TeachingQuality } from "@/modules/universities/components/shared/teaching-quality"
 import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
-import { usePermission } from "@/shared/hooks/use-permission"
+import { PermissionGate } from "@/shared/components/permission-gate"
 
 const UNIVERSITY_TABS = {
   overview: "学校概览",
@@ -40,7 +40,6 @@ export function UniversityDetail({ node, onNodeSelect, onSetCurrentSchool, curre
   const [newDeptDesc, setNewDeptDesc] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
-  const { canManage } = usePermission()
   const { setActivePage } = useActivePageTracker()
   const { toast } = useToast()
 
@@ -144,60 +143,61 @@ export function UniversityDetail({ node, onNodeSelect, onSetCurrentSchool, curre
                 onNodeSelect={onNodeSelect}
                 currentUser={currentUser}
                 headerAction={
-                canManage &&
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" variant="ghost" className="gap-2 hover:bg-primary/10">
-                      <Plus className="w-4 h-4 text-primary" />
-                      <span className="text-primary font-medium">新增院系</span>
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                      <DialogTitle>新增院系</DialogTitle>
-                      <DialogDescription>填写院系基本信息，创建新的院系节点</DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="dept-name">院系名称</Label>
-                        <Input
-                          id="dept-name"
-                          placeholder="例如：信息学院"
-                          value={newDeptName}
-                          onChange={(e) => setNewDeptName(e.target.value)}
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="dept-desc">院系简介</Label>
-                        <Textarea
-                          id="dept-desc"
-                          placeholder="简要描述院系的培养方向和特色"
-                          rows={3}
-                          value={newDeptDesc}
-                          onChange={(e) => setNewDeptDesc(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button
-                        type="submit"
-                        className="gap-2"
-                        onClick={handleCreateDepartment}
-                        disabled={!newDeptName.trim() || isCreating}
-                      >
-                        <Plus className="w-4 h-4" />
-                        {isCreating ? "创建中..." : "创建院系"}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              }
-            />
+                  <PermissionGate action="college.department.create" context={{ scope: "college" }}>
+                    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button size="sm" variant="ghost" className="gap-2 hover:bg-primary/10">
+                          <Plus className="w-4 h-4 text-primary" />
+                          <span className="text-primary font-medium">新增院系</span>
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[500px]">
+                        <DialogHeader>
+                          <DialogTitle>新增院系</DialogTitle>
+                          <DialogDescription>填写院系基本信息，创建新的院系节点</DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                          <div className="grid gap-2">
+                            <Label htmlFor="dept-name">院系名称</Label>
+                            <Input
+                              id="dept-name"
+                              placeholder="例如：信息学院"
+                              value={newDeptName}
+                              onChange={(e) => setNewDeptName(e.target.value)}
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="dept-desc">院系简介</Label>
+                            <Textarea
+                              id="dept-desc"
+                              placeholder="简要描述院系的培养方向和特色"
+                              rows={3}
+                              value={newDeptDesc}
+                              onChange={(e) => setNewDeptDesc(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button
+                            type="submit"
+                            className="gap-2"
+                            onClick={handleCreateDepartment}
+                            disabled={!newDeptName.trim() || isCreating}
+                          >
+                            <Plus className="w-4 h-4" />
+                            {isCreating ? "创建中..." : "创建院系"}
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </PermissionGate>
+                }
+              />
             )}
           </TabsContent>
 
           <TabsContent value="members" className="space-y-6 p-6">
-            {node && <Members node={node} canManageMembers={canManage} />}
+            {node && <Members node={node} />}
           </TabsContent>
 
           <TabsContent value="teaching-quality" className="mt-0">
