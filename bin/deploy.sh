@@ -200,6 +200,43 @@ NEW_RELEASE_DIR="$RELEASES_DIR/$RELEASE_ID"
 CURRENT_LINK="$REMOTE_ROOT/current"
 TMP_LINK="$REMOTE_ROOT/.current_tmp"
 
+reload_or_start_pm2() {
+  if pm2 describe "$PM2_APP" >/dev/null 2>&1; then
+    pm2 reload "$CURRENT_LINK/standalone/ecosystem.config.cjs" --only "$PM2_APP" --update-env
+  else
+    pm2 start "$CURRENT_LINK/standalone/ecosystem.config.cjs" --only "$PM2_APP" --update-env
+  fi
+}
+
+ensure_pm2_points_to_release() {
+  local expected_release_dir="$1"
+  local expected_cwd="$expected_release_dir/standalone"
+  local app_pid=""
+  local current_cwd=""
+
+  app_pid="$(pm2 pid "$PM2_APP" 2>/dev/null | tr -d '[:space:]' || true)"
+  if [ -n "$app_pid" ] && [ "$app_pid" != "0" ] && [ -d "/proc/$app_pid" ]; then
+    current_cwd="$(readlink -f "/proc/$app_pid/cwd" || true)"
+  fi
+
+  if [ "$current_cwd" != "$expected_cwd" ]; then
+    echo "检测到 PM2 仍指向旧目录: ${current_cwd:-<unknown>}"
+    echo "执行兜底重建进程，目标目录: $expected_cwd"
+    pm2 delete "$PM2_APP" >/dev/null 2>&1 || true
+    pm2 start "$CURRENT_LINK/standalone/ecosystem.config.cjs" --only "$PM2_APP" --update-env
+
+    app_pid="$(pm2 pid "$PM2_APP" 2>/dev/null | tr -d '[:space:]' || true)"
+    if [ -n "$app_pid" ] && [ "$app_pid" != "0" ] && [ -d "/proc/$app_pid" ]; then
+      current_cwd="$(readlink -f "/proc/$app_pid/cwd" || true)"
+    fi
+
+    if [ "$current_cwd" != "$expected_cwd" ]; then
+      echo "PM2 目录校验失败: 期望 $expected_cwd, 实际 ${current_cwd:-<unknown>}"
+      exit 1
+    fi
+  fi
+}
+
 if [ ! -f "$PACKAGE_DIR/next-standalone.tar.gz" ] || [ ! -f "$PACKAGE_DIR/next-static.zip" ] || [ ! -f "$PACKAGE_DIR/public.zip" ]; then
   echo "发布包不完整: $PACKAGE_DIR"
   exit 1
@@ -241,11 +278,8 @@ fi
 ln -sfn "$NEW_RELEASE_DIR" "$TMP_LINK"
 mv -Tf "$TMP_LINK" "$CURRENT_LINK"
 
-if pm2 describe "$PM2_APP" >/dev/null 2>&1; then
-  pm2 reload "$CURRENT_LINK/standalone/ecosystem.config.cjs" --only "$PM2_APP" --update-env
-else
-  pm2 start "$CURRENT_LINK/standalone/ecosystem.config.cjs" --only "$PM2_APP" --update-env
-fi
+reload_or_start_pm2
+ensure_pm2_points_to_release "$NEW_RELEASE_DIR"
 
 HEALTHY="0"
 for attempt in $(seq 1 20); do
@@ -263,11 +297,8 @@ if [ "$HEALTHY" != "1" ]; then
     echo "开始回滚到上一版本: $PREVIOUS_RELEASE"
     ln -sfn "$PREVIOUS_RELEASE" "$TMP_LINK"
     mv -Tf "$TMP_LINK" "$CURRENT_LINK"
-    if pm2 describe "$PM2_APP" >/dev/null 2>&1; then
-      pm2 reload "$CURRENT_LINK/standalone/ecosystem.config.cjs" --only "$PM2_APP" --update-env
-    else
-      pm2 start "$CURRENT_LINK/standalone/ecosystem.config.cjs" --only "$PM2_APP" --update-env
-    fi
+    reload_or_start_pm2
+    ensure_pm2_points_to_release "$PREVIOUS_RELEASE"
     echo "回滚完成"
   else
     echo "没有可用的上一版本，无法自动回滚"

@@ -180,12 +180,12 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
         <div className={cn("grid gap-4", isDepartment && userCount > 0 ? "grid-cols-3" : isUniversity ? "grid-cols-3" : "grid-cols-2")}>
           {isUniversity && (
             <Card
-              className="bg-card/50 backdrop-blur-sm border-border hover:border-primary/50 cursor-pointer hover:shadow-lg transition-all"
-              onClick={() => {
-                if (departments.length > 0 && onNodeSelect) {
-                  onNodeSelect(departments[0])
-                }
-              }}
+              className="bg-card/50 backdrop-blur-sm border-border hover:border-primary/50 hover:shadow-lg transition-all"
+              // onClick={() => {
+              //   if (departments.length > 0 && onNodeSelect) {
+              //     onNodeSelect(departments[0])
+              //   }
+              // }}
             >
               <CardContent className="p-4">
                 <div className="flex flex-col items-center justify-center gap-3">
