@@ -42,6 +42,7 @@ import { Spinner } from "@/shared/components/ui/spinner"
 import type { TreeNode } from "@/types"
 import { useTreeSearch } from "@/shared/hooks/use-tree-search"
 import { useDepartmentMajors } from "@/modules/departments/hooks/use-department-majors"
+import { usePermission } from "@/shared/hooks/use-permission"
 
 function highlightText(text: string, searchTerm: string): React.ReactNode {
   if (!searchTerm.trim()) {
@@ -452,6 +453,7 @@ export const TreeView = React.forwardRef<
   const [isAddSchoolDialogOpen, setIsAddSchoolDialogOpen] = useState(false)
   const [newSchoolName, setNewSchoolName] = useState("")
   const [newSchoolDesc, setNewSchoolDesc] = useState("")
+  const { canManage } = usePermission()
   const { departmentMajors, loadedDepartments, loadDepartmentMajors } = useDepartmentMajors(onDepartmentMajorsChange)
   // 跟踪是否正在加载数据（搜索或动态加载）
   const [isDataLoading, setIsDataLoading] = useState(false)
@@ -870,7 +872,7 @@ export const TreeView = React.forwardRef<
               )}
             </div>
 
-            {onAddSchool && (
+            {onAddSchool && canManage && (
               <Dialog open={isAddSchoolDialogOpen} onOpenChange={setIsAddSchoolDialogOpen}>
                 <DialogTrigger asChild>
                   <Button

@@ -36,6 +36,27 @@ type CachedMajorData = {
   requiresVOS?: CachedGraduationRequirement[]
 }
 
+const dedupeCourseMatrixPoints = (points: CourseMatrixPointItem[]): CourseMatrixPointItem[] => {
+  const pointMap = new Map<string, CourseMatrixPointItem>()
+
+  points.forEach((point) => {
+    const existing = pointMap.get(point.id)
+    if (!existing) {
+      pointMap.set(point.id, point)
+      return
+    }
+
+    const existingHasMatrixItemId = existing.matrixItemId > 0
+    const pointHasMatrixItemId = point.matrixItemId > 0
+
+    if (!existingHasMatrixItemId && pointHasMatrixItemId) {
+      pointMap.set(point.id, point)
+    }
+  })
+
+  return Array.from(pointMap.values())
+}
+
 export const CourseMatrixProvider = ({ value, children }: CourseMatrixProviderProps) => (
   <CourseMatrixContext.Provider value={value}>{children}</CourseMatrixContext.Provider>
 )
@@ -240,13 +261,15 @@ export const useCourseMatrixData = ({ node, majorId }: UseCourseMatrixDataParams
                 transformedData[key] = []
               }
 
-              transformedData[key].push({
+              const nextPoint: CourseMatrixPointItem = {
                 id: String(item.point.id),
                 matrixItemId: item.id,
                 name: item.point.title,
                 description: item.point.description,
                 support: item.relate.relate === 0 ? "strong" : "weak",
-              })
+              }
+
+              transformedData[key] = dedupeCourseMatrixPoints([...transformedData[key], nextPoint])
             })
 
             setCourseMatrixData(transformedData)
@@ -376,25 +399,24 @@ export const useCourseMatrixData = ({ node, majorId }: UseCourseMatrixDataParams
   }, [handleSaveCourseMatrix, isAutoSavePaused, isEditingCourseMatrix])
 
   const handleCancelCourseMatrix = useCallback(() => {
-    setCourseMatrixData({})
     setEditingProjectNames({})
     setIsEditingCourseMatrix(false)
   }, [])
 
   const handleAddCoursePoint = useCallback(
-    (objectiveId: string, pointId: string, chapterId: string) => {
+    (projectId: string, graduateRequireId: string) => {
       setIsAutoSavePaused(true)
       setCoursePointsSearch("")
       setCoursePointsSearchInDialog("")
 
-      const key = buildSelectionDialogKey(objectiveId, pointId, chapterId)
+      const key = buildSelectionDialogKey(projectId, graduateRequireId)
       const existingCoursePoints = courseMatrixData[key] || []
       const initialSelections: Record<string, SupportStrength> = {}
       existingCoursePoints.forEach((cp) => {
         initialSelections[cp.id] = cp.support
       })
 
-      setSelectedMatrixCell({ objectiveId, pointId, chapterId })
+      setSelectedMatrixCell({ projectId, graduateRequireId })
       setSelectedCoursePoints(initialSelections)
       setIsAddCoursePointDialogOpen(true)
     },
@@ -420,25 +442,27 @@ export const useCourseMatrixData = ({ node, majorId }: UseCourseMatrixDataParams
       return
     }
 
-    const key = buildSelectionDialogKey(selectedMatrixCell.objectiveId, selectedMatrixCell.pointId, selectedMatrixCell.chapterId)
+    const key = buildSelectionDialogKey(selectedMatrixCell.projectId, selectedMatrixCell.graduateRequireId)
     const coursePointsMap = createCoursePointMap(coursePointsList)
 
     setCourseMatrixData((prev) => {
       const existingPoints = prev[key] || []
       const existingPointMap = new Map(existingPoints.map((point) => [point.id, point]))
 
-      const newPoints: CourseMatrixPointItem[] = Object.entries(selectedCoursePoints).map(([id, support]) => {
-        const pointData = coursePointsMap.get(id) || { title: id, description: "" }
-        const existingPoint = existingPointMap.get(id)
+      const newPoints = dedupeCourseMatrixPoints(
+        Object.entries(selectedCoursePoints).map(([id, support]) => {
+          const pointData = coursePointsMap.get(id) || { title: id, description: "" }
+          const existingPoint = existingPointMap.get(id)
 
-        return {
-          id,
-          matrixItemId: existingPoint?.matrixItemId || 0,
-          name: pointData.title,
-          description: pointData.description,
-          support,
-        }
-      })
+          return {
+            id,
+            matrixItemId: existingPoint?.matrixItemId || 0,
+            name: pointData.title,
+            description: pointData.description,
+            support,
+          }
+        })
+      )
 
       return {
         ...prev,
@@ -451,8 +475,8 @@ export const useCourseMatrixData = ({ node, majorId }: UseCourseMatrixDataParams
     setSelectedCoursePoints({})
   }, [coursePointsList, selectedCoursePoints, selectedMatrixCell])
 
-  const handleRemoveCoursePoint = useCallback((objectiveId: string, pointId: string, chapterId: string, coursePointId: string) => {
-    const key = buildSelectionDialogKey(objectiveId, pointId, chapterId)
+  const handleRemoveCoursePoint = useCallback((projectId: string, graduateRequireId: string, coursePointId: string) => {
+    const key = buildSelectionDialogKey(projectId, graduateRequireId)
     setCourseMatrixData((prev) => ({
       ...prev,
       [key]: (prev[key] || []).filter((cp) => cp.id !== coursePointId),

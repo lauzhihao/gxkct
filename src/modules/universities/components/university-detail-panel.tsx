@@ -24,6 +24,7 @@ import { StatisticsCards } from "@/modules/departments/components/shared/statist
 import { Members } from "@/shared/components/members"
 import { TeachingQuality } from "@/modules/universities/components/shared/teaching-quality"
 import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
+import { usePermission } from "@/shared/hooks/use-permission"
 
 const UNIVERSITY_TABS = {
   overview: "学校概览",
@@ -39,28 +40,9 @@ export function UniversityDetail({ node, onNodeSelect, onSetCurrentSchool, curre
   const [newDeptDesc, setNewDeptDesc] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
-  const [canCreateDepartment, setCanCreateDepartment] = useState(false)
+  const { canManage } = usePermission()
   const { setActivePage } = useActivePageTracker()
   const { toast } = useToast()
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return
-    }
-
-    try {
-      const authUserJson = localStorage.getItem("education-api-auth-user")
-      if (!authUserJson) {
-        setCanCreateDepartment(false)
-        return
-      }
-
-      const authUser = JSON.parse(authUserJson) as { permissionId?: number }
-      setCanCreateDepartment(authUser.permissionId === 1)
-    } catch {
-      setCanCreateDepartment(false)
-    }
-  }, [])
 
   useEffect(() => {
     if (!node) return
@@ -162,7 +144,7 @@ export function UniversityDetail({ node, onNodeSelect, onSetCurrentSchool, curre
                 onNodeSelect={onNodeSelect}
                 currentUser={currentUser}
                 headerAction={
-                canCreateDepartment &&
+                canManage &&
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm" variant="ghost" className="gap-2 hover:bg-primary/10">

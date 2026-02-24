@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { ChevronDown, User, Palette, Bell } from "lucide-react"
+import { ChevronDown, Palette, Bell } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import {
   DropdownMenu,
@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback, AvatarImage } from "@/shared/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar"
 import { cn } from "@/shared/utils/utils"
 import { api, getStoredAuthUser, clearAllAuthData } from "@/lib/api"
 import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
@@ -230,6 +230,11 @@ export function Header({ onResetData, currentPath, treeData }: HeaderProps) {
   const prepareOrGetCanvasData = useAiCanvasStore((state) => state.prepareOrGetCanvasData)
 
   const unreadCount = notifications.filter((n) => !n.read).length
+  const avatarText = userName.trim().charAt(0).toUpperCase() || "U"
+  const notificationMenuItemClassName =
+    "cursor-pointer flex flex-col items-start gap-1 py-3 px-3 border-b border-border/50 last:border-0 focus:text-primary data-[highlighted]:text-primary"
+  const userMenuItemClassName =
+    "cursor-pointer hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground data-[highlighted]:bg-primary data-[highlighted]:text-primary-foreground"
 
   // 处理退出登录
   const handleLogout = () => {
@@ -328,7 +333,7 @@ export function Header({ onResetData, currentPath, treeData }: HeaderProps) {
           {/* Notification Bell */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative hover:bg-primary/10 transition-colors">
+              <Button variant="ghost" size="icon" className="relative text-foreground hover:bg-primary/10 hover:text-primary transition-colors">
                 <Bell className="h-5 w-5" />
                 {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
@@ -349,10 +354,10 @@ export function Header({ onResetData, currentPath, treeData }: HeaderProps) {
                   notifications.map((notification) => (
                     <DropdownMenuItem
                       key={notification.id}
-                      className={cn(
-                        "cursor-pointer flex flex-col items-start gap-1 py-3 px-3 border-b border-border/50 last:border-0",
-                        !notification.read ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-primary/5",
-                      )}
+                       className={cn(
+                         notificationMenuItemClassName,
+                         !notification.read ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-primary/5",
+                       )}
                       onClick={() => {
                         setNotifications((prev) =>
                           prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n)),
@@ -380,7 +385,7 @@ export function Header({ onResetData, currentPath, treeData }: HeaderProps) {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="w-full text-xs hover:bg-primary/10"
+                      className="w-full text-xs hover:bg-primary/10 hover:text-primary"
                       onClick={() => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))}
                     >
                       全部标记为已读
@@ -394,7 +399,7 @@ export function Header({ onResetData, currentPath, treeData }: HeaderProps) {
           {/* Color Palette */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="hover:bg-primary/10 transition-colors">
+              <Button variant="ghost" size="icon" className="text-foreground hover:bg-primary/10 hover:text-primary transition-colors">
                 <Palette className="h-5 w-5" />
               </Button>
             </DropdownMenuTrigger>
@@ -423,28 +428,27 @@ export function Header({ onResetData, currentPath, treeData }: HeaderProps) {
 
           {/* User Avatar */}
           <Avatar className="h-9 w-9 border-2 border-primary/30">
-            <AvatarImage src="/diverse-user-avatars.png" alt="用户头像" />
-            <AvatarFallback className="bg-primary/10 text-primary">
-              <User className="h-5 w-5" />
+            <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
+              {avatarText}
             </AvatarFallback>
           </Avatar>
 
           {/* User Name and Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-2 hover:bg-primary/10 transition-colors">
+              <Button variant="ghost" className="group flex items-center gap-2 text-foreground hover:bg-primary/10 hover:text-primary transition-colors">
                 <span className="text-sm font-medium">{userName}</span>
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 bg-white/95 backdrop-blur-md border-primary/20">
-              <DropdownMenuItem className="cursor-pointer hover:bg-primary/10">个人信息</DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer hover:bg-primary/10">系统设置</DropdownMenuItem>
+              <DropdownMenuItem className={userMenuItemClassName}>个人信息</DropdownMenuItem>
+              <DropdownMenuItem className={userMenuItemClassName}>系统设置</DropdownMenuItem>
               <DropdownMenuSeparator />
               {onResetData && (
                 <>
                   <DropdownMenuItem
-                    className="cursor-pointer hover:bg-primary/10 text-orange-600"
+                    className={cn("text-orange-600", userMenuItemClassName)}
                     onClick={onResetData}
                   >
                     重置数据
@@ -453,7 +457,7 @@ export function Header({ onResetData, currentPath, treeData }: HeaderProps) {
                 </>
               )}
               <DropdownMenuItem
-                className="cursor-pointer hover:bg-primary/10 text-red-600"
+                className={cn("text-red-600", userMenuItemClassName)}
                 onClick={handleLogout}
               >
                 退出登录

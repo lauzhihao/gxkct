@@ -3,8 +3,8 @@ import type { CoursePoint as ApiCoursePoint } from "@/lib/api/course-points-api"
 export const buildMatrixDisplayKey = (projectId: string | number, graduateRequireId: string | number) =>
   `${projectId}-${graduateRequireId}`
 
-export const buildSelectionDialogKey = (objectiveId: string, pointId: string, chapterId: string) =>
-  `${objectiveId}-${pointId}-${chapterId}`
+export const buildSelectionDialogKey = (projectId: string | number, graduateRequireId: string | number) =>
+  buildMatrixDisplayKey(projectId, graduateRequireId)
 
 export const createCoursePointMap = (coursePoints: ApiCoursePoint[]) => {
   const map = new Map<string, { title: string; description: string }>()

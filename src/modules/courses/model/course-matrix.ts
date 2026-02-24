@@ -19,9 +19,8 @@ export interface CourseMatrixPointItem {
 export type CourseMatrixRecord = Record<string, CourseMatrixPointItem[]>
 
 export interface SelectedMatrixCell {
-  objectiveId: string
-  pointId: string
-  chapterId: string
+  projectId: string
+  graduateRequireId: string
 }
 
 export interface UseCourseMatrixDataParams {
@@ -46,10 +45,10 @@ export interface CourseMatrixContextValue {
   setSelectedMatrixCell: Setter<SelectedMatrixCell | null>
   selectedCoursePoints: Record<string, SupportStrength>
   setSelectedCoursePoints: Setter<Record<string, SupportStrength>>
-  handleAddCoursePoint: (objectiveId: string, pointId: string, chapterId: string) => void
+  handleAddCoursePoint: (projectId: string, graduateRequireId: string) => void
   handleToggleCoursePointSelection: (coursePointId: string, support: SupportStrength) => void
   handleConfirmCoursePointSelection: () => void
-  handleRemoveCoursePoint: (objectiveId: string, pointId: string, chapterId: string, coursePointId: string) => void
+  handleRemoveCoursePoint: (projectId: string, graduateRequireId: string, coursePointId: string) => void
   projectTeachGoalData: ProjectTeachGoalData | null
   isLoadingProjectTeachGoal: boolean
   handleAddProject: () => void

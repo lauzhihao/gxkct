@@ -177,15 +177,18 @@ export const ProjectMatrixTable = () => {
                         <div className="flex flex-col items-center gap-2">
                           {coursePoints.length > 0 && (
                             <div className="flex flex-wrap gap-2 justify-center">
-                              {coursePoints.map((cp) => (
-                                <div key={cp.id} className="relative group/label">
+                              {coursePoints.map((cp, cpIdx) => (
+                                <div
+                                  key={cp.matrixItemId > 0 ? `matrix-${cp.matrixItemId}` : `point-${cp.id}-${cpIdx}`}
+                                  className="relative group/label"
+                                >
                                   <SupportLabel
                                     title={coursePointTitleMap.get(cp.id) || cp.name || cp.id}
                                     desc={cp.description}
                                     type={cp.support}
                                     showRemoveButton
                                     onRemove={() =>
-                                      handleRemoveCoursePoint(String(goal.id), String(child.id), String(project.id), cp.id)
+                                      handleRemoveCoursePoint(String(project.id), String(child.id), cp.id)
                                     }
                                     size="md"
                                   />
@@ -194,7 +197,7 @@ export const ProjectMatrixTable = () => {
                             </div>
                           )}
                           <button
-                            onClick={() => handleAddCoursePoint(String(goal.id), String(child.id), String(project.id))}
+                            onClick={() => handleAddCoursePoint(String(project.id), String(child.id))}
                             className="w-4 h-4 rounded-full border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/10 flex items-center justify-center transition-all group"
                           >
                             <Plus className="w-2 h-2 text-primary/60 group-hover:text-primary" />
@@ -203,9 +206,9 @@ export const ProjectMatrixTable = () => {
                       ) : (
                         <div className="flex flex-wrap gap-2 justify-center">
                           {coursePoints.length > 0 ? (
-                            coursePoints.map((cp) => (
+                            coursePoints.map((cp, cpIdx) => (
                               <SupportLabel
-                                key={cp.id}
+                                key={cp.matrixItemId > 0 ? `matrix-${cp.matrixItemId}` : `point-${cp.id}-${cpIdx}`}
                                 title={coursePointTitleMap.get(cp.id) || cp.name || cp.id}
                                 desc={cp.description}
                                 type={cp.support}

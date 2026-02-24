@@ -22,6 +22,34 @@ export interface AuthResponse {
 
 const AUTH_TOKEN_KEY = "education-api-auth-token"
 const AUTH_USER_KEY = "education-api-auth-user"
+const MANAGED_LOCAL_STORAGE_PREFIX = "education-api-"
+
+// 退出登录时保留的非敏感偏好键
+const PRESERVED_LOCAL_STORAGE_KEYS = new Set<string>([
+  "education-api-colorTheme",
+  "currentActivePage",
+  "education-current-school",
+  "education-tree-collapsed",
+])
+
+function clearManagedLocalStorage(): void {
+  const keys = Object.keys(localStorage)
+
+  keys.forEach((key) => {
+    if (key === AUTH_TOKEN_KEY || key === AUTH_USER_KEY) {
+      localStorage.removeItem(key)
+      return
+    }
+
+    if (PRESERVED_LOCAL_STORAGE_KEYS.has(key)) {
+      return
+    }
+
+    if (key.startsWith(MANAGED_LOCAL_STORAGE_PREFIX)) {
+      localStorage.removeItem(key)
+    }
+  })
+}
 
 /**
  * 获取存储的认证token
@@ -93,14 +121,22 @@ export function getCurrentUserId(): number | null {
 }
 
 /**
+ * 获取当前用户权限ID（基于登录后 getcurrentdepartment 结果缓存）
+ */
+export function getCurrentPermissionId(): number | null {
+  const user = getStoredAuthUser()
+  return user?.permissionId ?? null
+}
+
+/**
  * 清除所有认证信息及缓存数据
  * 退出登录时调用，会清空 localStorage 和 sessionStorage
  */
 export function clearAllAuthData(): void {
   if (typeof window === "undefined") return
-  // 清空 localStorage（包含认证信息、主题设置等）
-  localStorage.clear()
-  // 清空 sessionStorage（包含课程缓存等）
+
+  // 仅清理认证和业务缓存，保留非敏感偏好设置
+  clearManagedLocalStorage()
+  // session 级数据在登出时全部清空
   sessionStorage.clear()
 }
-

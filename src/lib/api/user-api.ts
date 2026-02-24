@@ -4,6 +4,13 @@ import { HttpAdapter } from "./http-adapter"
 import { setStoredAuthToken, setStoredAuthUser, type AuthResponse } from "./auth-config"
 
 interface CurrentDepartmentResponse {
+  permissionId?: number
+  current?: {
+    permissionId?: number
+  }
+  manage?: {
+    permissionId?: number
+  }
   college?: {
     id?: number
   }
@@ -48,10 +55,21 @@ export class UserApi {
       )
 
       const resolvedCollegeId = currentDepartmentResponse.data?.college?.id
+      const resolvedPermissionId =
+        currentDepartmentResponse.data?.permissionId ??
+        currentDepartmentResponse.data?.current?.permissionId ??
+        currentDepartmentResponse.data?.manage?.permissionId
       if (typeof resolvedCollegeId === "number") {
         resolvedUser = {
           ...response.data.user,
           collegeId: resolvedCollegeId,
+        }
+      }
+
+      if (typeof resolvedPermissionId === "number") {
+        resolvedUser = {
+          ...resolvedUser,
+          permissionId: resolvedPermissionId,
         }
       }
 
