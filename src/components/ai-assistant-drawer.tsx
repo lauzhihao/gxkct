@@ -61,6 +61,7 @@ import { ChatMessageItem } from "./ai-assistant/chat-message-item"
 import { ChatInputArea } from "./ai-assistant/chat-input-area"
 import { createConnectionMenuHandler } from "./ai-assistant/connection-menu-handlers"
 import { GeminiDemoDrawer } from "./ai-assistant/gemini-demo-drawer"
+import { useDebugMode } from "@/shared/hooks/use-debug-mode"
 
 // CanvasComponentType 到 FlowNodeType 的映射（用于获取颜色配置）
 const CANVAS_TO_FLOW_TYPE: Record<CanvasComponentType, string> = {
@@ -147,6 +148,7 @@ export function AiAssistantDrawer({
   treeData = null,
   initialCanvasData = null,
 }: AiAssistantDrawerProps) {
+  const showGeminiEntry = useDebugMode()
   const isCourseDetailCanvas = initialCanvasData !== null
   const [isGeminiDemoOpen, setIsGeminiDemoOpen] = useState(false)
   const [inputMessage, setInputMessage] = useState("")
@@ -1830,24 +1832,26 @@ export function AiAssistantDrawer({
                 灵感来自人工智能，实时协助你分析课程、生成摘要与行动建议。
               </p>
               <div className="flex items-center gap-2 shrink-0">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 rounded-full bg-primary/10 hover:bg-primary/20 text-primary"
-                  onClick={() => {
-                    onOpenChange(false)
-                    setIsGeminiDemoOpen(true)
-                  }}
-                  title="切换到 Gemini 助手"
-                >
-                  <Image
-                    src="/assets/ai/gemini-sparkle.svg"
-                    alt="Gemini 助手"
-                    width={18}
-                    height={18}
-                    className="object-contain"
-                  />
-                </Button>
+                {showGeminiEntry && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-full bg-primary/10 hover:bg-primary/20 text-primary"
+                    onClick={() => {
+                      onOpenChange(false)
+                      setIsGeminiDemoOpen(true)
+                    }}
+                    title="切换到 Gemini 助手"
+                  >
+                    <Image
+                      src="/assets/ai/gemini-sparkle.svg"
+                      alt="Gemini 助手"
+                      width={18}
+                      height={18}
+                      className="object-contain"
+                    />
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="icon"

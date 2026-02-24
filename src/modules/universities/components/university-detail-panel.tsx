@@ -197,7 +197,7 @@ export function UniversityDetail({ node, onNodeSelect, onSetCurrentSchool, curre
           </TabsContent>
 
           <TabsContent value="members" className="space-y-6 p-6">
-            {node && <Members node={node} />}
+            {node && <Members node={node} canManageMembers={canManage} />}
           </TabsContent>
 
           <TabsContent value="teaching-quality" className="mt-0">

@@ -44,6 +44,7 @@ import { Skeleton } from "@/shared/components/ui/skeleton"
 
 interface MembersProps {
   node: TreeNode
+  canManageMembers?: boolean
 }
 
 interface MemberUser {
@@ -121,7 +122,7 @@ const getRoleConfig = (
   return roleConfigs[nodeType] || roleConfigs.major
 }
 
-export function Members({ node }: MembersProps) {
+export function Members({ node, canManageMembers = true }: MembersProps) {
   // 使用兼容属性，确保 type 总是有值
   const nodeType = node.type ?? node.nodeType
   const nodeId = node.id ?? node.nodeId
@@ -429,24 +430,26 @@ export function Members({ node }: MembersProps) {
               </div>
             )}
           </div>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              setEditingUserId(null)
-              setNewUserAccount("")
-              setNewUserName("")
-              setNewUserRole(roleConfig.defaultRole)
-              setNewUserUniversity("")
-              setNewUserDepartment("")
-              setNewUserMajor("")
-              setIsAddUserDialogOpen(true)
-            }}
-            className="gap-2 hover:bg-primary/10 whitespace-nowrap"
-          >
-            <Plus className="w-4 h-4 text-primary" />
-            <span className="text-primary font-medium">新增成员</span>
-          </Button>
+          {canManageMembers && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setEditingUserId(null)
+                setNewUserAccount("")
+                setNewUserName("")
+                setNewUserRole(roleConfig.defaultRole)
+                setNewUserUniversity("")
+                setNewUserDepartment("")
+                setNewUserMajor("")
+                setIsAddUserDialogOpen(true)
+              }}
+              className="gap-2 hover:bg-primary/10 whitespace-nowrap"
+            >
+              <Plus className="w-4 h-4 text-primary" />
+              <span className="text-primary font-medium">新增成员</span>
+            </Button>
+          )}
         </div>
         <div className="rounded-lg border border-border overflow-hidden bg-white/50">
           {isLoading ? (
@@ -581,62 +584,64 @@ export function Members({ node }: MembersProps) {
                 </div>
 
                 {/* 操作列 */}
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <span className={cn("text-xs font-medium", !user.disabled ? "text-muted-foreground" : "text-red-600")}>
-                    禁用
-                  </span>
-                  <Switch
-                    checked={!user.disabled}
-                    onCheckedChange={() => handleToggleUserEnabled(user.id)}
-                    className="cursor-pointer"
-                  />
-                  <span
-                    className={cn("text-xs font-medium", !user.disabled ? "text-green-600" : "text-muted-foreground")}
-                  >
-                    启用
-                  </span>
-                </div>
-                <Button size="sm" variant="ghost" onClick={() => handleEditUser(user)} className="gap-2">
-                  <Pencil className="w-3.5 h-3.5" />
-                </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button size="sm" variant="ghost" className="gap-2 text-orange-600 hover:text-orange-700">
-                      <RotateCcw className="w-3.5 h-3.5" />
+                {canManageMembers && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className={cn("text-xs font-medium", !user.disabled ? "text-muted-foreground" : "text-red-600")}>
+                        禁用
+                      </span>
+                      <Switch
+                        checked={!user.disabled}
+                        onCheckedChange={() => handleToggleUserEnabled(user.id)}
+                        className="cursor-pointer"
+                      />
+                      <span
+                        className={cn("text-xs font-medium", !user.disabled ? "text-green-600" : "text-muted-foreground")}
+                      >
+                        启用
+                      </span>
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={() => handleEditUser(user)} className="gap-2">
+                      <Pencil className="w-3.5 h-3.5" />
                     </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>确认重置密码</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        确认要重置用户 {user.name} 的密码？新密码将发送至用户邮箱。
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>取消</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleResetPassword(user.id)}>确认重置</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button size="sm" variant="ghost" className="gap-2 text-destructive hover:text-destructive">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>确认删除用户</AlertDialogTitle>
-                      <AlertDialogDescription>确认要删除用户 {user.name}？此操作无法撤销。</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>取消</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleDeleteUser(user.id)}>确认删除</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="sm" variant="ghost" className="gap-2 text-orange-600 hover:text-orange-700">
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>确认重置密码</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            确认要重置用户 {user.name} 的密码？新密码将发送至用户邮箱。
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>取消</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleResetPassword(user.id)}>确认重置</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="sm" variant="ghost" className="gap-2 text-destructive hover:text-destructive">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>确认删除用户</AlertDialogTitle>
+                          <AlertDialogDescription>确认要删除用户 {user.name}？此操作无法撤销。</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>取消</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDeleteUser(user.id)}>确认删除</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                )}
             </div>
             )
             })
@@ -790,4 +795,3 @@ export function Members({ node }: MembersProps) {
     </div>
   )
 }
-

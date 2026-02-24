@@ -24,6 +24,7 @@ import { TeachingTaskEvaluation } from "./teaching-task-evaluation"
 import { TeachingTaskFormPage } from "./teaching-task-form-page"
 import { useTeachingTasks } from "@/modules/universities/hooks/use-teaching-tasks"
 import { DeptEvaluationList } from "@/shared/components/supervision"
+import { usePermission } from "@/shared/hooks/use-permission"
 
 interface TeachingQualityProps {
   node: TreeNode
@@ -33,6 +34,7 @@ type PageState = "list" | "view" | "create" | "edit" | "depts"
 type TeachingTaskDraft = Omit<TeachingSupervisoryTask, "id" | "createdAt" | "updatedAt">
 
 export function TeachingQuality({ node }: TeachingQualityProps) {
+  const { canManage } = usePermission()
   // 从 node.id 中提取数字部分（处理 "univ_86" 格式）
   const nodeId = node.id || node.nodeId || ""
   const idMatch = nodeId.match(/\d+/)
@@ -210,15 +212,17 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
         {/* Header with action button */}
         <div className="flex items-center justify-between">
           <h3 className="text-base font-medium text-foreground">数据统计</h3>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setPageState("create")}
-            className="gap-2 hover:bg-primary/10"
-          >
-            <Plus className="w-4 h-4 text-primary" />
-            <span className="text-primary font-medium">新任务</span>
-          </Button>
+          {canManage && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setPageState("create")}
+              className="gap-2 hover:bg-primary/10"
+            >
+              <Plus className="w-4 h-4 text-primary" />
+              <span className="text-primary font-medium">新任务</span>
+            </Button>
+          )}
         </div>
 
         {/* Statistics Cards */}
@@ -278,10 +282,12 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
               setSelectedTask(task)
               setPageState("depts")
             }}
-            onSettingsClick={(task) => {
-              setSelectedTask(task)
-              setPageState("view")
-            }}
+            onSettingsClick={canManage
+              ? (task) => {
+                setSelectedTask(task)
+                setPageState("view")
+              }
+              : undefined}
           />
         </div>
       </div>
