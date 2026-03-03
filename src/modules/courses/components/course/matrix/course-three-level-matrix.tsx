@@ -13,13 +13,14 @@ interface CourseThreeLevelMatrixProps {
   onUpdateNode?: (nodeId: string, updates: Partial<TreeNode>) => void
   treeData?: TreeNode
   majorId?: string | number
+  refreshToken?: number
   courseEditable?: boolean
   onEditTeachingObjectives?: () => void
   activeMatrixTab?: string
   onActiveMatrixTabChange?: (tab: string) => void
 }
 
-export function CourseThreeLevelMatrix({ node, onUpdateNode, treeData, majorId, courseEditable = false, onEditTeachingObjectives, activeMatrixTab = "majorMatrix", onActiveMatrixTabChange }: CourseThreeLevelMatrixProps) {
+export function CourseThreeLevelMatrix({ node, onUpdateNode, treeData, majorId, refreshToken, courseEditable = false, onEditTeachingObjectives, activeMatrixTab = "majorMatrix", onActiveMatrixTabChange }: CourseThreeLevelMatrixProps) {
   const [majorNode, setMajorNode] = useState<TreeNode | undefined>(undefined)
 
   // 处理项目矩阵更新回调（空实现，因为 metadata 已移除）
@@ -68,7 +69,7 @@ export function CourseThreeLevelMatrix({ node, onUpdateNode, treeData, majorId, 
         </TabsContent>
 
         <TabsContent value="courseMatrix" className="mt-2 pb-2.5">
-          <CourseMatrix node={node} onUpdateNode={onUpdateNode} majorId={majorId} courseEditable={courseEditable} onEditTeachingObjectives={onEditTeachingObjectives} />
+          <CourseMatrix node={node} onUpdateNode={onUpdateNode} majorId={majorId} refreshToken={refreshToken} courseEditable={courseEditable} onEditTeachingObjectives={onEditTeachingObjectives} />
         </TabsContent>
 
         <TabsContent value="projectMatrix" className="mt-2 pb-2.5">

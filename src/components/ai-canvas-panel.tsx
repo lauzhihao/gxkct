@@ -433,6 +433,11 @@ function AiCanvasPanelInner({
     if (hasNodeChange || hasDataChange || hasSelectionChange || hasPositionChange) {
       // 找出新增的节点（不在 prevNodeIds 中的节点）
       const newNodes = nodes.filter(n => !prevNodeIds.has(n.id))
+      // KSA 子卡片新增时默认选中父面板，避免视角被子卡片频繁抢焦点
+      const firstNewKsaChildNode = newNodes.find(
+        n => n.type === FlowNodeType.KSA && !!n.parentId
+      )
+      const autoSelectedNodeId = firstNewKsaChildNode?.parentId || newNodes[0]?.id
       // 判断是否为首次加载（prevNodeIds 为空表示首次加载）
       const isInitialLoad = prevNodeIds.size === 0
 
@@ -466,7 +471,7 @@ function AiCanvasPanelInner({
                 ? (prevFlowNodes.find(n => n.id === node.id)?.selected ?? false)
                 : (disableAutoSelectNewNodes
                   ? (prevFlowNodes.find(n => n.id === node.id)?.selected ?? false)
-                  : newNodes[0]?.id === node.id)),
+                  : autoSelectedNodeId === node.id)),
         }))
       })
       prevNodeIdsRef.current = currentNodeIds
@@ -507,11 +512,16 @@ function AiCanvasPanelInner({
             )
           }, 50)
         } else if (newNodes.length > 0) {
-          // 后续新增节点：聚焦到最后一个新节点
-          const lastNewNode = newNodes[newNodes.length - 1]
-          const nodeWidth = lastNewNode.measured?.width || lastNewNode.width || 300
-          const nodeHeight = lastNewNode.measured?.height || lastNewNode.height || 200
-          const absolutePos = getAbsolutePosition(lastNewNode, nodeMap)
+          // 后续新增节点：KSA 子卡片新增时优先聚焦父面板，避免视角漂移到空白区域
+          const ksaParentNode = firstNewKsaChildNode
+            ? nodes.find(n => n.id === firstNewKsaChildNode.parentId)
+            : undefined
+          // 其余场景保持原策略：优先课点卡片，否则回退到最后一个新节点
+          const firstCoursePointNode = newNodes.find(n => n.type === FlowNodeType.COURSE_POINT)
+          const targetNode = ksaParentNode || firstCoursePointNode || newNodes[newNodes.length - 1]
+          const nodeWidth = targetNode.measured?.width || targetNode.width || 300
+          const nodeHeight = targetNode.measured?.height || targetNode.height || 200
+          const absolutePos = getAbsolutePosition(targetNode, nodeMap)
           setTimeout(() => {
             setCenter(
               absolutePos.x + nodeWidth / 2,
@@ -687,8 +697,17 @@ function AiCanvasPanelInner({
   // 处理节点点击（高亮联动功能已移除）
   const handleNodeClick: NodeMouseHandler = useCallback(
     (event, node) => {
-      // 课程信息节点和课点面板节点不在点击时打开弹窗（通过编辑图标触发）
-      if (node.type !== FlowNodeType.COURSE_INFO && node.type !== FlowNodeType.COURSE_POINT_PANEL) {
+      // 点击课点卡片时，直接打开课点编辑抽屉并定位到当前课点
+      if (node.type === FlowNodeType.COURSE_POINT) {
+        const nodeData = node.data as Partial<CoursePointCardData>
+        if (node.parentId) {
+          handleCoursePointPanelEdit(node.parentId, {
+            pointId: typeof nodeData.id === "string" ? nodeData.id : node.id,
+            pointIndex: typeof nodeData.index === "number" ? nodeData.index : undefined,
+          })
+        }
+      } else if (node.type !== FlowNodeType.COURSE_INFO && node.type !== FlowNodeType.COURSE_POINT_PANEL) {
+        // 课程信息节点和课点面板节点不在点击时打开弹窗（通过编辑图标触发）
         setEditDialog({
           open: true,
           nodeId: node.id,
@@ -698,7 +717,7 @@ function AiCanvasPanelInner({
       }
       onNodeClick?.(node.id, node.data)
     },
-    [onNodeClick, setEditDialog]
+    [onNodeClick, setEditDialog, handleCoursePointPanelEdit]
   )
 
   // 处理连接事件

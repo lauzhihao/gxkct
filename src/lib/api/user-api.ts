@@ -66,6 +66,56 @@ export interface ResetPasswordPayload {
   password: string
 }
 
+export interface AvailableCollegeInfo {
+  id: number
+  name: string
+  image: string
+  collegeType: string | null
+}
+
+export interface AvailableDepartmentInfo {
+  id: number
+  collegeId: number
+  name: string
+  type: string | null
+}
+
+export interface AvailableIdentityItem {
+  college: AvailableCollegeInfo
+  departments: AvailableDepartmentInfo[]
+  permissionId: number
+  relativeId: number
+}
+
+export interface CurrentIdentityInfo {
+  id: number
+  userId: number
+  permissionId: number
+  relativeId: number
+  department: AvailableDepartmentInfo | null
+  college: AvailableCollegeInfo | null
+  multiple: boolean
+}
+
+export interface AllAvailableCollegeData {
+  colleges: AvailableIdentityItem[]
+  current: CurrentIdentityInfo | null
+}
+
+export interface UpdateCurrentDepartmentPayload {
+  id: number
+  userId: number
+  permissionId: number
+  relativeId: number
+  department: AvailableDepartmentInfo | null
+  college: AvailableCollegeInfo | null
+  multiple: boolean
+}
+
+export interface UpdateCurrentDepartmentResult {
+  success?: boolean
+}
+
 export interface ResetPasswordResult {
   success?: boolean
 }
@@ -215,6 +265,16 @@ export class UserApi {
 
   async resetPassword(payload: ResetPasswordPayload): Promise<ApiResponse<ResetPasswordResult | null>> {
     return this.httpAdapter.post<ResetPasswordResult>("/api/manage/resetpassword", payload)
+  }
+
+  async getAllAvailableColleges(userId: number): Promise<ApiResponse<AllAvailableCollegeData | null>> {
+    return this.httpAdapter.get<AllAvailableCollegeData>(`/api/manage/allavailablecollege?userId=${userId}`)
+  }
+
+  async updateCurrentDepartment(
+    payload: UpdateCurrentDepartmentPayload
+  ): Promise<ApiResponse<UpdateCurrentDepartmentResult | null>> {
+    return this.httpAdapter.post<UpdateCurrentDepartmentResult>("/api/manage/updatecurrentdepartment", payload)
   }
 
   async deleteManagedUser(payload: DeleteManagedUserPayload): Promise<ApiResponse<DeleteManagedUserResult | null>> {

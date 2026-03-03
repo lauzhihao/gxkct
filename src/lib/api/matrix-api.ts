@@ -67,6 +67,40 @@ export interface ProjectMatrix {
   matrix: Record<string, any>
 }
 
+export interface ProjectMatrixSaveItem {
+  courseMatrix: {
+    id: number
+    projectId: number
+    point?: {
+      id: number
+      title: string
+      description?: string
+    }
+    study?: string
+    teach?: string
+    product?: string
+    week?: string
+    theoryPeriod?: string
+    practicePeriod?: string
+    relate?: {
+      relate: number
+    }
+  }
+  projectMatrices?: Array<{
+    id: number
+    taskGoalId: number
+    ksa?: {
+      id: number
+      title: string
+      level: number
+      description?: string
+    }
+    relate?: {
+      relate: number
+    }
+  }>
+}
+
 export interface MajorMatrixData {
   courseId: string
   majorId: string
@@ -509,6 +543,39 @@ export class MatrixApi {
     }
   }
 
+  // 保存项目矩阵数据
+  async updateProjectMatrixData(data: ProjectMatrixSaveItem[]): Promise<ApiResponse<any>> {
+    try {
+      const endpoint = `/api/matrix/updateprojectmatrix`
+      console.log("[updateProjectMatrixData] 调用接口:", endpoint, "数据条数:", data.length)
+
+      const response = await this.http.post<any>(endpoint, data)
+
+      if (response.error) {
+        console.error("[updateProjectMatrixData] 接口调用失败:", response.error)
+        return {
+          data: null,
+          error: response.error,
+          status: response.status ?? 500,
+        }
+      }
+
+      console.log("[updateProjectMatrixData] 接口调用成功")
+      return {
+        data: response.data,
+        error: null,
+        status: 200,
+      }
+    } catch (error) {
+      console.error("[updateProjectMatrixData] 异常:", error)
+      return {
+        data: null,
+        error: `保存项目矩阵失败: ${error instanceof Error ? error.message : String(error)}`,
+        status: 500,
+      }
+    }
+  }
+
   // 获取KSA列表数据
   async getKsaList(majorId: string, courseId: string): Promise<ApiResponse<KsaListResponse>> {
     try {
@@ -542,43 +609,39 @@ export class MatrixApi {
     }
   }
 
-  // 新增KSA
-  async addKsa(data: {
+  // 保存KSA列表（新增/更新/删除统一接口）
+  // 规则: id=0 为新增, id>0 为更新, id<0 为删除（取原 id 的负值）
+  async saveKsaList(params: {
     majorId: number
-    courseUnitId: number
-    title: string
-    description: string
-    level: number
+    courseId: number
+    ksas: Array<{
+      id: number
+      title: string
+      description: string
+      level: number
+    }>
+    upload?: boolean
   }): Promise<ApiResponse<any>> {
-    console.log("[addKsa] 新增KSA:", data)
-    return {
-      data: { id: Date.now(), ...data },
-      error: null,
-      status: 200,
-    }
-  }
+    try {
+      const endpoint = `/api/major/v2.0/saveksa`
+      console.log("[saveKsaList] 调用接口:", endpoint, params)
 
-  // 更新KSA
-  async updateKsa(ksaId: number, data: {
-    title?: string
-    description?: string
-    level?: number
-  }): Promise<ApiResponse<any>> {
-    console.log("[updateKsa] 更新KSA:", ksaId, data)
-    return {
-      data: { id: ksaId, ...data },
-      error: null,
-      status: 200,
-    }
-  }
+      const response = await this.http.post<any>(endpoint, params)
 
-  // 删除KSA
-  async deleteKsa(ksaId: number): Promise<ApiResponse<boolean>> {
-    console.log("[deleteKsa] 删除KSA:", ksaId)
-    return {
-      data: true,
-      error: null,
-      status: 200,
+      if (response.error) {
+        console.error("[saveKsaList] 接口调用失败:", response.error)
+        return { data: null, error: response.error, status: response.status ?? 500 }
+      }
+
+      console.log("[saveKsaList] 保存成功")
+      return { data: response.data, error: null, status: 200 }
+    } catch (error) {
+      console.error("[saveKsaList] 异常:", error)
+      return {
+        data: null,
+        error: `保存KSA列表失败: ${error instanceof Error ? error.message : String(error)}`,
+        status: 500,
+      }
     }
   }
 

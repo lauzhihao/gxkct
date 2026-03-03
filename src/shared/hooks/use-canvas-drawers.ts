@@ -35,6 +35,8 @@ export interface CoursePointDrawerState {
   open: boolean
   panelId: string
   coursePoints: CoursePointCardData[]
+  focusPointId: string | null
+  focusPointIndex: number | null
 }
 
 /**
@@ -164,7 +166,7 @@ export interface UseCanvasDrawersReturn {
   handleEditCancel: () => void
 
   // 课点编辑处理函数
-  handleCoursePointPanelEdit: (panelId: string) => void
+  handleCoursePointPanelEdit: (panelId: string, focusTarget?: { pointId?: string; pointIndex?: number }) => void
   handleCoursePointsSave: (coursePoints: CoursePointCardData[]) => void
   handleCoursePointDrawerClose: () => void
 
@@ -247,6 +249,8 @@ export function useCanvasDrawers({
     open: false,
     panelId: "",
     coursePoints: [],
+    focusPointId: null,
+    focusPointIndex: null,
   })
   const [isSavingCoursePoints, setIsSavingCoursePoints] = useState(false)
 
@@ -376,7 +380,7 @@ export function useCanvasDrawers({
 
   // 处理课点面板编辑图标点击
   const handleCoursePointPanelEdit = useCallback(
-    (panelId: string) => {
+    (panelId: string, focusTarget?: { pointId?: string; pointIndex?: number }) => {
       const childNodes = flowNodes.filter(n => n.parentId === panelId)
       const coursePoints: CoursePointCardData[] = childNodes.map(n => n.data as unknown as CoursePointCardData)
       coursePoints.sort((a, b) => (a.index || 0) - (b.index || 0))
@@ -385,6 +389,8 @@ export function useCanvasDrawers({
         open: true,
         panelId,
         coursePoints,
+        focusPointId: focusTarget?.pointId || null,
+        focusPointIndex: typeof focusTarget?.pointIndex === "number" ? focusTarget.pointIndex : null,
       })
     },
     [flowNodes]
@@ -399,7 +405,13 @@ export function useCanvasDrawers({
       setIsSavingCoursePoints(true)
       setUpdatingPanelIds(prev => new Set(prev).add(panelId))
 
-      setCoursePointDrawer({ open: false, panelId: "", coursePoints: [] })
+      setCoursePointDrawer({
+        open: false,
+        panelId: "",
+        coursePoints: [],
+        focusPointId: null,
+        focusPointIndex: null,
+      })
       setIsSavingCoursePoints(false)
 
       onCoursePointsUpdate?.(panelId, coursePoints)
@@ -417,7 +429,13 @@ export function useCanvasDrawers({
 
   // 关闭课点编辑抽屉
   const handleCoursePointDrawerClose = useCallback(() => {
-    setCoursePointDrawer({ open: false, panelId: "", coursePoints: [] })
+    setCoursePointDrawer({
+      open: false,
+      panelId: "",
+      coursePoints: [],
+      focusPointId: null,
+      focusPointIndex: null,
+    })
   }, [])
 
   // ==================== KSA编辑处理函数 ====================

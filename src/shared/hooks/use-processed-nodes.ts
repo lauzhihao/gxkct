@@ -208,6 +208,41 @@ export function useProcessedNodes({
     return map
   }, [flowNodes])
 
+  const coursePointMetaMap = useMemo(() => {
+    const map: Record<string, { name?: string; description?: string }> = {}
+
+    for (const node of flowNodes) {
+      if (node.type !== FlowNodeType.COURSE_POINT || !node.data) {
+        continue
+      }
+
+      const pointData = node.data as {
+        id?: string
+        name?: string
+        description?: string
+        content?: string
+      }
+
+      const pointId = typeof pointData.id === "string" && pointData.id.trim().length > 0
+        ? pointData.id
+        : node.id
+
+      const pointName = typeof pointData.name === "string" ? pointData.name.trim() : ""
+      const pointDescription = typeof pointData.description === "string"
+        ? pointData.description.trim()
+        : typeof pointData.content === "string"
+          ? pointData.content.trim()
+          : ""
+
+      map[pointId] = {
+        name: pointName || undefined,
+        description: pointDescription || undefined,
+      }
+    }
+
+    return map
+  }, [flowNodes])
+
   const coursePointPanelFoldState = useMemo(() => {
     const panelItemsMap = new Map<string, Array<{ id: string; index: number }>>()
     for (const node of flowNodes) {
@@ -386,6 +421,8 @@ export function useProcessedNodes({
             onEdit: onCourseMatrixEdit,
             // 填充进度信息（仅在重做状态下显示）
             progressMessage: isRegenerating ? fillProgress.matrix : null,
+            // 课程矩阵中 SSE 课点可能缺少 description，注入全量课点元数据供节点回填 Tooltip
+            coursePointMetaMap,
           },
         }
       }
@@ -522,6 +559,7 @@ export function useProcessedNodes({
     onSourceDocumentRefresh,
     ksaItemsMap,
     ksaPanelStatsMap,
+    coursePointMetaMap,
     coursePointPanelFoldState,
   ])
 }

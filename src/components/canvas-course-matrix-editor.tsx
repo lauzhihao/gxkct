@@ -7,9 +7,10 @@
 
 import { useState, useCallback, useMemo } from "react"
 import { Button } from "@/shared/components/ui/button"
-import { Loader2, Plus, Star, X } from "lucide-react"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/components/ui/tooltip"
+import { Loader2, Plus, X } from "lucide-react"
 import type { CourseMatrixData, CourseMatrixCoursePoint } from "./canvas-elements/types"
+import { SupportLabel } from "@/shared/components/support-label"
+import { buildSupportLabelDisplay } from "@/shared/utils/support-label-display"
 import {
   Dialog,
   DialogContent,
@@ -45,57 +46,36 @@ function CoursePointTag({
   onRemove: () => void
   onToggleLevel: () => void
 }) {
-  const isStrong = item.level === "strong"
+  const display = buildSupportLabelDisplay({
+    title: item.name,
+    description,
+  })
 
-  const labelContent = (
-    <span
-      className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium cursor-pointer transition-colors ${
-        isStrong
-          ? "bg-orange-100 border border-orange-300 text-orange-700 hover:bg-orange-200"
-          : "bg-green-100 border border-green-300 text-green-700 hover:bg-green-200"
-      }`}
-      onClick={onToggleLevel}
-    >
-      <Star className={`w-3 h-3 ${isStrong ? "fill-current" : ""}`} />
-      <span className="max-w-[100px] truncate">{item.name}</span>
+  return (
+    <div className="inline-flex items-center gap-1">
       <button
-        onClick={(e) => {
-          e.stopPropagation()
-          onRemove()
-        }}
-        className="ml-1 p-0.5 hover:bg-black/10 rounded transition-colors"
+        type="button"
+        onClick={onToggleLevel}
+        className="inline-flex"
+        title="点击切换支撑强度"
+      >
+        <SupportLabel
+          title={display.title}
+          desc={display.desc}
+          type={item.level}
+          size="sm"
+          tipsPosition="top"
+        />
+      </button>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="ml-0.5 p-0.5 hover:bg-black/10 rounded transition-colors"
         title="移除"
       >
         <X className="w-3 h-3" />
       </button>
-    </span>
-  )
-
-  // 如果没有描述，直接返回标签
-  if (!description) {
-    return labelContent
-  }
-
-  // 有描述时，使用 Tooltip 包裹实现快速显示
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        {labelContent}
-      </TooltipTrigger>
-      <TooltipContent
-        side="top"
-        className={`flex items-start gap-1.5 max-w-[280px] ${
-          isStrong ? "text-orange-700" : "text-green-700"
-        }`}
-      >
-        <Star className={`w-3 h-3 flex-shrink-0 mt-0.5 ${isStrong ? "fill-current" : ""}`} />
-        <span className="text-xs leading-relaxed">
-          <span className="font-medium">{item.name}</span>
-          <span className="text-gray-500 mx-1">-</span>
-          <span>{description}</span>
-        </span>
-      </TooltipContent>
-    </Tooltip>
+    </div>
   )
 }
 
@@ -368,6 +348,17 @@ export function CanvasCourseMatrixEditor({
     return new Set(coursePoints.map((cp) => cp.id))
   }, [selectionDialog, getCellCoursePoints])
 
+  const availableCoursePointMap = useMemo(() => {
+    const map = new Map<string, { name: string; description?: string }>()
+    for (const point of availableCoursePoints) {
+      map.set(point.id, {
+        name: point.name,
+        description: point.description,
+      })
+    }
+    return map
+  }, [availableCoursePoints])
+
   return (
     <div className="flex flex-col h-full">
       {/* 标题栏 */}
@@ -417,10 +408,12 @@ export function CanvasCourseMatrixEditor({
                       {/* 标签和添加按钮在同一个 flex-wrap 容器内，加号跟随最后一个标签 */}
                       <div className="flex flex-wrap gap-1.5 justify-center items-center">
                         {coursePoints.map((cp) => (
+                          // SSE 生成的课程矩阵可能只有 id/name/level，没有 description
+                          // 这里从可用课点数据回填 description，确保 SupportLabel tooltip 可展示完整信息
                           <CoursePointTag
                             key={cp.id}
                             item={cp}
-                            description={cp.description}
+                            description={cp.description || availableCoursePointMap.get(cp.id)?.description}
                             onRemove={() =>
                               handleRemoveCoursePoint(row.chapter_id, obj.id, cp.id)
                             }

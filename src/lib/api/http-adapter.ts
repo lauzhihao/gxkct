@@ -14,17 +14,25 @@ export class HttpAdapter {
   }
 
   private async handleHttpError<T>(response: Response): Promise<ApiResponse<T | null>> {
+    let rawBody: Partial<BackendResponse<T>> | null = null
+
     try {
-      const rawBody = (await response.json()) as Partial<BackendResponse<T>>
-      if (rawBody && typeof rawBody.code === "string") {
-        return handleBackendResponse(rawBody as BackendResponse<T>)
-      }
+      rawBody = (await response.json()) as Partial<BackendResponse<T>>
     } catch {
       // ignore JSON parse failure and use fallback error below
     }
 
     if (response.status === 401) {
       this.forceLogoutOnUnauthorized()
+      return {
+        data: null,
+        error: rawBody?.message || `HTTP ${response.status}: ${response.statusText}`,
+        status: response.status,
+      }
+    }
+
+    if (rawBody && typeof rawBody.code === "string") {
+      return handleBackendResponse(rawBody as BackendResponse<T>)
     }
 
     return {

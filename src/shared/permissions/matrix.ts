@@ -53,17 +53,26 @@ export const PERMISSION_MATRIX: PermissionMatrix = {
     "department.member.resetPassword",
   ],
   1031: [
+    "major.course.create",
     "college.qa.manage",
+    "course.detail.edit",
   ],
   1039: [
+    "major.course.create",
     "college.qa.create",
     "college.qa.manage",
+    "course.detail.edit",
   ],
-  1901: [],
+  1901: [
+    "major.course.create",
+    "course.detail.edit",
+  ],
   2001: [
     "major.detail.edit",
     "major.course.create",
     "course.detail.edit",
   ],
-  3001: [],
+  3001: [
+    "course.detail.edit",
+  ],
 }

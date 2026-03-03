@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useEffect, useState, type ReactNode } from "react"
-import { Handle, Position, useUpdateNodeInternals } from "@xyflow/react"
+import { Handle, Position, useNodeConnections, useUpdateNodeInternals } from "@xyflow/react"
 import { Plus, Pencil, RefreshCw, Trash2, Loader2 } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip"
 import { Popover, PopoverTrigger, PopoverContent } from "@/shared/components/ui/popover"
@@ -124,8 +124,14 @@ export const BaseFlowNode = memo(function BaseFlowNode({
   }
 
   // [MOD] 计算 Handle 是否处于禁用状态（loading 或 refreshing 时禁用，但不隐藏以保持连线稳定）
-  const isHandleDisabled = isLoading || isRefreshing
-  const disabledHandleClass = isHandleDisabled
+  const sourceConnections = useNodeConnections({ id, handleType: "source" })
+  const hasExistingSourceConnection = sourceConnections.length > 0
+  const isSourceHandleDisabled = isLoading || isRefreshing || hasExistingSourceConnection
+  const isTargetHandleDisabled = isLoading || isRefreshing
+  const disabledSourceHandleClass = isSourceHandleDisabled
+    ? "!opacity-40 !cursor-not-allowed !pointer-events-none"
+    : ""
+  const disabledTargetHandleClass = isTargetHandleDisabled
     ? "!opacity-40 !cursor-not-allowed !pointer-events-none"
     : ""
 
@@ -252,11 +258,12 @@ export const BaseFlowNode = memo(function BaseFlowNode({
           id="bottom"
           type="source"
           position={Position.Bottom}
+          isConnectableStart={!isSourceHandleDisabled}
           className={`
             !w-6 !h-6 !border-2 !border-white !rounded-full !shadow-sm
-            ${isHandleDisabled ? "" : "hover:!shadow-md"} !transition-all
-            ${isHandleDisabled ? "!cursor-not-allowed" : "!cursor-pointer"}
-            ${handleColorClass} ${disabledHandleClass}
+            ${isSourceHandleDisabled ? "" : "hover:!shadow-md"} !transition-all
+            ${isSourceHandleDisabled ? "!cursor-not-allowed" : "!cursor-pointer"}
+            ${handleColorClass} ${disabledSourceHandleClass}
           `}
         >
           <Plus
@@ -272,7 +279,7 @@ export const BaseFlowNode = memo(function BaseFlowNode({
           id="left"
           type="target"
           position={leftHandlePosition}
-          className={`!w-4 !h-4 !border-2 !border-white !rounded-full !shadow-sm ${handleColorClass} ${disabledHandleClass}`}
+          className={`!w-4 !h-4 !border-2 !border-white !rounded-full !shadow-sm ${handleColorClass} ${disabledTargetHandleClass}`}
         />
       )}
 
@@ -282,11 +289,12 @@ export const BaseFlowNode = memo(function BaseFlowNode({
           id="right"
           type="source"
           position={rightHandlePosition}
+          isConnectableStart={!isSourceHandleDisabled}
           className={`
             !w-6 !h-6 !border-2 !border-white !rounded-full !shadow-sm
-            ${isHandleDisabled ? "" : "hover:!shadow-md"} !transition-all
-            ${isHandleDisabled ? "!cursor-not-allowed" : "!cursor-pointer"}
-            ${handleColorClass} ${disabledHandleClass}
+            ${isSourceHandleDisabled ? "" : "hover:!shadow-md"} !transition-all
+            ${isSourceHandleDisabled ? "!cursor-not-allowed" : "!cursor-pointer"}
+            ${handleColorClass} ${disabledSourceHandleClass}
           `}
         >
           <Plus

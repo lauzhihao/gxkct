@@ -44,6 +44,7 @@ const MAJOR_TABS = {
 const EDIT_MAJOR_ACTION: PermissionAction = "major.detail.edit"
 const DELETE_MAJOR_ACTION: PermissionAction = "department.major.create"
 const MANAGE_MAJOR_COURSE_ACTION: PermissionAction = "major.course.create"
+const MAJOR_OWNER_PERMISSION_IDS = new Set([2001, 1001, 88])
 
 interface ManagerIdentity {
   value: string
@@ -52,6 +53,39 @@ interface ManagerIdentity {
 
 interface NodeMetadataWithManagers {
   managers?: Array<Partial<ManagerIdentity>>
+  source?: string
+}
+
+function resolveDepartmentId(node: TreeNode, treeData?: TreeNode): string {
+  const parentDepartmentId = extractNumericId(node.parentId ?? "")
+  if (parentDepartmentId > 0) {
+    return String(parentDepartmentId)
+  }
+
+  if (!treeData?.children || treeData.children.length === 0) {
+    return ""
+  }
+
+  const findDepartmentByMajorNode = (currentNode: TreeNode): string => {
+    if (currentNode.nodeType === "department") {
+      const children = currentNode.children ?? []
+      const containsMajor = children.some((child) => child.nodeId === node.nodeId)
+      if (containsMajor) {
+        return extractNumericId(currentNode.nodeId).toString()
+      }
+    }
+
+    for (const child of currentNode.children ?? []) {
+      const resolvedId = findDepartmentByMajorNode(child)
+      if (resolvedId) {
+        return resolvedId
+      }
+    }
+
+    return ""
+  }
+
+  return findDepartmentByMajorNode(treeData)
 }
 
 function normalizeIdentity(value: string | number | null | undefined): string {
@@ -202,6 +236,7 @@ interface MajorDetailProps {
   currentUser: { username: string; role: string } | null
   majorCourses?: Map<string, TreeNode[]>
   treeData?: TreeNode
+  onTreeRefresh?: () => Promise<boolean> | boolean
 }
 
 export function MajorDetail(props: MajorDetailProps) {
@@ -214,6 +249,7 @@ export function MajorDetail(props: MajorDetailProps) {
     currentUser,
     majorCourses,
     treeData,
+    onTreeRefresh,
   } = props
   const [isAddingCourse, setIsAddingCourse] = useState(false)
   const [isEditingMajor, setIsEditingMajor] = useState(false)
@@ -235,6 +271,7 @@ export function MajorDetail(props: MajorDetailProps) {
 
   const authUser = getStoredAuthUser()
   const currentMajorId = node.id ? Number(node.id) : extractNumericId(node.nodeId ?? "")
+  const isVirtualMajorFromSwitchDpt = (node.metadata as NodeMetadataWithManagers | undefined)?.source === "course-level-switchDpt"
   const managerIdentities = useMemo(() => {
     const metadataManagers = ((node.metadata as NodeMetadataWithManagers | undefined)?.managers ?? [])
     const rawManagerList = [...(node.manager ?? []), ...metadataManagers]
@@ -256,7 +293,12 @@ export function MajorDetail(props: MajorDetailProps) {
   )
 
   useEffect(() => {
-    if (!authUser || authUser.permissionId !== 2001 || !currentMajorId || managerIdentities.length === 0) {
+    if (
+      !authUser ||
+      !MAJOR_OWNER_PERMISSION_IDS.has(authUser.permissionId) ||
+      !currentMajorId ||
+      managerIdentities.length === 0
+    ) {
       setIsMajorOwner(false)
       return
     }
@@ -267,9 +309,10 @@ export function MajorDetail(props: MajorDetailProps) {
     setIsMajorOwner(matchedByTreeNode)
   }, [authUser, currentMajorId, currentUserIdentities, managerIdentities])
 
-  const canEditMajor = can(EDIT_MAJOR_ACTION, { scope: "major" }) && isMajorOwner
+  const canEditMajor = !isVirtualMajorFromSwitchDpt && can(EDIT_MAJOR_ACTION, { scope: "major" }) && isMajorOwner
   const canDeleteMajor = can(DELETE_MAJOR_ACTION, { scope: "department" })
   const canManageMajorCourse = can(MANAGE_MAJOR_COURSE_ACTION, { scope: "major" })
+  const departmentId = useMemo(() => resolveDepartmentId(node, treeData), [node, treeData])
 
   useEffect(() => {
     if (!node) return
@@ -412,6 +455,7 @@ export function MajorDetail(props: MajorDetailProps) {
   // 课程创建成功后的回调，刷新课程列表
   const handleQuickCreateCourseSuccess = () => {
     setCoursesRefreshKey((prev) => prev + 1)
+    void onTreeRefresh?.()
   }
 
   const handleOpenEditMajor = () => {
@@ -433,7 +477,7 @@ export function MajorDetail(props: MajorDetailProps) {
     return (
       <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl p-6">
         <AddMajorForm
-          departmentId={node.parentId?.replace("dept_", "") || ""}
+          departmentId={departmentId}
           onCancel={() => setIsEditingMajor(false)}
           onSubmit={handleEditMajorFormSubmit}
           initialData={node}
@@ -524,7 +568,7 @@ export function MajorDetail(props: MajorDetailProps) {
                 onNodeSelect={onNodeSelect}
                 onAddCourse={handleOpenQuickCreateCourse}
                 majorCourses={majorCourses}
-                departmentId={node.parentId?.replace("dept_", "")}
+                departmentId={departmentId}
                 refreshKey={coursesRefreshKey}
               />
             </TabsContent>
@@ -542,7 +586,7 @@ export function MajorDetail(props: MajorDetailProps) {
         onSuccess={handleQuickCreateCourseSuccess}
         majorId={node.id ?? node.nodeId ?? ""}
         majorName={node.name ?? node.nodeName ?? ""}
-        departmentId={node.parentId?.replace("dept_", "")}
+        departmentId={departmentId}
       />
 
       <AlertDialog open={isConfirmingSemesterChange} onOpenChange={setIsConfirmingSemesterChange}>

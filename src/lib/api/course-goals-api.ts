@@ -14,6 +14,63 @@ export interface CourseGoalsData {
 export class CourseGoalsApi {
   private storage = new StorageAdapter()
 
+  private toNumber(value: unknown): number | null {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value
+    }
+
+    if (typeof value === "string") {
+      const parsed = Number.parseInt(value, 10)
+      if (Number.isFinite(parsed)) {
+        return parsed
+      }
+    }
+
+    return null
+  }
+
+  private buildUpdatePayload(courseId: string, goals: CourseGoal[]): Array<{
+    id: number
+    parentId: number
+    courseId: number
+    description: string
+  }> {
+    const numericCourseId = this.toNumber(courseId)
+    if (numericCourseId === null) {
+      return []
+    }
+
+    const payload: Array<{
+      id: number
+      parentId: number
+      courseId: number
+      description: string
+    }> = []
+
+    goals.forEach((goal) => {
+      const parentId = this.toNumber(goal.id)
+      if (parentId === null || !Array.isArray(goal.children)) {
+        return
+      }
+
+      goal.children.forEach((child) => {
+        const description = String(child?.description ?? "").trim()
+        if (!description) {
+          return
+        }
+
+        payload.push({
+          id: this.toNumber(child?.id) ?? 0,
+          parentId,
+          courseId: numericCourseId,
+          description,
+        })
+      })
+    })
+
+    return payload
+  }
+
   /**
    * 获取课程目标数据
    * @param courseId 课程ID
@@ -63,13 +120,29 @@ export class CourseGoalsApi {
     try {
       console.log(`[CourseGoalsApi] 更新课程目标，courseId: ${courseId}, majorId: ${majorId}`)
 
-      // 保存到本地存储
-      await this.storage.set(`courseGoals-${courseId}-${majorId}`, goals)
+      const payload = this.buildUpdatePayload(courseId, goals)
+      if (payload.length === 0) {
+        return {
+          data: goals,
+          error: null,
+          status: 200,
+        }
+      }
 
-      console.log("[CourseGoalsApi] 课程目标数据保存成功", goals)
+      const response = await this.storage.postToApi<CourseGoal[]>("/api/course/updateCourseGoals", payload)
+      if (response.error) {
+        console.error("[CourseGoalsApi] 更新课程目标API失败:", response.error)
+        return {
+          data: null,
+          error: response.error,
+          status: response.status,
+        }
+      }
+
+      console.log("[CourseGoalsApi] 课程目标API更新成功", payload.length)
 
       return {
-        data: goals,
+        data: response.data ?? goals,
         error: null,
         status: 200,
       }
@@ -82,5 +155,37 @@ export class CourseGoalsApi {
       }
     }
   }
-}
 
+  /**
+   * 删除单条教学目标
+   * @param courseGoalId 教学目标ID
+   */
+  async deleteCourseGoal(courseGoalId: string): Promise<ApiResponse<boolean | null>> {
+    try {
+      console.log(`[CourseGoalsApi] 删除教学目标，courseGoalId: ${courseGoalId}`)
+
+      const response = await this.storage.getFromApi<boolean>(`/api/course/deletecoursegoal?courseGoalId=${courseGoalId}`)
+      if (response.error) {
+        console.error("[CourseGoalsApi] 删除教学目标API失败:", response.error)
+        return {
+          data: null,
+          error: response.error,
+          status: response.status,
+        }
+      }
+
+      return {
+        data: response.data ?? true,
+        error: null,
+        status: 200,
+      }
+    } catch (error) {
+      console.error("[CourseGoalsApi] 删除教学目标失败:", error)
+      return {
+        data: null,
+        error: String(error),
+        status: 500,
+      }
+    }
+  }
+}

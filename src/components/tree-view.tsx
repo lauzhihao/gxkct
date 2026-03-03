@@ -18,20 +18,9 @@ import {
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react"
-import { cn } from "@/shared/utils/utils"
+import { cn, extractNumericId } from "@/shared/utils/utils"
 import { Input } from "@/shared/components/ui/input"
 import { Button } from "@/shared/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/shared/components/ui/dialog"
-import { Label } from "@/shared/components/ui/label"
-import { Textarea } from "@/shared/components/ui/textarea"
 import {
   Tooltip,
   TooltipContent,
@@ -43,7 +32,8 @@ import type { TreeNode } from "@/types"
 import { useTreeSearch } from "@/shared/hooks/use-tree-search"
 import { useDepartmentMajors } from "@/modules/departments/hooks/use-department-majors"
 import { PermissionGate } from "@/shared/components/permission-gate"
-import { usePermission } from "@/shared/hooks/use-permission"
+import { getCourseCache } from "@/shared/utils/course-cache"
+import { WorkshopCreateDialog } from "@/components/workshop-create-dialog"
 
 const CREATE_SCHOOL_ACTION = "root.college.create"
 const CREATE_SCHOOL_CONTEXT = { scope: "root" } as const
@@ -179,7 +169,31 @@ function TreeNodeComponent({
   }
 
   const handleClick = () => {
-    onSelect(node)
+    if (node.nodeType === "course") {
+      const courseId = String(node.id || extractNumericId(node.nodeId || ""))
+      const courseCache = getCourseCache(courseId)
+      const cachedManagers = (courseCache?.instructors || []).map((name) => ({ value: name, label: name }))
+
+      if (cachedManagers.length > 0) {
+        const selectedNode: TreeNode = {
+          ...node,
+          manager: node.manager && node.manager.length > 0 ? node.manager : cachedManagers,
+          metadata: {
+            ...(node.metadata || {}),
+            managers:
+              Array.isArray((node.metadata as { managers?: unknown })?.managers) && (node.metadata as { managers?: unknown[] }).managers?.length
+                ? (node.metadata as { managers?: unknown[] }).managers
+                : cachedManagers,
+          },
+        }
+        onSelect(selectedNode)
+      } else {
+        onSelect(node)
+      }
+    } else {
+      onSelect(node)
+    }
+
     // department和major节点始终触发展开（会动态加载数据）
     // 其他节点只有在有children时才展开
     if (node.nodeType === "department" || node.nodeType === "major" || hasChildren) {
@@ -422,7 +436,7 @@ interface TreeViewProps {
   onNodeSelect: (node: TreeNode | null) => void
   selectedNode: TreeNode | null
   onSelectedNodePathChange?: (path: TreeNode[]) => void
-  onAddSchool?: (newSchool: Omit<TreeNode, "id" | "nodeId">) => void
+  onWorkshopCreated?: () => Promise<boolean> | void
   currentSchoolId?: string | null
   onSetCurrentSchool?: (schoolId: string) => void
   onUpdateNode?: (nodeId: string, updates: Partial<TreeNode>) => void
@@ -442,7 +456,7 @@ export const TreeView = React.forwardRef<
   onNodeSelect,
   selectedNode,
   onSelectedNodePathChange,
-  onAddSchool,
+  onWorkshopCreated,
   currentSchoolId,
   onSetCurrentSchool,
   onUpdateNode,
@@ -451,13 +465,10 @@ export const TreeView = React.forwardRef<
   onDepartmentMajorsChange,
   onToggleExpand,
 }: TreeViewProps, ref): ReactElement {
-  const { can } = usePermission()
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(["root"]))
   const [visibleCourseCounts, setVisibleCourseCounts] = useState<Map<string, number>>(new Map())
   const { searchTerm, setSearchTerm, isSearching, searchResults, clearSearch } = useTreeSearch()
-  const [isAddSchoolDialogOpen, setIsAddSchoolDialogOpen] = useState(false)
-  const [newSchoolName, setNewSchoolName] = useState("")
-  const [newSchoolDesc, setNewSchoolDesc] = useState("")
+  const [isCreateWorkshopDialogOpen, setIsCreateWorkshopDialogOpen] = useState(false)
   const { departmentMajors, loadedDepartments, loadDepartmentMajors } = useDepartmentMajors(onDepartmentMajorsChange)
   // 跟踪是否正在加载数据（搜索或动态加载）
   const [isDataLoading, setIsDataLoading] = useState(false)
@@ -551,22 +562,6 @@ export const TreeView = React.forwardRef<
       newMap.set(majorId, currentCount + 5)
       return newMap
     })
-  }
-
-  const handleCreateSchool = () => {
-    if (!newSchoolName.trim() || !onAddSchool) return
-    if (!can(CREATE_SCHOOL_ACTION, CREATE_SCHOOL_CONTEXT)) return
-
-    onAddSchool({
-      nodeName: newSchoolName,
-      nodeType: "university" as const,
-      description: newSchoolDesc || undefined,
-      children: [],
-    })
-
-    setNewSchoolName("")
-    setNewSchoolDesc("")
-    setIsAddSchoolDialogOpen(false)
   }
 
   // 处理星标切换，确保只有一个一级节点被星标
@@ -877,59 +872,31 @@ export const TreeView = React.forwardRef<
               )}
             </div>
 
-            {onAddSchool && (
+            {onWorkshopCreated && (
               <PermissionGate action={CREATE_SCHOOL_ACTION} context={CREATE_SCHOOL_CONTEXT}>
-                <Dialog open={isAddSchoolDialogOpen} onOpenChange={setIsAddSchoolDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="flex-shrink-0 hover:bg-primary/10 disabled:opacity-100 disabled:cursor-not-allowed"
-                      aria-label="新增学校/工作坊"
-                      disabled={isDataLoading || isSearching}
-                    >
-                      {isDataLoading || isSearching ? (
-                        <Spinner className="w-5 h-5 text-primary" />
-                      ) : (
-                        <Plus className="w-5 h-5 text-primary" />
-                      )}
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                      <DialogTitle>新增学校/工作坊</DialogTitle>
-                      <DialogDescription>填写基本信息，创建新的学校或工作坊节点</DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="school-name">名称</Label>
-                        <Input
-                          id="school-name"
-                          placeholder="例如：齐齐哈尔工程学院"
-                          value={newSchoolName}
-                          onChange={(e) => setNewSchoolName(e.target.value)}
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="school-desc">简介</Label>
-                        <Textarea
-                          id="school-desc"
-                          placeholder="简要描述学校或工作坊的特色"
-                          rows={3}
-                          value={newSchoolDesc}
-                          onChange={(e) => setNewSchoolDesc(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button type="submit" className="gap-2" onClick={handleCreateSchool} disabled={!newSchoolName.trim()}>
-                        <Plus className="w-4 h-4" />
-                        创建
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="flex-shrink-0 hover:bg-primary/10 disabled:opacity-100 disabled:cursor-not-allowed"
+                  aria-label="新增学校/工作坊"
+                  disabled={isDataLoading || isSearching}
+                  onClick={() => setIsCreateWorkshopDialogOpen(true)}
+                >
+                  {isDataLoading || isSearching ? (
+                    <Spinner className="w-5 h-5 text-primary" />
+                  ) : (
+                    <Plus className="w-5 h-5 text-primary" />
+                  )}
+                </Button>
               </PermissionGate>
+            )}
+
+            {onWorkshopCreated && (
+              <WorkshopCreateDialog
+                open={isCreateWorkshopDialogOpen}
+                onOpenChange={setIsCreateWorkshopDialogOpen}
+                onWorkshopCreated={onWorkshopCreated}
+              />
             )}
           </div>
 

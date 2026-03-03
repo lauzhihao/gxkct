@@ -33,9 +33,17 @@ interface TeachingTaskFormPageProps {
   isLoading?: boolean
 }
 
+function normalizeEscapedNewlines(value?: string | null): string {
+  if (!value) {
+    return ""
+  }
+  return value.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").replace(/\\r/g, "\n")
+}
+
 export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAutoSave, isLoading = false }: TeachingTaskFormPageProps) {
   const [formData, setFormData] = useState<TeachingSupervisoryTask>({
     ...initialTask,
+    description: normalizeEscapedNewlines(initialTask.description),
     scoringType: initialTask.scoringType || "percentage",
     teacherSelfEvaluation: initialTask.teacherSelfEvaluation ?? true,
     juryType: "designated_member",
@@ -91,6 +99,7 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
       console.log("检测到复制的数据:", copiedData)
       setFormData({
         ...copiedData.task,
+        description: normalizeEscapedNewlines(copiedData.task?.description),
         scoringType: copiedData.task?.scoringType || "percentage",
         teacherSelfEvaluation: copiedData.task?.teacherSelfEvaluation ?? true,
         juryType: "designated_member",
@@ -108,7 +117,12 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
     return items.map((item) => ({
       ...item,
       id: Number(item.id) as EvaluationCriterion["id"],
-      levels: item.levels?.length ? item.levels : [{ level: "A", description: "", coefficient: 1.0 }],
+      levels: item.levels?.length
+        ? item.levels.map((level) => ({
+            ...level,
+            description: normalizeEscapedNewlines(level.description),
+          }))
+        : [{ level: "A", description: "", coefficient: 1.0 }],
     }))
   }
 
@@ -137,6 +151,7 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
           const taskData = response.data
           setFormData({
             ...taskData,
+            description: normalizeEscapedNewlines(taskData.description),
             scoringType: taskData.scoringType || "percentage",
             teacherSelfEvaluation: taskData.teacherSelfEvaluation ?? true,
             juryType: "designated_member",
@@ -800,7 +815,9 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
                           )}
                         </>
                       ) : (
-                        <span className="text-sm text-muted-foreground">点击右侧加号选择成员</span>
+                        <span className="inline-flex items-center px-2 py-1 bg-primary/10 border border-primary/30 rounded-md text-sm">
+                          暂未设置
+                        </span>
                       )}
                     </div>
                     <Button
@@ -871,7 +888,9 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
                           )}
                         </>
                       ) : (
-                        <span className="text-sm text-muted-foreground">点击右侧加号选择成员</span>
+                        <span className="inline-flex items-center px-2 py-1 bg-primary/10 border border-primary/30 rounded-md text-sm">
+                          暂未设置
+                        </span>
                       )}
                     </div>
                     <Button

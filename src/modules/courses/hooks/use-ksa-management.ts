@@ -44,7 +44,7 @@ export interface UseKsaManagementResult {
   // 业务操作方法
   openKsaDialog: (chapterId: string, coursePointId: string, taskId: string) => void
   closeKsaDialog: () => void
-  toggleKsaSupport: (ksaId: number, currentLevel?: "strong" | "weak") => void
+  setKsaSupportLevel: (ksaId: number, level: "strong" | "weak") => void
   saveKsaSelection: () => void
   startAddingKsa: (ksaType: string) => void
   cancelAddingKsa: () => void
@@ -94,21 +94,18 @@ export function useKsaManagement(
     setEditingDescription("")
   }
 
-  // 切换KSA支撑级别
-  const toggleKsaSupport = (ksaId: number, currentLevel?: "strong" | "weak") => {
+  // 设置KSA支撑级别：点击已选中的等级则取消选中，否则设置为该等级
+  const setKsaSupportLevel = (ksaId: number, level: "strong" | "weak") => {
     setSelectedKsaSupport((prev) => {
       const newSupport = { ...prev }
       const ksaIdStr = String(ksaId)
 
-      if (!currentLevel) {
-        // 当前无支撑，设置为强支撑
-        newSupport[ksaIdStr] = "strong"
-      } else if (currentLevel === "strong") {
-        // 强支撑 -> 弱支撑
-        newSupport[ksaIdStr] = "weak"
-      } else {
-        // 弱支撑 -> 移除支撑
+      if (prev[ksaIdStr] === level) {
+        // 已选中该等级，取消选中
         delete newSupport[ksaIdStr]
+      } else {
+        // 选中该等级
+        newSupport[ksaIdStr] = level
       }
 
       return newSupport
@@ -220,7 +217,7 @@ export function useKsaManagement(
     setEditingDescription,
     openKsaDialog,
     closeKsaDialog,
-    toggleKsaSupport,
+    setKsaSupportLevel,
     saveKsaSelection,
     startAddingKsa,
     cancelAddingKsa,

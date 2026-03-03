@@ -37,15 +37,15 @@ export const CoursePointNode = memo(function CoursePointNode({
       isLoading={nodeData.isLoading}
       progressMessage={nodeData.progressMessage}
       icon={<Lightbulb className="h-4 w-4" />}
-      title={`课点${nodeData.index}`}
+      title={nodeData.name || `课点${nodeData.index}`}
       headerColorClass="bg-green-100"
       borderColorClass="border-green-200"
       textColorClass="text-green-700"
       width={280}
     >
-      {/* [MOD] 正文优先显示 description，兼容旧数据的 content/name 字段 */}
-      {(nodeData.description || nodeData.content || nodeData.name) ? (
-        <p className="text-sm text-gray-600 line-clamp-2">{nodeData.description || nodeData.content || nodeData.name}</p>
+      {/* [MOD] 正文仅显示 description，name 作为卡片标题 */}
+      {nodeData.description ? (
+        <p className="text-sm text-gray-600 line-clamp-2">{nodeData.description}</p>
       ) : (
         <p className="text-sm text-gray-400 italic">暂无描述</p>
       )}

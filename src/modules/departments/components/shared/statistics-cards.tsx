@@ -27,6 +27,84 @@ interface MajorItem {
   props: Record<string, unknown> | null
 }
 
+const isCourseLevelPayload = (items: MajorItem[], datatype: unknown) => {
+  if (typeof datatype === "number" && datatype === 3) {
+    return true
+  }
+
+  return items.some((item) => {
+    if (!Array.isArray(item.btnMenus)) {
+      return false
+    }
+
+    return item.btnMenus.some((menu) => {
+      const menuValue = (menu as { value?: unknown }).value
+      return menuValue === "courseedit" || menuValue === "coursedel"
+    })
+  })
+}
+
+const buildVirtualMajorsFromCourses = (courseItems: MajorItem[]): MajorItem[] => {
+  const majorMap = new Map<string, MajorItem>()
+  const majorCourseMap = new Map<string, MajorItem[]>()
+
+  courseItems.forEach((course) => {
+    const majorId = course.parent?.value?.trim()
+    const majorName = course.parent?.label?.trim()
+    const mapKey = majorId || majorName || ""
+
+    if (!mapKey) {
+      return
+    }
+
+    const currentCourses = majorCourseMap.get(mapKey) || []
+    majorCourseMap.set(mapKey, [...currentCourses, course])
+
+    const existed = majorMap.get(mapKey)
+    if (!existed) {
+      majorMap.set(mapKey, {
+        lang: course.lang,
+        parent: null,
+        self: {
+          value: majorId || mapKey,
+          label: majorName || "未命名专业",
+        },
+        manager: [...(course.manager || [])],
+        info: null,
+        cover: null,
+        btnMenus: [],
+        coverMenus: [],
+        props: {
+          source: "course-level-switchDpt",
+        },
+      })
+      return
+    }
+
+    const mergedManagers = [...(existed.manager || []), ...(course.manager || [])]
+    const uniqueManagers = new Map<string, { value: string; label: string }>()
+
+    mergedManagers.forEach((manager) => {
+      const managerKey = `${manager.value}-${manager.label}`
+      uniqueManagers.set(managerKey, manager)
+    })
+
+    existed.manager = Array.from(uniqueManagers.values())
+  })
+
+  return Array.from(majorMap.entries()).map(([mapKey, major]) => {
+    const prefetchedCourses = majorCourseMap.get(mapKey) || []
+
+    return {
+      ...major,
+      props: {
+        ...(major.props || {}),
+        prefetchedCourses,
+      },
+    }
+  })
+}
+
 interface StatisticsCardsProps {
   node: TreeNode
   onNodeSelect?: (node: TreeNode) => void
@@ -95,7 +173,13 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
         if (response.ok) {
           const result = await response.json()
           if (result.code === '0' && Array.isArray(result.data?.data)) {
-            setMajors(result.data.data)
+            const responseItems = result.data.data as MajorItem[]
+            const shouldConvertToVirtualMajors = isCourseLevelPayload(responseItems, result.data?.datatype)
+            const normalizedMajors = shouldConvertToVirtualMajors
+              ? buildVirtualMajorsFromCourses(responseItems)
+              : responseItems
+
+            setMajors(normalizedMajors)
           } else {
             setMajors([])
           }
@@ -344,6 +428,8 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
                   const majorId = getMajorId(major)
                   const majorName = getMajorName(major)
                   const managers = getManagers(major)
+                  const isVirtualMajor = (major.props as { source?: string } | null)?.source === "course-level-switchDpt"
+                  const prefetchedCourses = (major.props as { prefetchedCourses?: MajorItem[] } | null)?.prefetchedCourses || []
 
                   return (
                     <button
@@ -357,8 +443,11 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
                           nodeName: majorName,
                           type: 'major',
                           nodeType: 'major',
+                          manager: isVirtualMajor ? [] : managers,
                           metadata: {
-                            managers: managers,
+                            managers: isVirtualMajor ? [] : managers,
+                            source: (major.props as { source?: string } | null)?.source,
+                            prefetchedCourses,
                           },
                         })
                       }}
@@ -397,7 +486,7 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
                         </div>
                       </div>
 
-                      {managers.length > 0 && (
+                      {!isVirtualMajor && managers.length > 0 && (
                         <div className="absolute bottom-3 left-3 right-3 flex flex-wrap gap-2">
                           {managers.map((manager, index) => (
                             <div key={index} className="flex items-center gap-[6px] px-[8px] py-[2px] rounded bg-primary border border-primary">

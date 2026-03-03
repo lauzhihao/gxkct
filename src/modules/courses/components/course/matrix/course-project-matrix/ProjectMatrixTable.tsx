@@ -63,11 +63,11 @@ export function ProjectMatrixTable({
       {projectMatrixData.projects.map((projectItem: ProjectMatrixProjectItem, projectIdx: number) => {
         const project = projectItem.project
         const goals = projectItem.goals || []
-        const projectId = String(project.id ?? `project-${projectIdx}`)
+        const projectId = project.id
         const projectName = project.name || `项目${projectIdx + 1}`
 
         return (
-          <AccordionItem key={projectId} value={projectId} className="border border-border rounded-lg">
+          <AccordionItem key={String(projectId)} value={String(projectId)} className="border border-border rounded-lg">
             <div className="relative">
               <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-secondary/30 rounded-t-lg">
                 <div className="flex items-center gap-3">
@@ -85,7 +85,7 @@ export function ProjectMatrixTable({
                     size="sm"
                     onClick={(e) => {
                       e.stopPropagation()
-                      handleOpenTaskObjectivesDialogWithPermission(projectId, goals)
+                      handleOpenTaskObjectivesDialogWithPermission(String(projectId), goals)
                     }}
                     className="gap-2"
                   >
@@ -99,7 +99,9 @@ export function ProjectMatrixTable({
               <div className="border-t border-dashed border-border mb-4" />
 
               {/* 项目矩阵表格 */}
-              {goals.length > 0 ? (
+              {(projectMatrixData?.data?.some(
+                (item: ProjectMatrixItem) => item.courseMatrix?.projectId === projectId
+              )) ? (
                 <div className="border border-border overflow-hidden w-[98%] mx-[1%]">
                   <div className="overflow-x-auto">
                     <table
@@ -210,7 +212,7 @@ export function ProjectMatrixTable({
                                           <button
                                             onClick={() =>
                                               handleOpenKsaDialogWithPermission(
-                                                projectId,
+                                                String(projectId),
                                                 String(item.courseMatrix?.point?.id ?? ""),
                                                 String(goal.id)
                                               )
@@ -405,7 +407,7 @@ export function ProjectMatrixTable({
                           ))}
                         {/* 最后一行 - 教学目标的学习产出及测量评价标准 */}
                         <tr className="bg-secondary/30 border-b border-border font-medium">
-                          <td colSpan={goals.length + 5} className="p-3 text-left text-foreground">
+                          <td colSpan={goals.length + 7} className="p-3 text-left text-foreground">
                             教学目标的学习产出及测量评价标准
                           </td>
                         </tr>

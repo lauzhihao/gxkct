@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
@@ -35,6 +35,19 @@ export function QuickCreateMajorDialog({
   const [majorName, setMajorName] = useState("")
   const [directors, setDirectors] = useState<Director[]>([])
   const [memberSelectorOpen, setMemberSelectorOpen] = useState(false)
+
+  const currentUniversityId = useMemo(() => {
+    if (typeof window === "undefined") return undefined
+
+    const stored = localStorage.getItem("education-current-school")
+    if (!stored) return undefined
+
+    try {
+      return JSON.parse(stored)
+    } catch {
+      return stored
+    }
+  }, [])
 
   // 对话框打开时清空表单
   useEffect(() => {
@@ -214,8 +227,8 @@ export function QuickCreateMajorDialog({
 
       <MemberSelector
         mode="multiple"
-        nodeType="department"
-        departmentId={departmentId}
+        nodeType="university"
+        universityId={currentUniversityId}
         open={memberSelectorOpen}
         onOpenChange={setMemberSelectorOpen}
         onConfirm={handleMemberSelect}

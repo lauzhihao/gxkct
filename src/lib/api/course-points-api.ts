@@ -153,41 +153,32 @@ export class CoursePointsApi {
   }
 
   /**
-   * 更新课点
+   * 更新课点（通过 savepoints 批量接口，发送单条正 ID 实现更新）
+   * @param majorId 专业ID
+   * @param courseId 课程ID
    * @param coursePointId 课点ID
    * @param data 更新数据
    */
   async updateCoursePoint(
+    majorId: string,
+    courseId: string,
     coursePointId: number,
     data: Partial<CoursePoint>
   ): Promise<ApiResponse<CoursePoint | null>> {
     try {
       console.log(`[CoursePointsApi] 更新课点，coursePointId: ${coursePointId}`)
 
-      // 模拟接口调用，1秒延迟
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const response = await this.saveCoursePoints(majorId, courseId, [
+        { id: coursePointId, title: data.title || "", description: data.description || "" },
+      ])
 
-      // 返回成功响应
-      const updatedData: CoursePoint = {
-        id: coursePointId,
-        uniqueCode: "",
-        majorId: 0,
-        courseUnitId: 0,
-        title: data.title || "",
-        description: data.description || "",
-        relate: 0,
-        createTime: new Date().toISOString(),
-        updateTime: new Date().toISOString(),
-        deleted: 0,
+      if (response.error) {
+        console.error("[CoursePointsApi] 更新课点失败:", response.error)
+        return { data: null, error: response.error, status: response.status }
       }
 
-      console.log("[CoursePointsApi] 课点更新成功", updatedData)
-
-      return {
-        data: updatedData,
-        error: null,
-        status: 200,
-      }
+      console.log("[CoursePointsApi] 课点更新成功")
+      return { data: null, error: null, status: 200 }
     } catch (error) {
       console.error("[CoursePointsApi] 更新课点异常:", error)
       return {
@@ -199,23 +190,31 @@ export class CoursePointsApi {
   }
 
   /**
-   * 删除课点
-   * @param coursePointId 课点ID
+   * 删除课点（通过 savepoints 批量接口，发送负 ID 实现删除）
+   * @param majorId 专业ID
+   * @param courseId 课程ID
+   * @param coursePointId 课点ID（正数，内部会取反）
    */
-  async deleteCoursePoint(coursePointId: number): Promise<ApiResponse<void>> {
+  async deleteCoursePoint(
+    majorId: string,
+    courseId: string,
+    coursePointId: number
+  ): Promise<ApiResponse<void>> {
     try {
       console.log(`[CoursePointsApi] 删除课点，coursePointId: ${coursePointId}`)
 
-      // 模拟接口调用，1秒延迟
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // 后端约定：负 ID 表示删除
+      const response = await this.saveCoursePoints(majorId, courseId, [
+        { id: -Math.abs(coursePointId), title: "", description: "" },
+      ])
+
+      if (response.error) {
+        console.error("[CoursePointsApi] 删除课点失败:", response.error)
+        return { data: null, error: response.error, status: response.status }
+      }
 
       console.log("[CoursePointsApi] 课点删除成功")
-
-      return {
-        data: null,
-        error: null,
-        status: 200,
-      }
+      return { data: null, error: null, status: 200 }
     } catch (error) {
       console.error("[CoursePointsApi] 删除课点异常:", error)
       return {

@@ -32,10 +32,10 @@ function convertToProjectMatrixData(responseData: ProjectMatrixDataResponse["dat
 }
 
 export interface ProjectMatrixItemCourseMatrix {
-  id: string
-  projectId: string
+  id: number
+  projectId: number
   point?: {
-    id: string
+    id: number
     title: string
     description?: string
   }
@@ -51,10 +51,10 @@ export interface ProjectMatrixItemCourseMatrix {
 }
 
 export interface ProjectMatrixItemProjectMatrix {
-  id: string
-  taskGoalId: string
+  id: number
+  taskGoalId: number
   ksa?: {
-    id: string
+    id: number
     title: string
     level: number
     description?: string
@@ -70,12 +70,12 @@ export interface ProjectMatrixItem {
 }
 
 export interface ProjectMatrixProject {
-  id: string | number
+  id: number
   name: string
 }
 
 export interface ProjectMatrixGoal {
-  id: string | number
+  id: number
   description: string
 }
 

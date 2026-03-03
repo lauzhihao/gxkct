@@ -125,6 +125,8 @@ export function CanvasObjectiveEditor({
                     maxLength={500}
                     rows={2}
                     className="w-full"
+                    hideCounter
+                    disabled={isSaving}
                   />
                 </div>
                 {/* 删除按钮 */}

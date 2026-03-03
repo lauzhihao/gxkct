@@ -81,13 +81,13 @@
     }
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^8.46.0",
-    "@typescript-eslint/parser": "^8.46.0",
     "@tailwindcss/postcss": "^4.1.9",
     "@types/crypto-js": "^4.2.2",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@typescript-eslint/eslint-plugin": "^8.46.0",
+    "@typescript-eslint/parser": "^8.46.0",
     "eslint": "^9.39.0",
     "eslint-config-next": "16.1.5",
     "postcss": "^8.5",

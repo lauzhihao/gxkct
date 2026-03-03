@@ -255,6 +255,7 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("info")
   const [activeMatrixTab, setActiveMatrixTab] = useState("courseMatrix")
+  const [matrixRefreshToken, setMatrixRefreshToken] = useState(0)
   const [selectedSemester, setSelectedSemester] = useState("2024-spring")
   const [semesters] = useState([
     { value: "2024-spring", label: "2024年春季学期" },
@@ -333,35 +334,40 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
   }, [courseNodeId, loadCourseDetail])
 
   // 加载教学目标数据（课程详情加载完成后即加载）
-  useEffect(() => {
-    const loadCourseGoals = async () => {
-      try {
-        // 直接使用 node.id 作为课程ID
-        const courseId = courseNodeId
-        // majorId 从已加载的课程详情中获取
-        const majorId = courseDetailData?.courseDetailData?.course?.majorId
+  const loadCourseGoals = useCallback(async (options?: { refreshMatrix?: boolean }) => {
+    try {
+      const courseId = courseNodeId
+      const majorId = courseDetailData?.courseDetailData?.course?.majorId
 
-        if (!courseId || !majorId) {
-          console.warn("[CourseDetail] 无法获取课程ID或专业ID")
-          return
-        }
-
-        console.log(`[CourseDetail] 开始加载教学目标，courseId: ${courseId}, majorId: ${majorId}`)
-        const response = await courseGoalsApi.getCourseGoals(String(courseId), String(majorId))
-        if (response.data) {
-          console.log(`[CourseDetail] 教学目标加载成功:`, response.data.length)
-          setCourseGoals(response.data)
-        }
-      } catch (error) {
-        console.error("[CourseDetail] 加载教学目标失败:", error)
+      if (!courseId || !majorId) {
+        console.warn("[CourseDetail] 无法获取课程ID或专业ID")
+        return false
       }
-    }
 
-    // 当课程详情加载完成后，加载教学目标数据
-    if (courseDetailData) {
-      loadCourseGoals()
+      console.log(`[CourseDetail] 开始加载教学目标，courseId: ${courseId}, majorId: ${majorId}`)
+      const response = await courseGoalsApi.getCourseGoals(String(courseId), String(majorId))
+      if (response.data) {
+        console.log(`[CourseDetail] 教学目标加载成功:`, response.data.length)
+        setCourseGoals(response.data)
+        if (options?.refreshMatrix) {
+          setMatrixRefreshToken((prev) => prev + 1)
+        }
+        return true
+      }
+
+      return false
+    } catch (error) {
+      console.error("[CourseDetail] 加载教学目标失败:", error)
+      return false
     }
   }, [courseNodeId, courseDetailData])
+
+  useEffect(() => {
+    // 当课程详情加载完成后，加载教学目标数据
+    if (courseDetailData) {
+      void loadCourseGoals()
+    }
+  }, [courseDetailData, loadCourseGoals])
 
   const handleEditCourseFormSubmit = async (courseData: CourseFormData, isAutoSave: boolean = false) => {
     if (!courseNode) return
@@ -520,10 +526,12 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
         onUpdateNode(courseNode.nodeId, courseData as Partial<TreeNode>)
       }
 
-      // 保存后刷新详情数据，避免返回详情页显示旧数据
-      const refreshed = await loadCourseDetail({ silent: isAutoSave })
-      if (!refreshed) {
-        console.warn("[CourseDetail] 保存后刷新详情失败，页面可能显示旧数据")
+      // 手动保存后刷新详情数据，避免返回详情页显示旧数据
+      if (!isAutoSave) {
+        const refreshed = await loadCourseDetail({ silent: false })
+        if (!refreshed) {
+          console.warn("[CourseDetail] 保存后刷新详情失败，页面可能显示旧数据")
+        }
       }
 
       // 手动保存时退出编辑模式，自动保存时不退出
@@ -879,12 +887,13 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
   // 如果正在编辑教学目标，显示TeachingObjectivesEditor
   if (isEditingTeachingObjectives) {
     return (
-      <TeachingObjectivesEditor
-        isOpen={true}
-        onClose={() => {
-          setIsEditingTeachingObjectives(false)
-          setActiveTab("matrix")
-        }}
+        <TeachingObjectivesEditor
+          isOpen={true}
+          onClose={() => {
+            void loadCourseGoals({ refreshMatrix: true })
+            setIsEditingTeachingObjectives(false)
+            setActiveTab("matrix")
+          }}
         courseGoals={courseGoals}
         node={courseNode}
         majorId={majorId}
@@ -1023,7 +1032,7 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
             </TabsContent>
 
             <TabsContent value="matrix" className="space-y-4 mt-2 px-6">
-              <CourseThreeLevelMatrix node={courseNode} onUpdateNode={onUpdateNode} treeData={treeData} majorId={majorId} courseEditable={courseEditable} onEditTeachingObjectives={() => setIsEditingTeachingObjectives(true)} activeMatrixTab={activeMatrixTab} onActiveMatrixTabChange={setActiveMatrixTab} />
+              <CourseThreeLevelMatrix node={courseNode} onUpdateNode={onUpdateNode} treeData={treeData} majorId={majorId} refreshToken={matrixRefreshToken} courseEditable={courseEditable} onEditTeachingObjectives={() => setIsEditingTeachingObjectives(true)} activeMatrixTab={activeMatrixTab} onActiveMatrixTabChange={setActiveMatrixTab} />
             </TabsContent>
 
             <TabsContent value="supervision" className="space-y-4 mt-4 px-6">

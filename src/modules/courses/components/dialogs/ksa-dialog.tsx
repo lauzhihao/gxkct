@@ -32,7 +32,7 @@ interface KsaDialogProps {
   setEditingKsaId: (value: number | null) => void
   setEditingDescription: (value: string) => void
   setKsaListData: (data: KsaItem[]) => void
-  toggleKsaSupport: (ksaId: number, currentLevel?: "strong" | "weak") => void
+  setKsaSupportLevel: (ksaId: number, level: "strong" | "weak") => void
   saveKsaSelection: () => void
   closeKsaDialog: () => void
   courseId?: string
@@ -60,7 +60,7 @@ export function KsaDialog({
   setEditingKsaId,
   setEditingDescription,
   setKsaListData,
-  toggleKsaSupport,
+  setKsaSupportLevel,
   saveKsaSelection,
   closeKsaDialog,
   courseId,
@@ -101,6 +101,32 @@ export function KsaDialog({
     )
     .sort((a: any, b: any) => (a.level || 0) - (b.level || 0))
 
+  // 保存完整 KSA 列表到后端并重新加载
+  const saveAndReload = async (ksas: Array<{ id: number; title: string; description: string; level: number }>) => {
+    const majorIdNum = parseInt(String(majorId) || "0")
+    const courseIdNum = parseInt(courseId || "0")
+
+    const result = await projectMatrixApi.saveKsaList({
+      majorId: majorIdNum,
+      courseId: courseIdNum,
+      ksas,
+      upload: false,
+    })
+
+    if (result.error) {
+      return result.error
+    }
+
+    // 保存成功后重新从服务端拉取列表，获取真实 ID
+    const listResult = await projectMatrixApi.getKsaList(String(majorIdNum), String(courseIdNum))
+    if (listResult.data) {
+      const ksaArray = Array.isArray(listResult.data) ? listResult.data : []
+      setKsaListData(ksaArray)
+    }
+
+    return null
+  }
+
   const handleAddKsa = async (ksaType: string, filteredPoints: KsaItem[]) => {
     if (!newRowDescription) {
       alert("请填写描述")
@@ -112,21 +138,18 @@ export function KsaDialog({
       return Math.max(max, point.level || 1)
     }, 0)
 
-    // 调用API新增KSA
-    const result = await projectMatrixApi.addKsa({
-      majorId: parseInt(String(majorId) || "0"),
-      courseUnitId: parseInt(courseId || "0"),
-      title: "KSA",
-      description: newRowDescription,
-      level: maxLevel + 1,
-    })
+    // 构建完整列表: 已有项 + 新增项(id=0)
+    const payload = [
+      ...ksaListData.map((k) => ({ id: k.id, title: k.title, description: k.description, level: k.level })),
+      { id: 0, title: ksaType, description: newRowDescription, level: maxLevel + 1 },
+    ]
 
-    if (!result.error && result.data) {
-      setKsaListData([...ksaListData, result.data])
+    const error = await saveAndReload(payload)
+    if (error) {
+      alert("新增失败: " + error)
+    } else {
       setNewRowKsaType(null)
       setNewRowDescription("")
-    } else {
-      alert("新增失败: " + result.error)
     }
   }
 
@@ -136,27 +159,37 @@ export function KsaDialog({
       return
     }
 
-    const result = await projectMatrixApi.updateKsa(ksaId, {
-      description: editingDescription,
-    })
+    // 构建完整列表: 更新目标项的 description
+    const payload = ksaListData.map((k) => ({
+      id: k.id,
+      title: k.title,
+      description: k.id === ksaId ? editingDescription : k.description,
+      level: k.level,
+    }))
 
-    if (!result.error) {
-      setKsaListData(ksaListData.map((k: any) => (k.id === ksaId ? { ...k, description: editingDescription } : k)))
+    const error = await saveAndReload(payload)
+    if (error) {
+      alert("更新失败: " + error)
+    } else {
       setEditingKsaId(null)
       setEditingDescription("")
-    } else {
-      alert("更新失败: " + result.error)
     }
   }
 
   const handleDeleteKsa = async (ksaId: number) => {
-    if (confirm("确定删除此KSA吗？")) {
-      const result = await projectMatrixApi.deleteKsa(ksaId)
-      if (!result.error) {
-        setKsaListData(ksaListData.filter((k: any) => k.id !== ksaId))
-      } else {
-        alert("删除失败: " + result.error)
-      }
+    if (!confirm("确定删除此KSA吗？")) return
+
+    // 构建完整列表: 将被删除项的 id 取负值
+    const payload = ksaListData.map((k) => ({
+      id: k.id === ksaId ? -Math.abs(k.id) : k.id,
+      title: k.title,
+      description: k.description,
+      level: k.level,
+    }))
+
+    const error = await saveAndReload(payload)
+    if (error) {
+      alert("删除失败: " + error)
     }
   }
 
@@ -319,19 +352,32 @@ export function KsaDialog({
                           </>
                         )
                       ) : (
-                        <button
-                          onClick={() => toggleKsaSupport(point.id, support)}
-                          disabled={editingKsaId !== null || newRowKsaType !== null}
-                          className={cn(
-                            "px-2 py-0.5 text-xs rounded border transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed",
-                            !support && "border-gray-300 bg-white text-gray-600 hover:bg-gray-50",
-                            support === "strong" && `${borderClass} ${bgClass} ${colorClass} font-medium`,
-                            support === "weak" && `border-dashed ${borderClass} bg-white ${colorClass}`
-                          )}
-                          title="切换支撑强度"
-                        >
-                          {!support ? "未选" : support === "strong" ? "强支撑" : "弱支撑"}
-                        </button>
+                        <div className="flex flex-col gap-1">
+                          <button
+                            onClick={() => setKsaSupportLevel(point.id, "strong")}
+                            disabled={editingKsaId !== null || newRowKsaType !== null}
+                            className={cn(
+                              "px-2 py-0.5 text-xs rounded border transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed",
+                              support === "strong"
+                                ? `${borderClass} ${bgClass} ${colorClass} font-medium`
+                                : "border-gray-200 bg-white text-gray-400 hover:border-blue-200 hover:text-blue-500"
+                            )}
+                          >
+                            强支撑
+                          </button>
+                          <button
+                            onClick={() => setKsaSupportLevel(point.id, "weak")}
+                            disabled={editingKsaId !== null || newRowKsaType !== null}
+                            className={cn(
+                              "px-2 py-0.5 text-xs rounded border transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed",
+                              support === "weak"
+                                ? `border-dashed ${borderClass} ${bgClass} ${colorClass} font-medium`
+                                : "border-gray-200 bg-white text-gray-400 hover:border-orange-200 hover:text-orange-500"
+                            )}
+                          >
+                            弱支撑
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -358,50 +404,44 @@ export function KsaDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {!ksaListData || ksaListData.length === 0 ? (
-          <div className="py-8 text-center text-muted-foreground">
-            <p className="text-sm">暂无KSA数据</p>
+        <div className="flex-1 flex flex-col min-h-0 space-y-4 py-4 px-4">
+          {/* KSA Lists */}
+          <div className="flex-1 grid grid-cols-3 gap-3 min-h-0">
+            {renderInfoPointList(
+              "知识（Knowledge）",
+              knowledgePoints,
+              filteredKnowledgePoints,
+              ksaSearchK,
+              setKsaSearchK,
+              "text-blue-700",
+              "bg-blue-50",
+              "border-blue-300",
+              "K"
+            )}
+            {renderInfoPointList(
+              "技能（Skills）",
+              skillPoints,
+              filteredSkillPoints,
+              ksaSearchS,
+              setKsaSearchS,
+              "text-green-700",
+              "bg-green-50",
+              "border-green-300",
+              "S"
+            )}
+            {renderInfoPointList(
+              "态度（Attitude）",
+              attitudePoints,
+              filteredAttitudePoints,
+              ksaSearchA,
+              setKsaSearchA,
+              "text-purple-700",
+              "bg-purple-50",
+              "border-purple-300",
+              "A"
+            )}
           </div>
-        ) : (
-          <div className="flex-1 flex flex-col min-h-0 space-y-4 py-4 px-4">
-            {/* KSA Lists */}
-            <div className="flex-1 grid grid-cols-3 gap-3 min-h-0">
-              {renderInfoPointList(
-                "知识（Knowledge）",
-                knowledgePoints,
-                filteredKnowledgePoints,
-                ksaSearchK,
-                setKsaSearchK,
-                "text-blue-700",
-                "bg-blue-50",
-                "border-blue-300",
-                "K"
-              )}
-              {renderInfoPointList(
-                "技能（Skills）",
-                skillPoints,
-                filteredSkillPoints,
-                ksaSearchS,
-                setKsaSearchS,
-                "text-green-700",
-                "bg-green-50",
-                "border-green-300",
-                "S"
-              )}
-              {renderInfoPointList(
-                "态度（Attitude）",
-                attitudePoints,
-                filteredAttitudePoints,
-                ksaSearchA,
-                setKsaSearchA,
-                "text-purple-700",
-                "bg-purple-50",
-                "border-purple-300",
-                "A"
-              )}
-            </div>
-          </div>
-        )}
+        </div>
 
         <DialogFooter className="flex-shrink-0">
           <Button variant="outline" onClick={closeKsaDialog}>

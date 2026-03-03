@@ -13,6 +13,8 @@ import type { MajorMatrixItemResponse } from "@/lib/api/matrix-api"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip"
 import { usePermission } from "@/shared/hooks/use-permission"
 import type { PermissionAction } from "@/shared/permissions/types"
+import { buildApiUrl } from "@/lib/api/config"
+import { getStoredAuthToken } from "@/lib/api/auth-config"
 
 const treeApiInstance = new TreeApi()
 const MATRIX_MANAGE_ACTION: PermissionAction = "major.course.create"
@@ -22,6 +24,10 @@ const MATRIX_MANAGE_CONTEXT = { scope: "major" } as const
 interface CourseInfo {
   courseId: string
   courseName: string
+}
+
+interface CourseItem {
+  self: { value: string; label: string } | null
 }
 
 interface MajorMatrixProps {
@@ -44,12 +50,14 @@ export function MajorMatrix(props: MajorMatrixProps) {
   const indicatorRefsMap = useRef<Map<string, HTMLDivElement>>(new Map())
   const [requiresVOS, setRequiresVOS] = useState<any[]>([])
   const [isLoadingMatrix, setIsLoadingMatrix] = useState(false)
-  const hasLoadedRef = useRef(false)
   const [courses, setCourses] = useState<CourseInfo[]>([])
   const [courseMatrixMap, setCourseMatrixMap] = useState<Record<string, MajorMatrixItemResponse[]>>({})
+  const [courseLoadingMap, setCourseLoadingMap] = useState<Record<string, boolean>>({})
+  const [courseErrorMap, setCourseErrorMap] = useState<Record<string, string>>({})
   const [searchInput, setSearchInput] = useState("")
   const [courseSearchTerm, setCourseSearchTerm] = useState("")
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const matrixRequestGenerationRef = useRef(0)
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value)
@@ -69,40 +77,129 @@ export function MajorMatrix(props: MajorMatrixProps) {
     }
   }, [])
 
-  // 加载毕业要求数据 + 课程列表 + 各课程矩阵数据
+  const loadSingleCourseMatrix = useCallback(async (courseId: string, generation: number) => {
+    setCourseLoadingMap((prev) => ({
+      ...prev,
+      [courseId]: true,
+    }))
+    setCourseErrorMap((prev) => ({
+      ...prev,
+      [courseId]: "",
+    }))
+
+    try {
+      const response = await api.matrices.getMajorMatrix(courseId)
+      if (generation !== matrixRequestGenerationRef.current) {
+        return
+      }
+
+      if (response.error) {
+        const errorText = typeof response.error === "string" ? response.error : String(response.error)
+        setCourseErrorMap((prev) => ({
+          ...prev,
+          [courseId]: errorText,
+        }))
+        return
+      }
+
+      const matrixItems = Array.isArray(response.data) ? response.data : []
+      setCourseMatrixMap((prev) => ({
+        ...prev,
+        [courseId]: matrixItems,
+      }))
+    } catch (error) {
+      if (generation !== matrixRequestGenerationRef.current) {
+        return
+      }
+      const message = error instanceof Error ? error.message : String(error)
+      setCourseErrorMap((prev) => ({
+        ...prev,
+        [courseId]: message,
+      }))
+    } finally {
+      if (generation !== matrixRequestGenerationRef.current) {
+        return
+      }
+      setCourseLoadingMap((prev) => ({
+        ...prev,
+        [courseId]: false,
+      }))
+    }
+  }, [])
+
+  // 加载毕业要求数据 + 课程列表（矩阵数据按课程异步加载）
   useEffect(() => {
     const majorId = node.id
     if (!majorId) return
 
-    if (hasLoadedRef.current) return
-    hasLoadedRef.current = true
-
     const loadMajorData = async () => {
       setIsLoadingMatrix(true)
       try {
-        // 并行加载毕业要求和完整矩阵数据（含课程列表）
-        const [majorDetailResponse, matrixAllResponse] = await Promise.all([
-          treeApiInstance.getMajorDetail(majorId),
-          api.matrices.getMajorMatrixAll(majorId),
+        const majorDetailPromise = treeApiInstance.getMajorDetail(majorId)
+
+        const courseListUrl = buildApiUrl(`/api/v4/webpage/majorindex/courses?majorId=${majorId}&lang=80101`)
+        const headers: Record<string, string> = {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        }
+        const authToken = getStoredAuthToken()
+        if (authToken) {
+          headers.authToken = authToken
+        }
+
+        const courseListPromise = fetch(courseListUrl, {
+          method: "GET",
+          headers,
+        })
+
+        const [majorDetailResponse, courseListResponse] = await Promise.all([
+          majorDetailPromise,
+          courseListPromise,
         ])
 
         if (majorDetailResponse.data?.requiresVOS) {
           setRequiresVOS(majorDetailResponse.data.requiresVOS)
         }
 
-        // 从批量接口结果中提取课程列表和矩阵映射
-        const groups = matrixAllResponse.data || []
-        const coursesData: CourseInfo[] = groups.map((g) => ({
-          courseId: String(g.courseId),
-          courseName: g.courseName,
-        }))
-        setCourses(coursesData)
-
-        const matrixMap: Record<string, MajorMatrixItemResponse[]> = {}
-        for (const g of groups) {
-          matrixMap[String(g.courseId)] = g.matrixItems
+        if (!courseListResponse.ok) {
+          throw new Error(`获取课程列表失败，状态码: ${courseListResponse.status}`)
         }
-        setCourseMatrixMap(matrixMap)
+
+        const courseResult = await courseListResponse.json()
+        const rawCourses = Array.isArray(courseResult.data) ? (courseResult.data as CourseItem[]) : []
+
+        const parsedCourses: CourseInfo[] = []
+        for (const rawCourse of rawCourses) {
+          if (!rawCourse.self) {
+            continue
+          }
+          const rawId = rawCourse.self.value
+          const rawName = rawCourse.self.label
+
+          if (typeof rawId !== "string" || rawId.trim() === "") {
+            console.error("[MajorMatrix] 跳过课程：缺少有效 courseId", rawCourse)
+            continue
+          }
+          if (typeof rawName !== "string" || rawName.trim() === "") {
+            console.error("[MajorMatrix] 跳过课程：缺少有效 courseName", rawCourse)
+            continue
+          }
+
+          parsedCourses.push({
+            courseId: rawId,
+            courseName: rawName,
+          })
+        }
+
+        setCourses(parsedCourses)
+        setCourseMatrixMap({})
+        setCourseErrorMap({})
+
+        const initialLoadingMap: Record<string, boolean> = {}
+        for (const course of parsedCourses) {
+          initialLoadingMap[course.courseId] = false
+        }
+        setCourseLoadingMap(initialLoadingMap)
       } catch (error) {
         console.error("Failed to load major matrix data:", error)
       } finally {
@@ -112,6 +209,42 @@ export function MajorMatrix(props: MajorMatrixProps) {
 
     loadMajorData()
   }, [node.id])
+
+  // 按课程逐个异步加载矩阵数据，边到达边渲染
+  useEffect(() => {
+    if (courses.length === 0) {
+      return
+    }
+
+    matrixRequestGenerationRef.current += 1
+    const generation = matrixRequestGenerationRef.current
+    const queue = [...courses]
+    const concurrency = Math.min(5, queue.length)
+
+    const runWorker = async () => {
+      while (queue.length > 0) {
+        const nextCourse = queue.shift()
+        if (!nextCourse) {
+          return
+        }
+        await loadSingleCourseMatrix(nextCourse.courseId, generation)
+      }
+    }
+
+    const workers = Array.from({ length: concurrency }, () => runWorker())
+    Promise.all(workers).catch((error) => {
+      console.error("[MajorMatrix] 分批加载课程矩阵失败:", error)
+    })
+
+    return () => {
+      matrixRequestGenerationRef.current += 1
+    }
+  }, [courses, loadSingleCourseMatrix])
+
+  const handleRetryCourseMatrix = useCallback((courseId: string) => {
+    const generation = matrixRequestGenerationRef.current
+    loadSingleCourseMatrix(courseId, generation)
+  }, [loadSingleCourseMatrix])
 
   // 获取毕业要求数据
   const getGraduationRequirements = () => {
@@ -176,25 +309,112 @@ export function MajorMatrix(props: MajorMatrixProps) {
     if (!canManageMatrix) return
 
     const key = `${courseId}-${reqId}-${indicatorIdx}`
-    setMatrixSupportLevels((prev) => ({
-      ...prev,
-      [key]: value,
-    }))
+    setMatrixSupportLevels((prev) => {
+      if (prev[key] === value) {
+        const next = { ...prev }
+        delete next[key]
+        return next
+      }
+
+      return {
+        ...prev,
+        [key]: value,
+      }
+    })
   }
 
   const handleSaveMatrix = useCallback(async (isAutoSave = false) => {
     if (!canManageMatrix) return
+    if (Object.keys(matrixSupportLevels).length === 0) {
+      if (!isAutoSave) {
+        setIsEditingMatrix(false)
+      }
+      return
+    }
 
     setIsSavingMatrix(true)
 
-    // TODO: 调用API保存矩阵数据
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    setIsSavingMatrix(false)
+    try {
+      // 收集受影响的课程ID
+      const affectedCourseIds = new Set<string>()
+      for (const key of Object.keys(matrixSupportLevels)) {
+        const course = courses.find((c) => key.startsWith(`${c.courseId}-`))
+        if (course) {
+          affectedCourseIds.add(course.courseId)
+        }
+      }
 
-    if (!isAutoSave) {
-      setIsEditingMatrix(false)
+      // 逐课程构建完整矩阵数据并调用保存接口
+      for (const courseId of Array.from(affectedCourseIds)) {
+        const existingItems = [...(courseMatrixMap[courseId] || [])]
+
+        // 将该课程下的所有变更合并到已有矩阵数据中
+        for (const req of requiresVOS) {
+          const children = req.children || []
+          for (let indicatorIdx = 0; indicatorIdx < children.length; indicatorIdx++) {
+            const key = `${courseId}-${req.id}-${indicatorIdx}`
+            if (!(key in matrixSupportLevels)) continue
+
+            const value = matrixSupportLevels[key]
+            const graduateRequireId = children[indicatorIdx].id
+            const relate = value === "\u5F3A\u652F\u6491" ? 0 : 1
+
+            const existingIndex = existingItems.findIndex(
+              (item) => item.graduateRequireId === graduateRequireId
+            )
+            if (existingIndex >= 0) {
+              existingItems[existingIndex] = {
+                ...existingItems[existingIndex],
+                relate,
+              }
+            } else {
+              const courseName = courses.find((c) => c.courseId === courseId)?.courseName
+              if (!courseName) {
+                throw new Error(`[MajorMatrix] courseId=${courseId} courseName missing`)
+              }
+              existingItems.push({
+                id: 0,
+                majorId: Number(node.id),
+                courseUnitId: Number(courseId),
+                courseUnitName: courseName,
+                graduateRequireId,
+                relate,
+              })
+            }
+          }
+        }
+
+        const saveData = existingItems.map((item) => ({
+          id: item.id > 0 ? item.id : 0,
+          majorId: item.majorId,
+          courseUnitId: item.courseUnitId,
+          courseUnitName: item.courseUnitName || "",
+          graduateRequireId: item.graduateRequireId,
+          relate: item.relate,
+        }))
+
+        const response = await api.matrices.updateMajorMatrix(courseId, saveData)
+        if (response.error) {
+          const errorText = typeof response.error === "string" ? response.error : String(response.error)
+          throw new Error(errorText)
+        }
+      }
+
+      // 全部保存成功：清空变更记录，异步重新加载受影响课程的矩阵数据
+      setMatrixSupportLevels({})
+      const generation = matrixRequestGenerationRef.current
+      for (const courseId of Array.from(affectedCourseIds)) {
+        loadSingleCourseMatrix(courseId, generation)
+      }
+    } catch (error) {
+      console.error("[MajorMatrix] save matrix failed:", error)
+    } finally {
+      setIsSavingMatrix(false)
+      if (!isAutoSave) {
+        setIsEditingMatrix(false)
+      }
     }
-  }, [canManageMatrix])
+  }, [canManageMatrix, matrixSupportLevels, courseMatrixMap, requiresVOS, courses, node.id, loadSingleCourseMatrix])
 
   const handleCancelMatrix = () => {
     if (!canManageMatrix) return
@@ -304,7 +524,15 @@ export function MajorMatrix(props: MajorMatrixProps) {
             </div>
           </div>
 
-          <div className="rounded-lg border border-border overflow-hidden overflow-x-auto mb-[15px]">
+          <div className="relative rounded-lg border border-border overflow-hidden overflow-x-auto mb-[15px]">
+            {isSavingMatrix && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/60 backdrop-blur-[1px]">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Spinner className="w-4 h-4" />
+                  <span>保存中...</span>
+                </div>
+              </div>
+            )}
             <table className="w-full text-sm">
               <thead>
                 {/* 第一层表头：课程名称 + 毕业要求 */}
@@ -451,16 +679,37 @@ export function MajorMatrix(props: MajorMatrixProps) {
                             {course.courseName}
                           </TooltipContent>
                         </Tooltip>
+                        {courseErrorMap[course.courseId] ? (
+                          <div className="mt-2 flex items-center gap-2">
+                            <span className="text-xs text-red-600">矩阵加载失败</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRetryCourseMatrix(course.courseId)}
+                              className="text-xs text-primary hover:underline"
+                            >
+                              重试
+                            </button>
+                          </div>
+                        ) : null}
                       </td>
                       {graduationRequirements.flatMap((req: any) => {
                         const indicators = req.indicators || []
                         return indicators.map((_indicator: string, indicatorIdx: number) => {
                           const key = `${course.courseId}-${req.id}-${indicatorIdx}`
+                          const isCourseLoading = courseLoadingMap[course.courseId] === true
+                          const courseError = courseErrorMap[course.courseId]
+                          const hasCourseError = typeof courseError === "string" && courseError.trim() !== ""
                           const supportLevel = matrixSupportLevels[key] || getSupportLevel(course.courseId, req.id, indicatorIdx)
 
                           return (
                             <td key={key} className="p-3 text-center border-r border-border">
-                              {isEditingMatrix && canManageMatrix ? (
+                              {isCourseLoading ? (
+                                <span className="inline-flex items-center justify-center text-muted-foreground">
+                                  <Spinner className="w-3.5 h-3.5" />
+                                </span>
+                              ) : hasCourseError ? (
+                                <span className="text-xs text-muted-foreground">-</span>
+                              ) : isEditingMatrix && canManageMatrix ? (
                                 <div className="flex items-center justify-center gap-2">
                                   <button
                                     onClick={() => handleSupportLevelChange(course.courseId, req.id, indicatorIdx, "强支撑")}

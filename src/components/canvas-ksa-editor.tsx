@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react"
 import { Plus, Trash2, Brain, Wrench, Heart, Loader2 } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
+import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 import type { KsaItemData } from "./canvas-elements/types"
 
 interface CanvasKsaEditorProps {
@@ -160,12 +161,14 @@ export function CanvasKsaEditor({
                       <div className={`text-xs font-medium mb-1 ${config.colorClass}`}>
                         {item.category}{item.index}
                       </div>
-                      <textarea
+                      <ExpandableTextarea
                         value={item.content}
-                        onChange={(e) => handleUpdateContent(item.id, e.target.value)}
+                        onChange={(value) => handleUpdateContent(item.id, value)}
                         placeholder="输入内容描述..."
-                        className="w-full px-2 py-1 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                        className="w-full px-2 py-1 text-sm"
                         rows={2}
+                        hideCounter
+                        disabled={isSaving}
                       />
                     </div>
                     <button

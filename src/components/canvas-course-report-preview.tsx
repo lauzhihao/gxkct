@@ -2,14 +2,14 @@
 
 /**
  * 画布开课报告预览组件
- * 从画布节点数据汇总展示课程体系完整信息（只读模式，用于导出PDF）
+ * 从画布节点数据汇总展示课程体系完整信息（只读模式，用于导出）
  */
 
 import { useState, useCallback } from "react"
 import { Button } from "@/shared/components/ui/button"
 import {
   FileText, Target, BookOpen, Layers, Brain, Wrench, Heart,
-  Grid3X3, Table, Award, ClipboardCheck, FileDown, Save
+  Grid3X3, Table, Award, ClipboardCheck, Save
 } from "lucide-react"
 import type {
   CourseInfoData,
@@ -23,6 +23,8 @@ import type {
 } from "./canvas-elements/types"
 import type { TreeNode } from "@/types"
 import { CanvasSaveWizard } from "./canvas-save-wizard"
+import { showError, showSuccess } from "@/shared/utils/toast-utils"
+import { getStoredAuthToken } from "@/lib/api/auth-config"
 
 // 开课报告预览数据结构
 export interface CourseReportPreviewData {
@@ -89,6 +91,118 @@ function parseTeachingTime(teachingTime?: string): string {
   } catch {
     return teachingTime
   }
+}
+
+function sanitizeFileName(rawName?: string): string {
+  if (!rawName) return "开课报告"
+  const sanitized = rawName
+    .replace(/[\\/:*?"<>|]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+  return sanitized || "开课报告"
+}
+
+function getExportFileBaseName(courseName?: string): string {
+  const date = new Date().toISOString().slice(0, 10)
+  return `${sanitizeFileName(courseName || "开课报告")}_${date}`
+}
+
+const COURSE_REPORT_EXPORT_ENDPOINT = "/lang-chain/v1/chat/export"
+const COURSE_REPORT_TEMPLATE_NAME = "default_course_report"
+
+type ExportFormat = "docx"
+
+interface ExportElement {
+  type: string
+  data: unknown
+}
+
+interface ExportRequestBody {
+  canvas_json: {
+    elements: ExportElement[]
+  }
+  format: ExportFormat
+  template_name: string
+  filename: string
+}
+
+function toExportElementsFromCanvas(canvasElements: CanvasElementData[]): ExportElement[] {
+  return canvasElements.flatMap((element) => {
+    const elementWithType = element as unknown as { type?: unknown; data?: unknown }
+    if (typeof elementWithType.type !== "string") {
+      return []
+    }
+    return [{
+      type: elementWithType.type,
+      data: elementWithType.data ?? {},
+    }]
+  })
+}
+
+function buildFallbackExportElements(report: CourseReportPreviewData, currentCourseInfo: CourseInfoData | null): ExportElement[] {
+  const elements: ExportElement[] = []
+
+  if (currentCourseInfo) {
+    elements.push({ type: "course_info", data: currentCourseInfo })
+  }
+  elements.push(...report.objectives.map((item) => ({ type: "objective_card", data: item })))
+  elements.push(...report.chapters.map((item) => ({ type: "chapter_card", data: item })))
+  elements.push(...report.coursePoints.map((item) => ({ type: "course_point_card", data: item })))
+  elements.push(...report.ksaItems.map((item) => ({ type: "ksa_item", data: item })))
+  if (report.courseMatrix) {
+    elements.push({ type: "course_matrix", data: report.courseMatrix })
+  }
+  elements.push(...report.projectMatrices.map((item) => ({ type: "project_matrix", data: item })))
+
+  return elements
+}
+
+function buildExportRequestBody(
+  format: ExportFormat,
+  report: CourseReportPreviewData,
+  currentCourseInfo: CourseInfoData | null,
+  canvasElements: CanvasElementData[],
+): ExportRequestBody {
+  const normalizedElements = toExportElementsFromCanvas(canvasElements)
+  const exportElements = normalizedElements.length > 0
+    ? normalizedElements
+    : buildFallbackExportElements(report, currentCourseInfo)
+
+  return {
+    canvas_json: {
+      elements: exportElements,
+    },
+    format,
+    template_name: COURSE_REPORT_TEMPLATE_NAME,
+    filename: `${sanitizeFileName(currentCourseInfo?.name || "课程")}_导出报告`,
+  }
+}
+
+function parseFilenameFromContentDisposition(headerValue: string | null): string | null {
+  if (!headerValue) return null
+
+  const utf8Match = headerValue.match(/filename\*=UTF-8''([^;]+)/i)
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1])
+    } catch {
+      return utf8Match[1]
+    }
+  }
+
+  const asciiMatch = headerValue.match(/filename="?([^";]+)"?/i)
+  return asciiMatch?.[1] ?? null
+}
+
+function downloadBlob(blob: Blob, fileName: string): void {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
 }
 
 /**
@@ -165,6 +279,7 @@ export function CanvasCourseReportPreview({
 
   // 保存向导状态
   const [isSaveWizardOpen, setIsSaveWizardOpen] = useState(false)
+  const [isExportingWord, setIsExportingWord] = useState(false)
 
   // 包装 onUpdateCourseInfo：同时更新本地 courseInfo 状态和外部画布数据
   const handleUpdateCourseInfo = useCallback((updates: { courseId?: number; majorId?: number }) => {
@@ -202,6 +317,44 @@ export function CanvasCourseReportPreview({
   // 检查是否有考核评价内容
   const hasAssessment = metadata?.assessmentMethod || metadata?.assessmentForm ||
     metadata?.scoreType || metadata?.scoreTable || metadata?.assessmentDescription
+
+  const handleExportWithBackend = useCallback(async (format: ExportFormat) => {
+    const fileExt = "docx"
+    try {
+      const authToken = getStoredAuthToken()
+      const response = await fetch(COURSE_REPORT_EXPORT_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(authToken ? { authToken } : {}),
+        },
+        body: JSON.stringify(buildExportRequestBody(format, data, courseInfo, canvasElements)),
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const blob = await response.blob()
+      const headerFilename = parseFilenameFromContentDisposition(response.headers.get("content-disposition"))
+      const fallbackFileName = `${getExportFileBaseName(courseInfo?.name)}.${fileExt}`
+      const fileName = headerFilename || fallbackFileName
+      downloadBlob(blob, fileName)
+      showSuccess("Word 导出成功")
+    } catch (error) {
+      console.error(`${format} export failed`, error)
+      showError("Word 导出失败，请稍后重试")
+    }
+  }, [canvasElements, courseInfo, data])
+
+  const handleExportWord = useCallback(async () => {
+    setIsExportingWord(true)
+    try {
+      await handleExportWithBackend("docx")
+    } finally {
+      setIsExportingWord(false)
+    }
+  }, [handleExportWithBackend])
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -635,25 +788,12 @@ export function CanvasCourseReportPreview({
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
-            onClick={() => {
-              // TODO: 实现导出 Word 功能
-              console.log("导出 Word")
-            }}
+            onClick={handleExportWord}
+            disabled={isExportingWord}
             className="gap-2 border-blue-400 text-blue-700 hover:bg-blue-50 hover:text-blue-800 hover:border-blue-500"
           >
             <FileText className="h-4 w-4" />
-            导出 Word
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              // TODO: 实现导出 PDF 功能
-              console.log("导出 PDF")
-            }}
-            className="gap-2 border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800 hover:border-red-400"
-          >
-            <FileDown className="h-4 w-4" />
-            导出 PDF
+            {isExportingWord ? "导出中..." : "导出 Word"}
           </Button>
           <Button
             onClick={() => setIsSaveWizardOpen(true)}

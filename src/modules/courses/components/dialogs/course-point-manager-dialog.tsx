@@ -6,11 +6,9 @@ import { FileUpload } from "@/shared/components/ui/file-upload"
 import { Check, Pencil, Plus, Search, Trash2, X } from "lucide-react"
 import { LoadingState } from "@/shared/components/ui/loading-state"
 import { Spinner } from "@/shared/components/ui/spinner"
-import { showError } from "@/shared/utils/toast-utils"
 import { useCourseMatrixContext } from "@/modules/courses/hooks/use-course-matrix-data"
 import { matchesCoursePointKeyword, sortCoursePointsByTitle } from "@/modules/courses/utils/course-matrix-utils"
 import type { CoursePoint as ApiCoursePoint } from "@/lib/api/course-points-api"
-import { coursePointsApi } from "@/modules/courses/api/coursePointsApi"
 
 export const CoursePointManagerDialog = () => {
   const {
@@ -39,6 +37,8 @@ export const CoursePointManagerDialog = () => {
     setIsSavingEditingCoursePoint,
     handleSaveNewCoursePoint,
     handleDeleteSelectedCoursePoints,
+    handleUpdateCoursePoint,
+    handleDeleteSingleCoursePoint,
   } = useCourseMatrixContext()
 
   const filteredCoursePoints = useMemo(
@@ -46,44 +46,18 @@ export const CoursePointManagerDialog = () => {
     [coursePointsList, coursePointsSearch]
   )
 
-  const handleSingleDelete = async (coursePointId: number) => {
-    setDeletingCoursePointId(coursePointId)
-    try {
-      const response = await coursePointsApi.deleteCoursePoint(coursePointId)
-      if (response.error) {
-        showError(response.error)
-        return
-      }
-      setCoursePointsList((prev) => prev.filter((cp) => cp.id !== coursePointId))
-    } catch (error) {
-      console.error("删除课点失败:", error)
-      showError("删除课点失败，请重试")
-    } finally {
-      setDeletingCoursePointId(null)
-    }
+  // [MOD] 委托给 context handler，不再直接调用 API
+  const handleSingleDelete = (coursePointId: number) => {
+    handleDeleteSingleCoursePoint(coursePointId)
   }
 
-  const handleSubmitEdit = async (coursePoint: ApiCoursePoint) => {
+  // [MOD] 委托给 context handler，不再直接调用 API
+  const handleSubmitEdit = async (coursePoint: { id: number }) => {
     if (newCoursePoint && coursePoint.id === newCoursePoint.id) {
       await handleSaveNewCoursePoint()
       return
     }
-
-    setIsSavingEditingCoursePoint(true)
-    try {
-      const response = await coursePointsApi.updateCoursePoint(coursePoint.id, editingCoursePointData)
-      if (response.error) {
-        showError(response.error)
-        return
-      }
-      setEditingCoursePointId(null)
-      setEditingCoursePointData({})
-    } catch (error) {
-      console.error("更新课点失败:", error)
-      showError("更新课点失败，请重试")
-    } finally {
-      setIsSavingEditingCoursePoint(false)
-    }
+    await handleUpdateCoursePoint(coursePoint.id, editingCoursePointData)
   }
 
   const handleCancelEdit = (coursePoint: ApiCoursePoint) => {

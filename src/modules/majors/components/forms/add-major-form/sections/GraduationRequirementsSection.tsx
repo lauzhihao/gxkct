@@ -119,7 +119,7 @@ export function GraduationRequirementsSection({
             <h3 className="text-base font-semibold text-foreground">毕业要求</h3>
           </div>
           <div className="flex items-center gap-2">
-            <Button
+            {/* <Button
               size="sm"
               className="gap-2 bg-primary text-white hover:bg-primary/90"
               onClick={() => {
@@ -133,7 +133,7 @@ export function GraduationRequirementsSection({
             >
               <Star className="w-4 h-4" />
               AI一键生成
-            </Button>
+            </Button> */}
             {canManageGraduationRequirement && (
               <Button
                 size="sm"
@@ -273,6 +273,7 @@ export function GraduationRequirementsSection({
                                           <SupportLabel
                                             key={courseSupport.courseId}
                                             title={courseSupport.courseName}
+                                            desc={courseSupport.courseName}
                                             type={courseSupport.supportLevel}
                                             size="sm"
                                             tipsPosition="top"

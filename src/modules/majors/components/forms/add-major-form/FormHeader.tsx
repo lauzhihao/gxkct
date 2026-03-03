@@ -6,11 +6,6 @@
 import { ArrowLeft, X, Check } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Spinner } from "@/shared/components/ui/spinner"
-import { usePermission } from "@/shared/hooks/use-permission"
-import type { PermissionAction } from "@/shared/permissions/types"
-
-const MANAGE_MAJOR_ACTION: PermissionAction = "department.major.create"
-const MANAGE_MAJOR_CONTEXT = { scope: "department" as const }
 
 interface FormHeaderProps {
   isEditMode: boolean
@@ -21,11 +16,7 @@ interface FormHeaderProps {
 }
 
 export function FormHeader({ isEditMode, isLoading, autoSaveStatus, onCancel, onSubmit }: FormHeaderProps) {
-  const { can } = usePermission()
-  const canManageMajor = can(MANAGE_MAJOR_ACTION, MANAGE_MAJOR_CONTEXT)
-
   const handleSubmit = () => {
-    if (!can(MANAGE_MAJOR_ACTION, MANAGE_MAJOR_CONTEXT)) return
     onSubmit()
   }
 
@@ -48,41 +39,39 @@ export function FormHeader({ isEditMode, isLoading, autoSaveStatus, onCancel, on
           <X className="w-4 h-4" />
           取消
         </Button>
-        {canManageMajor && (
-          <Button
-            onClick={handleSubmit}
-            className="gap-2"
-            disabled={isLoading || autoSaveStatus === "saving" || autoSaveStatus === "saved"}
-            variant={autoSaveStatus === "saved" ? "default" : autoSaveStatus === "failed" ? "destructive" : "default"}
-          >
-            {isLoading ? (
-              <>
-                <Spinner className="w-4 h-4" />
-                保存中
-              </>
-            ) : autoSaveStatus === "saving" ? (
-              <>
-                <Spinner className="w-4 h-4" />
-                自动保存中
-              </>
-            ) : autoSaveStatus === "saved" ? (
-              <>
-                <Check className="w-4 h-4" />
-                已保存
-              </>
-            ) : autoSaveStatus === "failed" ? (
-              <>
-                <X className="w-4 h-4" />
-                保存失败
-              </>
-            ) : (
-              <>
-                <Check className="w-4 h-4" />
-                保存
-              </>
-            )}
-          </Button>
-        )}
+        <Button
+          onClick={handleSubmit}
+          className="gap-2"
+          disabled={isLoading || autoSaveStatus === "saving" || autoSaveStatus === "saved"}
+          variant={autoSaveStatus === "saved" ? "default" : autoSaveStatus === "failed" ? "destructive" : "default"}
+        >
+          {isLoading ? (
+            <>
+              <Spinner className="w-4 h-4" />
+              保存中
+            </>
+          ) : autoSaveStatus === "saving" ? (
+            <>
+              <Spinner className="w-4 h-4" />
+              自动保存中
+            </>
+          ) : autoSaveStatus === "saved" ? (
+            <>
+              <Check className="w-4 h-4" />
+              已保存
+            </>
+          ) : autoSaveStatus === "failed" ? (
+            <>
+              <X className="w-4 h-4" />
+              保存失败
+            </>
+          ) : (
+            <>
+              <Check className="w-4 h-4" />
+              保存
+            </>
+          )}
+        </Button>
       </div>
     </div>
   )

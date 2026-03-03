@@ -13,7 +13,6 @@ export const CourseMatrixHeader = ({ courseEditable, onEditTeachingObjectives }:
     isEditingCourseMatrix,
     isSavingCourseMatrix,
     isLoadingCoursePoints,
-    coursePointsList,
     startEditingCourseMatrix,
     handleCancelCourseMatrix,
     handleSaveCourseMatrix,
@@ -71,7 +70,7 @@ export const CourseMatrixHeader = ({ courseEditable, onEditTeachingObjectives }:
               size="sm"
               variant="outline"
               onClick={handleManageCoursePoints}
-              disabled={isLoadingCoursePoints || coursePointsList.length === 0}
+              disabled={isLoadingCoursePoints}
               className="gap-2 bg-transparent"
             >
               {isLoadingCoursePoints ? (

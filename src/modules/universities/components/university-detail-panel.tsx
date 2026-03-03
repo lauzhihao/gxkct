@@ -38,7 +38,7 @@ const DEFAULT_UNIVERSITY_TAB: UniversityTabKey = "overview"
 const CREATE_DEPARTMENT_ACTION = "college.department.create"
 const CREATE_DEPARTMENT_CONTEXT = { scope: "college" } as const
 
-export function UniversityDetail({ node, onNodeSelect, onSetCurrentSchool, currentUser }: DetailPanelProps) {
+export function UniversityDetail({ node, onNodeSelect, onSetCurrentSchool, currentUser, onTreeRefresh }: DetailPanelProps) {
   const { can } = usePermission()
   const [newDeptName, setNewDeptName] = useState("")
   const [newDeptDesc, setNewDeptDesc] = useState("")
@@ -87,8 +87,10 @@ export function UniversityDetail({ node, onNodeSelect, onSetCurrentSchool, curre
       setNewDeptDesc("")
       setIsDialogOpen(false)
 
-      // 刷新页面以更新树数据
-      window.location.reload()
+      const refreshed = await Promise.resolve(onTreeRefresh?.())
+      if (refreshed === false) {
+        console.warn("[UniversityDetail] 新增院系后刷新树数据失败")
+      }
     } catch (error) {
       toast({
         title: "创建失败",

@@ -33,15 +33,39 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
   } = props
   // 教学目标编辑状态
   const [editingGoalObjectives, setEditingGoalObjectives] = useState<Record<string, any[]>>({})
+  // 保存后的基线快照，用于判断内容是否发生变更
+  const [baselineObjectives, setBaselineObjectives] = useState<Record<string, any[]>>({})
   const [goalObjectiveInputs, setGoalObjectiveInputs] = useState<Record<string, { inputValue: string; isEditing: boolean }>>({})
-  const [isSavingTeachingObjectives, setIsSavingTeachingObjectives] = useState(false)
-  const [isAutoSavingTeachingObjectives, setIsAutoSavingTeachingObjectives] = useState(false)
+  const [savingObjectiveKeys, setSavingObjectiveKeys] = useState<Record<string, boolean>>({})
+  const [deletingObjectiveKeys, setDeletingObjectiveKeys] = useState<Record<string, boolean>>({})
+  const [isSyncingObjectives, setIsSyncingObjectives] = useState(false)
   const [teachingObjectivesFilterKeyword, setTeachingObjectivesFilterKeyword] = useState("")
   const [debouncedFilterKeyword, setDebouncedFilterKeyword] = useState("")
   const [isFilteringTeachingObjectives, setIsFilteringTeachingObjectives] = useState(false)
   const [expandedGoals, setExpandedGoals] = useState<string[]>([])
 
   const filterDebounceTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  const toEditingState = (goals: CourseGoal[]): Record<string, any[]> => {
+    const nextEditingGoalObjectives: Record<string, any[]> = {}
+    goals.forEach((goal: any) => {
+      const objectives: any[] = []
+      if (goal.children && goal.children.length > 0) {
+        goal.children.forEach((child: any) => {
+          objectives.push({
+            id: child.id.toString(),
+            description: child.description,
+          })
+        })
+      }
+      nextEditingGoalObjectives[goal.id] = objectives
+    })
+    return nextEditingGoalObjectives
+  }
+
+  const getObjectiveActionKey = (goalId: string, objectiveId: string) => `${goalId}:${objectiveId}`
+
+  const isNumericObjectiveId = (objectiveId: string): boolean => /^\d+$/.test(objectiveId)
 
   // 初始化expandedGoals
   useEffect(() => {
@@ -55,23 +79,12 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
     }
   }, [isOpen, courseGoals, expandedGoals.length])
 
-  // 初始化editingGoalObjectives
+  // 初始化editingGoalObjectives及基线
   useEffect(() => {
     if (isOpen && courseGoals && courseGoals.length > 0) {
-      const initialGoalObjectives: Record<string, any[]> = {}
-      courseGoals.forEach((goal: any) => {
-        const objectives: any[] = []
-        if (goal.children && goal.children.length > 0) {
-          goal.children.forEach((child: any) => {
-            objectives.push({
-              id: child.id.toString(),
-              description: child.description,
-            })
-          })
-        }
-        initialGoalObjectives[goal.id] = objectives
-      })
-      setEditingGoalObjectives(initialGoalObjectives)
+      const state = toEditingState(courseGoals)
+      setEditingGoalObjectives(state)
+      setBaselineObjectives(state)
     }
   }, [isOpen, courseGoals])
 
@@ -95,47 +108,23 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
     }
   }, [teachingObjectivesFilterKeyword])
 
-  // 自动保存
-  useEffect(() => {
-    if (!isOpen) {
-      return
-    }
-
-    const autoSaveInterval = setInterval(() => {
-      if (isAutoSavingTeachingObjectives || !courseGoals || courseGoals.length === 0) {
-        return
-      }
-
-      setIsAutoSavingTeachingObjectives(true)
-      Promise.resolve().then(async () => {
-        try {
-          const updatedGoals = courseGoals.map((goal: any) => ({
-            ...goal,
-            children: editingGoalObjectives[goal.id] || goal.children || [],
-          }))
-
-          const courseId = node?.id
-          if (courseId && majorId) {
-            console.log("[TeachingObjectivesEditor] 教学目标自动保存:", updatedGoals)
-            await courseGoalsApi.updateCourseGoals(String(courseId), String(majorId), updatedGoals)
-          }
-        } catch (error) {
-          console.error("[TeachingObjectivesEditor] 自动保存教学目标失败:", error)
-        } finally {
-          setIsAutoSavingTeachingObjectives(false)
-        }
-      })
-    }, 30000)
-
-    return () => clearInterval(autoSaveInterval)
-  }, [isOpen, isAutoSavingTeachingObjectives, courseGoals, editingGoalObjectives, node?.id, majorId])
-
   // 教学目标编辑函数
   const startAddingObjectiveForGoal = (goalId: string) => {
     setGoalObjectiveInputs((prev) => ({
       ...prev,
       [goalId]: { inputValue: "", isEditing: true },
     }))
+  }
+
+  const handleAddObjectiveForGoal = (goalId: string, accordionValue: string) => {
+    setExpandedGoals((prev) => {
+      if (prev.includes(accordionValue)) {
+        return prev
+      }
+      return [...prev, accordionValue]
+    })
+
+    startAddingObjectiveForGoal(goalId)
   }
 
   const updateGoalObjectiveInput = (goalId: string, value: string) => {
@@ -145,27 +134,7 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
     }))
   }
 
-  const finishAddingObjectiveForGoal = (goalId: string) => {
-    const input = goalObjectiveInputs[goalId]
-    if (!input || !input.inputValue.trim()) {
-      setGoalObjectiveInputs((prev) => ({
-        ...prev,
-        [goalId]: { inputValue: "", isEditing: false },
-      }))
-      return
-    }
-
-    const newObjective = {
-      id: Date.now().toString(),
-      description: input.inputValue.trim(),
-      children: null,
-    }
-
-    setEditingGoalObjectives((prev) => ({
-      ...prev,
-      [goalId]: [...(prev[goalId] || []), newObjective],
-    }))
-
+  const cancelAddingObjectiveForGoal = (goalId: string) => {
     setGoalObjectiveInputs((prev) => ({
       ...prev,
       [goalId]: { inputValue: "", isEditing: false },
@@ -189,6 +158,127 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
       })
       return updated
     })
+  }
+
+  const syncObjectivesFromServer = async () => {
+    const courseId = node?.id
+    if (!courseId || !majorId) {
+      return
+    }
+
+    setIsSyncingObjectives(true)
+    try {
+      const response = await courseGoalsApi.getCourseGoals(String(courseId), String(majorId))
+      if (response.data) {
+        const state = toEditingState(response.data)
+        setEditingGoalObjectives(state)
+        setBaselineObjectives(state)
+      }
+    } catch (error) {
+      console.error("[TeachingObjectivesEditor] 同步教学目标失败:", error)
+    } finally {
+      setIsSyncingObjectives(false)
+    }
+  }
+
+  const handleSaveSingleObjective = async (
+    goal: any,
+    objective: { id: string; description: string }
+  ) => {
+    const courseId = node?.id
+    if (!courseId || !majorId) {
+      return
+    }
+
+    const trimmedDescription = String(objective.description || "").trim()
+    if (!trimmedDescription) {
+      return
+    }
+
+    const objectiveKey = getObjectiveActionKey(String(goal.id), String(objective.id))
+    setSavingObjectiveKeys((prev) => ({
+      ...prev,
+      [objectiveKey]: true,
+    }))
+
+    try {
+      const response = await courseGoalsApi.updateCourseGoals(String(courseId), String(majorId), [
+        {
+          ...goal,
+          children: [
+            {
+              id: objective.id,
+              description: trimmedDescription,
+              children: null,
+            },
+          ],
+        },
+      ])
+
+      if (!response.error) {
+        await syncObjectivesFromServer()
+      }
+    } catch (error) {
+      console.error("[TeachingObjectivesEditor] 单条保存教学目标失败:", error)
+    } finally {
+      setSavingObjectiveKeys((prev) => {
+        const next = { ...prev }
+        delete next[objectiveKey]
+        return next
+      })
+    }
+  }
+
+  const handleSaveDraftObjective = async (goal: any) => {
+    const goalId = String(goal.id)
+    const draftInput = goalObjectiveInputs[goalId]
+    const draftDescription = draftInput?.inputValue?.trim()
+    if (!draftDescription) {
+      return
+    }
+
+    const draftObjective = {
+      id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      description: draftDescription,
+    }
+
+    setEditingGoalObjectives((prev) => ({
+      ...prev,
+      [goalId]: [...(prev[goalId] || []), draftObjective],
+    }))
+    setGoalObjectiveInputs((prev) => ({
+      ...prev,
+      [goalId]: { inputValue: "", isEditing: false },
+    }))
+
+    await handleSaveSingleObjective(goal, draftObjective)
+  }
+
+  const handleDeleteSingleObjective = async (goalId: string, objectiveId: string) => {
+    const objectiveKey = getObjectiveActionKey(String(goalId), String(objectiveId))
+    setDeletingObjectiveKeys((prev) => ({
+      ...prev,
+      [objectiveKey]: true,
+    }))
+
+    try {
+      if (isNumericObjectiveId(objectiveId)) {
+        const response = await courseGoalsApi.deleteCourseGoal(objectiveId)
+        if (!response.error) {
+          await syncObjectivesFromServer()
+        }
+      } else {
+        removeGoalObjective(goalId, objectiveId)
+      }
+    } catch (error) {
+      console.error("[TeachingObjectivesEditor] 单条删除教学目标失败:", error)
+    } finally {
+      setDeletingObjectiveKeys((prev) => {
+        const next = { ...prev }
+        delete next[objectiveKey]
+        return next
+      })
+    }
   }
   const filteredCourseGoals = useMemo(() => {
     if (!courseGoals || courseGoals.length === 0) {
@@ -216,6 +306,23 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
     })
   }, [courseGoals, debouncedFilterKeyword, editingGoalObjectives])
 
+  const isObjectiveDirty = (goalId: string, objective: { id: string; description: string }): boolean => {
+    const baselineList = baselineObjectives[goalId]
+    if (!baselineList) return true
+    const baselineObj = baselineList.find((obj) => String(obj.id) === String(objective.id))
+    // 基线中找不到说明是新增的未持久化条目，始终视为 dirty
+    if (!baselineObj) return true
+    return objective.description !== baselineObj.description
+  }
+
+  const handleObjectiveBlur = (goal: any, objective: { id: string; description: string }) => {
+    if (!isObjectiveDirty(String(goal.id), objective)) return
+    const objectiveKey = getObjectiveActionKey(String(goal.id), String(objective.id))
+    // 正在保存/删除中则跳过
+    if (savingObjectiveKeys[objectiveKey] || deletingObjectiveKeys[objectiveKey] || isSyncingObjectives) return
+    void handleSaveSingleObjective(goal, objective)
+  }
+
   const highlightKeyword = (text: string, keyword: string) => {
     if (!keyword.trim()) {
       return text
@@ -232,31 +339,6 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
       }
       return part
     })
-  }
-
-  const handleSaveTeachingObjectives = async () => {
-    setIsSavingTeachingObjectives(true)
-    try {
-      if (courseGoals && courseGoals.length > 0) {
-        const updatedGoals = courseGoals.map((goal: any) => ({
-          ...goal,
-          children: editingGoalObjectives[goal.id] || goal.children || [],
-        }))
-
-        // 使用 node.id 作为 courseId，使用传入的 majorId
-        const courseId = node?.id
-        if (courseId && majorId) {
-          console.log("[TeachingObjectivesEditor] 教学目标已更新:", updatedGoals)
-          await courseGoalsApi.updateCourseGoals(String(courseId), String(majorId), updatedGoals)
-        }
-      }
-
-      onClose()
-    } catch (error) {
-      console.error("[TeachingObjectivesEditor] 保存教学目标失败:", error)
-    } finally {
-      setIsSavingTeachingObjectives(false)
-    }
   }
 
   if (!isOpen) {
@@ -309,15 +391,15 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
                   <Spinner className="w-4 h-4 text-muted-foreground" />
                 )}
               </div>
-              <Button
+              {/* <Button
                 size="sm"
                 variant="outline"
                 className="gap-2 bg-transparent"
-                disabled={isSavingTeachingObjectives || isAutoSavingTeachingObjectives}
+                disabled={isSyncingObjectives}
               >
                 <Star className="w-4 h-4" />
                 AI一键生成
-              </Button>
+              </Button> */}
               <FileUpload
                 buttonText="上传Excel"
                 fileType="Excel文件"
@@ -327,35 +409,17 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
                 onUpload={async (files) => {
                   return files.map((file) => `/uploads/${file.name}`)
                 }}
-                disabled={isSavingTeachingObjectives || isAutoSavingTeachingObjectives}
+                disabled={isSyncingObjectives}
               />
               <Button
                 size="sm"
                 variant="outline"
                 onClick={onClose}
                 className="gap-2 bg-transparent"
-                disabled={isSavingTeachingObjectives || isAutoSavingTeachingObjectives}
+                disabled={isSyncingObjectives}
               >
                 <ArrowLeft className="w-4 h-4" />
                 退出
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleSaveTeachingObjectives}
-                disabled={isSavingTeachingObjectives || isAutoSavingTeachingObjectives}
-                className="gap-2"
-              >
-                {isSavingTeachingObjectives || isAutoSavingTeachingObjectives ? (
-                  <>
-                    <Spinner className="w-4 h-4" />
-                    保存中
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-4 h-4" />
-                    保存
-                  </>
-                )}
               </Button>
             </div>
           </div>
@@ -384,7 +448,7 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation()
-                          startAddingObjectiveForGoal(goal.id)
+                          handleAddObjectiveForGoal(goal.id, accordionValue)
                         }}
                         className="inline-flex items-center justify-center h-6 w-6 p-0 text-primary hover:bg-primary/10 rounded transition-colors"
                       >
@@ -415,13 +479,29 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
                             <ExpandableTextarea
                               value={goalInput.inputValue}
                               onChange={(value) => updateGoalObjectiveInput(goal.id, value)}
-                              onBlur={() => finishAddingObjectiveForGoal(goal.id)}
                               placeholder="输入教学目标内容"
                               maxLength={500}
                               rows={4}
                               className="flex-1 px-3 py-2 text-lg"
                               autoFocus
                             />
+                            <Button
+                              size="sm"
+                              onClick={() => void handleSaveDraftObjective(goal)}
+                              className="gap-1 h-8 px-2 mt-2"
+                            >
+                              <Check className="w-3 h-3" />
+                              保存
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => cancelAddingObjectiveForGoal(goal.id)}
+                              className="gap-1 h-8 px-2 mt-2"
+                            >
+                              <XCircle className="w-3 h-3" />
+                              取消
+                            </Button>
                           </div>
                         )}
 
@@ -429,6 +509,10 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
                         {goalObjectivesList.length > 0 ? (
                           <div className="space-y-2">
                             {goalObjectivesList.map((objective, objIdx) => {
+                              const objectiveKey = getObjectiveActionKey(String(goal.id), String(objective.id))
+                              const isSavingObjective = !!savingObjectiveKeys[objectiveKey]
+                              const isDeletingObjective = !!deletingObjectiveKeys[objectiveKey]
+                              const dirty = isObjectiveDirty(String(goal.id), objective)
                               return (
                                 <div key={objective.id} className="flex gap-2 items-start">
                                   <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[0.7rem] font-medium text-primary mt-2">
@@ -437,18 +521,32 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
                                   <ExpandableTextarea
                                     value={objective.description || ""}
                                     onChange={(value) => updateTeachingObjective(objective.id, value)}
+                                    onBlur={() => handleObjectiveBlur(goal, objective)}
                                     placeholder="输入教学目标内容"
                                     maxLength={500}
                                     rows={4}
                                     className="flex-1 px-3 py-2 text-lg"
                                   />
+                                  {(dirty || isSavingObjective) && (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleSaveSingleObjective(goal, objective)}
+                                      disabled={isSavingObjective || isDeletingObjective || isSyncingObjectives}
+                                      className="h-8 w-8 p-0 flex-shrink-0 mt-2"
+                                      title="保存"
+                                    >
+                                      {isSavingObjective ? <Spinner className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
+                                    </Button>
+                                  )}
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    onClick={() => removeGoalObjective(goal.id, objective.id)}
-                                    className="gap-1 text-red-500 hover:text-red-600 hover:bg-red-50 h-5 px-1 flex-shrink-0 mt-2"
+                                    onClick={() => handleDeleteSingleObjective(String(goal.id), String(objective.id))}
+                                    disabled={isSavingObjective || isDeletingObjective || isSyncingObjectives}
+                                    className="text-red-500 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0 flex-shrink-0 mt-2"
+                                    title="删除"
                                   >
-                                    <Trash2 className="w-3 h-3" />
+                                    {isDeletingObjective ? <Spinner className="w-3.5 h-3.5" /> : <Trash2 className="w-3.5 h-3.5" />}
                                   </Button>
                                 </div>
                               )
@@ -482,27 +580,10 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
               variant="outline"
               onClick={onClose}
               className="gap-2 bg-transparent"
-              disabled={isSavingTeachingObjectives || isAutoSavingTeachingObjectives}
+              disabled={isSyncingObjectives}
             >
               <ArrowLeft className="w-4 h-4" />
               退出
-            </Button>
-            <Button
-              onClick={handleSaveTeachingObjectives}
-              disabled={isSavingTeachingObjectives || isAutoSavingTeachingObjectives}
-              className="gap-2"
-            >
-              {isSavingTeachingObjectives || isAutoSavingTeachingObjectives ? (
-                <>
-                  <Spinner className="w-4 h-4" />
-                  保存中
-                </>
-              ) : (
-                <>
-                  <Check className="w-4 h-4" />
-                  保存
-                </>
-              )}
             </Button>
           </div>
         </div>

@@ -18,7 +18,8 @@ import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 import { usePermission } from "@/shared/hooks/use-permission"
 import type { PermissionAction } from "@/shared/permissions/types"
 
-const MANAGE_COURSE_ACTION: PermissionAction = "major.course.create"
+const CREATE_COURSE_ACTION: PermissionAction = "major.course.create"
+const EDIT_COURSE_ACTION: PermissionAction = "course.detail.edit"
 
 interface CoursePoint {
   id: string
@@ -92,7 +93,9 @@ function AddCourseForm({
 }: AddCourseFormProps) {
   const { toast } = useToast()
   const { can } = usePermission()
-  const canManageCourse = can(MANAGE_COURSE_ACTION, { scope: "major" })
+  const canManageCourse = isEditMode
+    ? can(EDIT_COURSE_ACTION, { scope: "course" })
+    : can(CREATE_COURSE_ACTION, { scope: "major" })
   const [isLoading, setIsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState("basic")
   const [courseNaturePopoverOpen, setCourseNaturePopoverOpen] = useState(false)
@@ -215,7 +218,7 @@ function AddCourseForm({
   const [assessmentForm, setAssessmentForm] = useState(initialData?.assessmentForm || "")
   const [scoreType, setScoreType] = useState(initialData?.scoreType || "百分制")
   const [scoreTable, setScoreTable] = useState<{ headers: string[]; rows: { [key: string]: string }[] }>(
-    initialData?.scoreTable || { headers: ["等级", "分值"], rows: [{ "等级": "", "分值": "" }] }
+    initialData?.scoreTable || { headers: ["平时考核", "期末考核"], rows: [{ "平时考核": "", "期末考核": "" }] }
   )
   const [assessmentDescription, setAssessmentDescription] = useState(initialData?.assessmentDescription || "")
 
@@ -295,7 +298,7 @@ function AddCourseForm({
       setAssessmentMethod(courseData.assessmentMethod || "考试")
       setAssessmentForm(courseData.assessmentForm || "")
       setScoreType(courseData.scoreType || "百分制")
-      setScoreTable(courseData.scoreTable || { headers: ["等级", "分值"], rows: [{ "等级": "", "分值": "" }] })
+      setScoreTable(courseData.scoreTable || { headers: ["平时考核", "期末考核"], rows: [{ "平时考核": "", "期末考核": "" }] })
       setAssessmentDescription(courseData.assessmentDescription || "")
       setChapters(normalizeChapterProjects(courseData.courseMatrixVOS))
       // 根据 typeId 设置课程性质

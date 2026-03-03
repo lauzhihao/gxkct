@@ -7,6 +7,7 @@ import { BaseFlowNode } from "./base-flow-node"
 import type { CourseMatrixData } from "@/components/canvas-elements/types"
 import { SupportLabel } from "@/shared/components/support-label"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip"
+import { buildSupportLabelDisplay } from "@/shared/utils/support-label-display"
 
 /**
  * 扩展的课程矩阵数据类型
@@ -16,6 +17,7 @@ interface CourseMatrixNodeData extends CourseMatrixData {
   isDeleting?: boolean
   isRefreshing?: boolean
   progressMessage?: string | null
+  coursePointMetaMap?: Record<string, { name?: string; description?: string }>
   onDelete?: (nodeId: string) => void
   onRefresh?: (nodeId: string) => void
   onEdit?: (nodeId: string) => void
@@ -73,15 +75,15 @@ export const CourseMatrixNode = memo(function CourseMatrixNode({
         {/* 矩阵表格 */}
         {nodeData.rows && nodeData.rows.length > 0 && (
           <div className="max-h-[480px] overflow-auto rounded border border-indigo-100" data-scrollable>
-            <table className="w-full text-base">
+            <table className="w-full table-fixed text-base">
               <thead className="bg-indigo-50 sticky top-0">
                 <tr>
-                  <th className="px-4 py-3 text-left text-indigo-600 font-medium">章节</th>
+                  <th className="px-4 py-3 text-left text-indigo-600 font-medium w-[220px] min-w-[220px]">章节 / 项目</th>
                   {nodeData.objectives?.slice(0, 4).map((obj: { id: string; index: number; content: string }) => (
-                    <th key={obj.id} className="px-4 py-3 text-center text-indigo-600 font-medium">
+                    <th key={obj.id} className="px-4 py-3 text-center text-indigo-600 font-medium w-[200px] min-w-[200px]">
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className="cursor-help border-b border-dashed border-indigo-300 hover:border-indigo-500 transition-colors">
+                          <span className="inline-block whitespace-nowrap cursor-help border-b border-dashed border-indigo-300 hover:border-indigo-500 transition-colors">
                             教学目标{obj.index}
                           </span>
                         </TooltipTrigger>
@@ -100,26 +102,36 @@ export const CourseMatrixNode = memo(function CourseMatrixNode({
               <tbody>
                 {nodeData.rows.slice(0, 5).map((row: { chapter_id: string; chapter_name: string; supports?: Array<{ objective_id: string; course_points?: Array<{ id?: string; name: string; description?: string; level: "strong" | "weak" }> }> }) => (
                   <tr key={row.chapter_id} className="border-t border-indigo-50">
-                    <td className="px-4 py-3 text-gray-600 truncate max-w-[150px]">
+                    <td className="px-4 py-3 text-gray-600 truncate w-[220px] min-w-[220px] max-w-[220px]">
                       {row.chapter_name}
                     </td>
                     {nodeData.objectives?.slice(0, 4).map((obj: { id: string; index: number }) => {
                       const support = row.supports?.find((s: { objective_id: string }) => s.objective_id === obj.id)
                       return (
-                        <td key={obj.id} className="px-4 py-3">
+                        <td key={obj.id} className="px-4 py-3 w-[200px] min-w-[200px]">
                           {support?.course_points && support.course_points.length > 0 ? (
                             <div className="flex flex-wrap gap-1 justify-center">
                               {/* 每个课点显示为小标签，使用统一的 SupportLabel 组件 */}
-                              {support?.course_points.map((cp: { id?: string; name: string; description?: string; level: "strong" | "weak" }, idx: number) => (
-                                <SupportLabel
-                                  key={cp.id || idx}
-                                  title={cp.name}
-                                  desc={cp.description}
-                                  type={cp.level}
-                                  size="sm"
-                                  tipsPosition="top"
-                                />
-                              ))}
+                              {support?.course_points.map((cp: { id?: string; name: string; description?: string; level: "strong" | "weak" }, idx: number) => {
+                                const cpId = typeof cp.id === "string" ? cp.id.trim() : ""
+                                const cpMeta = cpId ? nodeData.coursePointMetaMap?.[cpId] : undefined
+                                const display = buildSupportLabelDisplay({
+                                  title: cp.name,
+                                  fallbackTitle: cpMeta?.name,
+                                  description: cp.description || cpMeta?.description,
+                                })
+
+                                return (
+                                  <SupportLabel
+                                    key={cp.id || idx}
+                                    title={display.title}
+                                    desc={display.desc}
+                                    type={cp.level}
+                                    size="sm"
+                                    tipsPosition="top"
+                                  />
+                                )
+                              })}
                             </div>
                           ) : (
                             <span className="text-gray-300 text-center block">-</span>

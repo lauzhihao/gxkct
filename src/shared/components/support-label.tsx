@@ -41,16 +41,17 @@ export function SupportLabel({
     right: "right",
   }
 
-  // Tooltip 内容：有描述时显示描述，否则显示标题+支撑类型
-  const tooltipText = desc || `${title} - ${isStrong ? "强支撑" : "弱支撑"}`
+  // Tooltip 内容仅展示 desc，title 仅用于标签本体
+  const tooltipText = typeof desc === "string" ? desc.trim() : ""
+  const hasTooltip = tooltipText.length > 0
 
   const labelContent = (
     <span
       className={cn(
         // 基础样式
-        "inline-flex items-center gap-1 rounded font-medium",
-        // hover 效果：手型图标、放大1.2倍、无位移
-        "cursor-pointer transition-transform duration-150 ease-out origin-center hover:scale-[1.2]",
+        "inline-flex items-center gap-1 rounded font-medium cursor-pointer",
+        // hover 效果：仅在有 tooltip 时启用
+        hasTooltip && "transition-transform duration-150 ease-out origin-center hover:scale-[1.2]",
         labelSize,
         padding,
         isStrong && "bg-orange-100 border border-orange-300 text-orange-700 hover:bg-orange-200",
@@ -71,7 +72,10 @@ export function SupportLabel({
     </span>
   )
 
-  // 始终使用 Tooltip 包裹，快速显示内容
+  if (!hasTooltip) {
+    return labelContent
+  }
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>

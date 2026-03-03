@@ -4,6 +4,7 @@ import { cn } from '@/shared/utils/utils'
 interface ExpandableTextareaProps {
   value: string
   onChange: (value: string) => void
+  disabled?: boolean
   onBlur?: () => void
   onFocus?: () => void
   onKeyDown?: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void
@@ -25,6 +26,7 @@ export const ExpandableTextarea = React.forwardRef<
     {
       value,
       onChange,
+      disabled = false,
       onBlur,
       onFocus,
       placeholder,
@@ -85,8 +87,9 @@ export const ExpandableTextarea = React.forwardRef<
           onFocus={handleFocus}
           onKeyDown={handleKeyDown}
           maxLength={maxLength}
+          disabled={disabled}
           className={cn(
-            'w-full px-3 py-2 border rounded-md bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[var(--naive-primary-light)] focus:animate-shadow-flash resize-none overflow-hidden transition-[height] duration-200 ease-in-out',
+            'w-full px-3 py-2 border rounded-md bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[var(--naive-primary-light)] focus:animate-shadow-flash resize-none overflow-hidden transition-[height] duration-200 ease-in-out disabled:cursor-not-allowed disabled:opacity-60',
             className,
             isExpanded ? 'pb-8' : 'leading-6',
           )}

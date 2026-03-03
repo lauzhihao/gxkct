@@ -26,7 +26,7 @@ function getObjectIcon(mimeType?: string, name?: string) {
 }
 
 const gridClass = "grid grid-cols-3 gap-3 pb-[15px]"
-const baseTileClass = "flex flex-col items-center gap-2 rounded-lg border border-border bg-card/60 px-4 py-6 text-center transition-all"
+const baseTileClass = "relative flex flex-col items-center gap-2 rounded-lg border border-border bg-card/60 px-4 py-6 text-center transition-all"
 
 export function ResourceObjectList({
   entries,
@@ -43,19 +43,27 @@ export function ResourceObjectList({
     onToggleSelect(objectId)
   }
 
-  const renderFolderTile = (id: string, name: string, onClick: () => void) => (
+  const renderFolderTile = (id: string, name: string, onClick: () => void, filesCount?: number, showFilesCount?: boolean) => {
+    const safeFilesCount = typeof filesCount === "number" && filesCount >= 0 ? filesCount : 0
+    return (
     <button
       type="button"
       key={id}
       onClick={() => handleFolderTileClick(onClick)}
       className={cn(baseTileClass, "hover:border-primary hover:bg-primary/80 group")}
     >
+      {showFilesCount ? (
+        <span className="absolute right-2 top-2 rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
+          {safeFilesCount}
+        </span>
+      ) : null}
       <Folder className="h-10 w-10 text-primary transition-colors group-hover:text-white" />
       <span className="text-sm font-medium text-foreground transition-colors group-hover:text-white truncate w-full">
         {name}
       </span>
     </button>
-  )
+    )
+  }
 
   if (isRootLevel) {
     const folders = entries.filter((entry) => entry.type === "folder")
@@ -68,7 +76,9 @@ export function ResourceObjectList({
     }
     return (
       <div className={gridClass}>
-        {folders.map((entry) => renderFolderTile(entry.folder.id, entry.folder.name, () => onFolderClick(entry.folder)))}
+        {folders.map((entry) =>
+          renderFolderTile(entry.folder.id, entry.folder.name, () => onFolderClick(entry.folder), entry.folder.filesCount, true),
+        )}
       </div>
     )
   }
@@ -85,7 +95,7 @@ export function ResourceObjectList({
     <div className={gridClass}>
       {entries.map((entry) => {
         if (entry.type === "folder") {
-          return renderFolderTile(entry.folder.id, entry.folder.name, () => onFolderClick(entry.folder))
+          return renderFolderTile(entry.folder.id, entry.folder.name, () => onFolderClick(entry.folder), entry.folder.filesCount, false)
         }
         const checked = selectedIds.has(entry.object.id)
         const Icon = getObjectIcon(entry.object.mimeType, entry.object.name)
@@ -96,14 +106,15 @@ export function ResourceObjectList({
             onClick={() => handleObjectToggleSelect(entry.object.id)}
             className={cn(
               baseTileClass,
+              "group",
               checked
                 ? "border-primary bg-primary/80 text-white"
                 : "hover:border-primary hover:bg-primary/70 hover:text-white",
             )}
             title={entry.object.name}
           >
-            <Icon className={cn("h-10 w-10", checked ? "text-white" : "text-primary")} />
-            <span className={cn("text-sm font-medium truncate w-full", checked ? "text-white" : "text-foreground")}>{entry.object.name}</span>
+            <Icon className={cn("h-10 w-10", checked ? "text-white" : "text-primary group-hover:text-white")} />
+            <span className={cn("text-sm font-medium truncate w-full", checked ? "text-white" : "text-foreground group-hover:text-white")}>{entry.object.name}</span>
           </button>
         )
       })}

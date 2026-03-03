@@ -1,19 +1,17 @@
 import { api } from "@/lib/api"
 import type { ApiResponse } from "@/lib/api/types"
-import type { ProjectMatrixDataResponse, KsaListResponse } from "@/lib/api/matrix-api"
+import type { ProjectMatrixDataResponse, KsaListResponse, ProjectMatrixSaveItem } from "@/lib/api/matrix-api"
 
-export interface AddKsaPayload {
+export interface SaveKsaPayload {
   majorId: number
-  courseUnitId: number
-  title: string
-  description: string
-  level: number
-}
-
-export interface UpdateKsaPayload {
-  title?: string
-  description?: string
-  level?: number
+  courseId: number
+  ksas: Array<{
+    id: number
+    title: string
+    description: string
+    level: number
+  }>
+  upload?: boolean
 }
 
 export const projectMatrixApi = {
@@ -23,13 +21,10 @@ export const projectMatrixApi = {
   getKsaList(majorId: string, courseId: string): Promise<ApiResponse<KsaListResponse>> {
     return api.matrices.getKsaList(majorId, courseId)
   },
-  addKsa(data: AddKsaPayload) {
-    return api.matrices.addKsa(data)
+  saveKsaList(params: SaveKsaPayload) {
+    return api.matrices.saveKsaList(params)
   },
-  updateKsa(ksaId: number, data: UpdateKsaPayload) {
-    return api.matrices.updateKsa(ksaId, data)
-  },
-  deleteKsa(ksaId: number) {
-    return api.matrices.deleteKsa(ksaId)
+  saveProjectMatrixData(data: ProjectMatrixSaveItem[]): Promise<ApiResponse<any>> {
+    return api.matrices.updateProjectMatrixData(data)
   },
 }

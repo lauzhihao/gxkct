@@ -8,4 +8,7 @@ export const courseGoalsApi = {
   updateCourseGoals(courseId: string, majorId: string, goals: CourseGoal[]): Promise<ApiResponse<CourseGoal[] | null>> {
     return api.courseGoals.updateCourseGoals(courseId, majorId, goals)
   },
+  deleteCourseGoal(courseGoalId: string): Promise<ApiResponse<boolean | null>> {
+    return api.courseGoals.deleteCourseGoal(courseGoalId)
+  },
 }

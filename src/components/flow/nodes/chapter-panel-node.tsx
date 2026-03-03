@@ -56,7 +56,7 @@ export const ChapterPanelNode = memo(function ChapterPanelNode({
       isDeleting={data.isDeleting}
       isRefreshing={data.isRefreshing}
       icon={<FileText className="h-4 w-4" />}
-      title="章节项目"
+      title="章节 / 项目"
       headerColorClass="bg-purple-100/90"
       borderColorClass="border-purple-300"
       bgColorClass="bg-purple-50/60 backdrop-blur-sm"

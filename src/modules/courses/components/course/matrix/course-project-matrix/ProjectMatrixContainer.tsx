@@ -9,10 +9,13 @@ import { Grid3x3, Edit, Check, X, Settings } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Spinner } from "@/shared/components/ui/spinner"
 import { LoadingState } from "@/shared/components/ui/loading-state"
+import { showError, showSuccess } from "@/shared/utils/toast-utils"
 import type { CourseProjectMatrixProps } from "@/modules/courses/types"
 import { useProjectMatrix } from "@/modules/courses/hooks/use-project-matrix"
 import { useTaskObjectives } from "@/modules/courses/hooks/use-task-objectives"
 import { useKsaManagement } from "@/modules/courses/hooks/use-ksa-management"
+import type { ProjectMatrixItemProjectMatrix } from "@/modules/courses/hooks/use-project-matrix"
+import { projectMatrixApi } from "@/modules/courses/api/projectMatrixApi"
 import { ProjectMatrixTable } from "./ProjectMatrixTable"
 import { TaskObjectivesDialog } from "../../../dialogs/task-objectives-dialog"
 import { KsaDialog } from "../../../dialogs/ksa-dialog"
@@ -78,28 +81,134 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId, courseEditable
     setNewRowDescription,
     setEditingKsaId,
     setEditingDescription,
-    openKsaDialog,
+    openKsaDialog: openKsaDialogBase,
     closeKsaDialog,
-    toggleKsaSupport,
-    saveKsaSelection,
+    setKsaSupportLevel,
+    setSelectedKsaSupport,
   } = useKsaManagement(ksaData, updateKsaSupport)
+
+  // 打开 KSA 对话框时，预填充该单元格已有的 projectMatrices 选中状态
+  const handleOpenKsaDialog = (chapterId: string, coursePointId: string, taskId: string) => {
+    // 从 projectMatrixData 中查找该单元格已有的 KSA 关系
+    const existingSupport: Record<string, "strong" | "weak"> = {}
+    if (projectMatrixData?.data) {
+      const matchingItem = projectMatrixData.data.find(
+        (item) =>
+          item.courseMatrix?.projectId === parseInt(chapterId) &&
+          item.courseMatrix?.point?.id === parseInt(coursePointId)
+      )
+      if (matchingItem?.projectMatrices) {
+        matchingItem.projectMatrices
+          .filter((pm) => pm.taskGoalId === parseInt(taskId))
+          .forEach((pm) => {
+            if (pm.ksa?.id) {
+              existingSupport[String(pm.ksa.id)] = pm.relate?.relate === 0 ? "strong" : "weak"
+            }
+          })
+      }
+    }
+
+    openKsaDialogBase(chapterId, coursePointId, taskId)
+    // 在 openKsaDialogBase 清空后重新设置已有的选中状态
+    setSelectedKsaSupport(existingSupport)
+  }
+
+  // 确认 KSA 选择后，将选中的 KSA 填充到 projectMatrixData 的 projectMatrices 中
+  const handleSaveKsaSelection = () => {
+    if (!selectedKsaCell || !projectMatrixData) {
+      closeKsaDialog()
+      return
+    }
+
+    // 全局模式不更新矩阵数据
+    if (selectedKsaCell.chapterId === "global") {
+      closeKsaDialog()
+      return
+    }
+
+    const { chapterId, coursePointId, taskId } = selectedKsaCell
+    const taskGoalId = parseInt(taskId)
+
+    // 构建新的 projectMatrices 条目
+    const newEntries: ProjectMatrixItemProjectMatrix[] = []
+    Object.entries(selectedKsaSupport).forEach(([ksaIdStr, support]) => {
+      const ksaId = Number(ksaIdStr)
+      const ksaItem = ksaListData.find((k) => k.id === ksaId)
+      if (!ksaItem) return
+
+      newEntries.push({
+        id: 0,
+        taskGoalId,
+        ksa: {
+          id: ksaItem.id,
+          title: ksaItem.title,
+          level: ksaItem.level,
+          description: ksaItem.description,
+        },
+        relate: {
+          relate: support === "strong" ? 0 : 1,
+        },
+      })
+    })
+
+    // 更新 projectMatrixData.data 中对应行的 projectMatrices
+    const updatedData = (projectMatrixData.data || []).map((item) => {
+      if (
+        item.courseMatrix?.projectId === parseInt(chapterId) &&
+        item.courseMatrix?.point?.id === parseInt(coursePointId)
+      ) {
+        // 保留其他 taskGoalId 的条目，替换当前 taskGoalId 的条目
+        const otherGoalEntries = (item.projectMatrices || []).filter(
+          (pm) => pm.taskGoalId !== taskGoalId
+        )
+        return {
+          ...item,
+          projectMatrices: [...otherGoalEntries, ...newEntries],
+        }
+      }
+      return item
+    })
+
+    setProjectMatrixData({ ...projectMatrixData, data: updatedData })
+    closeKsaDialog()
+  }
 
   // 保存项目矩阵
   const handleSaveProjectMatrix = async (isAutoSave = false) => {
     if (!courseEditable) return
 
-    setIsSavingProjectMatrix(true)
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    try {
+      if (!projectMatrixData) {
+        throw new Error("项目矩阵数据不存在，无法保存")
+      }
+      if (!projectMatrixData.data) {
+        throw new Error("项目矩阵行数据不存在，无法保存")
+      }
 
-    onUpdate({
-      projectMatrixData,
-      chapterTaskObjectives,
-      ksaData,
-    })
+      setIsSavingProjectMatrix(true)
+      const saveResponse = await projectMatrixApi.saveProjectMatrixData(projectMatrixData.data)
+      if (saveResponse.error) {
+        throw new Error(saveResponse.error)
+      }
 
-    setIsSavingProjectMatrix(false)
-    if (!isAutoSave) {
-      setIsEditingProjectMatrix(false)
+      onUpdate({
+        projectMatrixData,
+        chapterTaskObjectives,
+        ksaData,
+      })
+
+      await loadProjectMatrixData()
+
+      if (!isAutoSave) {
+        setIsEditingProjectMatrix(false)
+        showSuccess("项目矩阵保存成功")
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "项目矩阵保存失败"
+      console.error("[ProjectMatrixContainer] 保存项目矩阵失败:", error)
+      showError(message)
+    } finally {
+      setIsSavingProjectMatrix(false)
     }
   }
 
@@ -119,7 +228,7 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId, courseEditable
     setKsaSearchK("")
     setKsaSearchS("")
     setKsaSearchA("")
-    openKsaDialog("global", "global", "global")
+    openKsaDialogBase("global", "global", "global")
   }
 
   const handleStartEditProjectMatrix = () => {
@@ -212,7 +321,7 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId, courseEditable
           isEditingProjectMatrix={isEditingProjectMatrix}
           focusedCell={focusedCell}
           onOpenTaskObjectivesDialog={openTaskObjectivesDialog}
-          onOpenKsaDialog={openKsaDialog}
+          onOpenKsaDialog={handleOpenKsaDialog}
           onFocusCell={setFocusedCell}
         />
       )}
@@ -256,8 +365,8 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId, courseEditable
         setEditingKsaId={setEditingKsaId}
         setEditingDescription={setEditingDescription}
         setKsaListData={setKsaListData}
-        toggleKsaSupport={toggleKsaSupport}
-        saveKsaSelection={saveKsaSelection}
+        setKsaSupportLevel={setKsaSupportLevel}
+        saveKsaSelection={handleSaveKsaSelection}
         closeKsaDialog={closeKsaDialog}
         courseId={node.id}
         majorId={majorId}

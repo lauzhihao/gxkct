@@ -1,5 +1,13 @@
 import { TreeApi } from "./tree-api"
-import { UserApi, type User } from "./user-api"
+import {
+  UserApi,
+  type User,
+  type AllAvailableCollegeData,
+  type AvailableIdentityItem,
+  type CurrentIdentityInfo,
+  type UpdateCurrentDepartmentPayload,
+  type UpdateCurrentDepartmentResult,
+} from "./user-api"
 import { MatrixApi, type CourseMatrix, type ProjectMatrix, type MajorMatrixData, type CourseMatrixItem, type CourseMatrixResponse, type CourseMatrixSavePayload, type CourseMatrixProject } from "./matrix-api"
 import {
   ResourceApi,
@@ -24,7 +32,8 @@ import { CourseDetailApi, type CombinedCourseDetail, type MajorDetailData, type 
 import { OccupationApi, type OccupationBookData } from "./occupation-api"
 import { CourseGoalsApi, type CourseGoal } from "./course-goals-api"
 import { CoursePointsApi, type CoursePoint } from "./course-points-api"
-import { ProjectTeachGoalApi, type ProjectTeachGoalData, type Project, type ProjectTeachGoal } from "./project-teach-goal-api"
+import { ProjectTeachGoalApi, type ProjectTeachGoalData, type Project, type ProjectTeachGoal, type TaskGoalItem } from "./project-teach-goal-api"
+import { WorkshopApi } from "./workshop-api"
 import { initializeMockData, resetMockData } from "./data-initializer"
 import { getApiConfig, buildApiUrl, type ApiConfig } from "./config"
 import { StorageAdapter } from "./storage-adapter"
@@ -57,14 +66,20 @@ export const api = {
   courseGoals: new CourseGoalsApi(),
   coursePoints: new CoursePointsApi(storageAdapter),
   projectTeachGoal: new ProjectTeachGoalApi(),
+  workshop: new WorkshopApi(),
 }
 
 // 导出API类
-export { TreeApi, UserApi, MatrixApi, ResourceApi, ConfigApi, PreferenceApi, TeachingTaskApi, CourseDetailApi, OccupationApi }
+export { TreeApi, UserApi, MatrixApi, ResourceApi, ConfigApi, PreferenceApi, TeachingTaskApi, CourseDetailApi, OccupationApi, WorkshopApi }
 
 // 导出类型
 export type {
   User,
+  AllAvailableCollegeData,
+  AvailableIdentityItem,
+  CurrentIdentityInfo,
+  UpdateCurrentDepartmentPayload,
+  UpdateCurrentDepartmentResult,
   CourseGoal,
   CourseMatrix,
   ProjectMatrix,
@@ -96,6 +111,7 @@ export type {
   ProjectTeachGoalData,
   Project,
   ProjectTeachGoal,
+  TaskGoalItem,
 }
 export type { ApiResponse, BackendResponse } from "./types"
 

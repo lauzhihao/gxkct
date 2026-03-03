@@ -38,7 +38,7 @@ const CREATE_MAJOR_ACTION: PermissionAction = "department.major.create"
 type DepartmentTabKey = keyof typeof DEPARTMENT_TABS
 const DEFAULT_DEPARTMENT_TAB: DepartmentTabKey = "overview"
 
-export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode, currentUser }: DetailPanelProps) {
+export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode, currentUser, onTreeRefresh }: DetailPanelProps) {
   const [newDeptName, setNewDeptName] = useState("")
   const [newDeptDesc, setNewDeptDesc] = useState("")
   const [newDeptDirector, setNewDeptDirector] = useState("")
@@ -103,6 +103,7 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
     // 创建成功后，自动填充搜索框并刷新专业列表
     setMajorSearchFilter(data.name)
     setRefreshMajorsKey((prev) => prev + 1)
+    void onTreeRefresh?.()
     setIsQuickCreateMajorOpen(false)
   }
 

@@ -42,6 +42,7 @@ export interface GraduationRequirement {
   id: string
   content: string
   indicators: string[]
+  indicatorIds: number[]
   indicatorCourseSupports?: Record<number, IndicatorCourseSupport[]>
 }
 

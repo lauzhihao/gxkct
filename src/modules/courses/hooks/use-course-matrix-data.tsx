@@ -69,7 +69,7 @@ export const useCourseMatrixContext = () => {
   return context
 }
 
-export const useCourseMatrixData = ({ node, majorId }: UseCourseMatrixDataParams): CourseMatrixContextValue => {
+export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMatrixDataParams): CourseMatrixContextValue => {
   const [isEditingCourseMatrix, setIsEditingCourseMatrix] = useState(false)
   const [courseMatrixData, setCourseMatrixData] = useState<CourseMatrixRecord>({})
   const [isSavingCourseMatrix, setIsSavingCourseMatrix] = useState(false)
@@ -104,11 +104,18 @@ export const useCourseMatrixData = ({ node, majorId }: UseCourseMatrixDataParams
   const hasLoadedRef = useRef(false)
   const prevNodeIdRef = useRef<string | null>(null)
   const prevMajorIdRef = useRef<string | number | undefined>(undefined)
+  const prevRefreshTokenRef = useRef<number | undefined>(undefined)
   const hasLoadedCourseMatrixRef = useRef(false)
   const prevCourseIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (node?.type === "course" && node?.id) {
+      if (prevRefreshTokenRef.current !== refreshToken) {
+        hasLoadedRef.current = false
+        hasLoadedCourseMatrixRef.current = false
+        prevRefreshTokenRef.current = refreshToken
+      }
+
       if (prevNodeIdRef.current !== node.id || prevMajorIdRef.current !== majorId) {
         hasLoadedRef.current = false
         prevNodeIdRef.current = node.id
@@ -226,7 +233,7 @@ export const useCourseMatrixData = ({ node, majorId }: UseCourseMatrixDataParams
 
       loadAllData()
     }
-  }, [majorId, node?.id, node?.type])
+  }, [majorId, node?.id, node?.type, refreshToken])
 
   useEffect(() => {
     if (node?.type === "course" && node?.id) {
@@ -281,14 +288,14 @@ export const useCourseMatrixData = ({ node, majorId }: UseCourseMatrixDataParams
 
       loadMatrix()
     }
-  }, [node?.id, node?.type])
+  }, [node?.id, node?.type, refreshToken])
 
   const handleSaveCourseMatrix = useCallback(
     async (isAutoSave = false) => {
       setIsSavingCourseMatrix(true)
 
       try {
-        if (!projectTeachGoalData?.projects || !projectTeachGoalData?.goals || !node.id) {
+        if (!projectTeachGoalData?.projects || courseGoals.length === 0 || !node.id) {
           showError("课程矩阵数据不完整，无法保存")
           return
         }
@@ -318,7 +325,7 @@ export const useCourseMatrixData = ({ node, majorId }: UseCourseMatrixDataParams
           const projectIdNum = normalizeNumericId(project.id)
           const projectName = editingProjectNames[project.id] ?? project.name ?? `项目${projectIndex + 1}`
 
-          const chapterItems = projectTeachGoalData.goals.flatMap((goal) => {
+          const chapterItems = courseGoals.flatMap((goal) => {
             const children = goal.children && goal.children.length > 0 ? goal.children : []
 
             return children.flatMap((child) => {
@@ -369,23 +376,28 @@ export const useCourseMatrixData = ({ node, majorId }: UseCourseMatrixDataParams
           }
         })
 
-        await courseMatrixApi.updateCourseMatrix(node.id, payload)
+        // [MOD] 检查 API 返回值，后端错误时中断并保留编辑模式
+        const response = await courseMatrixApi.updateCourseMatrix(node.id, payload)
+
+        if (response.error) {
+          console.error("[CourseMatrix] 保存课程矩阵失败:", response.error)
+          showError("课程矩阵保存失败")
+          return
+        }
 
         setEditingProjectNames({})
-        showSuccess("课程矩阵保存成功")
+        if (!isAutoSave) {
+          showSuccess("课程矩阵保存成功")
+          setIsEditingCourseMatrix(false)
+        }
       } catch (error) {
-        console.error("[CourseMatrix] 保存课程矩阵失败:", error)
+        console.error("[CourseMatrix] 保存课程矩阵异常:", error)
         showError("课程矩阵保存失败")
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      setIsSavingCourseMatrix(false)
-
-      if (!isAutoSave) {
-        setIsEditingCourseMatrix(false)
+      } finally {
+        setIsSavingCourseMatrix(false)
       }
     },
-    [courseMatrixData, editingProjectNames, node.id, projectTeachGoalData]
+    [courseGoals, courseMatrixData, editingProjectNames, node.id, projectTeachGoalData]
   )
 
   useEffect(() => {
@@ -503,35 +515,47 @@ export const useCourseMatrixData = ({ node, majorId }: UseCourseMatrixDataParams
     setEditingCoursePointId(tempId)
   }, [])
 
+  // [MOD] 调用真实 savepoints 接口（id: 0 = 新增），成功后刷新课点列表
   const handleSaveNewCoursePoint = useCallback(async () => {
     if (!editingCoursePointData.title?.trim()) {
       return
     }
 
+    const majorIdStr = majorId ? String(majorId) : ""
+    const courseIdStr = node?.id ? String(node.id) : ""
+    if (!majorIdStr || !courseIdStr) {
+      showError("缺少专业或课程信息，无法创建课点")
+      return
+    }
+
     setIsSavingNewCoursePoint(true)
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const response = await coursePointsApi.saveCoursePoints(majorIdStr, courseIdStr, [
+        { id: 0, title: editingCoursePointData.title, description: editingCoursePointData.description || "" },
+      ])
 
-      const newData: ApiCoursePoint = {
-        id: typeof newCoursePoint?.id === "number" ? newCoursePoint.id : -Date.now(),
-        title: editingCoursePointData.title,
-        description: editingCoursePointData.description || "",
-        uniqueCode: "",
-        majorId: majorId ? Number(majorId) : 0,
-        courseUnitId: node?.id ? Number(node.id) : 0,
-        relate: 0,
-        createTime: new Date().toISOString(),
-        updateTime: new Date().toISOString(),
-        deleted: 0,
+      if (response.error) {
+        showError(response.error)
+        return
       }
 
-      setCoursePointsList((prev) => sortCoursePointsByTitle([...prev.filter((cp) => cp.id !== newData.id), newData]))
+      // 创建成功后重新拉取课点列表，获取后端分配的真实 ID
+      const listResponse = await coursePointsApi.getCoursePoints(majorIdStr, courseIdStr)
+      if (listResponse.data) {
+        setCoursePointsList(listResponse.data)
+      }
+
+      const tempId = newCoursePoint?.id
+      if (tempId != null) {
+        setCoursePointsList((prev) => prev.filter((cp) => cp.id !== tempId))
+      }
+
       setNewCoursePoint(null)
       setEditingCoursePointId(null)
       setEditingCoursePointData({})
       showSuccess("课点创建成功")
     } catch (error) {
-      console.error("创建课点失败:", error)
+      console.error("[CoursePoints] 创建课点异常:", error)
       showError("创建课点失败，请重试")
     } finally {
       setIsSavingNewCoursePoint(false)
@@ -636,28 +660,111 @@ export const useCourseMatrixData = ({ node, majorId }: UseCourseMatrixDataParams
     setIsShowCoursePointsDialog(true)
   }, [])
 
+  // [MOD] 批量删除：一次 savepoints 调用，所有 ID 取反
   const handleDeleteSelectedCoursePoints = useCallback(async () => {
     if (selectedCoursePointIds.size === 0) return
+
+    const majorIdStr = majorId ? String(majorId) : ""
+    const courseIdStr = node?.id ? String(node.id) : ""
+    if (!majorIdStr || !courseIdStr) {
+      showError("缺少专业或课程信息，无法删除课点")
+      return
+    }
+
     setIsDeletingCoursePoints(true)
     try {
       const deleteCount = selectedCoursePointIds.size
-      for (const id of selectedCoursePointIds) {
-        const response = await coursePointsApi.deleteCoursePoint(id)
-        if (response.error) {
-          showError(response.error)
-          return
-        }
-        setCoursePointsList((prev) => prev.filter((cp) => cp.id !== id))
+      const deletePoints = Array.from(selectedCoursePointIds).map((id) => ({
+        id: -Math.abs(id),
+        title: "",
+        description: "",
+      }))
+
+      const response = await coursePointsApi.saveCoursePoints(majorIdStr, courseIdStr, deletePoints)
+      if (response.error) {
+        showError(response.error)
+        return
       }
+
+      setCoursePointsList((prev) => prev.filter((cp) => !selectedCoursePointIds.has(cp.id)))
       setSelectedCoursePointIds(new Set())
       showSuccess(`成功删除 ${deleteCount} 个课点`)
     } catch (error) {
-      console.error("删除课点失败:", error)
+      console.error("[CoursePoints] 批量删除课点异常:", error)
       showError("删除课点失败，请重试")
     } finally {
       setIsDeletingCoursePoints(false)
     }
-  }, [selectedCoursePointIds])
+  }, [selectedCoursePointIds, majorId, node?.id])
+
+  // [MOD] 更新单个课点，供 dialog 调用
+  const handleUpdateCoursePoint = useCallback(
+    async (coursePointId: number, data: Partial<ApiCoursePoint>) => {
+      const majorIdStr = majorId ? String(majorId) : ""
+      const courseIdStr = node?.id ? String(node.id) : ""
+      if (!majorIdStr || !courseIdStr) {
+        showError("缺少专业或课程信息，无法更新课点")
+        return
+      }
+
+      setIsSavingEditingCoursePoint(true)
+      try {
+        const response = await coursePointsApi.updateCoursePoint(majorIdStr, courseIdStr, coursePointId, data)
+        if (response.error) {
+          showError(response.error)
+          return
+        }
+
+        // 更新本地列表中的对应项
+        setCoursePointsList((prev) =>
+          prev.map((cp) =>
+            cp.id === coursePointId
+              ? { ...cp, title: data.title || cp.title, description: data.description || cp.description }
+              : cp
+          )
+        )
+        setEditingCoursePointId(null)
+        setEditingCoursePointData({})
+        showSuccess("课点更新成功")
+      } catch (error) {
+        console.error("[CoursePoints] 更新课点异常:", error)
+        showError("更新课点失败，请重试")
+      } finally {
+        setIsSavingEditingCoursePoint(false)
+      }
+    },
+    [majorId, node?.id]
+  )
+
+  // [MOD] 删除单个课点，供 dialog 调用
+  const handleDeleteSingleCoursePoint = useCallback(
+    async (coursePointId: number) => {
+      const majorIdStr = majorId ? String(majorId) : ""
+      const courseIdStr = node?.id ? String(node.id) : ""
+      if (!majorIdStr || !courseIdStr) {
+        showError("缺少专业或课程信息，无法删除课点")
+        return
+      }
+
+      setDeletingCoursePointId(coursePointId)
+      try {
+        const response = await coursePointsApi.deleteCoursePoint(majorIdStr, courseIdStr, coursePointId)
+        if (response.error) {
+          showError(response.error)
+          return
+        }
+
+        setCoursePointsList((prev) => prev.filter((cp) => cp.id !== coursePointId))
+        showSuccess("课点删除成功")
+      } catch (error) {
+        console.error("[CoursePoints] 删除课点异常:", error)
+        showError("删除课点失败，请重试")
+      } finally {
+        setDeletingCoursePointId(null)
+      }
+    },
+    [majorId, node?.id]
+  )
 
   const coursePointTitleMap = useMemo(() => {
     const map = new Map<string, string>()
@@ -729,6 +836,8 @@ export const useCourseMatrixData = ({ node, majorId }: UseCourseMatrixDataParams
     handleAddNewCoursePoint,
     handleSaveNewCoursePoint,
     handleDeleteSelectedCoursePoints,
+    handleUpdateCoursePoint,
+    handleDeleteSingleCoursePoint,
     courseGoals,
     majorIndicators,
     isLoadingMajorIndicators,

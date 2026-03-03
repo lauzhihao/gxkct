@@ -20,7 +20,7 @@ import {
   RegenerateTag,
   CourseInfoData,
 } from "./canvas-elements"
-import { getNodeColorConfig } from "./flow/utils/types"
+import { FlowNodeType, getNodeColorConfig } from "./flow/utils/types"
 import type { CanvasLayoutMode } from "./flow/utils/canvas-layout"
 import { useCanvasElements } from "@/shared/hooks/use-canvas-elements"
 import { useCanvasPersistence } from "@/shared/hooks/use-canvas-persistence"
@@ -62,8 +62,6 @@ import { ChatInputArea } from "./ai-assistant/chat-input-area"
 import { createConnectionMenuHandler } from "./ai-assistant/connection-menu-handlers"
 import { GeminiDemoDrawer } from "./ai-assistant/gemini-demo-drawer"
 import { useDebugMode } from "@/shared/hooks/use-debug-mode"
-import { usePermission } from "@/shared/hooks/use-permission"
-import type { PermissionAction } from "@/shared/permissions/types"
 
 // CanvasComponentType 到 FlowNodeType 的映射（用于获取颜色配置）
 const CANVAS_TO_FLOW_TYPE: Record<CanvasComponentType, string> = {
@@ -87,9 +85,9 @@ const CANVAS_TO_FLOW_TYPE: Record<CanvasComponentType, string> = {
 
 const INDICATOR_DEFAULT_TEXT = "正在准备响应..."
 const INDICATOR_UPDATE_THROTTLE_MS = 220
-const GEMINI_ENTRY_ACTION: PermissionAction = "major.course.create"
 
 type IndicatorSource = "processing" | "status" | "thinking"
+type ThinkingDisplayMode = "accumulate" | "latest"
 
 const INDICATOR_SOURCE_PRIORITY: Record<IndicatorSource, number> = {
   processing: 3,
@@ -151,8 +149,7 @@ export function AiAssistantDrawer({
   treeData = null,
   initialCanvasData = null,
 }: AiAssistantDrawerProps) {
-  const { can } = usePermission()
-  const showGeminiEntry = useDebugMode() && can(GEMINI_ENTRY_ACTION, { scope: "major" })
+  const showGeminiEntry = useDebugMode()
   const isCourseDetailCanvas = initialCanvasData !== null
   const [isGeminiDemoOpen, setIsGeminiDemoOpen] = useState(false)
   const [inputMessage, setInputMessage] = useState("")
@@ -308,6 +305,7 @@ export function AiAssistantDrawer({
     updateElementData: updateCanvasElementData,
     updatePanelChildren: updateCanvasPanelChildren,
     clearCanvas,
+    clearSpecialComponents,
     loadCanvasData,
     handleCanvasEvent,
     flowNodes,
@@ -352,6 +350,29 @@ export function AiAssistantDrawer({
   useEffect(() => {
     canvasElementsRef.current = canvasElements
   }, [canvasElements])
+
+  const canvasEdgesRef = useRef(canvasEdges)
+  useEffect(() => {
+    canvasEdgesRef.current = canvasEdges
+  }, [canvasEdges])
+
+  const canvasSpecialComponentsRef = useRef(canvasSpecialComponents)
+  useEffect(() => {
+    canvasSpecialComponentsRef.current = canvasSpecialComponents
+  }, [canvasSpecialComponents])
+
+  const canvasSelectedIdRef = useRef(canvasSelectedId)
+  useEffect(() => {
+    canvasSelectedIdRef.current = canvasSelectedId
+  }, [canvasSelectedId])
+
+  const waitForCanvasStateFlush = useCallback(async () => {
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => resolve())
+      })
+    })
+  }, [])
 
   // 统一计算画布构建进度 ETA，避免两个加载入口出现重复逻辑
   const updateCanvasBuildProgressWithEta = useCallback((progress: { loaded: number; total: number; stage: string }) => {
@@ -794,8 +815,12 @@ export function AiAssistantDrawer({
       saveSessionToStorage
     )
 
-    // 用于追踪 progress 累积的 thinking 内容（因为 progress 需要追加到 thinking）
-    let progressThinking = ''
+    // 思考区展示模式：闲聊模式累积，agent/internal 进度模式仅显示最新一条
+    const thinkingState = {
+      mode: "accumulate" as ThinkingDisplayMode,
+      accumulated: '',
+      latest: '',
+    }
     // 用于追踪 SSE 错误消息
     let sseErrorMessage = ''
     // [MOD] 用于追踪已创建关联消息的元素ID，避免重复创建（移到 try 外以便 catch 可访问）
@@ -816,6 +841,19 @@ export function AiAssistantDrawer({
       if (config.onBeforeRequest) {
         await config.onBeforeRequest()
       }
+
+      // 等待清空/更新操作对应的 React 状态提交，避免上传旧画布快照
+      await waitForCanvasStateFlush()
+
+      // 显式同步持久化快照，确保接下来 forceUpload 上传的是最新数据
+      const selectedIds = canvasSelectedIdRef.current ? [canvasSelectedIdRef.current] : []
+      updateCanvasData(
+        canvasElementsRef.current,
+        canvasEdgesRef.current,
+        canvasSpecialComponentsRef.current,
+        selectedIds,
+        { skipAutoUpload: true }
+      )
 
       // [MOD] 强制上传最新画布数据，确保后端获取到最新状态
       const ossKey = await forceCanvasUpload()
@@ -933,10 +971,16 @@ export function AiAssistantDrawer({
           }
         },
         onThinkingChunk: (content) => {
-          // thinking 内容需要加上 progress 追加的部分
-          const fullThinking = progressThinking + content
-          setStreamingThinking(fullThinking)
-          updateStreamingIndicator("thinking", fullThinking)
+          if (thinkingState.mode === "latest") {
+            thinkingState.latest = content
+            setStreamingThinking(content)
+            updateStreamingIndicator("thinking", content)
+            return
+          }
+
+          thinkingState.accumulated = content
+          setStreamingThinking(content)
+          updateStreamingIndicator("thinking", content)
         },
         onStatusEvent: (status) => {
           updateStreamingIndicator("status", formatStatusIndicator(status))
@@ -949,15 +993,18 @@ export function AiAssistantDrawer({
           setStreamingText(sseErrorMessage)
         },
         onProgressEvent: (progress) => {
-          // 将进度追加到思考区域
-          const progressLine = `[${progress.current}/${progress.total}] ${progress.message}\n`
-          progressThinking += progressLine
-          setStreamingThinking(progressThinking)
+          thinkingState.mode = "latest"
+          const progressLine = `[${progress.current}/${progress.total}] ${progress.message}`
+          thinkingState.latest = progressLine
+          setStreamingThinking(progressLine)
           updateStreamingIndicator("processing", progress.message)
           // 调用自定义进度回调
           config.onProgress?.(progress)
         },
         onProcessingEvent: (event) => {
+          thinkingState.mode = "latest"
+          thinkingState.latest = event.message
+          setStreamingThinking(event.message)
           updateStreamingIndicator("processing", formatProcessingIndicator(event))
           // 处理 processing 事件（加载进度文案）
           if (event.stage === 'generating' && event.message) {
@@ -973,6 +1020,11 @@ export function AiAssistantDrawer({
             }
           }
         },
+        onModeEvent: (modeEvent) => {
+          if (modeEvent.mode === 'course_building') {
+            thinkingState.mode = "latest"
+          }
+        },
         onContentChunk: (content) => {
           if (content.trim()) {
             markStreamingContentStarted()
@@ -986,7 +1038,9 @@ export function AiAssistantDrawer({
 
       // 完成：优先使用 SSE 错误消息，其次使用返回内容，最后使用默认完成消息
       const finalContent = sseErrorMessage || result.content.trim() || config.defaultCompleteMessage
-      const finalThinking = progressThinking + (result.thinking || '')
+      const finalThinking = thinkingState.mode === "latest"
+        ? (thinkingState.latest || result.thinking || '')
+        : (thinkingState.accumulated || result.thinking || '')
       commitAssistantContent(finalContent, finalThinking || undefined)
 
       if (streamingControllerRef.current === controller) {
@@ -1036,7 +1090,7 @@ export function AiAssistantDrawer({
 
       console.error(`[${config.logPrefix}] 失败:`, error)
     }
-  }, [isRegenerating, streamingMessageId, isInitialized, sessionId, handleCanvasEvent, processStream, resetSSEController, forceCanvasUpload, updateFillProgress, updateStreamingIndicator, markStreamingContentStarted])
+  }, [isRegenerating, streamingMessageId, isInitialized, sessionId, handleCanvasEvent, processStream, resetSSEController, forceCanvasUpload, waitForCanvasStateFlush, updateCanvasData, updateFillProgress, updateStreamingIndicator, markStreamingContentStarted])
 
   // 处理章节项目面板自动填充请求
   // [MOD] 增加 userPrompt 参数，支持重做时传入用户提示词
@@ -1174,6 +1228,12 @@ export function AiAssistantDrawer({
           console.log("[填充课程矩阵] 清空课程矩阵:", courseMatrix.id)
           updateCanvasElementData(courseMatrix.id, { rows: [] })
         }
+
+        // 课程矩阵重生成时，清空 specialComponents，避免上传旧矩阵快照
+        if (targetMatrixId) {
+          console.log("[填充课程矩阵] 重生成模式，清空 specialComponents")
+          clearSpecialComponents()
+        }
       },
       onProgress: (progress) => {
         updateFillProgress('matrix', progress.message)
@@ -1188,7 +1248,7 @@ export function AiAssistantDrawer({
     })
     // 确保进度在任何情况下都被清除
     updateFillProgress('matrix', null)
-  }, [executeSSERequest, canvasElements, updateCanvasElementData, updateFillProgress, selectCanvasElement])
+  }, [executeSSERequest, canvasElements, updateCanvasElementData, clearSpecialComponents, updateFillProgress, selectCanvasElement])
 
   // 处理项目矩阵自动填充请求
   // [MOD] 添加可选参数 targetMatrixId，支持重做时指定目标矩阵
@@ -1529,6 +1589,12 @@ export function AiAssistantDrawer({
 
     // 用于追踪 SSE 错误消息
     let sseErrorMessage = ''
+    // 思考区展示模式：闲聊模式累积，agent/internal 进度模式仅显示最新一条
+    const thinkingState = {
+      mode: "accumulate" as ThinkingDisplayMode,
+      accumulated: '',
+      latest: '',
+    }
     // [MOD] 用于追踪已创建关联消息的元素ID，避免重复创建（移到 try 外以便 catch 可访问）
     const linkedElementIds = new Set<string>()
 
@@ -1543,6 +1609,17 @@ export function AiAssistantDrawer({
     }
 
     try {
+      // 等待画布状态稳定，并显式同步快照到持久化层
+      await waitForCanvasStateFlush()
+      const selectedIds = canvasSelectedIdRef.current ? [canvasSelectedIdRef.current] : []
+      updateCanvasData(
+        canvasElementsRef.current,
+        canvasEdgesRef.current,
+        canvasSpecialComponentsRef.current,
+        selectedIds,
+        { skipAutoUpload: true }
+      )
+
       // [MOD] 强制上传最新画布数据，确保后端获取到最新状态
       const ossKey = await forceCanvasUpload()
 
@@ -1659,6 +1736,14 @@ export function AiAssistantDrawer({
           }
         },
         onThinkingChunk: (content) => {
+          if (thinkingState.mode === "latest") {
+            thinkingState.latest = content
+            setStreamingThinking(content)
+            updateStreamingIndicator("thinking", content)
+            return
+          }
+
+          thinkingState.accumulated = content
           setStreamingThinking(content)
           updateStreamingIndicator("thinking", content)
         },
@@ -1675,7 +1760,17 @@ export function AiAssistantDrawer({
           }
           console.log('[UI事件]', event.action, event)
         },
+        onProgressEvent: (progress) => {
+          thinkingState.mode = "latest"
+          const progressLine = `[${progress.current}/${progress.total}] ${progress.message}`
+          thinkingState.latest = progressLine
+          setStreamingThinking(progressLine)
+          updateStreamingIndicator("processing", progress.message)
+        },
         onProcessingEvent: (event) => {
+          thinkingState.mode = "latest"
+          thinkingState.latest = event.message
+          setStreamingThinking(event.message)
           updateStreamingIndicator("processing", formatProcessingIndicator(event))
           // 处理 processing 事件（加载进度文案）
           if (event.stage === 'generating' && event.message) {
@@ -1692,6 +1787,9 @@ export function AiAssistantDrawer({
           }
         },
         onModeEvent: (modeEvent) => {
+          if (modeEvent.mode === 'course_building') {
+            thinkingState.mode = "latest"
+          }
           // chat 模式时收起画布
           if (modeEvent.mode === 'chat') {
             setIsCanvasExpanded(false)
@@ -1727,7 +1825,10 @@ export function AiAssistantDrawer({
 
       // 完成：优先使用 SSE 错误消息，其次使用返回内容，最后使用默认消息
       const finalContent = sseErrorMessage || result.content.trim() || 'AI 暂无新的建议，请稍后再试。'
-      commitAssistantContent(finalContent, result.thinking || undefined)
+      const finalThinking = thinkingState.mode === "latest"
+        ? (thinkingState.latest || result.thinking || '')
+        : (thinkingState.accumulated || result.thinking || '')
+      commitAssistantContent(finalContent, finalThinking || undefined)
       if (streamingControllerRef.current === controller) {
         streamingControllerRef.current = null
       }
@@ -1763,7 +1864,7 @@ export function AiAssistantDrawer({
       // [MOD] 错误时也清除 loading 状态
       clearLinkedElementLoading()
     }
-  }, [inputMessage, isInitialized, sessionId, regenerateTag, attachedFiles, uploadFileToOss, handleCanvasEvent, processStream, resetSSEController, handleFillCoursePoints, handleFillKsa, handleFillChapterPanel, handleFillObjectivePanel, handleFillCourseMatrix, handleFillProjectMatrix, handleFillCourseInfo, clearAttachedFiles, forceCanvasUpload, updateFillProgress, updateStreamingIndicator, markStreamingContentStarted])
+  }, [inputMessage, isInitialized, sessionId, regenerateTag, attachedFiles, uploadFileToOss, handleCanvasEvent, processStream, resetSSEController, handleFillCoursePoints, handleFillKsa, handleFillChapterPanel, handleFillObjectivePanel, handleFillCourseMatrix, handleFillProjectMatrix, handleFillCourseInfo, clearAttachedFiles, forceCanvasUpload, waitForCanvasStateFlush, updateCanvasData, updateFillProgress, updateStreamingIndicator, markStreamingContentStarted])
 
   // 连接菜单处理器
   const handleConnectionMenuSelect = useMemo(
@@ -1790,6 +1891,15 @@ export function AiAssistantDrawer({
       handleFillKsa,
     ]
   )
+
+  // 处理 Panel 空状态加号点击：课点面板直接触发重做，无需等待用户输入
+  const handlePanelAdd = useCallback((panelType: string, panelId: string) => {
+    if (panelType !== FlowNodeType.COURSE_POINT_PANEL) {
+      return
+    }
+
+    void handleFillCoursePoints(panelId)
+  }, [handleFillCoursePoints])
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -2052,6 +2162,7 @@ export function AiAssistantDrawer({
                       // 更新项目矩阵节点数据
                       updateCanvasElementData(nodeId, matrixData)
                     }}
+                    onPanelAdd={handlePanelAdd}
                     onConnectionMenuSelect={handleConnectionMenuSelect}
                     onNodeRegenerate={handleRegenerate}
                     // [MOD] 画布展开时发送聊天请求锁定画布，防止用户操作导致数据不一致

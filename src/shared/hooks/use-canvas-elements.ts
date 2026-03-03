@@ -204,6 +204,53 @@ function deepMerge<T extends Record<string, unknown>>(
   return result
 }
 
+function toNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) {
+      return parsed
+    }
+  }
+
+  return null
+}
+
+function comparePanelChildData(
+  a: { id: string; data: CanvasComponentData },
+  b: { id: string; data: CanvasComponentData }
+): number {
+  const categoryOrder: Record<string, number> = { K: 0, S: 1, A: 2 }
+  const aCategory = String((a.data as { category?: unknown }).category || "")
+  const bCategory = String((b.data as { category?: unknown }).category || "")
+  const aCategoryRank = categoryOrder[aCategory] ?? Number.MAX_SAFE_INTEGER
+  const bCategoryRank = categoryOrder[bCategory] ?? Number.MAX_SAFE_INTEGER
+
+  if (aCategoryRank !== bCategoryRank) {
+    return aCategoryRank - bCategoryRank
+  }
+
+  const aIndex = toNumber((a.data as { index?: unknown }).index)
+  const bIndex = toNumber((b.data as { index?: unknown }).index)
+
+  if (aIndex !== null && bIndex !== null && aIndex !== bIndex) {
+    return aIndex - bIndex
+  }
+
+  if (aIndex !== null && bIndex === null) {
+    return -1
+  }
+
+  if (aIndex === null && bIndex !== null) {
+    return 1
+  }
+
+  return a.id.localeCompare(b.id)
+}
+
 // CanvasComponentType 到 FlowNodeType 的映射
 const COMPONENT_TO_NODE_TYPE: Partial<Record<CanvasComponentType, FlowNodeType>> = {
   // 源文档节点映射
@@ -524,6 +571,22 @@ function isVerticalStackType(componentType: CanvasComponentType): boolean {
 
 function isProjectMatrixType(componentType: CanvasComponentType): boolean {
   return componentType === CanvasComponentType.PROJECT_MATRIX || componentType === CanvasComponentType.PROJECT_MATRIX_PANEL
+}
+
+function needsSpecialComponentStorage(componentType: CanvasComponentType): boolean {
+  return [
+    CanvasComponentType.COURSE_MATRIX,
+    CanvasComponentType.PROJECT_MATRIX,
+    CanvasComponentType.PROJECT_MATRIX_PANEL,
+  ].includes(componentType)
+}
+
+function getSpecialComponentKey(componentType: CanvasComponentType, data?: CanvasComponentData): string {
+  if (isProjectMatrixType(componentType)) {
+    const chapterId = (data as { chapter_id?: string } | undefined)?.chapter_id || "default"
+    return `${componentType}_${chapterId}`
+  }
+  return componentType
 }
 
 function recalculateAllPanelPositionsVertical(elements: CanvasElementData[]): CanvasElementData[] {
@@ -1087,10 +1150,13 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
   // 更新元素数据
   // 专业矩阵特殊处理：根据数据动态计算尺寸，并级联更新后续面板位置
   const updateElementData = useCallback((id: string, data: Partial<CanvasComponentData>) => {
+    const targetElement = elements.find(el => el.id === id)
+
     setElements(prev => {
       const updated = prev.map(el => {
         if (el.id !== id) return el
         const newData = { ...el.data, ...data }
+
         // 专业矩阵：根据支撑指标点数量动态计算尺寸
         if (el.type === CanvasComponentType.GRADUATION_SUPPORT) {
           const newSize = calculateGraduationSupportSize(newData)
@@ -1122,7 +1188,18 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
 
       return updated
     })
-  }, [layoutMode])
+
+    if (targetElement && needsSpecialComponentStorage(targetElement.type)) {
+      const mergedData = { ...targetElement.data, ...data } as CanvasComponentData
+      setSpecialComponents(prev => ({
+        ...prev,
+        [getSpecialComponentKey(targetElement.type, mergedData)]: {
+          type: targetElement.type,
+          data: mergedData,
+        },
+      }))
+    }
+  }, [layoutMode, elements])
 
   // 选中元素（完整版本：同时更新 selectedId 和 elements.selected 状态）
   // 用于 AI/SSE 自动选中场景，需要完整的外部→内部同步 + setCenter 聚焦
@@ -1156,6 +1233,10 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
     setElements([])
     setEdges([])
     setSelectedId(null)
+    setSpecialComponents({})
+  }, [])
+
+  const clearSpecialComponents = useCallback(() => {
     setSpecialComponents({})
   }, [])
 
@@ -1611,18 +1692,12 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
         // SET 事件实现"存在则更新，不存在则创建"的语义
         if (component && data) {
           // 需要存储到 specialComponents 的组件类型（矩阵类）
-          const needsSpecialStorage = [
-            CanvasComponentType.COURSE_MATRIX,
-            CanvasComponentType.PROJECT_MATRIX,
-            CanvasComponentType.PROJECT_MATRIX_PANEL,
-          ].includes(component)
+          const needsSpecialStorage = needsSpecialComponentStorage(component)
 
           if (needsSpecialStorage) {
             // 存储到 specialComponents（用于持久化）
             // 注意：项目矩阵有多个实例，使用 chapter_id 作为唯一标识
-            const componentKey = (component === CanvasComponentType.PROJECT_MATRIX || component === CanvasComponentType.PROJECT_MATRIX_PANEL)
-              ? `${component}_${(data as { chapter_id?: string }).chapter_id || 'default'}`
-              : component
+            const componentKey = getSpecialComponentKey(component, data as CanvasComponentData)
             setSpecialComponents(prev => ({
               ...prev,
               [componentKey]: { type: component, data: data as CanvasComponentData },
@@ -2125,11 +2200,52 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
               const columns = PANEL_GRID_COLUMNS[panelType] || 3
               const cardSize = DEFAULT_ELEMENT_SIZES[childType] || { width: 280, height: 130 }
 
-              // 过滤掉旧的子节点
+              const panelChildren = prev.filter(el => el.parentId === parentPanel.id)
+              const sameTypeChildren = panelChildren.filter(el => el.type === childType)
+              const otherChildren = panelChildren.filter(el => el.type !== childType)
+              const sameTypeMap = new Map(sameTypeChildren.map(child => [child.id, child]))
+
+              for (const item of items) {
+                const existingId = (item.data as { id?: string }).id
+                const itemId = existingId || `${item.component}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+                const currentChild = sameTypeMap.get(itemId)
+
+                if (currentChild) {
+                  const mergedData = deepMerge(
+                    (currentChild.data || {}) as Record<string, unknown>,
+                    (item.data || {}) as Record<string, unknown>
+                  ) as CanvasComponentData
+
+                  sameTypeMap.set(itemId, {
+                    ...currentChild,
+                    data: mergedData,
+                  })
+                } else {
+                  sameTypeMap.set(itemId, {
+                    id: itemId,
+                    type: item.component,
+                    position: { x: 0, y: 0 },
+                    size: cardSize,
+                    selected: false,
+                    data: item.data,
+                    parentId: parentPanel.id,
+                    extent: "parent" as const,
+                  })
+                }
+              }
+
+              const mergedChildren = Array.from(sameTypeMap.values())
+                .map(child => ({
+                  id: child.id,
+                  data: child.data,
+                }))
+                .sort(comparePanelChildData)
+
+              // 过滤掉旧的子节点，保留父面板与其他元素
               const filteredElements = prev.filter(el => el.parentId !== parentPanel.id)
 
               // 计算新的面板尺寸
-              const newChildCount = items.length
+              const newChildCount = mergedChildren.length + otherChildren.length
               const newPanelSize = calculatePanelSize(newChildCount, columns, cardSize, panelType)
 
               // 更新父面板尺寸
@@ -2141,12 +2257,12 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
                 }
               }
 
-              // 创建新的子节点
-              const newChildren: CanvasElementData[] = items.map((item, index) => {
+              // 创建新的子节点（增量合并后重排）
+              const newChildren: CanvasElementData[] = mergedChildren.map((item, index) => {
                 const position = calculateGridPosition(index, columns, cardSize, panelType)
                 return {
-                  id: (item.data as { id?: string }).id || `${item.component}_${Date.now()}_${index}`,
-                  type: item.component,
+                  id: item.id,
+                  type: childType,
                   position,
                   size: cardSize,
                   selected: false,
@@ -2157,7 +2273,7 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
               })
 
               // 合并元素数组
-              const newElements = [...filteredElements, ...newChildren]
+              const newElements = [...filteredElements, ...otherChildren, ...newChildren]
 
               // 级联更新后续面板位置
               if (layoutMode === "vertical") {
@@ -2172,7 +2288,7 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
                 }
               }
 
-              console.log(`[Canvas] BATCH_CREATE: 已将 ${items.length} 个卡片添加到面板 ${parentPanel.id}`)
+              console.log(`[Canvas] BATCH_CREATE: 已将 ${items.length} 个卡片增量合并到面板 ${parentPanel.id}`)
               return newElements
             })
           } else {
@@ -2353,6 +2469,7 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
     setSelectedIdOnly,
     updateSelection,
     clearCanvas,
+    clearSpecialComponents,
     loadCanvasData,
     clearByComponentType,
     // 特殊组件操作

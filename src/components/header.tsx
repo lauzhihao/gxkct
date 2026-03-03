@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { ChevronDown, Palette, Bell } from "lucide-react"
+import { ChevronDown, Palette, Bell, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import {
   DropdownMenu,
@@ -12,7 +12,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/shared/components/ui/alert-dialog"
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar"
+import { Input } from "@/shared/components/ui/input"
 import { cn } from "@/shared/utils/utils"
 import { api, getStoredAuthUser, clearAllAuthData } from "@/lib/api"
 import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
@@ -20,16 +31,17 @@ import { usePermission } from "@/shared/hooks/use-permission"
 import { AiAssistantDrawer } from "./ai-assistant-drawer"
 import { useLoadingStore } from "@/shared/stores/loading-store"
 import { useAiCanvasStore } from "@/shared/stores/ai-canvas-store"
-import { showWarning } from "@/shared/utils/toast-utils"
+import { showError, showSuccess, showWarning } from "@/shared/utils/toast-utils"
 import type { InitialCanvasData } from "@/types/ai-assistant"
-import type { PermissionAction } from "@/shared/permissions/types"
+import { IdentitySwitchDialog } from "./identity-switch-dialog"
 
 const EMPTY_INITIAL_CANVAS_DATA: InitialCanvasData = {
   elements: [],
   edges: [],
 }
 
-const RESET_DATA_ACTION: PermissionAction = "root.college.create"
+const WORKSHOP_MANAGEMENT_ACTION = "root.college.create" as const
+const WORKSHOP_MANAGEMENT_CONTEXT = { scope: "root" } as const
 
 const COLOR_THEMES = {
   green: {
@@ -215,7 +227,7 @@ const mockNotifications: Notification[] = [
   },
 ]
 
-export function Header({ onResetData, currentPath, treeData }: HeaderProps) {
+export function Header({ currentPath, treeData }: HeaderProps) {
   const router = useRouter()
   const { can } = usePermission()
   const [courseDevDrawerOpen, setCourseDevDrawerOpen] = useState(false)
@@ -223,6 +235,12 @@ export function Header({ onResetData, currentPath, treeData }: HeaderProps) {
   const [notifications, setNotifications] = useState<Notification[]>(mockNotifications)
   const [userName, setUserName] = useState<string>("用户")
   const [aiInitialCanvasData, setAiInitialCanvasData] = useState<InitialCanvasData | null>(null)
+  const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false)
+  const [resetPasswordValue, setResetPasswordValue] = useState("")
+  const [confirmResetPasswordValue, setConfirmResetPasswordValue] = useState("")
+  const [showResetPassword, setShowResetPassword] = useState(false)
+  const [isResetPasswordLoading, setIsResetPasswordLoading] = useState(false)
+  const [identitySwitchDialogOpen, setIdentitySwitchDialogOpen] = useState(false)
   useActivePageTracker()
 
   // [MOD] 使用全局 loading 状态 (引用计数机制)
@@ -235,12 +253,13 @@ export function Header({ onResetData, currentPath, treeData }: HeaderProps) {
   const prepareOrGetCanvasData = useAiCanvasStore((state) => state.prepareOrGetCanvasData)
 
   const unreadCount = notifications.filter((n) => !n.read).length
-  const canResetData = can(RESET_DATA_ACTION, { scope: "root" })
   const avatarText = userName.trim().charAt(0).toUpperCase() || "U"
+  const authUserId = getStoredAuthUser()?.id ?? null
   const notificationMenuItemClassName =
     "cursor-pointer flex flex-col items-start gap-1 py-3 px-3 border-b border-border/50 last:border-0 focus:text-primary data-[highlighted]:text-primary"
   const userMenuItemClassName =
     "cursor-pointer hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground data-[highlighted]:bg-primary data-[highlighted]:text-primary-foreground"
+  const canManageWorkshop = can(WORKSHOP_MANAGEMENT_ACTION, WORKSHOP_MANAGEMENT_CONTEXT)
 
   // 处理退出登录
   const handleLogout = () => {
@@ -248,11 +267,59 @@ export function Header({ onResetData, currentPath, treeData }: HeaderProps) {
     router.push('/login')
   }
 
-  const handleResetData = useCallback(() => {
-    if (!onResetData) return
-    if (!can(RESET_DATA_ACTION, { scope: "root" })) return
-    onResetData()
-  }, [can, onResetData])
+  const handleOpenWorkshopManagement = useCallback(() => {
+    router.push("/workshop-management")
+  }, [router])
+
+  const handleResetPassword = useCallback(async () => {
+    if (isResetPasswordLoading) return
+
+    const authUser = getStoredAuthUser()
+    if (!authUser?.id) {
+      showError("未获取到当前用户信息")
+      return
+    }
+
+    const nextPassword = resetPasswordValue.trim()
+    if (!nextPassword) {
+      showWarning("请输入新密码")
+      return
+    }
+    if (nextPassword.length < 6) {
+      showWarning("新密码长度不能少于6位")
+      return
+    }
+    if (!confirmResetPasswordValue.trim()) {
+      showWarning("请再次输入新密码")
+      return
+    }
+    if (nextPassword !== confirmResetPasswordValue.trim()) {
+      showWarning("两次输入的密码不一致")
+      return
+    }
+
+    setIsResetPasswordLoading(true)
+    try {
+      const response = await api.users.resetPassword({
+        id: authUser.id,
+        password: nextPassword,
+      })
+
+      if (response.error) {
+        console.error("[Header] reset password failed:", response.error)
+        showError("重置密码失败，请稍后重试")
+        return
+      }
+
+      showSuccess("密码重置成功")
+      setResetPasswordDialogOpen(false)
+      setResetPasswordValue("")
+      setConfirmResetPasswordValue("")
+      setShowResetPassword(false)
+    } finally {
+      setIsResetPasswordLoading(false)
+    }
+  }, [confirmResetPasswordValue, isResetPasswordLoading, resetPasswordValue])
 
   useEffect(() => {
     // 从认证系统获取用户信息
@@ -454,20 +521,22 @@ export function Header({ onResetData, currentPath, treeData }: HeaderProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 bg-white/95 backdrop-blur-md border-primary/20">
-              <DropdownMenuItem className={userMenuItemClassName}>个人信息</DropdownMenuItem>
-              <DropdownMenuItem className={userMenuItemClassName}>系统设置</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {onResetData && canResetData && (
+              <DropdownMenuItem className={userMenuItemClassName} onClick={() => setIdentitySwitchDialogOpen(true)}>
+                切换身份
+              </DropdownMenuItem>
+              {canManageWorkshop && (
                 <>
-                  <DropdownMenuItem
-                    className={cn("text-orange-600", userMenuItemClassName)}
-                    onClick={handleResetData}
-                  >
-                    重置数据
-                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem className={userMenuItemClassName} onClick={handleOpenWorkshopManagement}>
+                    工作坊管理
+                  </DropdownMenuItem>
                 </>
               )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className={cn("text-orange-600", userMenuItemClassName)} onClick={() => setResetPasswordDialogOpen(true)}>
+                重置密码
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem
                 className={cn("text-red-600", userMenuItemClassName)}
                 onClick={handleLogout}
@@ -508,6 +577,80 @@ export function Header({ onResetData, currentPath, treeData }: HeaderProps) {
         treeData={treeData}
         initialCanvasData={aiInitialCanvasData}
       />
+
+      <IdentitySwitchDialog
+        open={identitySwitchDialogOpen}
+        onOpenChange={setIdentitySwitchDialogOpen}
+        userId={authUserId}
+      />
+
+      <AlertDialog
+        open={resetPasswordDialogOpen}
+        onOpenChange={(open) => {
+          setResetPasswordDialogOpen(open)
+          if (!open) {
+            setResetPasswordValue("")
+            setConfirmResetPasswordValue("")
+            setShowResetPassword(false)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认重置密码</AlertDialogTitle>
+            <AlertDialogDescription>
+              请输入新密码，确认后将为当前登录用户执行重置。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3">
+            <div className="relative">
+              <Input
+                type={showResetPassword ? "text" : "password"}
+                placeholder="请输入新密码（至少6位）"
+                value={resetPasswordValue}
+                onChange={(event) => setResetPasswordValue(event.target.value)}
+                disabled={isResetPasswordLoading}
+                autoFocus
+                className="pr-20"
+              />
+              <button
+                type="button"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => setShowResetPassword((prev) => !prev)}
+                disabled={isResetPasswordLoading}
+              >
+                <span className="inline-flex items-center gap-1">
+                  {showResetPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  {showResetPassword ? "隐藏" : "显示"}
+                </span>
+              </button>
+            </div>
+
+            <div className="relative">
+              <Input
+                type={showResetPassword ? "text" : "password"}
+                placeholder="请再次输入新密码"
+                value={confirmResetPasswordValue}
+                onChange={(event) => setConfirmResetPasswordValue(event.target.value)}
+                disabled={isResetPasswordLoading}
+                className="pr-4"
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isResetPasswordLoading}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault()
+                void handleResetPassword()
+              }}
+              disabled={isResetPasswordLoading}
+            >
+              {isResetPasswordLoading ? "重置中..." : "确认重置"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </header>
   )
 }

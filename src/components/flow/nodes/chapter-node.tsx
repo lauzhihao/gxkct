@@ -33,7 +33,7 @@ export const ChapterNodeComponent = memo(function ChapterNodeComponent({
       isLoading={isLoading}
       progressMessage={typeof progressMessage === "string" ? progressMessage : null}
       icon={<FileText className="h-4 w-4" />}
-      title={`第${data.index}章: ${data.name}`}
+      title={data.name}
       headerColorClass="bg-purple-100"
       borderColorClass="border-purple-200"
       textColorClass="text-purple-700"

@@ -4,7 +4,7 @@ import { cn } from "@/shared/utils/utils"
 import { GripVertical, Plus, Trash2, BookMarked } from "lucide-react"
 import { SupportLabel } from "@/shared/components/support-label"
 import { useCourseMatrixContext } from "@/modules/courses/hooks/use-course-matrix-data"
-import type { ProjectTeachGoal } from "@/lib/api/project-teach-goal-api"
+import type { CourseGoal } from "@/lib/api/course-goals-api"
 
 interface ProjectMatrixTableProps {
   courseEditable: boolean
@@ -14,6 +14,7 @@ export const ProjectMatrixTable = ({ courseEditable }: ProjectMatrixTableProps) 
 
   const {
     projectTeachGoalData,
+    courseGoals,
     isLoadingProjectTeachGoal,
     isEditingCourseMatrix,
     courseMatrixData,
@@ -59,8 +60,8 @@ export const ProjectMatrixTable = ({ courseEditable }: ProjectMatrixTableProps) 
 
   if (
     !projectTeachGoalData ||
-    !projectTeachGoalData.goals ||
-    projectTeachGoalData.goals.length === 0 ||
+    !courseGoals ||
+    courseGoals.length === 0 ||
     !projectTeachGoalData.projects ||
     projectTeachGoalData.projects.length === 0
   ) {
@@ -75,7 +76,7 @@ export const ProjectMatrixTable = ({ courseEditable }: ProjectMatrixTableProps) 
     )
   }
 
-  const secondLevelHeaderCount = projectTeachGoalData.goals.reduce((count, goal) => {
+  const secondLevelHeaderCount = courseGoals.reduce((count, goal) => {
     const children = goal.children && goal.children.length > 0 ? goal.children : []
     return count + children.length
   }, 0)
@@ -102,7 +103,7 @@ export const ProjectMatrixTable = ({ courseEditable }: ProjectMatrixTableProps) 
             >
               项目/章节
             </th>
-            {projectTeachGoalData.goals.map((goal, idx) => {
+            {courseGoals.map((goal, idx) => {
               const children = goal.children && goal.children.length > 0 ? goal.children : []
               return children.length > 0 ? (
                 <th
@@ -117,7 +118,7 @@ export const ProjectMatrixTable = ({ courseEditable }: ProjectMatrixTableProps) 
             })}
           </tr>
           <tr className="border-b border-border bg-primary/5">
-            {projectTeachGoalData.goals.map((goal: ProjectTeachGoal) => {
+            {courseGoals.map((goal: CourseGoal) => {
               const children = goal.children && goal.children.length > 0 ? goal.children : []
               return children.map((child, childIdx) => (
                 <th
@@ -206,9 +207,9 @@ export const ProjectMatrixTable = ({ courseEditable }: ProjectMatrixTableProps) 
                   <div className="text-base text-foreground">{project.name}</div>
                 )}
               </td>
-              {projectTeachGoalData.goals.map((goal: ProjectTeachGoal) => {
+              {courseGoals.map((goal: CourseGoal) => {
                 const children = goal.children && goal.children.length > 0 ? goal.children : []
-                return children.map((child: ProjectTeachGoal, childIdx: number) => {
+                return children.map((child: CourseGoal, childIdx: number) => {
                   const key = `${project.id}-${child.id}`
                   const coursePoints = courseMatrixData[key] || []
 

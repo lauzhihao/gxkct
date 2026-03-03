@@ -195,6 +195,7 @@ export function useCanvasPersistence(options: UseCanvasPersistenceOptions) {
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
   const coalescedUploadTimerRef = useRef<NodeJS.Timeout | null>(null)
   const isUploadingRef = useRef(false)
+  const uploadingPromiseRef = useRef<Promise<string | null> | null>(null)
   const lastAutoUploadAtRef = useRef(0)
 
   // 初始化：从本地存储恢复 ossKey
@@ -286,7 +287,12 @@ export function useCanvasPersistence(options: UseCanvasPersistenceOptions) {
    */
   const uploadToOss = useCallback(async (): Promise<string | null> => {
     if (!sessionId) return null
-    if (isUploadingRef.current) return state.ossKey
+    if (isUploadingRef.current) {
+      if (uploadingPromiseRef.current) {
+        return uploadingPromiseRef.current
+      }
+      return state.ossKey
+    }
 
     const content = serializeCanvasForOss()
     if (!content) return null
@@ -299,72 +305,78 @@ export function useCanvasPersistence(options: UseCanvasPersistenceOptions) {
     isUploadingRef.current = true
     setState(prev => ({ ...prev, isUploading: true }))
 
-    try {
-      // 1. 序列化内容并计算大小
-      const contentJson = JSON.stringify(content)
-      const contentSize = new Blob([contentJson]).size
+    const uploadPromise = (async (): Promise<string | null> => {
+      try {
+        // 1. 序列化内容并计算大小
+        const contentJson = JSON.stringify(content)
+        const contentSize = new Blob([contentJson]).size
 
-      // 2. 从 sessionId 解析日期，格式：session_{timestamp}_{random}
-      const timestampMatch = sessionId.match(/^session_(\d+)_/)
-      const timestamp = timestampMatch ? parseInt(timestampMatch[1], 10) : Date.now()
-      const sessionDate = new Date(timestamp)
-      const dateStr = `${sessionDate.getFullYear()}${String(sessionDate.getMonth() + 1).padStart(2, "0")}${String(sessionDate.getDate()).padStart(2, "0")}`
-      const fileName = `gxkct/course_ai_canvas/${dateStr}/${sessionId}.json`
+        // 2. 从 sessionId 解析日期，格式：session_{timestamp}_{random}
+        const timestampMatch = sessionId.match(/^session_(\d+)_/)
+        const timestamp = timestampMatch ? parseInt(timestampMatch[1], 10) : Date.now()
+        const sessionDate = new Date(timestamp)
+        const dateStr = `${sessionDate.getFullYear()}${String(sessionDate.getMonth() + 1).padStart(2, "0")}${String(sessionDate.getDate()).padStart(2, "0")}`
+        const fileName = `gxkct/course_ai_canvas/${dateStr}/${sessionId}.json`
 
-      // 3. 获取上传签名
-      const presignResponse = await canvasApi.getPresignUrl({
-        fileName,
-        mimeType: "application/json",
-        size: contentSize,
-      })
+        // 3. 获取上传签名
+        const presignResponse = await canvasApi.getPresignUrl({
+          fileName,
+          mimeType: "application/json",
+          size: contentSize,
+        })
 
-      if (!presignResponse.data) {
-        throw new Error(presignResponse.error || "获取上传签名失败")
+        if (!presignResponse.data) {
+          throw new Error(presignResponse.error || "获取上传签名失败")
+        }
+
+        // 兼容后端返回的字段名
+        const responseData = presignResponse.data as unknown as Record<string, unknown>
+        const uploadUrl = (responseData.uploadUrl || responseData.upload_url || responseData.url) as string
+        // 后端返回 uploadPath 作为 OSS 存储路径
+        const ossKey = (responseData.ossKey || responseData.oss_key || responseData.uploadPath || responseData.key) as string
+        const headers = (responseData.headers || responseData.uploadHeaders || {}) as Record<string, string>
+
+        if (!uploadUrl || !ossKey) {
+          console.error("[画布] presign响应缺少必要字段, uploadUrl:", uploadUrl, "ossKey:", ossKey)
+          throw new Error("获取上传签名失败：响应格式错误")
+        }
+
+        // 3. 上传到 OSS
+        const uploadSuccess = await canvasApi.uploadToOss(uploadUrl, content, headers)
+
+        if (!uploadSuccess) {
+          throw new Error("上传到 OSS 失败")
+        }
+
+        // 4. 更新状态和本地存储
+        setState(prev => ({
+          ...prev,
+          ossKey,
+          lastUploadTime: Date.now(),
+          hasUnsavedChanges: false,
+        }))
+
+        // 保存 ossKey 到本地存储
+        if (typeof window !== "undefined") {
+          localStorage.setItem(`${STORAGE_KEY_CANVAS_OSS_KEY}_${sessionId}`, ossKey)
+        }
+
+        onUploadSuccess?.(ossKey)
+        return ossKey
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error("上传失败")
+        onUploadError?.(err)
+        console.error("上传画布到 OSS 失败:", error)
+        throw err
+      } finally {
+        isUploadingRef.current = false
+        uploadingPromiseRef.current = null
+        setState(prev => ({ ...prev, isUploading: false }))
       }
+    })()
 
-      // 兼容后端返回的字段名
-      const responseData = presignResponse.data as unknown as Record<string, unknown>
-      const uploadUrl = (responseData.uploadUrl || responseData.upload_url || responseData.url) as string
-      // 后端返回 uploadPath 作为 OSS 存储路径
-      const ossKey = (responseData.ossKey || responseData.oss_key || responseData.uploadPath || responseData.key) as string
-      const headers = (responseData.headers || responseData.uploadHeaders || {}) as Record<string, string>
-
-      if (!uploadUrl || !ossKey) {
-        console.error("[画布] presign响应缺少必要字段, uploadUrl:", uploadUrl, "ossKey:", ossKey)
-        throw new Error("获取上传签名失败：响应格式错误")
-      }
-
-      // 3. 上传到 OSS
-      const uploadSuccess = await canvasApi.uploadToOss(uploadUrl, content, headers)
-
-      if (!uploadSuccess) {
-        throw new Error("上传到 OSS 失败")
-      }
-
-      // 4. 更新状态和本地存储
-      setState(prev => ({
-        ...prev,
-        ossKey,
-        lastUploadTime: Date.now(),
-        hasUnsavedChanges: false,
-      }))
-
-      // 保存 ossKey 到本地存储
-      if (typeof window !== "undefined") {
-        localStorage.setItem(`${STORAGE_KEY_CANVAS_OSS_KEY}_${sessionId}`, ossKey)
-      }
-
-      onUploadSuccess?.(ossKey)
-      return ossKey
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error("上传失败")
-      onUploadError?.(err)
-      console.error("上传画布到 OSS 失败:", error)
-      throw err
-    } finally {
-      isUploadingRef.current = false
-      setState(prev => ({ ...prev, isUploading: false }))
-    }
+    uploadingPromiseRef.current = uploadPromise
+    return uploadPromise
   }, [sessionId, serializeCanvasForOss, state.ossKey, onUploadSuccess, onUploadError])
 
   /**

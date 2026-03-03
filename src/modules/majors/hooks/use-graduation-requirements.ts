@@ -10,6 +10,7 @@ import type { TreeNode } from "@/types"
 export interface UseGraduationRequirementsResult {
   // 状态
   graduationRequirements: GraduationRequirement[]
+  deletedNodeIds: number[]
   indicatorCourseSupports: Record<string, IndicatorCourseSupport[]>
   courseSelectorOpen: boolean
   selectedIndicatorForCourse: {
@@ -20,6 +21,7 @@ export interface UseGraduationRequirementsResult {
 
   // 更新方法
   setGraduationRequirements: (value: GraduationRequirement[]) => void
+  clearDeletedNodeIds: () => void
   setIndicatorCourseSupports: (value: Record<string, IndicatorCourseSupport[]>) => void
   setCourseSelectorOpen: (value: boolean) => void
   setSelectedIndicatorForCourse: (value: { requirementId: string; indicatorIndex: number } | null) => void
@@ -46,25 +48,67 @@ export function useGraduationRequirements(
   lastRequirementRef: React.RefObject<HTMLTextAreaElement | null>,
   lastIndicatorRefs: React.MutableRefObject<{ [key: string]: HTMLTextAreaElement | null }>
 ): UseGraduationRequirementsResult {
+  const normalizeRequirement = (item: any, fallbackId: string): GraduationRequirement => {
+    const indicators = Array.isArray(item?.indicators) ? item.indicators.map((value: unknown) => String(value)) : [""]
+    const normalizedIndicatorIds = Array.isArray(item?.indicatorIds)
+      ? item.indicatorIds.map((value: unknown) => {
+          const numeric = Number.parseInt(String(value), 10)
+          return Number.isInteger(numeric) && numeric > 0 ? numeric : 0
+        })
+      : []
+
+    if (normalizedIndicatorIds.length < indicators.length) {
+      const missingCount = indicators.length - normalizedIndicatorIds.length
+      normalizedIndicatorIds.push(...Array.from({ length: missingCount }, () => 0))
+    }
+
+    if (normalizedIndicatorIds.length > indicators.length) {
+      normalizedIndicatorIds.length = indicators.length
+    }
+
+    return {
+      id: typeof item?.id === "string" ? item.id : fallbackId,
+      content: typeof item?.content === "string" ? item.content : "",
+      indicators,
+      indicatorIds: normalizedIndicatorIds,
+    }
+  }
+
   // 从 requiresVOS 或 graduationRequirements 加载毕业要求
   const loadGraduationRequirements = () => {
     // 直接访问 initialData 的属性（已扁平化）
     if (initialData?.requiresVOS && initialData.requiresVOS.length > 0) {
-      return initialData.requiresVOS.map((requireVO: any) => ({
-        id: String(requireVO.id),
-        content: requireVO.description || "",
-        indicators: requireVO.children?.map((child: any) => child.description || "") || [""],
-      }))
+      return initialData.requiresVOS.map((requireVO: any) => {
+        const children = Array.isArray(requireVO?.children) ? requireVO.children : []
+        const indicators = children.length > 0 ? children.map((child: any) => child.description || "") : [""]
+        const indicatorIds =
+          children.length > 0
+            ? children.map((child: any) => {
+                const numeric = Number.parseInt(String(child?.id), 10)
+                return Number.isInteger(numeric) && numeric > 0 ? numeric : 0
+              })
+            : [0]
+
+        return {
+          id: String(requireVO.id),
+          content: requireVO.description || "",
+          indicators,
+          indicatorIds,
+        }
+      })
     } else if (initialData?.graduationRequirements) {
-      return initialData.graduationRequirements
+      return initialData.graduationRequirements.map((item: any, index: number) =>
+        normalizeRequirement(item, `new-${index + 1}`)
+      )
     } else {
-      return [{ id: "1", content: "", indicators: [""] }]
+      return [{ id: "new-1", content: "", indicators: [""], indicatorIds: [0] }]
     }
   }
 
   const [graduationRequirements, setGraduationRequirements] = useState<GraduationRequirement[]>(
     loadGraduationRequirements()
   )
+  const [deletedNodeIds, setDeletedNodeIds] = useState<number[]>([])
   const [indicatorCourseSupports, setIndicatorCourseSupports] = useState<Record<string, IndicatorCourseSupport[]>>({})
   const [courseSelectorOpen, setCourseSelectorOpen] = useState(false)
   const [selectedIndicatorForCourse, setSelectedIndicatorForCourse] = useState<{
@@ -81,8 +125,8 @@ export function useGraduationRequirements(
   }, [indicatorCourseSupports])
 
   const addGraduationRequirement = () => {
-    const newId = Date.now().toString()
-    setGraduationRequirements([...graduationRequirements, { id: newId, content: "", indicators: [""] }])
+    const newId = `new-${Date.now().toString()}`
+    setGraduationRequirements([...graduationRequirements, { id: newId, content: "", indicators: [""], indicatorIds: [0] }])
     setTimeout(() => {
       lastRequirementRef.current?.focus()
     }, 0)
@@ -90,6 +134,24 @@ export function useGraduationRequirements(
 
   const removeGraduationRequirement = (id: string) => {
     if (graduationRequirements.length > 1) {
+      const targetRequirement = graduationRequirements.find((req) => req.id === id)
+      if (targetRequirement) {
+        const idsToDelete: number[] = []
+        const requirementId = Number.parseInt(targetRequirement.id, 10)
+        if (Number.isInteger(requirementId) && requirementId > 0) {
+          idsToDelete.push(requirementId)
+        }
+        targetRequirement.indicatorIds.forEach((indicatorId) => {
+          if (Number.isInteger(indicatorId) && indicatorId > 0) {
+            idsToDelete.push(indicatorId)
+          }
+        })
+
+        if (idsToDelete.length > 0) {
+          setDeletedNodeIds((prev) => Array.from(new Set([...prev, ...idsToDelete])))
+        }
+      }
+
       setGraduationRequirements(graduationRequirements.filter((req) => req.id !== id))
     }
   }
@@ -100,7 +162,15 @@ export function useGraduationRequirements(
 
   const addIndicator = (reqId: string) => {
     setGraduationRequirements(
-      graduationRequirements.map((req) => (req.id === reqId ? { ...req, indicators: [...req.indicators, ""] } : req))
+      graduationRequirements.map((req) =>
+        req.id === reqId
+          ? {
+              ...req,
+              indicators: [...req.indicators, ""],
+              indicatorIds: [...req.indicatorIds, 0],
+            }
+          : req
+      )
     )
     setTimeout(() => {
       lastIndicatorRefs.current[reqId]?.focus()
@@ -108,9 +178,23 @@ export function useGraduationRequirements(
   }
 
   const removeIndicator = (reqId: string, index: number) => {
+    const targetRequirement = graduationRequirements.find((req) => req.id === reqId)
+    if (targetRequirement) {
+      const indicatorId = targetRequirement.indicatorIds[index]
+      if (Number.isInteger(indicatorId) && indicatorId > 0) {
+        setDeletedNodeIds((prev) => Array.from(new Set([...prev, indicatorId])))
+      }
+    }
+
     setGraduationRequirements(
       graduationRequirements.map((req) =>
-        req.id === reqId ? { ...req, indicators: req.indicators.filter((_, i) => i !== index) } : req
+        req.id === reqId
+          ? {
+              ...req,
+              indicators: req.indicators.filter((_, i) => i !== index),
+              indicatorIds: req.indicatorIds.filter((_, i) => i !== index),
+            }
+          : req
       )
     )
   }
@@ -164,13 +248,19 @@ export function useGraduationRequirements(
     }))
   }
 
+  const clearDeletedNodeIds = () => {
+    setDeletedNodeIds([])
+  }
+
   return {
     graduationRequirements,
+    deletedNodeIds,
     indicatorCourseSupports,
     courseSelectorOpen,
     selectedIndicatorForCourse,
     isCourseSelectorOpenRef,
     setGraduationRequirements,
+    clearDeletedNodeIds,
     setIndicatorCourseSupports,
     setCourseSelectorOpen,
     setSelectedIndicatorForCourse,

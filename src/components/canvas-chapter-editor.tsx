@@ -9,6 +9,7 @@ import { useState, useCallback, useMemo } from "react"
 import { Plus, Trash2, Loader2 } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
+import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 import type { ChapterCardData } from "./canvas-elements/types"
 
 interface CanvasChapterEditorProps {
@@ -143,11 +144,14 @@ export function CanvasChapterEditor({
                   <tr key={chapter.id} className="border-t border-border hover:bg-secondary/30">
                     <td className="px-4 py-3 text-sm text-foreground border-r border-border">{index + 1}</td>
                     <td className="px-4 py-3 border-r border-border">
-                      <Input
+                      <ExpandableTextarea
                         placeholder="例如：第一章 数据结构基础"
                         value={chapter.name}
-                        onChange={(e) => updateChapter(chapter.id, "name", e.target.value)}
-                        className="h-9"
+                        onChange={(value) => updateChapter(chapter.id, "name", value)}
+                        className="text-sm"
+                        rows={2}
+                        hideCounter
+                        disabled={isSaving}
                       />
                     </td>
                     <td className="px-4 py-3 border-r border-border">

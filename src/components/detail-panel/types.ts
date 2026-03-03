@@ -5,6 +5,7 @@ export interface DetailPanelProps {
   treeData: TreeNode
   selectedNodePath?: TreeNode[]
   onNodeSelect: (node: TreeNode | null) => void
+  onTreeRefresh?: () => Promise<boolean> | boolean
   onAddDepartment?: (universityId: string, newDepartment: Omit<TreeNode, "id" | "nodeId">) => void
   onAddMajor?: (departmentId: string, newMajor: Omit<TreeNode, "id" | "nodeId">) => void
   onAddCourse?: (majorId: string, newCourse: Omit<TreeNode, "id" | "nodeId">) => void

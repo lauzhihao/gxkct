@@ -27,6 +27,7 @@ export interface UseCourseMatrixDataParams {
   node: TreeNode
   onUpdateNode?: (nodeId: string, updates: Partial<TreeNode>) => void
   majorId?: string | number
+  refreshToken?: number
 }
 
 export interface CourseMatrixContextValue {
@@ -91,6 +92,8 @@ export interface CourseMatrixContextValue {
   handleAddNewCoursePoint: () => void
   handleSaveNewCoursePoint: () => Promise<void>
   handleDeleteSelectedCoursePoints: () => Promise<void>
+  handleUpdateCoursePoint: (coursePointId: number, data: Partial<ApiCoursePoint>) => Promise<void>
+  handleDeleteSingleCoursePoint: (coursePointId: number) => Promise<void>
   courseGoals: CourseGoal[]
   majorIndicators: Array<{ requirementId: string; indicatorIndex: number; content: string }>
   isLoadingMajorIndicators: boolean

@@ -303,7 +303,7 @@ export function Members({ node }: MembersProps) {
       return
     }
 
-    if (newUserRole === "专业管理员") {
+    if (newUserRole === "专业管理员" || newUserRole === "任课教师") {
       const major = organizationOptions.find(
         (item) => item.nodeType === "major" && extractNumericId(item.nodeId) === editingRelativeId
       )
@@ -460,14 +460,15 @@ export function Members({ node }: MembersProps) {
       )
       const isDepartmentAdmin = newUserRole === "系部管理员"
       const isMajorAdmin = newUserRole === "专业管理员"
-      const requiresRelativeNode = isDepartmentAdmin || isMajorAdmin
+      const isCourseTeacher = newUserRole === "任课教师"
+      const requiresRelativeNode = isDepartmentAdmin || isMajorAdmin || isCourseTeacher
 
       if (isDepartmentAdmin && !selectedDepartment) {
         console.error("[Members] department selection is required")
         return
       }
 
-      if (isMajorAdmin && (!selectedDepartment || !selectedMajor)) {
+      if ((isMajorAdmin || isCourseTeacher) && (!selectedDepartment || !selectedMajor)) {
         console.error("[Members] department and major selections are required")
         return
       }
@@ -477,7 +478,7 @@ export function Members({ node }: MembersProps) {
           ? extractNumericId(nodeId)
           : isDepartmentAdmin
             ? extractNumericId(selectedDepartment?.nodeId ?? "")
-            : isMajorAdmin
+            : isMajorAdmin || isCourseTeacher
               ? extractNumericId(selectedMajor?.nodeId ?? "")
               : 0
 
@@ -777,7 +778,8 @@ export function Members({ node }: MembersProps) {
 
   const isDepartmentAdmin = newUserRole === "系部管理员"
   const isMajorAdmin = newUserRole === "专业管理员"
-  const shouldRequireOrganization = nodeType === "university" && (isDepartmentAdmin || isMajorAdmin)
+  const isCourseTeacher = newUserRole === "任课教师"
+  const shouldRequireOrganization = nodeType === "university" && (isDepartmentAdmin || isMajorAdmin || isCourseTeacher)
 
   const departmentOptions = organizationOptions.filter((item) => item.nodeType === "department")
   const filteredDepartmentOptions = departmentOptions.filter((item) => item.nodeName.includes(departmentSearch.trim()))
@@ -799,7 +801,7 @@ export function Members({ node }: MembersProps) {
       : majorOptionsByDepartment.find((item) => item.nodeId === selectedOrganizationNodeId) ?? null
 
   const requiresDepartmentSelection = shouldRequireOrganization
-  const requiresMajorSelection = shouldRequireOrganization && isMajorAdmin
+  const requiresMajorSelection = shouldRequireOrganization && (isMajorAdmin || isCourseTeacher)
   const hasDepartmentResult = !requiresDepartmentSelection || filteredDepartmentOptions.length > 0
   const hasMajorResult = !requiresMajorSelection || filteredMajorOptions.length > 0
   const canSubmit =
@@ -1209,7 +1211,7 @@ export function Members({ node }: MembersProps) {
                   />
                   {accountFieldError && <div className="text-xs text-destructive text-right mt-1">{accountFieldError}</div>}
                 </div>
-                {resetPasswordMemberAction && memberScope && (
+                {editingUserId && resetPasswordMemberAction && memberScope && (
                   <PermissionGate action={resetPasswordMemberAction} context={{ scope: memberScope }}>
                     <Button
                       type="button"
@@ -1340,7 +1342,7 @@ export function Members({ node }: MembersProps) {
               </div>
             )}
 
-            {isMajorAdmin && shouldRequireOrganization && (
+            {(isMajorAdmin || isCourseTeacher) && shouldRequireOrganization && (
               <div className="space-y-2">
                 <Label htmlFor="user-major-search">专业</Label>
                 <Popover open={majorPopoverOpen} onOpenChange={setMajorPopoverOpen}>

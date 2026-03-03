@@ -5,15 +5,19 @@
  * 直接编辑模式，无需点击行内编辑按钮
  */
 
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { Button } from "@/shared/components/ui/button"
-import { Input } from "@/shared/components/ui/input"
+import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 import { Loader2, Plus, Search, Trash2 } from "lucide-react"
 import type { CoursePointCardData } from "./canvas-elements/types"
 
 interface CanvasCoursePointEditorProps {
   /** 课点列表数据 */
   coursePoints: CoursePointCardData[]
+  /** 打开抽屉后需要定位并聚焦的课点ID */
+  focusPointId?: string | null
+  /** 打开抽屉后需要定位并聚焦的课点序号 */
+  focusPointIndex?: number | null
   /** 保存回调 */
   onSave: (coursePoints: CoursePointCardData[]) => void
   /** 关闭回调 */
@@ -28,17 +32,70 @@ interface CanvasCoursePointEditorProps {
  */
 export function CanvasCoursePointEditor({
   coursePoints,
+  focusPointId = null,
+  focusPointIndex = null,
   onSave,
   onClose,
   isSaving = false,
 }: CanvasCoursePointEditorProps) {
+  const createEmptyPoint = useCallback(
+    (): CoursePointCardData => ({ id: "1", index: 1, name: "", description: "" }),
+    []
+  )
+
   // 本地编辑状态
   const [localCoursePoints, setLocalCoursePoints] = useState<CoursePointCardData[]>(
-    coursePoints.length > 0
-      ? coursePoints
-      : [{ id: "1", index: 1, name: "", content: "" }]
+    coursePoints.length > 0 ? coursePoints : [createEmptyPoint()]
   )
   const [searchKeyword, setSearchKeyword] = useState("")
+  const nameInputRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
+
+  const setNameInputRef = useCallback(
+    (pointId: string) => (element: HTMLTextAreaElement | null) => {
+      nameInputRefs.current[pointId] = element
+    },
+    []
+  )
+
+  useEffect(() => {
+    setLocalCoursePoints(coursePoints.length > 0 ? coursePoints : [createEmptyPoint()])
+  }, [coursePoints, createEmptyPoint])
+
+  useEffect(() => {
+    if (!focusPointId && focusPointIndex == null) {
+      return
+    }
+
+    setSearchKeyword("")
+
+    const frameId = requestAnimationFrame(() => {
+      let targetInput: HTMLTextAreaElement | null = null
+
+      if (focusPointId) {
+        targetInput = nameInputRefs.current[focusPointId] || null
+      }
+
+      if (!targetInput && focusPointIndex != null) {
+        const point = localCoursePoints.find(cp => cp.index === focusPointIndex)
+        if (point) {
+          targetInput = nameInputRefs.current[point.id] || null
+        }
+      }
+
+      if (!targetInput) {
+        return
+      }
+
+      targetInput.scrollIntoView({ behavior: "smooth", block: "center" })
+      targetInput.focus()
+      const valueLength = targetInput.value.length
+      targetInput.setSelectionRange(valueLength, valueLength)
+    })
+
+    return () => {
+      cancelAnimationFrame(frameId)
+    }
+  }, [focusPointId, focusPointIndex, localCoursePoints])
 
   // 过滤后的课点列表
   const filteredCoursePoints = useMemo(() => {
@@ -47,7 +104,6 @@ export function CanvasCoursePointEditor({
     return localCoursePoints.filter(
       (cp) =>
         (cp.name || "").toLowerCase().includes(keyword) ||
-        (cp.content || "").toLowerCase().includes(keyword) ||
         (typeof cp.description === 'string' && cp.description.toLowerCase().includes(keyword))
     )
   }, [localCoursePoints, searchKeyword])
@@ -63,7 +119,7 @@ export function CanvasCoursePointEditor({
       id: generateId(),
       index: localCoursePoints.length + 1,
       name: "",
-      content: "",
+      description: "",
     }
     setLocalCoursePoints((prev) => [...prev, newItem])
   }, [generateId, localCoursePoints.length])
@@ -89,11 +145,10 @@ export function CanvasCoursePointEditor({
   const handleSave = useCallback(() => {
     // 过滤空内容，重新计算索引
     const validPoints = localCoursePoints
-      .filter((cp) => (cp.name || cp.content || "").trim())
+      .filter((cp) => (cp.name || "").trim())
       .map((cp, idx) => ({
         ...cp,
         name: (cp.name || "").trim(),
-        content: (cp.content || "").trim(),
         description: typeof cp.description === 'string' ? cp.description.trim() : undefined,
         index: idx + 1,
       }))
@@ -169,21 +224,26 @@ export function CanvasCoursePointEditor({
                         {index + 1}
                       </td>
                       <td className="px-4 py-3 w-[200px]">
-                        <Input
-                          type="text"
-                          value={coursePoint.content}
-                          onChange={(e) => handleUpdateField(coursePoint.id, "content", e.target.value)}
-                          className="h-9"
+                        <ExpandableTextarea
+                          ref={setNameInputRef(coursePoint.id)}
+                          value={coursePoint.name}
+                          onChange={(value) => handleUpdateField(coursePoint.id, "name", value)}
+                          className="text-sm"
                           placeholder="请输入课点名称"
+                          rows={2}
+                          hideCounter
+                          disabled={isSaving}
                         />
                       </td>
                       <td className="px-4 py-3">
-                        <Input
-                          type="text"
+                        <ExpandableTextarea
                           value={typeof coursePoint.description === 'string' ? coursePoint.description : ""}
-                          onChange={(e) => handleUpdateField(coursePoint.id, "description", e.target.value)}
-                          className="h-9"
+                          onChange={(value) => handleUpdateField(coursePoint.id, "description", value)}
+                          className="text-sm"
                           placeholder="请输入课点描述（可选）"
+                          rows={2}
+                          hideCounter
+                          disabled={isSaving}
                         />
                       </td>
                       <td className="px-4 py-3 text-center w-16">

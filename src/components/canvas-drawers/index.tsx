@@ -267,6 +267,8 @@ export const CanvasDrawers = memo(function CanvasDrawers({
           <div className="flex-1 overflow-hidden">
             <CanvasCoursePointEditor
               coursePoints={coursePointDrawer.coursePoints}
+              focusPointId={coursePointDrawer.focusPointId}
+              focusPointIndex={coursePointDrawer.focusPointIndex}
               onSave={onCoursePointsSave}
               onClose={onCoursePointDrawerClose}
               isSaving={isSavingCoursePoints}

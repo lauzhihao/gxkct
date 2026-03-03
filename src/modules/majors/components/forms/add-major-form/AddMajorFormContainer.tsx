@@ -11,6 +11,7 @@ import { useMajorFormState } from "@/modules/majors/hooks/use-major-form-state"
 import { useCareerInfo } from "@/modules/majors/hooks/use-career-info"
 import { useGraduationRequirements } from "@/modules/majors/hooks/use-graduation-requirements"
 import { useToast } from "@/shared/hooks/use-toast"
+import { extractNumericId } from "@/shared/utils/utils"
 import { api } from "@/lib/api"
 import { TreeApi } from "@/lib/api/tree-api"
 import { majorApiService, type CreateMajorRequest } from "@/modules/majors/api"
@@ -65,11 +66,50 @@ export function AddMajorFormContainer({
   isEditMode = false,
 }: AddMajorFormProps) {
   const { toast } = useToast()
-  const worksData = (worksJsonData as WorksData).data || []
+  const worksData = (worksJsonData as WorksData).data ?? []
 
-  // 如果是编辑模式且initialData中有parentId，则使用它；否则使用传入的departmentId
-  const effectiveDepartmentId =
-    isEditMode && initialData?.parentId ? initialData.parentId.replace("dept_", "") : departmentId
+  const toInteger = (value: string): number | null => {
+    const parsed = Number.parseInt(value, 10)
+    if (Number.isNaN(parsed)) {
+      return null
+    }
+    return parsed
+  }
+
+  const toPositiveInteger = (value: string): number | null => {
+    const parsed = toInteger(value)
+    if (parsed === null || parsed <= 0) {
+      return null
+    }
+    return parsed
+  }
+
+  const parsePersistedEntityId = (value: string): number => {
+    if (!/^\d+$/.test(value)) {
+      return 0
+    }
+    const parsed = Number.parseInt(value, 10)
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      return 0
+    }
+    return parsed
+  }
+
+  const normalizeDepartmentId = (value: string | undefined): string => {
+    if (typeof value !== "string") {
+      return ""
+    }
+    const parsed = extractNumericId(value)
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      return ""
+    }
+    return String(parsed)
+  }
+
+  // 编辑模式下优先使用节点 parentId；若不可解析则回退到外层传入 departmentId
+  const normalizedParentDepartmentId = isEditMode ? normalizeDepartmentId(initialData?.parentId) : ""
+  const normalizedPropDepartmentId = normalizeDepartmentId(departmentId)
+  const effectiveDepartmentId = normalizedParentDepartmentId !== "" ? normalizedParentDepartmentId : normalizedPropDepartmentId
 
   // 使用表单状态管理hook
   const formState = useMajorFormState(initialData)
@@ -97,11 +137,11 @@ export function AddMajorFormContainer({
     setPosition,
   } = formState
   const { setCareerInfoList } = careerInfo
-  const { setGraduationRequirements, setIndicatorCourseSupports } = graduationReqs
+  const { setGraduationRequirements, setIndicatorCourseSupports, clearDeletedNodeIds } = graduationReqs
 
   // 编辑模式下加载专业详情
   useEffect(() => {
-    const majorId = initialData?.id || initialData?.nodeId
+    const majorId = initialData?.id ?? initialData?.nodeId
     if (!isEditMode || !majorId || hasLoadedDetailRef.current) return
 
     hasLoadedDetailRef.current = true
@@ -113,7 +153,7 @@ export function AddMajorFormContainer({
 
         // 1. 一次性获取该专业下所有课程的矩阵数据
         const response = await api.matrices.getMajorMatrixAll(cleanMajorId)
-        const groups = response.data || []
+        const groups = response.data ?? []
         if (groups.length === 0) return
 
         // 2. 从 requiresVOS 构建 graduateRequireId -> supportKey 映射
@@ -156,7 +196,7 @@ export function AddMajorFormContainer({
 
           // 更新基础表单状态
           if (detailData.majorClass || detailData.code) {
-            setMajorCode(detailData.majorClass || detailData.code || "")
+            setMajorCode(detailData.majorClass ?? detailData.code ?? "")
           }
           if (detailData.majorLevel) {
             setMajorLevel(detailData.majorLevel)
@@ -177,15 +217,15 @@ export function AddMajorFormContainer({
           // 更新职业信息
           if (detailData.professionsVOS && detailData.professionsVOS.length > 0) {
             const careerInfoList = detailData.professionsVOS.map((professionVO, index: number) => ({
-              id: String(professionVO.id || index + 1),
+              id: String(professionVO.id ?? index + 1),
               level: "中级",
               direction: {
-                category1: professionVO.profession?.[0]?.name || "",
-                category2: professionVO.profession?.[1]?.name || "",
-                category3: professionVO.profession?.[2]?.name || "",
-                category4: professionVO.profession?.[3]?.name || "",
+                category1: professionVO.profession?.[0]?.name ?? "",
+                category2: professionVO.profession?.[1]?.name ?? "",
+                category3: professionVO.profession?.[2]?.name ?? "",
+                category4: professionVO.profession?.[3]?.name ?? "",
               },
-              tasks: professionVO.task || "",
+              tasks: professionVO.task ?? "",
             }))
             setCareerInfoList(careerInfoList)
           }
@@ -194,14 +234,16 @@ export function AddMajorFormContainer({
           if (detailData.requiresVOS && detailData.requiresVOS.length > 0) {
             const graduationRequirements = detailData.requiresVOS.map((requireVO) => ({
               id: String(requireVO.id),
-              content: requireVO.description || "",
-              indicators: requireVO.children?.map((child) => child.description || "") || [""],
+              content: requireVO.description ?? "",
+              indicators: requireVO.children?.map((child) => child.description ?? "") ?? [""],
+              indicatorIds: requireVO.children?.map((child) => child.id) ?? [0],
             }))
             setGraduationRequirements(graduationRequirements)
+            clearDeletedNodeIds()
           }
 
           // 异步加载课程列表和矩阵数据，构建 indicatorCourseSupports
-          loadIndicatorCourseSupportsFromApi(majorId, detailData.requiresVOS || [])
+          loadIndicatorCourseSupportsFromApi(majorId, detailData.requiresVOS ?? [])
         }
       } catch (error) {
         console.error("加载专业详情失败:", error)
@@ -218,6 +260,7 @@ export function AddMajorFormContainer({
     setCareerInfoList,
     setDemandStatus,
     setEducationalFeatures,
+    clearDeletedNodeIds,
     setGraduationRequirements,
     setIndicatorCourseSupports,
     setMajorCode,
@@ -225,23 +268,6 @@ export function AddMajorFormContainer({
     setPosition,
     setSelectedProvince,
   ])
-
-  // 保存 handleSubmit 函数引用，供自动保存使用
-  const handleSubmitRef = useRef<((isAutoSave?: boolean) => Promise<void>) | null>(null)
-
-  // 编辑模式下自动保存（每10秒调用一次保存）
-  useEffect(() => {
-    if (!isEditMode || !initialData?.id) return
-
-    const autoSaveInterval = setInterval(() => {
-      // 调用保存函数（静默模式，不退出编辑）
-      if (handleSubmitRef.current) {
-        handleSubmitRef.current(true)
-      }
-    }, 10000)
-
-    return () => clearInterval(autoSaveInterval)
-  }, [isEditMode, initialData?.id])
 
   // 表单提交逻辑
   // isAutoSave: 是否为自动保存，自动保存时不退出编辑模式
@@ -282,7 +308,7 @@ export function AddMajorFormContainer({
         const cat1 = worksData.find((item: WorkCategory) => item.label === careerInfoItem.direction.category1)
         if (cat1) {
           profession.push({
-            id: parseInt(cat1.value) || index * 1000 + 1,
+            id: toInteger(cat1.value) ?? index * 1000 + 1,
             level: 0,
             code: cat1.value,
             name: cat1.label,
@@ -292,7 +318,7 @@ export function AddMajorFormContainer({
             const cat2 = cat1.children?.find((item: WorkCategory) => item.label === careerInfoItem.direction.category2)
             if (cat2) {
               profession.push({
-                id: parseInt(cat2.value.replace(/-/g, "")) || index * 1000 + 2,
+                id: toInteger(cat2.value.replace(/-/g, "")) ?? index * 1000 + 2,
                 level: 1,
                 code: cat2.value,
                 name: cat2.label,
@@ -302,7 +328,7 @@ export function AddMajorFormContainer({
                 const cat3 = cat2.children?.find((item: WorkCategory) => item.label === careerInfoItem.direction.category3)
                 if (cat3) {
                   profession.push({
-                    id: parseInt(cat3.value.replace(/-/g, "")) || index * 1000 + 3,
+                    id: toInteger(cat3.value.replace(/-/g, "")) ?? index * 1000 + 3,
                     level: 2,
                     code: cat3.value,
                     name: cat3.label,
@@ -312,7 +338,7 @@ export function AddMajorFormContainer({
                     const cat4 = cat3.children?.find((item: WorkCategory) => item.label === careerInfoItem.direction.category4)
                     if (cat4) {
                       profession.push({
-                        id: parseInt(cat4.value.replace(/-/g, "")) || index * 1000 + 4,
+                        id: toInteger(cat4.value.replace(/-/g, "")) ?? index * 1000 + 4,
                         level: 3,
                         code: cat4.value,
                         name: cat4.label,
@@ -327,22 +353,33 @@ export function AddMajorFormContainer({
       }
 
       return {
-        id: parseInt(careerInfoItem.id) || index + 1,
+        id: toInteger(careerInfoItem.id) ?? index + 1,
         profession: profession,
         task: careerInfoItem.tasks,
       }
     })
 
     // 将 graduationRequirements 转换为 requiresVOS 格式
-    const requiresVOS = graduationReqs.graduationRequirements.map((requirement, index) => ({
-      id: parseInt(requirement.id) || index + 1,
-      description: requirement.content,
-      children: requirement.indicators.map((indicator, indIndex) => ({
-        id: parseInt(requirement.id) * 1000 + indIndex + 1,
-        description: indicator,
-        children: [] as CreateMajorRequest["requiresVOS"][number]["children"][number]["children"],
-      })),
+    const requiresVOS = graduationReqs.graduationRequirements.map((requirement) => {
+      const requirementNumericId = parsePersistedEntityId(requirement.id)
+      return {
+        id: requirementNumericId,
+        description: requirement.content,
+        children: requirement.indicators.map((indicator, indIndex) => ({
+          id: requirement.indicatorIds[indIndex] > 0 ? requirement.indicatorIds[indIndex] : 0,
+          description: indicator,
+          children: [] as CreateMajorRequest["requiresVOS"][number]["children"][number]["children"],
+        })),
+      }
+    })
+
+    const deletedRequiresVOS = graduationReqs.deletedNodeIds.map((deletedId) => ({
+      id: -deletedId,
+      description: "",
+      children: [] as CreateMajorRequest["requiresVOS"][number]["children"],
     }))
+
+    const mergedRequiresVOS = [...requiresVOS, ...deletedRequiresVOS]
 
     const majorData = {
       name: formState.majorName,
@@ -356,9 +393,9 @@ export function AddMajorFormContainer({
         selectedProvince: formState.selectedProvince,
         position: formState.position,
         professionsVOS: professionsVOS,
-        requiresVOS: requiresVOS,
+        requiresVOS: mergedRequiresVOS,
       },
-      children: initialData?.children || [],
+      children: initialData?.children ?? [],
     }
 
     // 编辑模式下调用更新专业接口
@@ -366,9 +403,20 @@ export function AddMajorFormContainer({
       try {
         // 构造 API 请求参数
         const majorId = initialData.id.replace("major_", "")
+        const parsedMajorId = toPositiveInteger(majorId)
+        const parsedDepartmentId = toPositiveInteger(effectiveDepartmentId)
+
+        if (parsedMajorId === null) {
+          throw new Error("专业ID无效，无法保存专业信息")
+        }
+
+        if (parsedDepartmentId === null) {
+          throw new Error("院系ID无效，已阻止保存以避免写入 departmentId=0")
+        }
+
         const apiRequestData = {
-          id: parseInt(majorId) || 0,
-          departmentId: parseInt(effectiveDepartmentId) || 0,
+          id: parsedMajorId,
+          departmentId: parsedDepartmentId,
           name: formState.majorName,
           keyword: formState.majorCode,
           majorLevel: formState.majorLevel,
@@ -378,11 +426,11 @@ export function AddMajorFormContainer({
           demandType: formState.demandStatus,
           demandArea: formState.selectedProvince,
           position: formState.position,
-          requiresVOS: requiresVOS,
+          requiresVOS: mergedRequiresVOS,
           upload: false,
           professionsVOS: professionsVOS.map((p) => ({
             id: p.id,
-            majorId: parseInt(majorId) || 0,
+            majorId: parsedMajorId,
             task: p.task,
             lang: 0,
           })),
@@ -391,6 +439,7 @@ export function AddMajorFormContainer({
         const response = await majorApiService.createMajor(apiRequestData)
 
         if (response.status === 200 || response.data) {
+          clearDeletedNodeIds()
           if (isAutoSave) {
             // 自动保存成功：更新状态，不退出编辑模式
             formState.setAutoSaveStatus("saved")
@@ -413,13 +462,14 @@ export function AddMajorFormContainer({
             toast({
               variant: "destructive",
               title: "保存失败",
-              description: response.error || "更新专业信息失败，请重试",
+              description: response.error ?? "更新专业信息失败，请重试",
               duration: 5000,
             })
           }
         }
       } catch (error) {
         console.error("更新专业失败:", error)
+        const errorMessage = error instanceof Error ? error.message : "更新专业信息失败，请重试"
         if (isAutoSave) {
           formState.setAutoSaveStatus("failed")
           setTimeout(() => formState.setAutoSaveStatus(""), 3000)
@@ -427,7 +477,7 @@ export function AddMajorFormContainer({
           toast({
             variant: "destructive",
             title: "保存失败",
-            description: "更新专业信息失败，请重试",
+            description: errorMessage,
             duration: 5000,
           })
         }
@@ -449,9 +499,6 @@ export function AddMajorFormContainer({
     onSubmit(majorData)
     formState.setIsLoading(false)
   }
-
-  // 更新 handleSubmit 引用，供自动保存使用
-  handleSubmitRef.current = handleSubmit
 
   return (
     <AddMajorFormView

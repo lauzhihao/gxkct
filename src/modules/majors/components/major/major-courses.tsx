@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { BookMarked, Plus, Search, FileText, User, X } from "lucide-react"
 import { LoadingState } from "@/shared/components/ui/loading-state"
-import { cn } from "@/shared/utils/utils"
+import { cn, extractNumericId } from "@/shared/utils/utils"
 import { usePermission } from "@/shared/hooks/use-permission"
 import type { PermissionAction } from "@/shared/permissions/types"
 import type { TreeNode } from "@/types"
@@ -29,6 +29,28 @@ interface CourseItem {
   props: any
 }
 
+interface MajorNodeMetadata {
+  source?: string
+  prefetchedCourses?: CourseItem[]
+}
+
+const isCourseLevelPayload = (items: CourseItem[], datatype: unknown) => {
+  if (typeof datatype === "number" && datatype === 3) {
+    return true
+  }
+
+  return items.some((item) => {
+    if (!Array.isArray(item.btnMenus)) {
+      return false
+    }
+
+    return item.btnMenus.some((menu) => {
+      const menuValue = (menu as { value?: unknown }).value
+      return menuValue === "courseedit" || menuValue === "coursedel"
+    })
+  })
+}
+
 interface MajorCoursesProps {
   node: TreeNode
   currentUser: { username: string; role: string } | null
@@ -50,10 +72,39 @@ export function MajorCourses(props: MajorCoursesProps) {
   const [courses, setCourses] = useState<CourseItem[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
+  const setCourseCacheFromItems = useCallback((courseItems: CourseItem[]) => {
+    const cacheItems: CourseCacheItem[] = courseItems.map((course) => ({
+      courseId: course.self?.value || '',
+      courseName: course.self?.label || '',
+      majorName: node.nodeName || node.name || '',
+      instructors: (course.manager || []).map((m: { label: string }) => m.label).filter(Boolean),
+    })).filter((item: CourseCacheItem) => item.courseId)
+
+    if (cacheItems.length > 0) {
+      setCourseCacheBatch(cacheItems)
+    }
+  }, [node.name, node.nodeName])
+
   // 当节点变化时，直接调用接口获取课程列表（不通过 api.tree，避免影响左侧树）
   useEffect(() => {
+    const metadata = (node.metadata as MajorNodeMetadata | undefined)
+    const isVirtualMajorFromSwitchDpt = metadata?.source === 'course-level-switchDpt'
+    const prefetchedCourses = Array.isArray(metadata?.prefetchedCourses) ? metadata.prefetchedCourses : null
+
+    if (isVirtualMajorFromSwitchDpt) {
+      const safeCourses = prefetchedCourses || []
+      setCourses(safeCourses)
+      setCourseCacheFromItems(safeCourses)
+      setIsLoading(false)
+      return
+    }
+
     const fetchCourses = async () => {
-      if (!node?.id) return
+      if (!node?.id) {
+        setCourses([])
+        setIsLoading(false)
+        return
+      }
 
       setIsLoading(true)
       try {
@@ -67,6 +118,31 @@ export function MajorCourses(props: MajorCoursesProps) {
           headers['authToken'] = authToken
         }
 
+        const departmentId = node.parentId ? extractNumericId(node.parentId) : ""
+        if (departmentId) {
+          const switchDptUrl = buildApiUrl(`/api/v4/webpage/home/switchDpt?dptId=${departmentId}&lang=80101`)
+          const switchDptResponse = await fetch(switchDptUrl, {
+            method: 'GET',
+            headers,
+          })
+
+          if (switchDptResponse.ok) {
+            const switchDptResult = await switchDptResponse.json()
+            if (switchDptResult.code === '0' && Array.isArray(switchDptResult.data?.data)) {
+              const switchDptItems = switchDptResult.data.data as CourseItem[]
+              const shouldUseAggregatedCourses = isCourseLevelPayload(switchDptItems, switchDptResult.data?.datatype)
+
+              if (shouldUseAggregatedCourses) {
+                const majorId = String(node.id)
+                const aggregatedCourses = switchDptItems.filter((course) => course.parent?.value === majorId)
+                setCourses(aggregatedCourses)
+                setCourseCacheFromItems(aggregatedCourses)
+                return
+              }
+            }
+          }
+        }
+
         const response = await fetch(url, {
           method: 'GET',
           headers,
@@ -75,17 +151,9 @@ export function MajorCourses(props: MajorCoursesProps) {
         if (response.ok) {
           const result = await response.json()
           if (result.code === '0' && Array.isArray(result.data)) {
-            setCourses(result.data)
-            // 将课程信息写入缓存
-            const cacheItems: CourseCacheItem[] = result.data.map((course: CourseItem) => ({
-              courseId: course.self?.value || '',
-              courseName: course.self?.label || '',
-              majorName: node.nodeName || node.name || '',
-              instructors: (course.manager || []).map((m: { label: string }) => m.label).filter(Boolean),
-            })).filter((item: CourseCacheItem) => item.courseId)
-            if (cacheItems.length > 0) {
-              setCourseCacheBatch(cacheItems)
-            }
+            const fetchedCourses = result.data as CourseItem[]
+            setCourses(fetchedCourses)
+            setCourseCacheFromItems(fetchedCourses)
           } else {
             setCourses([])
           }
@@ -101,7 +169,7 @@ export function MajorCourses(props: MajorCoursesProps) {
     }
 
     fetchCourses()
-  }, [node?.id, node?.name, node?.nodeName, refreshKey])
+  }, [node?.id, node?.metadata, node?.name, node?.nodeName, node?.parentId, refreshKey, setCourseCacheFromItems])
 
   // 获取课程ID
   const getCourseId = (course: any) => course.self?.value || course.id || ''

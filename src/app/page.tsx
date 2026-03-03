@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useMemo } from "react"
+import { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { TreeView } from "@/components/tree-view"
 import { DetailPanel } from "@/components/detail-panel"
@@ -15,6 +15,25 @@ import type { TreeNode } from "@/types"
 
 const CURRENT_SCHOOL_STORAGE_KEY = "education-current-school"
 const TREE_COLLAPSED_STORAGE_KEY = "education-tree-collapsed"
+
+const findNodeInTree = (node: TreeNode, targetId: string): TreeNode | null => {
+  if (node.nodeId === targetId || node.id === targetId) {
+    return node
+  }
+
+  if (!node.children || node.children.length === 0) {
+    return null
+  }
+
+  for (const child of node.children) {
+    const found = findNodeInTree(child, targetId)
+    if (found) {
+      return found
+    }
+  }
+
+  return null
+}
 
 export default function Page() {
   const [isLoading, setIsLoading] = useState(true)
@@ -154,10 +173,6 @@ export default function Page() {
     }
   }, [selectedNode?.nodeId])
 
-  const handleAddSchool = (newSchool: Omit<TreeNode, "id" | "nodeId">) => {
-    treeDataHook?.addSchool(newSchool)
-  }
-
   const handleAddDepartment = (universityId: string, newDepartment: Omit<TreeNode, "id" | "nodeId">) => {
     treeDataHook?.addDepartment(universityId, newDepartment)
   }
@@ -199,6 +214,56 @@ export default function Page() {
     }
   }
 
+  const refreshTreeData = useCallback(async (): Promise<boolean> => {
+    try {
+      const response = await api.tree.getTree()
+      if (!response.data) {
+        console.error("[Page] 刷新树形数据失败:", response.error)
+        return false
+      }
+
+      const latestTree = response.data
+      setInitialData(latestTree)
+      treeDataHook?.resetData(latestTree)
+
+      setSelectedNode((prevSelectedNode) => {
+        if (!prevSelectedNode) {
+          return prevSelectedNode
+        }
+
+        const selectedByNodeId = findNodeInTree(latestTree, prevSelectedNode.nodeId)
+        if (selectedByNodeId) {
+          return selectedByNodeId
+        }
+
+        if (prevSelectedNode.id) {
+          const selectedByNumericId = findNodeInTree(latestTree, prevSelectedNode.id)
+          if (selectedByNumericId) {
+            return selectedByNumericId
+          }
+        }
+
+        if (selectedNodePath.length > 1) {
+          for (let index = selectedNodePath.length - 2; index >= 0; index -= 1) {
+            const fallbackNode = selectedNodePath[index]
+            const matchedFallbackNode = findNodeInTree(latestTree, fallbackNode.nodeId)
+            if (matchedFallbackNode) {
+              return matchedFallbackNode
+            }
+          }
+        }
+
+        const firstNode = getFirstNode(latestTree)
+        return firstNode || null
+      })
+
+      return true
+    } catch (error) {
+      console.error("[Page] 刷新树形数据异常:", error)
+      return false
+    }
+  }, [selectedNodePath, treeDataHook])
+
   if (isLoading || !treeDataHook || !treeDataHook.treeData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[oklch(0.97_0.005_240)] via-[oklch(0.96_0.005_240)] to-[oklch(0.95_0.008_240)]">
@@ -231,7 +296,7 @@ export default function Page() {
               onNodeSelect={setSelectedNode}
               onSelectedNodePathChange={setSelectedNodePath}
               selectedNode={effectiveSelectedNode}
-              onAddSchool={handleAddSchool}
+              onWorkshopCreated={refreshTreeData}
               currentSchoolId={currentSchoolId}
               onSetCurrentSchool={handleSetCurrentSchool}
               onUpdateNode={handleUpdateNode}
@@ -252,6 +317,7 @@ export default function Page() {
               treeData={treeDataHook.treeData}
               selectedNodePath={selectedNodePath}
               onNodeSelect={setSelectedNode}
+              onTreeRefresh={refreshTreeData}
               onAddDepartment={handleAddDepartment}
               onAddMajor={handleAddMajor}
               onAddCourse={handleAddCourse}
