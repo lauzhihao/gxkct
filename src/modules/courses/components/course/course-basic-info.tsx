@@ -1,8 +1,8 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useMemo } from "react"
 import { Calendar, BookOpen, FileText, Clock, Tag } from "lucide-react"
 import { formatDate } from "@/shared/utils/date-utils"
-import { getCourseType, createCourseNameMapper } from "@/shared/utils/data-transform"
+import { getCourseType } from "@/shared/utils/data-transform"
 import { SectionCard, SectionHeader, Divider } from "@/shared/components/design-system"
 
 type ScoreTableRow = Record<string, string | number | null | undefined>
@@ -51,23 +51,7 @@ interface CourseBasicInfoProps {
 }
 
 export function CourseBasicInfo({ name, courseDetail, createTime }: CourseBasicInfoProps) {
-  const [getCourseName, setGetCourseName] = useState<(typeId: number | null | undefined) => string>(() => () => "未设置")
-
-  // 加载课程类型映射
-  useEffect(() => {
-    const loadCourseTypes = async () => {
-      try {
-        const courseTypesModule = await import("@/mock-data/course-types.json")
-        const courseTypesData = courseTypesModule.default.data || []
-        // 使用共享的 createCourseNameMapper 创建映射函数
-        const mapper = createCourseNameMapper(courseTypesData)
-        setGetCourseName(() => mapper)
-      } catch (error) {
-        console.error("加载课程类型失败:", error)
-      }
-    }
-    loadCourseTypes()
-  }, [])
+  const courseTypeName = useMemo(() => getCourseType(courseDetail?.typeId), [courseDetail?.typeId])
 
   return (
     <SectionCard>
@@ -98,7 +82,7 @@ export function CourseBasicInfo({ name, courseDetail, createTime }: CourseBasicI
             <Tag className="w-3 h-3" />
             <span>课程性质</span>
           </div>
-          <div className="text-base font-medium text-foreground">{getCourseName(courseDetail?.typeId)}</div>
+          <div className="text-base font-medium text-foreground">{courseTypeName}</div>
         </div>
 
         {/* 理论学时 */}
