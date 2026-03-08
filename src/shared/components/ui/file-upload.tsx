@@ -31,6 +31,8 @@ export interface FileUploadProps {
   maxFileCount?: number
   // 上传模板文件URL，可选
   templateUrl?: string
+  // 自定义模板下载逻辑，可选
+  onDownloadTemplate?: () => Promise<void>
   // 上传完成回调，返回上传后的文件地址数组
   onUpload: (files: File[]) => Promise<string[]>
   // HTML accept属性，用于文件类型过滤
@@ -51,6 +53,7 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
       maxFileSize = 10 * 1024 * 1024, // 10MB
       maxFileCount = 1,
       templateUrl,
+      onDownloadTemplate,
       onUpload,
       accept,
       buttonClassName,
@@ -58,13 +61,36 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
       containerClassName,
     },
     ref,
-  ) => {
-    const [isDialogOpen, setIsDialogOpen] = React.useState(false)
-    const [uploadFiles, setUploadFiles] = React.useState<UploadFile[]>([])
+    ) => {
+      const [isDialogOpen, setIsDialogOpen] = React.useState(false)
+      const [uploadFiles, setUploadFiles] = React.useState<UploadFile[]>([])
     const [isDragging, setIsDragging] = React.useState(false)
     const [isUploading, setIsUploading] = React.useState(false)
-    const [uploadProgress, setUploadProgress] = React.useState(0)
-    const fileInputRef = React.useRef<HTMLInputElement>(null)
+    const [isDownloadingTemplate, setIsDownloadingTemplate] = React.useState(false)
+      const [uploadProgress, setUploadProgress] = React.useState(0)
+      const fileInputRef = React.useRef<HTMLInputElement>(null)
+
+      const resetUploadState = React.useCallback(() => {
+        setUploadFiles([])
+        setIsDragging(false)
+        setIsUploading(false)
+        setIsDownloadingTemplate(false)
+        setUploadProgress(0)
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''
+        }
+      }, [])
+
+      const handleDialogOpenChange = React.useCallback((open: boolean) => {
+        if (open) {
+          resetUploadState()
+          setIsDialogOpen(true)
+          return
+        }
+
+        resetUploadState()
+        setIsDialogOpen(false)
+      }, [resetUploadState])
 
     // 验证文件
     const validateFiles = (files: File[]): FileValidationError[] => {
@@ -218,12 +244,32 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
       }
     }
 
+    const handleDownloadTemplate = async () => {
+      if (!onDownloadTemplate) {
+        return
+      }
+
+      setIsDownloadingTemplate(true)
+      try {
+        await onDownloadTemplate()
+      } catch (error) {
+        toast({
+          variant: 'destructive',
+          title: '模板下载失败',
+          description: error instanceof Error ? error.message : '下载模板时出错',
+          duration: 5000,
+        })
+      } finally {
+        setIsDownloadingTemplate(false)
+      }
+    }
+
     return (
       <div ref={ref} className={cn("w-full", containerClassName)}>
         <Button
           size="sm"
           variant="outline"
-          onClick={() => setIsDialogOpen(true)}
+          onClick={() => handleDialogOpenChange(true)}
           disabled={disabled}
           className={cn('gap-2 bg-transparent', buttonClassName)}
         >
@@ -231,7 +277,7 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
           {buttonText}
         </Button>
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
               <DialogTitle>文件上传</DialogTitle>
@@ -242,16 +288,29 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
 
             <div className="space-y-4">
               {/* 模板下载链接 */}
-              {templateUrl && (
+              {(templateUrl || onDownloadTemplate) && (
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
                   <Download className="w-4 h-4 text-primary" />
-                  <a
-                    href={templateUrl}
-                    download
-                    className="text-sm text-primary hover:text-primary/80 underline"
-                  >
-                    点击此处获取文件模板
-                  </a>
+                  {templateUrl ? (
+                    <a
+                      href={templateUrl}
+                      download
+                      className="text-sm text-primary hover:text-primary/80 underline"
+                    >
+                      点击此处获取文件模板
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void handleDownloadTemplate()
+                      }}
+                      disabled={isDownloadingTemplate}
+                      className="text-sm text-primary hover:text-primary/80 underline disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isDownloadingTemplate ? '正在下载模板...' : '点击此处获取文件模板'}
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -359,7 +418,7 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
             <DialogFooter>
               <Button
                 variant="outline"
-                onClick={() => setIsDialogOpen(false)}
+                onClick={() => handleDialogOpenChange(false)}
                 disabled={isUploading}
               >
                 取消

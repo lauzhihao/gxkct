@@ -87,10 +87,13 @@ export interface CourseMatrixContextValue {
   newCoursePoint: Partial<ApiCoursePoint> | null
   setNewCoursePoint: Setter<Partial<ApiCoursePoint> | null>
   isSavingNewCoursePoint: boolean
+  isImportingCoursePoints: boolean
   isSavingEditingCoursePoint: boolean
   setIsSavingEditingCoursePoint: Setter<boolean>
   handleAddNewCoursePoint: () => void
   handleSaveNewCoursePoint: () => Promise<void>
+  handleDownloadCoursePointTemplate: () => Promise<void>
+  handleImportCoursePoints: (files: File[]) => Promise<string[]>
   handleDeleteSelectedCoursePoints: () => Promise<void>
   handleUpdateCoursePoint: (coursePointId: number, data: Partial<ApiCoursePoint>) => Promise<void>
   handleDeleteSingleCoursePoint: (coursePointId: number) => Promise<void>

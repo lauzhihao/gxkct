@@ -12,7 +12,6 @@ import {
   buildMatrixDisplayKey,
   buildSelectionDialogKey,
   createCoursePointMap,
-  sortCoursePointsByTitle,
 } from "@/modules/courses/utils/course-matrix-utils"
 import type {
   CourseMatrixPointItem,
@@ -57,6 +56,36 @@ const dedupeCourseMatrixPoints = (points: CourseMatrixPointItem[]): CourseMatrix
   return Array.from(pointMap.values())
 }
 
+const parsePositiveNumericId = (value: string | number | undefined): number | null => {
+  if (typeof value === "number") {
+    if (!Number.isInteger(value) || value <= 0) {
+      return null
+    }
+    return value
+  }
+
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const trimmedValue = value.trim()
+  if (trimmedValue === "") {
+    return null
+  }
+
+  const matchedDigits = trimmedValue.match(/\d+/)
+  if (!matchedDigits || matchedDigits[0] === undefined) {
+    return null
+  }
+
+  const parsedValue = Number.parseInt(matchedDigits[0], 10)
+  if (!Number.isInteger(parsedValue) || parsedValue <= 0) {
+    return null
+  }
+
+  return parsedValue
+}
+
 export const CourseMatrixProvider = ({ value, children }: CourseMatrixProviderProps) => (
   <CourseMatrixContext.Provider value={value}>{children}</CourseMatrixContext.Provider>
 )
@@ -94,6 +123,7 @@ export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMa
   const [deletingCoursePointId, setDeletingCoursePointId] = useState<number | null>(null)
   const [newCoursePoint, setNewCoursePoint] = useState<Partial<ApiCoursePoint> | null>(null)
   const [isSavingNewCoursePoint, setIsSavingNewCoursePoint] = useState(false)
+  const [isImportingCoursePoints, setIsImportingCoursePoints] = useState(false)
   const [isSavingEditingCoursePoint, setIsSavingEditingCoursePoint] = useState(false)
   const [isAutoSavePaused, setIsAutoSavePaused] = useState(false)
   const [majorIndicators, setMajorIndicators] = useState<Array<{ requirementId: string; indicatorIndex: number; content: string }>>([])
@@ -107,6 +137,34 @@ export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMa
   const prevRefreshTokenRef = useRef<number | undefined>(undefined)
   const hasLoadedCourseMatrixRef = useRef(false)
   const prevCourseIdRef = useRef<string | null>(null)
+
+  const downloadBlobFile = useCallback((blob: Blob, filename: string) => {
+    const objectUrl = window.URL.createObjectURL(blob)
+    const anchor = document.createElement("a")
+    anchor.style.display = "none"
+    anchor.href = objectUrl
+    anchor.download = filename
+    document.body.appendChild(anchor)
+    anchor.click()
+    document.body.removeChild(anchor)
+    window.URL.revokeObjectURL(objectUrl)
+  }, [])
+
+  const resolveCurrentLangCode = useCallback((): string => {
+    if (typeof window === "undefined") {
+      return "80101"
+    }
+
+    const storedLang = window.sessionStorage.getItem("lang")
+    if (typeof storedLang !== "string") {
+      return "80101"
+    }
+    if (storedLang.trim() === "") {
+      return "80101"
+    }
+
+    return storedLang
+  }, [])
 
   useEffect(() => {
     if (node?.type === "course" && node?.id) {
@@ -148,9 +206,14 @@ export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMa
             parentMajorId
               ? courseGoalsApi.getCourseGoals(String(courseId), String(parentMajorId))
               : Promise.resolve({ data: null, error: null, status: 200 }),
-            majorId
-              ? coursePointsApi.getCoursePoints(String(majorId), String(courseId))
-              : Promise.resolve({ data: null, error: null, status: 200 }),
+            (() => {
+              const numericMajorId = parsePositiveNumericId(majorId)
+              const numericCourseId = parsePositiveNumericId(courseId)
+              if (numericMajorId === null || numericCourseId === null) {
+                return Promise.resolve({ data: null, error: null, status: 200 })
+              }
+              return coursePointsApi.getCoursePoints(numericMajorId, numericCourseId)
+            })(),
             majorId
               ? courseMatrixApi.getCourseIndicatorSupports(String(courseId), String(majorId))
               : Promise.resolve({ data: [], error: null, status: 200 }),
@@ -521,16 +584,16 @@ export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMa
       return
     }
 
-    const majorIdStr = majorId ? String(majorId) : ""
-    const courseIdStr = node?.id ? String(node.id) : ""
-    if (!majorIdStr || !courseIdStr) {
+    const numericMajorId = parsePositiveNumericId(majorId)
+    const numericCourseId = parsePositiveNumericId(node?.id)
+    if (numericMajorId === null || numericCourseId === null) {
       showError("缺少专业或课程信息，无法创建课点")
       return
     }
 
     setIsSavingNewCoursePoint(true)
     try {
-      const response = await coursePointsApi.saveCoursePoints(majorIdStr, courseIdStr, [
+      const response = await coursePointsApi.saveCoursePoints(numericMajorId, numericCourseId, [
         { id: 0, title: editingCoursePointData.title, description: editingCoursePointData.description || "" },
       ])
 
@@ -540,7 +603,7 @@ export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMa
       }
 
       // 创建成功后重新拉取课点列表，获取后端分配的真实 ID
-      const listResponse = await coursePointsApi.getCoursePoints(majorIdStr, courseIdStr)
+      const listResponse = await coursePointsApi.getCoursePoints(numericMajorId, numericCourseId)
       if (listResponse.data) {
         setCoursePointsList(listResponse.data)
       }
@@ -561,6 +624,76 @@ export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMa
       setIsSavingNewCoursePoint(false)
     }
   }, [editingCoursePointData, majorId, newCoursePoint?.id, node?.id])
+
+  const handleDownloadCoursePointTemplate = useCallback(async () => {
+    const response = await coursePointsApi.downloadPointTemplate(resolveCurrentLangCode())
+    if (response.error || !response.data) {
+      const errorMessage = response.error !== null ? response.error : "下载课点模板失败"
+      throw new Error(errorMessage)
+    }
+
+    downloadBlobFile(response.data.blob, response.data.filename)
+  }, [downloadBlobFile, resolveCurrentLangCode])
+
+  const handleImportCoursePoints = useCallback(
+    async (files: File[]) => {
+      const file = files[0]
+      if (!file) {
+        throw new Error("未选择课点导入文件")
+      }
+
+      const numericMajorId = parsePositiveNumericId(majorId)
+      const numericCourseId = parsePositiveNumericId(node?.id)
+
+      if (numericMajorId === null || numericCourseId === null) {
+        throw new Error("缺少专业或课程信息，无法导入课点")
+      }
+
+      setIsImportingCoursePoints(true)
+      try {
+        const resolveResponse = await coursePointsApi.resolveCoursePoints(numericMajorId, numericCourseId, file)
+        if (resolveResponse.error || !resolveResponse.data) {
+          const errorMessage = resolveResponse.error !== null ? resolveResponse.error : "课点导入解析失败"
+          throw new Error(errorMessage)
+        }
+
+        if (resolveResponse.data.length === 0) {
+          throw new Error("导入结果为空，未解析到课点数据")
+        }
+
+        const saveResponse = await coursePointsApi.saveCoursePoints(
+          numericMajorId,
+          numericCourseId,
+          resolveResponse.data,
+          true
+        )
+        if (saveResponse.error) {
+          throw new Error(saveResponse.error)
+        }
+
+        const listResponse = await coursePointsApi.getCoursePoints(numericMajorId, numericCourseId)
+        if (!listResponse.data) {
+          const errorMessage = listResponse.error !== null ? listResponse.error : "课点列表刷新失败"
+          throw new Error(errorMessage)
+        }
+
+        setCoursePointsList(listResponse.data)
+        setSelectedCoursePointIds(new Set())
+        setEditingCoursePointId(null)
+        setEditingCoursePointData({})
+        setNewCoursePoint(null)
+        showSuccess("课点导入成功")
+
+        return [file.name]
+      } catch (error) {
+        console.error("[CoursePoints] 导入课点异常:", error)
+        throw error
+      } finally {
+        setIsImportingCoursePoints(false)
+      }
+    },
+    [majorId, node?.id]
+  )
 
   const handleAddProject = useCallback(() => {
     if (projectTeachGoalData) {
@@ -641,13 +774,19 @@ export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMa
     (open: boolean) => {
       if (
         !open &&
-        (isDeletingCoursePoints || deletingCoursePointId !== null || isSavingNewCoursePoint || isSavingEditingCoursePoint)
+        (
+          isDeletingCoursePoints ||
+          deletingCoursePointId !== null ||
+          isSavingNewCoursePoint ||
+          isImportingCoursePoints ||
+          isSavingEditingCoursePoint
+        )
       ) {
         return
       }
       setIsShowCoursePointsDialog(open)
     },
-    [deletingCoursePointId, isDeletingCoursePoints, isSavingEditingCoursePoint, isSavingNewCoursePoint]
+    [deletingCoursePointId, isDeletingCoursePoints, isImportingCoursePoints, isSavingEditingCoursePoint, isSavingNewCoursePoint]
   )
 
   const handleOpenCoursePointsDialog = useCallback(() => {
@@ -664,9 +803,9 @@ export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMa
   const handleDeleteSelectedCoursePoints = useCallback(async () => {
     if (selectedCoursePointIds.size === 0) return
 
-    const majorIdStr = majorId ? String(majorId) : ""
-    const courseIdStr = node?.id ? String(node.id) : ""
-    if (!majorIdStr || !courseIdStr) {
+    const numericMajorId = parsePositiveNumericId(majorId)
+    const numericCourseId = parsePositiveNumericId(node?.id)
+    if (numericMajorId === null || numericCourseId === null) {
       showError("缺少专业或课程信息，无法删除课点")
       return
     }
@@ -680,7 +819,7 @@ export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMa
         description: "",
       }))
 
-      const response = await coursePointsApi.saveCoursePoints(majorIdStr, courseIdStr, deletePoints)
+      const response = await coursePointsApi.saveCoursePoints(numericMajorId, numericCourseId, deletePoints)
       if (response.error) {
         showError(response.error)
         return
@@ -700,16 +839,16 @@ export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMa
   // [MOD] 更新单个课点，供 dialog 调用
   const handleUpdateCoursePoint = useCallback(
     async (coursePointId: number, data: Partial<ApiCoursePoint>) => {
-      const majorIdStr = majorId ? String(majorId) : ""
-      const courseIdStr = node?.id ? String(node.id) : ""
-      if (!majorIdStr || !courseIdStr) {
+      const numericMajorId = parsePositiveNumericId(majorId)
+      const numericCourseId = parsePositiveNumericId(node?.id)
+      if (numericMajorId === null || numericCourseId === null) {
         showError("缺少专业或课程信息，无法更新课点")
         return
       }
 
       setIsSavingEditingCoursePoint(true)
       try {
-        const response = await coursePointsApi.updateCoursePoint(majorIdStr, courseIdStr, coursePointId, data)
+        const response = await coursePointsApi.updateCoursePoint(numericMajorId, numericCourseId, coursePointId, data)
         if (response.error) {
           showError(response.error)
           return
@@ -739,16 +878,16 @@ export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMa
   // [MOD] 删除单个课点，供 dialog 调用
   const handleDeleteSingleCoursePoint = useCallback(
     async (coursePointId: number) => {
-      const majorIdStr = majorId ? String(majorId) : ""
-      const courseIdStr = node?.id ? String(node.id) : ""
-      if (!majorIdStr || !courseIdStr) {
+      const numericMajorId = parsePositiveNumericId(majorId)
+      const numericCourseId = parsePositiveNumericId(node?.id)
+      if (numericMajorId === null || numericCourseId === null) {
         showError("缺少专业或课程信息，无法删除课点")
         return
       }
 
       setDeletingCoursePointId(coursePointId)
       try {
-        const response = await coursePointsApi.deleteCoursePoint(majorIdStr, courseIdStr, coursePointId)
+        const response = await coursePointsApi.deleteCoursePoint(numericMajorId, numericCourseId, coursePointId)
         if (response.error) {
           showError(response.error)
           return
@@ -831,10 +970,13 @@ export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMa
     newCoursePoint,
     setNewCoursePoint,
     isSavingNewCoursePoint,
+    isImportingCoursePoints,
     isSavingEditingCoursePoint,
     setIsSavingEditingCoursePoint,
     handleAddNewCoursePoint,
     handleSaveNewCoursePoint,
+    handleDownloadCoursePointTemplate,
+    handleImportCoursePoints,
     handleDeleteSelectedCoursePoints,
     handleUpdateCoursePoint,
     handleDeleteSingleCoursePoint,

@@ -1,5 +1,50 @@
+import { buildApiUrl } from "./config"
+import { getStoredAuthToken } from "./auth-config"
 import { StorageAdapter } from "./storage-adapter"
-import type { ApiResponse } from "./types"
+import type { ApiResponse, BackendResponse } from "./types"
+
+export interface DownloadTemplateData {
+  blob: Blob
+  filename: string
+  mimeType: string
+}
+
+export interface ResolvedCoursePoint {
+  id: number
+  title: string
+  description: string
+}
+
+function buildAuthHeaders(): Headers {
+  const headers = new Headers()
+  const authToken = getStoredAuthToken()
+  if (authToken && authToken.trim() !== "") {
+    headers.set("authToken", authToken)
+  }
+  return headers
+}
+
+function parseContentDispositionFilename(contentDisposition: string | null, fallbackFilename: string): string {
+  if (!contentDisposition) {
+    return fallbackFilename
+  }
+
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
+  if (utf8Match && utf8Match[1]) {
+    return decodeURIComponent(utf8Match[1])
+  }
+
+  const normalMatch = contentDisposition.match(/filename="?([^";]+)"?/i)
+  if (normalMatch && normalMatch[1]) {
+    return normalMatch[1]
+  }
+
+  return fallbackFilename
+}
+
+function isSuccessCode(code: string | number | undefined): boolean {
+  return code === "0" || code === 0
+}
 
 export interface CoursePoint {
   id: number
@@ -26,7 +71,7 @@ export class CoursePointsApi {
    * @param majorId 专业ID
    * @param courseId 课程ID
    */
-  async getCoursePoints(majorId: string, courseId: string): Promise<ApiResponse<CoursePoint[] | null>> {
+  async getCoursePoints(majorId: number, courseId: number): Promise<ApiResponse<CoursePoint[] | null>> {
     try {
       console.log(`[CoursePointsApi] 获取课点列表，majorId: ${majorId}, courseId: ${courseId}`)
 
@@ -67,9 +112,10 @@ export class CoursePointsApi {
    * @param points 课点列表
    */
   async saveCoursePoints(
-    majorId: string,
-    courseId: string,
-    points: Array<{ id: number; title: string; description: string }>
+    majorId: number,
+    courseId: number,
+    points: Array<{ id: number; title: string; description: string }>,
+    upload = false
   ): Promise<ApiResponse<any>> {
     try {
       console.log(`[CoursePointsApi] 批量保存课点，majorId: ${majorId}, courseId: ${courseId}, 数量: ${points.length}`)
@@ -80,7 +126,7 @@ export class CoursePointsApi {
           majorId,
           courseId,
           points,
-          upload: false,
+          upload,
         }
       )
 
@@ -160,8 +206,8 @@ export class CoursePointsApi {
    * @param data 更新数据
    */
   async updateCoursePoint(
-    majorId: string,
-    courseId: string,
+    majorId: number,
+    courseId: number,
     coursePointId: number,
     data: Partial<CoursePoint>
   ): Promise<ApiResponse<CoursePoint | null>> {
@@ -196,8 +242,8 @@ export class CoursePointsApi {
    * @param coursePointId 课点ID（正数，内部会取反）
    */
   async deleteCoursePoint(
-    majorId: string,
-    courseId: string,
+    majorId: number,
+    courseId: number,
     coursePointId: number
   ): Promise<ApiResponse<void>> {
     try {
@@ -224,5 +270,112 @@ export class CoursePointsApi {
       }
     }
   }
-}
 
+  async downloadPointTemplate(lang: string | number): Promise<ApiResponse<DownloadTemplateData | null>> {
+    try {
+      const url = buildApiUrl(`/api/major/v2.0/download/point?lang=${encodeURIComponent(String(lang))}`)
+      const response = await fetch(url, {
+        method: "POST",
+        headers: buildAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        return {
+          data: null,
+          error: `HTTP ${response.status}: ${response.statusText}`,
+          status: response.status,
+        }
+      }
+
+      const contentType = response.headers.get("content-type")
+      const blob = await response.blob()
+      const filename = parseContentDispositionFilename(
+        response.headers.get("content-disposition"),
+        "课点信息点模板.xlsx"
+      )
+
+      return {
+        data: {
+          blob,
+          filename,
+          mimeType:
+            contentType && contentType.trim() !== ""
+              ? contentType
+              : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        },
+        error: null,
+        status: response.status,
+      }
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "下载课点模板失败",
+        status: 500,
+      }
+    }
+  }
+
+  async resolveCoursePoints(
+    majorId: number,
+    courseId: number,
+    file: File
+  ): Promise<ApiResponse<ResolvedCoursePoint[] | null>> {
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const response = await fetch(
+        buildApiUrl(`/api/major/v2.0/resolvepoint?majorid=${encodeURIComponent(majorId)}&courseid=${encodeURIComponent(courseId)}`),
+        {
+          method: "POST",
+          headers: buildAuthHeaders(),
+          body: formData,
+        }
+      )
+
+      if (!response.ok) {
+        return {
+          data: null,
+          error: `HTTP ${response.status}: ${response.statusText}`,
+          status: response.status,
+        }
+      }
+
+      const backend = (await response.json()) as BackendResponse<ResolvedCoursePoint[] | { points?: ResolvedCoursePoint[] }>
+      if (!isSuccessCode(backend.code)) {
+        return {
+          data: null,
+          error: backend.message,
+          status: response.status,
+        }
+      }
+
+      const resolvedData = backend.data
+      const normalizedPoints = Array.isArray(resolvedData)
+        ? resolvedData
+        : Array.isArray(resolvedData?.points)
+          ? resolvedData.points
+          : null
+
+      if (normalizedPoints === null) {
+        return {
+          data: null,
+          error: "课点导入结果格式错误",
+          status: response.status,
+        }
+      }
+
+      return {
+        data: normalizedPoints,
+        error: null,
+        status: response.status,
+      }
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "导入课点模板失败",
+        status: 500,
+      }
+    }
+  }
+}

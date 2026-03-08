@@ -1231,7 +1231,7 @@ export function CanvasSaveWizard({
   }, [courseInfo])
 
   // 保存课点数据
-  const saveCoursePoints = useCallback(async (courseId: number, majorId: string): Promise<void> => {
+  const saveCoursePoints = useCallback(async (courseId: number, majorId: number): Promise<void> => {
     if (coursePoints.length === 0) return
 
     const points = coursePoints.map(point => ({
@@ -1243,7 +1243,7 @@ export function CanvasSaveWizard({
     }))
 
     try {
-      await api.coursePoints.saveCoursePoints(majorId, String(courseId), points)
+      await api.coursePoints.saveCoursePoints(majorId, courseId, points)
       console.log("[CanvasSaveWizard] 课点保存成功, 数量:", points.length)
     } catch (pointError) {
       console.error("[CanvasSaveWizard] 课点保存失败:", pointError)
@@ -1438,7 +1438,7 @@ export function CanvasSaveWizard({
       // 3-6. 并行保存其他数据（失败不阻断主流程）
       await Promise.allSettled([
         saveObjectiveIndicatorMapping(courseId),
-        saveCoursePoints(courseId, majorId),
+        saveCoursePoints(courseId, majorIdNum),
         saveCourseMatrix(courseId),
         saveProjectMatrix(courseId),
       ])
