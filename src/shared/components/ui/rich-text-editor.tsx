@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useRef, useState } from "react"
 import { EditorContent, useEditor } from "@tiptap/react"
+import { BubbleMenu } from "@tiptap/react/menus"
 import StarterKit from "@tiptap/starter-kit"
 import { Table } from "@tiptap/extension-table"
 import TableCell from "@tiptap/extension-table-cell"
@@ -9,15 +10,15 @@ import TableHeader from "@tiptap/extension-table-header"
 import TableRow from "@tiptap/extension-table-row"
 import {
   Bold,
-  Columns3,
   Italic,
   List,
   ListOrdered,
   Maximize2,
   Merge,
+  Minus,
+  Plus,
   Quote,
   Redo2,
-  Rows3,
   Save,
   Split,
   SquarePen,
@@ -54,6 +55,16 @@ interface ToolbarGroup {
   buttons: ToolbarButton[]
 }
 
+interface TableActionState {
+  canAddRow: boolean
+  canDeleteRow: boolean
+  canAddColumn: boolean
+  canDeleteColumn: boolean
+  canMergeCells: boolean
+  canSplitCell: boolean
+  canDeleteTable: boolean
+}
+
 const editorExtensions = [
   StarterKit.configure({
     code: false,
@@ -68,10 +79,50 @@ const editorExtensions = [
   TableCell,
 ]
 
+function getTableActionState(editor: NonNullable<ReturnType<typeof useEditor>>): TableActionState {
+  return {
+    canAddRow: editor.can().addRowAfter(),
+    canDeleteRow: editor.can().deleteRow(),
+    canAddColumn: editor.can().addColumnAfter(),
+    canDeleteColumn: editor.can().deleteColumn(),
+    canMergeCells: editor.can().mergeCells(),
+    canSplitCell: editor.can().splitCell(),
+    canDeleteTable: editor.can().deleteTable(),
+  }
+}
+
+function isSameTableActionState(current: TableActionState, next: TableActionState): boolean {
+  return current.canAddRow === next.canAddRow
+    && current.canDeleteRow === next.canDeleteRow
+    && current.canAddColumn === next.canAddColumn
+    && current.canDeleteColumn === next.canDeleteColumn
+    && current.canMergeCells === next.canMergeCells
+    && current.canSplitCell === next.canSplitCell
+    && current.canDeleteTable === next.canDeleteTable
+}
+
 export function RichTextEditor({ value, onChange, placeholder, className, disabled = false }: RichTextEditorProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [dialogDraft, setDialogDraft] = useState(value)
+  const [inlineTableActionState, setInlineTableActionState] = useState<TableActionState>({
+    canAddRow: false,
+    canDeleteRow: false,
+    canAddColumn: false,
+    canDeleteColumn: false,
+    canMergeCells: false,
+    canSplitCell: false,
+    canDeleteTable: false,
+  })
+  const [dialogTableActionState, setDialogTableActionState] = useState<TableActionState>({
+    canAddRow: false,
+    canDeleteRow: false,
+    canAddColumn: false,
+    canDeleteColumn: false,
+    canMergeCells: false,
+    canSplitCell: false,
+    canDeleteTable: false,
+  })
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const editor = useEditor({
     immediatelyRender: false,
@@ -153,6 +204,66 @@ export function RichTextEditor({ value, onChange, placeholder, className, disabl
 
     dialogEditor.setEditable(!disabled)
   }, [dialogEditor, disabled])
+
+  useEffect(() => {
+    if (!editor) {
+      return
+    }
+
+    const syncTableActionState = () => {
+      const nextState = getTableActionState(editor)
+      setInlineTableActionState((currentState) => {
+        if (isSameTableActionState(currentState, nextState)) {
+          return currentState
+        }
+
+        return nextState
+      })
+    }
+
+    syncTableActionState()
+    editor.on("selectionUpdate", syncTableActionState)
+    editor.on("transaction", syncTableActionState)
+    editor.on("focus", syncTableActionState)
+    editor.on("blur", syncTableActionState)
+
+    return () => {
+      editor.off("selectionUpdate", syncTableActionState)
+      editor.off("transaction", syncTableActionState)
+      editor.off("focus", syncTableActionState)
+      editor.off("blur", syncTableActionState)
+    }
+  }, [editor])
+
+  useEffect(() => {
+    if (!dialogEditor) {
+      return
+    }
+
+    const syncDialogTableActionState = () => {
+      const nextState = getTableActionState(dialogEditor)
+      setDialogTableActionState((currentState) => {
+        if (isSameTableActionState(currentState, nextState)) {
+          return currentState
+        }
+
+        return nextState
+      })
+    }
+
+    syncDialogTableActionState()
+    dialogEditor.on("selectionUpdate", syncDialogTableActionState)
+    dialogEditor.on("transaction", syncDialogTableActionState)
+    dialogEditor.on("focus", syncDialogTableActionState)
+    dialogEditor.on("blur", syncDialogTableActionState)
+
+    return () => {
+      dialogEditor.off("selectionUpdate", syncDialogTableActionState)
+      dialogEditor.off("transaction", syncDialogTableActionState)
+      dialogEditor.off("focus", syncDialogTableActionState)
+      dialogEditor.off("blur", syncDialogTableActionState)
+    }
+  }, [dialogEditor])
 
   useEffect(() => {
     return () => {
@@ -330,82 +441,53 @@ export function RichTextEditor({ value, onChange, placeholder, className, disabl
           onClick: () => dialogEditor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
         },
         {
-          key: "deleteTable",
-          label: "删除表格",
-          icon: Trash2,
-          onClick: () => dialogEditor.chain().focus().deleteTable().run(),
-          disabled: () => !dialogEditor.can().deleteTable(),
-        },
-      ],
-    },
-    {
-      key: "table-rows",
-      buttons: [
-        {
-          key: "addRowBefore",
-          label: "上方插入行",
-          icon: Rows3,
-          onClick: () => dialogEditor.chain().focus().addRowBefore().run(),
-          disabled: () => !dialogEditor.can().addRowBefore(),
-        },
-        {
           key: "addRowAfter",
-          label: "下方插入行",
-          icon: Rows3,
+          label: "新行",
+          icon: Plus,
           onClick: () => dialogEditor.chain().focus().addRowAfter().run(),
-          disabled: () => !dialogEditor.can().addRowAfter(),
+          disabled: () => !dialogTableActionState.canAddRow,
         },
         {
           key: "deleteRow",
-          label: "删除当前行",
-          icon: Trash2,
+          label: "本行",
+          icon: Minus,
           onClick: () => dialogEditor.chain().focus().deleteRow().run(),
-          disabled: () => !dialogEditor.can().deleteRow(),
-        },
-      ],
-    },
-    {
-      key: "table-columns",
-      buttons: [
-        {
-          key: "addColumnBefore",
-          label: "左侧插入列",
-          icon: Columns3,
-          onClick: () => dialogEditor.chain().focus().addColumnBefore().run(),
-          disabled: () => !dialogEditor.can().addColumnBefore(),
+          disabled: () => !dialogTableActionState.canDeleteRow,
         },
         {
           key: "addColumnAfter",
-          label: "右侧插入列",
-          icon: Columns3,
+          label: "新列",
+          icon: Plus,
           onClick: () => dialogEditor.chain().focus().addColumnAfter().run(),
-          disabled: () => !dialogEditor.can().addColumnAfter(),
+          disabled: () => !dialogTableActionState.canAddColumn,
         },
         {
           key: "deleteColumn",
-          label: "删除当前列",
-          icon: Trash2,
+          label: "本列",
+          icon: Minus,
           onClick: () => dialogEditor.chain().focus().deleteColumn().run(),
-          disabled: () => !dialogEditor.can().deleteColumn(),
+          disabled: () => !dialogTableActionState.canDeleteColumn,
         },
-      ],
-    },
-    {
-      key: "table-cells",
-      buttons: [
         {
           key: "mergeCells",
-          label: "合并单元格",
+          label: "合并",
           icon: Merge,
           onClick: () => dialogEditor.chain().focus().mergeCells().run(),
-          disabled: () => !dialogEditor.can().mergeCells(),
+          disabled: () => !dialogTableActionState.canMergeCells,
         },
         {
           key: "splitCell",
-          label: "拆分单元格",
+          label: "拆分",
           icon: Split,
           onClick: () => dialogEditor.chain().focus().splitCell().run(),
-          disabled: () => !dialogEditor.can().splitCell(),
+          disabled: () => !dialogTableActionState.canSplitCell,
+        },
+        {
+          key: "deleteTable",
+          label: "删表",
+          icon: Trash2,
+          onClick: () => dialogEditor.chain().focus().deleteTable().run(),
+          disabled: () => !dialogTableActionState.canDeleteTable,
         },
       ],
     },
@@ -464,9 +546,137 @@ export function RichTextEditor({ value, onChange, placeholder, className, disabl
     </div>
   )
 
+  const renderTableBubbleMenu = (currentEditor: NonNullable<typeof editor>, tableActionState: TableActionState) => (
+    <BubbleMenu
+      editor={currentEditor}
+      shouldShow={({ editor: bubbleEditor }) => bubbleEditor.isEditable && bubbleEditor.isActive("table")}
+      options={{ placement: "top", offset: 10 }}
+      className="z-50"
+    >
+      <div className="flex flex-col gap-2 rounded-md border border-border bg-background px-3 py-2 shadow-lg">
+        <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 gap-1.5 rounded-md border-border bg-background px-2.5"
+          onMouseDown={(event) => {
+            event.preventDefault()
+            clearCollapseTimer()
+          }}
+          onClick={() => currentEditor.chain().focus().addRowAfter().run()}
+          disabled={!tableActionState.canAddRow}
+        >
+          <Plus className="h-4 w-4" />
+          <span className="text-xs">新行</span>
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 gap-1.5 rounded-md border-border bg-background px-2.5 text-destructive hover:text-destructive"
+          onMouseDown={(event) => {
+            event.preventDefault()
+            clearCollapseTimer()
+          }}
+          onClick={() => currentEditor.chain().focus().deleteRow().run()}
+          disabled={!tableActionState.canDeleteRow}
+        >
+          <Minus className="h-4 w-4" />
+          <span className="text-xs">本行</span>
+        </Button>
+        <div className="mx-1 h-5 w-px bg-border/60" />
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 gap-1.5 rounded-md border-border bg-background px-2.5"
+          onMouseDown={(event) => {
+            event.preventDefault()
+            clearCollapseTimer()
+          }}
+          onClick={() => currentEditor.chain().focus().addColumnAfter().run()}
+          disabled={!tableActionState.canAddColumn}
+        >
+          <Plus className="h-4 w-4" />
+          <span className="text-xs">新列</span>
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 gap-1.5 rounded-md border-border bg-background px-2.5 text-destructive hover:text-destructive"
+          onMouseDown={(event) => {
+            event.preventDefault()
+            clearCollapseTimer()
+          }}
+          onClick={() => currentEditor.chain().focus().deleteColumn().run()}
+          disabled={!tableActionState.canDeleteColumn}
+        >
+          <Minus className="h-4 w-4" />
+          <span className="text-xs">本列</span>
+        </Button>
+        <div className="mx-1 h-5 w-px bg-border/60" />
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 gap-1.5 rounded-md border-border bg-background px-2.5"
+          onMouseDown={(event) => {
+            event.preventDefault()
+            clearCollapseTimer()
+          }}
+          onClick={() => currentEditor.chain().focus().mergeCells().run()}
+          disabled={!tableActionState.canMergeCells}
+        >
+          <Merge className="h-4 w-4" />
+          <span className="text-xs">合并</span>
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 gap-1.5 rounded-md border-border bg-background px-2.5"
+          onMouseDown={(event) => {
+            event.preventDefault()
+            clearCollapseTimer()
+          }}
+          onClick={() => currentEditor.chain().focus().splitCell().run()}
+          disabled={!tableActionState.canSplitCell}
+        >
+          <Split className="h-4 w-4" />
+          <span className="text-xs">拆分</span>
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 gap-1.5 rounded-md border-border bg-background px-2.5 text-destructive hover:text-destructive"
+          onMouseDown={(event) => {
+            event.preventDefault()
+            clearCollapseTimer()
+          }}
+          onClick={() => currentEditor.chain().focus().deleteTable().run()}
+          disabled={!tableActionState.canDeleteTable}
+        >
+          <Trash2 className="h-4 w-4" />
+          <span className="text-xs">删表</span>
+        </Button>
+        </div>
+      </div>
+    </BubbleMenu>
+  )
+
   const renderEditorContent = (currentEditor: NonNullable<typeof editor>, minHeightClassName: string) => (
     <div className="relative">
-      <EditorContent editor={currentEditor} className={cn(editorContentClassName, minHeightClassName)} />
+      <EditorContent
+        editor={currentEditor}
+        className={cn(
+          editorContentClassName,
+          "[&_.ProseMirror_.selectedCell]:bg-[var(--naive-primary-light)]/20 [&_.ProseMirror_.selectedCell]:shadow-[inset_0_0_0_1.5px_var(--naive-primary)] [&_.ProseMirror_table]:border [&_.ProseMirror_table]:border-border [&_.ProseMirror_table]:rounded-none [&_.ProseMirror_table]:overflow-visible",
+          minHeightClassName,
+        )}
+      />
       {placeholder && !(currentEditor.getText() || currentEditor.getHTML().replace(/<[^>]+>/g, "").trim()) ? (
         <div className="pointer-events-none absolute left-3 top-3 text-sm text-muted-foreground" aria-hidden="true">
           {placeholder}
@@ -512,6 +722,7 @@ export function RichTextEditor({ value, onChange, placeholder, className, disabl
         onBlurCapture={scheduleCollapse}
       >
         {renderToolbar(inlineToolbarGroups, true)}
+        {renderTableBubbleMenu(editor, inlineTableActionState)}
         <div className={cn(isDialogOpen ? "opacity-60" : "", "transition-opacity")}>{renderEditorContent(editor, "[&_.ProseMirror]:min-h-[160px]")}</div>
       </div>
 
