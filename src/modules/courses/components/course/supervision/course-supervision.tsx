@@ -51,7 +51,7 @@ const mapTaskToTeachingTask = (
   task: CourseTeachingTaskResponse,
   fallbackCollegeId?: number,
 ): TeachingSupervisoryTask => {
-  const normalizedStatus = mapStatus(task.overallStatus)
+  const normalizedStatus = mapStatus(task.taskStatus)
   const resolvedCollegeId = task.collegeId ?? fallbackCollegeId ?? 0
   return {
     id: task.taskId ?? task.id,

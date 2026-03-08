@@ -129,34 +129,44 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId, courseEditable
     const { chapterId, coursePointId, taskId } = selectedKsaCell
     const taskGoalId = parseInt(taskId)
 
-    // 构建新的 projectMatrices 条目
-    const newEntries: ProjectMatrixItemProjectMatrix[] = []
-    Object.entries(selectedKsaSupport).forEach(([ksaIdStr, support]) => {
-      const ksaId = Number(ksaIdStr)
-      const ksaItem = ksaListData.find((k) => k.id === ksaId)
-      if (!ksaItem) return
-
-      newEntries.push({
-        id: 0,
-        taskGoalId,
-        ksa: {
-          id: ksaItem.id,
-          title: ksaItem.title,
-          level: ksaItem.level,
-          description: ksaItem.description,
-        },
-        relate: {
-          relate: support === "strong" ? 0 : 1,
-        },
-      })
-    })
-
     // 更新 projectMatrixData.data 中对应行的 projectMatrices
+    // 在 map 内部构建条目，以便获取 courseMatrix.id 作为 projectMatrixId
     const updatedData = (projectMatrixData.data || []).map((item) => {
       if (
         item.courseMatrix?.projectId === parseInt(chapterId) &&
         item.courseMatrix?.point?.id === parseInt(coursePointId)
       ) {
+        const parentMatrixId = item.courseMatrix.id
+
+        // 构建新的 projectMatrices 条目（字段与 docs/payload.json 对齐）
+        const newEntries: ProjectMatrixItemProjectMatrix[] = []
+        Object.entries(selectedKsaSupport).forEach(([ksaIdStr, support]) => {
+          const ksaId = Number(ksaIdStr)
+          const ksaItem = ksaListData.find((k) => k.id === ksaId)
+          if (!ksaItem) return
+
+          const relateValue = support === "strong" ? 0 : 1
+          newEntries.push({
+            id: 0,
+            projectMatrixId: parentMatrixId,
+            taskGoalId,
+            ksa: {
+              id: ksaItem.id,
+              majorId: ksaItem.majorId,
+              courseUnitId: ksaItem.courseUnitId,
+              title: ksaItem.title,
+              description: ksaItem.description,
+              level: ksaItem.level,
+            },
+            relate: {
+              name: support === "strong" ? "强支撑" : "弱支撑",
+              code: support === "strong" ? "primary" : "success",
+              relate: relateValue,
+            },
+            valid: true,
+          })
+        })
+
         // 保留其他 taskGoalId 的条目，替换当前 taskGoalId 的条目
         const otherGoalEntries = (item.projectMatrices || []).filter(
           (pm) => pm.taskGoalId !== taskGoalId

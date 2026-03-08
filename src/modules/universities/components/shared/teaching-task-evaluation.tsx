@@ -400,66 +400,54 @@ export function TeachingTaskEvaluation({ task: initialTask, onBack, onEdit, onCo
               <div>
                 <p className="text-sm text-muted-foreground mb-2">专业评委</p>
                 <div className="flex flex-wrap gap-2">
-                  {task.juryType === "designated_member" ? (
-                    task.juryMembers && task.juryMembers.length > 0 ? (
-                      <>
-                        {task.juryMembers.slice(0, 3).map((member, index) => (
-                          <span
-                            key={index}
-                            className="inline-flex items-center px-2 py-1 bg-primary/10 border border-primary/30 rounded-md text-sm"
-                          >
-                            {member.name}
-                          </span>
-                        ))}
-                        {task.juryMembers.length > 3 && (
-                          <span
-                            className="inline-flex items-center px-2 py-1 bg-primary/5 border border-primary/30 rounded-md text-sm cursor-pointer hover:bg-primary/10 transition-colors"
-                            onClick={() => setIsJuryMembersDialogOpen(true)}
-                          >
-                            等{task.juryMembers.length}人
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      <p className="font-medium text-muted-foreground">（未设置）</p>
-                    )
+                  {task.juryMembers && task.juryMembers.length > 0 ? (
+                    <>
+                      {task.juryMembers.slice(0, 3).map((member, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center px-2 py-1 bg-primary/10 border border-primary/30 rounded-md text-sm"
+                        >
+                          {member.name}
+                        </span>
+                      ))}
+                      {task.juryMembers.length > 3 && (
+                        <span
+                          className="inline-flex items-center px-2 py-1 bg-primary/5 border border-primary/30 rounded-md text-sm cursor-pointer hover:bg-primary/10 transition-colors"
+                          onClick={() => setIsJuryMembersDialogOpen(true)}
+                        >
+                          等{task.juryMembers.length}人
+                        </span>
+                      )}
+                    </>
                   ) : (
-                    <span className="inline-flex items-center px-2 py-1 bg-accent/10 border border-accent/30 rounded-md text-sm">
-                      专业管理员
-                    </span>
+                    <p className="font-medium text-muted-foreground">（未设置）</p>
                   )}
                 </div>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground mb-2">院校评委</p>
                 <div className="flex flex-wrap gap-2">
-                  {task.collegeJuryType === "designated_member" ? (
-                    task.collegeJuryMembers && task.collegeJuryMembers.length > 0 ? (
-                      <>
-                        {task.collegeJuryMembers.slice(0, 3).map((member, index) => (
-                          <span
-                            key={index}
-                            className="inline-flex items-center px-2 py-1 bg-primary/10 border border-primary/30 rounded-md text-sm"
-                          >
-                            {member.name}
-                          </span>
-                        ))}
-                        {task.collegeJuryMembers.length > 3 && (
-                          <span
-                            className="inline-flex items-center px-2 py-1 bg-primary/5 border border-primary/30 rounded-md text-sm cursor-pointer hover:bg-primary/10 transition-colors"
-                            onClick={() => setIsCollegeJuryMembersDialogOpen(true)}
-                          >
-                            等{task.collegeJuryMembers.length}人
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      <p className="font-medium text-muted-foreground">（未设置）</p>
-                    )
+                  {task.collegeJuryMembers && task.collegeJuryMembers.length > 0 ? (
+                    <>
+                      {task.collegeJuryMembers.slice(0, 3).map((member, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center px-2 py-1 bg-primary/10 border border-primary/30 rounded-md text-sm"
+                        >
+                          {member.name}
+                        </span>
+                      ))}
+                      {task.collegeJuryMembers.length > 3 && (
+                        <span
+                          className="inline-flex items-center px-2 py-1 bg-primary/5 border border-primary/30 rounded-md text-sm cursor-pointer hover:bg-primary/10 transition-colors"
+                          onClick={() => setIsCollegeJuryMembersDialogOpen(true)}
+                        >
+                          等{task.collegeJuryMembers.length}人
+                        </span>
+                      )}
+                    </>
                   ) : (
-                    <span className="inline-flex items-center px-2 py-1 bg-accent/10 border border-accent/30 rounded-md text-sm">
-                      院校管理员
-                    </span>
+                    <p className="font-medium text-muted-foreground">（未设置）</p>
                   )}
                 </div>
               </div>

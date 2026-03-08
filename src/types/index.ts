@@ -61,10 +61,8 @@ export interface TeachingSupervisoryTask {
   archived?: boolean
   publishNodes?: PublishNode[] // 发布范围：选定的组织节点
   teacherSelfEvaluation?: boolean // 教师自评：true=需要，false=不需要
-  juryType?: "major_admin" | "designated_member" // 专业评委类型：专业管理员/指定成员
-  juryMembers?: TaskMember[] // 指定成员列表（当 juryType 为 designated_member 时使用）
-  collegeJuryType?: "college_admin" | "designated_member" // 院校评委类型：院校管理员/指定成员
-  collegeJuryMembers?: TaskMember[] // 院校指定成员列表
+  juryMembers?: TaskMember[] // 专业评委指定成员列表
+  collegeJuryMembers?: TaskMember[] // 院校评委指定成员列表
   evaluationCriteria?: TaskEvaluationCriteria // 评价标准，任务接口可直接承载
   // 课程维度扩展信息（课程详情-教学督导使用）
   courseId?: Long

@@ -41,6 +41,8 @@ interface ChapterProject {
   courseUnitId?: number
 }
 
+type ChapterInputColumn = "name" | "theoryHours" | "practiceHours"
+
 interface RawChapterProject {
   id?: string | number
   name?: string
@@ -60,6 +62,7 @@ interface AddCourseFormProps {
   isEditMode?: boolean
   courseDetailData?: any
   hideChapterSectionInEdit?: boolean
+  enableAutoSaveInEdit?: boolean
 }
 
 const DEFAULT_SCHEDULE_ROW = {
@@ -90,6 +93,7 @@ function AddCourseForm({
   isEditMode = false,
   courseDetailData,
   hideChapterSectionInEdit = false,
+  enableAutoSaveInEdit = true,
 }: AddCourseFormProps) {
   const { toast } = useToast()
   const { can } = usePermission()
@@ -101,7 +105,7 @@ function AddCourseForm({
   const [courseNaturePopoverOpen, setCourseNaturePopoverOpen] = useState(false)
   const [autoSaveStatus, setAutoSaveStatus] = useState<"" | "saving" | "saved" | "failed">("")
   // 自动保存开关状态（编辑模式下默认开启）
-  const [isAutoSaveEnabled] = useState(isEditMode)
+  const [isAutoSaveEnabled] = useState(isEditMode && enableAutoSaveInEdit)
   // 用于自动保存的定时器引用
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
   const autoSaveStatusTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -360,6 +364,37 @@ function AddCourseForm({
         : chapter
     )))
   }
+
+  const handleChapterInputKeyDown = useCallback((
+    event: React.KeyboardEvent<HTMLInputElement>,
+    rowIndex: number,
+    column: ChapterInputColumn,
+  ) => {
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") {
+      return
+    }
+
+    event.preventDefault()
+
+    const rowDelta = event.key === "ArrowUp" ? -1 : 1
+    const maxRowIndex = chapters.length - 1
+    const targetRowIndex = Math.max(0, Math.min(maxRowIndex, rowIndex + rowDelta))
+
+    if (targetRowIndex === rowIndex) {
+      return
+    }
+
+    const targetInput = document.querySelector<HTMLInputElement>(
+      `[data-chapter-row="${targetRowIndex}"][data-chapter-col="${column}"]`,
+    )
+
+    if (!targetInput) {
+      return
+    }
+
+    targetInput.focus()
+    targetInput.select()
+  }, [chapters.length])
 
   // 加载专业的指标点，并过滤出该课程支撑的指标点
   useEffect(() => {
@@ -1473,6 +1508,9 @@ function AddCourseForm({
                             placeholder="例如：第1章 绪论"
                             value={chapter.name}
                             onChange={(e) => updateChapter(chapter.id, "name", e.target.value)}
+                            onKeyDown={(e) => handleChapterInputKeyDown(e, index, "name")}
+                            data-chapter-row={index}
+                            data-chapter-col="name"
                           />
                         </TableCell>
                         <TableCell>
@@ -1481,6 +1519,9 @@ function AddCourseForm({
                             min="0"
                             value={chapter.theoryHours}
                             onChange={(e) => updateChapter(chapter.id, "theoryHours", Number.parseInt(e.target.value) || 0)}
+                            onKeyDown={(e) => handleChapterInputKeyDown(e, index, "theoryHours")}
+                            data-chapter-row={index}
+                            data-chapter-col="theoryHours"
                           />
                         </TableCell>
                         <TableCell>
@@ -1489,6 +1530,9 @@ function AddCourseForm({
                             min="0"
                             value={chapter.practiceHours}
                             onChange={(e) => updateChapter(chapter.id, "practiceHours", Number.parseInt(e.target.value) || 0)}
+                            onKeyDown={(e) => handleChapterInputKeyDown(e, index, "practiceHours")}
+                            data-chapter-row={index}
+                            data-chapter-col="practiceHours"
                           />
                         </TableCell>
                         <TableCell className="text-center">

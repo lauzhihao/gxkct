@@ -842,6 +842,7 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
         onSubmit={handleEditCourseFormSubmit}
         initialData={courseNode}
         isEditMode={true}
+        enableAutoSaveInEdit={false}
         courseDetailData={courseDetailData}
       />
     )

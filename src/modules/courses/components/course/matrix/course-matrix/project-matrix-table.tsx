@@ -70,7 +70,7 @@ export const ProjectMatrixTable = ({ courseEditable }: ProjectMatrixTableProps) 
         <BookMarked className="w-12 h-12 mx-auto mb-3 opacity-50" />
         <>
           <p className="text-sm mb-2">暂无课程矩阵数据</p>
-          <p className="text-xs">请先在课程信息中添加教学目标和章节信息</p>
+          <p className="text-xs">请先设置教学目标和项目/章节</p>
         </>
       </div>
     )

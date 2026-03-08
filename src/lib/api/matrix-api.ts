@@ -70,34 +70,46 @@ export interface ProjectMatrix {
 export interface ProjectMatrixSaveItem {
   courseMatrix: {
     id: number
+    courseUnitId: number
     projectId: number
+    graduateRequireId: number
     point?: {
       id: number
       title: string
       description?: string
     }
+    relate?: {
+      name: string
+      code: string
+      relate: number
+    }
     study?: string
     teach?: string
     product?: string
     week?: string
+    period?: string
     theoryPeriod?: string
     practicePeriod?: string
-    relate?: {
-      relate: number
-    }
+    valid?: boolean
   }
   projectMatrices?: Array<{
     id: number
+    projectMatrixId: number
     taskGoalId: number
     ksa?: {
       id: number
+      majorId: number
+      courseUnitId: number
       title: string
-      level: number
       description?: string
+      level: number
     }
     relate?: {
+      name: string
+      code: string
       relate: number
     }
+    valid?: boolean
   }>
 }
 

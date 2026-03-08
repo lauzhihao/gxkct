@@ -31,7 +31,8 @@ import React from "react"
 import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
 import { usePermission } from "@/shared/hooks/use-permission"
 import type { PermissionAction } from "@/shared/permissions/types"
-import { getStoredAuthUser } from "@/lib/api/auth-config"
+import { buildApiUrl } from "@/lib/api/config"
+import { getStoredAuthToken, getStoredAuthUser } from "@/lib/api/auth-config"
 import { extractNumericId } from "@/shared/utils/utils"
 
 const MAJOR_TABS = {
@@ -54,6 +55,21 @@ interface ManagerIdentity {
 interface NodeMetadataWithManagers {
   managers?: Array<Partial<ManagerIdentity>>
   source?: string
+}
+
+interface DepartmentMajorListItem {
+  self?: {
+    value?: string
+    label?: string
+  } | null
+  manager?: Array<Partial<ManagerIdentity>> | null
+}
+
+interface DepartmentMajorListResponse {
+  code?: string
+  data?: {
+    data?: DepartmentMajorListItem[]
+  }
 }
 
 function resolveDepartmentId(node: TreeNode, treeData?: TreeNode): string {
@@ -266,6 +282,7 @@ export function MajorDetail(props: MajorDetailProps) {
   const [isConfirmingSemesterChange, setIsConfirmingSemesterChange] = useState(false)
   const [pendingSemesterValue, setPendingSemesterValue] = useState<string | null>(null)
   const [isMajorOwner, setIsMajorOwner] = useState(false)
+  const [fallbackManagers, setFallbackManagers] = useState<ManagerIdentity[]>([])
   const { setActivePage } = useActivePageTracker()
   const { can } = usePermission()
 
@@ -274,7 +291,7 @@ export function MajorDetail(props: MajorDetailProps) {
   const isVirtualMajorFromSwitchDpt = (node.metadata as NodeMetadataWithManagers | undefined)?.source === "course-level-switchDpt"
   const managerIdentities = useMemo(() => {
     const metadataManagers = ((node.metadata as NodeMetadataWithManagers | undefined)?.managers ?? [])
-    const rawManagerList = [...(node.manager ?? []), ...metadataManagers]
+    const rawManagerList = [...(node.manager ?? []), ...metadataManagers, ...fallbackManagers]
 
     return rawManagerList
       .filter((manager): manager is ManagerIdentity => Boolean(manager?.label || manager?.value))
@@ -282,7 +299,7 @@ export function MajorDetail(props: MajorDetailProps) {
         label: normalizeIdentity(manager.label),
         value: normalizeIdentity(manager.value),
       }))
-  }, [node.manager, node.metadata])
+  }, [fallbackManagers, node.manager, node.metadata])
   const currentUserIdentities = useMemo(
     () => new Set([
       normalizeIdentity(authUser?.userName),
@@ -313,6 +330,99 @@ export function MajorDetail(props: MajorDetailProps) {
   const canDeleteMajor = can(DELETE_MAJOR_ACTION, { scope: "department" })
   const canManageMajorCourse = can(MANAGE_MAJOR_COURSE_ACTION, { scope: "major" })
   const departmentId = useMemo(() => resolveDepartmentId(node, treeData), [node, treeData])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadFallbackManagers = async () => {
+      if ((node.manager ?? []).length > 0) {
+        setFallbackManagers([])
+        return
+      }
+
+      const metadataManagers = (node.metadata as NodeMetadataWithManagers | undefined)?.managers
+      if (Array.isArray(metadataManagers) && metadataManagers.length > 0) {
+        setFallbackManagers([])
+        return
+      }
+
+      const majorIdValue = String(node.id ?? extractNumericId(node.nodeId ?? "")).trim()
+      const departmentIdValue = String(departmentId).trim()
+      if (!majorIdValue || !departmentIdValue) {
+        setFallbackManagers([])
+        return
+      }
+
+      const authToken = getStoredAuthToken()
+      if (!authToken) {
+        setFallbackManagers([])
+        return
+      }
+
+      try {
+        const url = buildApiUrl(`/api/v4/webpage/home/switchDpt?dptId=${departmentIdValue}&lang=80101`)
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            authToken,
+          },
+        })
+
+        if (!response.ok) {
+          console.warn("[MajorDetail] fallback managers request failed:", response.status)
+          if (!cancelled) {
+            setFallbackManagers([])
+          }
+          return
+        }
+
+        const payload = (await response.json()) as DepartmentMajorListResponse
+        if (payload.code !== "0") {
+          if (!cancelled) {
+            setFallbackManagers([])
+          }
+          return
+        }
+
+        const majorItems = Array.isArray(payload.data?.data) ? payload.data?.data : []
+        const matchedMajor = majorItems.find((item) => {
+          const itemMajorId = String(item.self?.value ?? "").trim()
+          return itemMajorId === majorIdValue
+        })
+
+        if (!matchedMajor || !Array.isArray(matchedMajor.manager)) {
+          if (!cancelled) {
+            setFallbackManagers([])
+          }
+          return
+        }
+
+        const normalizedManagers = matchedMajor.manager
+          .filter((manager): manager is ManagerIdentity => Boolean(manager?.label || manager?.value))
+          .map((manager) => ({
+            label: String(manager.label ?? "").trim(),
+            value: String(manager.value ?? "").trim(),
+          }))
+
+        if (!cancelled) {
+          setFallbackManagers(normalizedManagers)
+        }
+      } catch (error) {
+        console.warn("[MajorDetail] failed to load fallback managers:", error)
+        if (!cancelled) {
+          setFallbackManagers([])
+        }
+      }
+    }
+
+    void loadFallbackManagers()
+
+    return () => {
+      cancelled = true
+    }
+  }, [departmentId, node.id, node.manager, node.metadata, node.nodeId])
 
   useEffect(() => {
     if (!node) return

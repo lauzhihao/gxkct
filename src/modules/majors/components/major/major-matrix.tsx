@@ -762,7 +762,7 @@ export function MajorMatrix(props: MajorMatrixProps) {
         <div className="text-center py-12 text-muted-foreground">
           <BookMarked className="w-12 h-12 mx-auto mb-3 opacity-50" />
           <p className="text-sm mb-2">暂无毕业要求数据</p>
-          <p className="text-xs">请先在专业详情中添加毕业要求</p>
+          <p className="text-xs">请等待专业管理员设置课程支撑关系</p>
         </div>
       )}
     </>

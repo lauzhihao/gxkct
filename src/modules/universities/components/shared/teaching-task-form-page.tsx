@@ -46,9 +46,7 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
     description: normalizeEscapedNewlines(initialTask.description),
     scoringType: initialTask.scoringType || "percentage",
     teacherSelfEvaluation: initialTask.teacherSelfEvaluation ?? true,
-    juryType: "designated_member",
     juryMembers: initialTask.juryMembers || [],
-    collegeJuryType: "designated_member",
     collegeJuryMembers: initialTask.collegeJuryMembers || [],
   })
   const [criteria, setCriteria] = useState<EvaluationCriterion[]>([
@@ -102,9 +100,7 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
         description: normalizeEscapedNewlines(copiedData.task?.description),
         scoringType: copiedData.task?.scoringType || "percentage",
         teacherSelfEvaluation: copiedData.task?.teacherSelfEvaluation ?? true,
-        juryType: "designated_member",
         juryMembers: copiedData.task?.juryMembers || [],
-        collegeJuryType: "designated_member",
         collegeJuryMembers: copiedData.task?.collegeJuryMembers || [],
       })
       setCriteria(normalizeCriteriaOrder(copiedData.criteria || copiedData.standards || []))
@@ -154,9 +150,7 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
             description: normalizeEscapedNewlines(taskData.description),
             scoringType: taskData.scoringType || "percentage",
             teacherSelfEvaluation: taskData.teacherSelfEvaluation ?? true,
-            juryType: "designated_member",
             juryMembers: taskData.juryMembers || [],
-            collegeJuryType: "designated_member",
             collegeJuryMembers: taskData.collegeJuryMembers || [],
           })
           // 更新评价标准

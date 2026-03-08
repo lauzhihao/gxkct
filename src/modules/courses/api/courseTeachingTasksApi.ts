@@ -91,6 +91,7 @@ export interface CourseTeachingTaskResponse {
   deptEvaluationStatus: string
   schoolEvaluationStatus: string
   overallStatus: "not_started" | "in_progress" | "completed"
+  taskStatus: "not_started" | "in_progress" | "completed"
   selfTotalScore: number | null
   deptTotalScore: number | null
   schoolTotalScore: number | null

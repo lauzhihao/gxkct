@@ -134,9 +134,7 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
       publishNodes: (task.publishNodes || []).map((node) => ({ ...node })),
       scoringType: task.scoringType || "percentage",
       teacherSelfEvaluation: task.teacherSelfEvaluation,
-      juryType: task.juryType,
       juryMembers: task.juryMembers ? [...task.juryMembers] : undefined,
-      collegeJuryType: task.collegeJuryType,
       collegeJuryMembers: task.collegeJuryMembers ? [...task.collegeJuryMembers] : undefined,
     }
 
@@ -195,8 +193,6 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
       publishNodes: [],
       scoringType: "percentage",
       teacherSelfEvaluation: true,
-      juryType: "major_admin",
-      collegeJuryType: "college_admin",
     }
     return (
       <TeachingTaskFormPage

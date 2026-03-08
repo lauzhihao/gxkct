@@ -33,35 +33,47 @@ function convertToProjectMatrixData(responseData: ProjectMatrixDataResponse["dat
 
 export interface ProjectMatrixItemCourseMatrix {
   id: number
+  courseUnitId: number
   projectId: number
+  graduateRequireId: number
   point?: {
     id: number
     title: string
     description?: string
   }
+  relate?: {
+    name: string
+    code: string
+    relate: number
+  }
   study?: string
   teach?: string
   product?: string
   week?: string
+  period?: string
   theoryPeriod?: string
   practicePeriod?: string
-  relate?: {
-    relate: number
-  }
+  valid?: boolean
 }
 
 export interface ProjectMatrixItemProjectMatrix {
   id: number
+  projectMatrixId: number
   taskGoalId: number
   ksa?: {
     id: number
+    majorId: number
+    courseUnitId: number
     title: string
-    level: number
     description?: string
+    level: number
   }
   relate?: {
+    name: string
+    code: string
     relate: number
   }
+  valid?: boolean
 }
 
 export interface ProjectMatrixItem {
@@ -103,6 +115,8 @@ export interface ProjectMatrixData {
 
 export interface KsaItem {
   id: number
+  majorId: number
+  courseUnitId: number
   title: "K" | "S" | "A"
   description: string
   level: number
@@ -213,12 +227,12 @@ export function useProjectMatrix(node: TreeNode, majorId?: string | number): Use
             // 如果API调用失败，使用模拟数据
             console.log("[useProjectMatrix] 使用模拟数据")
             const mockKsaData: KsaItem[] = [
-              { id: 1, title: "K", description: "知识点1", level: 1 },
-              { id: 2, title: "K", description: "知识点2", level: 2 },
-              { id: 3, title: "S", description: "技能点1", level: 1 },
-              { id: 4, title: "S", description: "技能点2", level: 2 },
-              { id: 5, title: "A", description: "态度点1", level: 1 },
-              { id: 6, title: "A", description: "态度点2", level: 2 },
+              { id: 1, majorId: 0, courseUnitId: 0, title: "K", description: "知识点1", level: 1 },
+              { id: 2, majorId: 0, courseUnitId: 0, title: "K", description: "知识点2", level: 2 },
+              { id: 3, majorId: 0, courseUnitId: 0, title: "S", description: "技能点1", level: 1 },
+              { id: 4, majorId: 0, courseUnitId: 0, title: "S", description: "技能点2", level: 2 },
+              { id: 5, majorId: 0, courseUnitId: 0, title: "A", description: "态度点1", level: 1 },
+              { id: 6, majorId: 0, courseUnitId: 0, title: "A", description: "态度点2", level: 2 },
             ]
             setKsaListData(mockKsaData)
           } else if (ksaListResponse.data) {

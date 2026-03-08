@@ -156,6 +156,8 @@ export function useKsaManagement(
 
     const newKsa: KsaItem = {
       id: Date.now(),
+      majorId: 0,
+      courseUnitId: 0,
       title: newRowKsaType as "K" | "S" | "A",
       description: newRowDescription.trim(),
       level: 1,

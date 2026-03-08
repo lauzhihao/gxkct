@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/shared/components/ui/button"
-import { BookMarked, Pencil, X, Check } from "lucide-react"
+import { BookMarked, Info, X, Check } from "lucide-react"
 import { LoadingState } from "@/shared/components/ui/loading-state"
 import { Spinner } from "@/shared/components/ui/spinner"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/components/ui/tooltip"
 import { cn } from "@/shared/utils/utils"
 import { courseDetailApi } from "@/modules/courses/api/courseDetailApi"
 import { api } from "@/lib/api"
@@ -124,11 +125,6 @@ export function CourseMajorMatrix({ node, majorNode, majorId, courseEditable = f
     return () => clearInterval(autoSaveInterval)
   }, [canManageMatrix, isEditingMatrix, matrixData, handleSaveMatrix])
 
-  const handleStartEditMatrix = () => {
-    if (!canManageMatrix) return
-    setIsEditingMatrix(true)
-  }
-
   // 检测毕业要求文本是否被截断
   useEffect(() => {
     const newClampedReqs = new Set<number>()
@@ -224,16 +220,21 @@ export function CourseMajorMatrix({ node, majorNode, majorId, courseEditable = f
               <BookMarked className="w-5 h-5 text-primary" />
               专业矩阵
             </h3>
-            {!isEditingMatrix && canManageMatrix ? (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleStartEditMatrix}
-                className="gap-2 bg-transparent"
-              >
-                <Pencil className="w-3.5 h-3.5" />
-                编辑
-              </Button>
+            {!isEditingMatrix ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="专业矩阵编辑说明"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-primary/30 bg-primary/5 text-primary transition-colors hover:border-primary/50 hover:bg-primary/10"
+                  >
+                    <Info className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" align="end">
+                  专业矩阵现在由专业负责人统一设置
+                </TooltipContent>
+              </Tooltip>
             ) : isEditingMatrix && canManageMatrix ? (
               <div className="flex gap-2">
                 <Button
@@ -437,7 +438,7 @@ export function CourseMajorMatrix({ node, majorNode, majorId, courseEditable = f
         <div className="text-center py-12 text-muted-foreground">
           <BookMarked className="w-12 h-12 mx-auto mb-3 opacity-50" />
           <p className="text-sm mb-2">暂无毕业要求数据</p>
-          <p className="text-xs">请先在专业详情中添加毕业要求</p>
+          <p className="text-xs">请等待专业管理员设置课程支撑关系</p>
         </div>
       )}
     </div>

@@ -19,6 +19,7 @@ You are a **Senior React/Next.js Architect** adhering to strict industrial proto
 - **Encoding**: Console logs must use **ASCII only**. NO Emojis or special Unicode symbols.
 - **Secrets**: NEVER hardcode API keys. Use `.env.local` with `NEXT_PUBLIC_` prefix for client-side.
 - **Fallback Rule (STRICT)**: 严禁使用 `||` 或 `??` 对任何业务字段做静默兜底。当值缺失/非法时，必须显式报错（`throw` 或返回错误），禁止继续执行并写入默认值。
+- **No Backward-Compat Fallback (STRICT)**: 渲染接口返回值时，严禁对已废弃/旧字段做回退读取（如 `newField ?? oldField`）。字段迁移后必须直接使用新字段，旧字段应从类型定义和消费端一并移除。
 
 ## 2. Structure & Context Management
 - **Component Files**: One component per file. Ideally < 300 lines.
