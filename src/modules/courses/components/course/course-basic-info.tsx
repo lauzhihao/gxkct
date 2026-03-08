@@ -1,9 +1,10 @@
 "use client"
-import { useMemo } from "react"
+import { useMemo, type ReactNode } from "react"
 import { Calendar, BookOpen, FileText, Clock, Tag } from "lucide-react"
 import { formatDate } from "@/shared/utils/date-utils"
 import { getCourseType } from "@/shared/utils/data-transform"
 import { SectionCard, SectionHeader, Divider } from "@/shared/components/design-system"
+import { SafeRichTextContent } from "@/shared/components/ui/safe-rich-text-content"
 
 type ScoreTableRow = Record<string, string | number | null | undefined>
 type ScheduleRow = Record<string, string | number | null | undefined>
@@ -48,6 +49,23 @@ interface CourseBasicInfoProps {
   courseNameData?: unknown
   createTime?: string
   metadata?: unknown
+}
+
+interface AssessmentFieldProps {
+  label: string
+  children: ReactNode
+  alignTop?: boolean
+}
+
+function AssessmentField({ label, children, alignTop = false }: AssessmentFieldProps) {
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/20 px-4 py-3 md:flex-row md:gap-6">
+      <div className={`text-sm font-medium text-muted-foreground md:w-28 md:flex-shrink-0 ${alignTop ? "md:pt-1" : "md:self-center"}`}>
+        {label}
+      </div>
+      <div className="min-w-0 flex-1 text-base text-muted-foreground">{children}</div>
+    </div>
+  )
 }
 
 export function CourseBasicInfo({ name, courseDetail, createTime }: CourseBasicInfoProps) {
@@ -265,9 +283,7 @@ export function CourseBasicInfo({ name, courseDetail, createTime }: CourseBasicI
         <div className="mt-6">
           <Divider spacing="lg" />
           <SectionHeader title="课程简介" className="mb-3" />
-          <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
-            {courseDetail.introduction}
-          </div>
+          <SafeRichTextContent content={courseDetail.introduction} className="text-base text-muted-foreground leading-relaxed" plainTextClassName="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap" />
         </div>
       )}
 
@@ -276,9 +292,7 @@ export function CourseBasicInfo({ name, courseDetail, createTime }: CourseBasicI
         <div className="mt-6">
           <Divider spacing="lg" />
           <SectionHeader title="课程使用的主要教材" className="mb-3" />
-          <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
-            {courseDetail.mainTextbook}
-          </div>
+          <SafeRichTextContent content={courseDetail.mainTextbook} className="text-base text-muted-foreground leading-relaxed" plainTextClassName="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap" />
         </div>
       )}
 
@@ -287,9 +301,7 @@ export function CourseBasicInfo({ name, courseDetail, createTime }: CourseBasicI
         <div className="mt-6">
           <Divider spacing="lg" />
           <SectionHeader title="建议阅读材料和参考文献" className="mb-3" />
-          <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
-            {courseDetail.referenceResources}
-          </div>
+          <SafeRichTextContent content={courseDetail.referenceResources} className="text-base text-muted-foreground leading-relaxed" plainTextClassName="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap" />
         </div>
       )}
 
@@ -305,9 +317,7 @@ export function CourseBasicInfo({ name, courseDetail, createTime }: CourseBasicI
             {courseDetail?.attendancePolicy && (
               <div>
                 <div className="text-sm font-medium text-muted-foreground mb-2">关于课堂出席政策及要求</div>
-                <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                  {courseDetail.attendancePolicy}
-                </div>
+                <SafeRichTextContent content={courseDetail.attendancePolicy} className="text-base text-muted-foreground leading-relaxed" plainTextClassName="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap" />
               </div>
             )}
 
@@ -315,9 +325,7 @@ export function CourseBasicInfo({ name, courseDetail, createTime }: CourseBasicI
             {courseDetail?.assignmentPolicy && (
               <div>
                 <div className="text-sm font-medium text-muted-foreground mb-2">关于作业提交的政策及要求</div>
-                <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                  {courseDetail.assignmentPolicy}
-                </div>
+                <SafeRichTextContent content={courseDetail.assignmentPolicy} className="text-base text-muted-foreground leading-relaxed" plainTextClassName="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap" />
               </div>
             )}
 
@@ -325,9 +333,7 @@ export function CourseBasicInfo({ name, courseDetail, createTime }: CourseBasicI
             {courseDetail?.conductRequirements && (
               <div>
                 <div className="text-sm font-medium text-muted-foreground mb-2">关于上课行为规范、诚信学习要求</div>
-                <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                  {courseDetail.conductRequirements}
-                </div>
+                <SafeRichTextContent content={courseDetail.conductRequirements} className="text-base text-muted-foreground leading-relaxed" plainTextClassName="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap" />
               </div>
             )}
 
@@ -335,9 +341,7 @@ export function CourseBasicInfo({ name, courseDetail, createTime }: CourseBasicI
             {courseDetail?.practiceRequirements && (
               <div>
                 <div className="text-sm font-medium text-muted-foreground mb-2">关于参与实践环节的要求</div>
-                <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                  {courseDetail.practiceRequirements}
-                </div>
+                <SafeRichTextContent content={courseDetail.practiceRequirements} className="text-base text-muted-foreground leading-relaxed" plainTextClassName="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap" />
               </div>
             )}
 
@@ -345,9 +349,7 @@ export function CourseBasicInfo({ name, courseDetail, createTime }: CourseBasicI
             {courseDetail?.teamworkRequirements && (
               <div>
                 <div className="text-sm font-medium text-muted-foreground mb-2">关于团队学习、分组讨论的要求</div>
-                <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                  {courseDetail.teamworkRequirements}
-                </div>
+                <SafeRichTextContent content={courseDetail.teamworkRequirements} className="text-base text-muted-foreground leading-relaxed" plainTextClassName="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap" />
               </div>
             )}
 
@@ -355,19 +357,15 @@ export function CourseBasicInfo({ name, courseDetail, createTime }: CourseBasicI
             {courseDetail?.bonusRequirements && (
               <div>
                 <div className="text-sm font-medium text-muted-foreground mb-2">关于专利、论文等加分项的要求</div>
-                <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                  {courseDetail.bonusRequirements}
-                </div>
+                <SafeRichTextContent content={courseDetail.bonusRequirements} className="text-base text-muted-foreground leading-relaxed" plainTextClassName="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap" />
               </div>
             )}
 
-            {/* 其他学习建议 */}
+            {/* 其他课程要求或学习建议 */}
             {courseDetail?.otherSuggestions && (
               <div>
-                <div className="text-sm font-medium text-muted-foreground mb-2">其他学习建议</div>
-                <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                  {courseDetail.otherSuggestions}
-                </div>
+                <div className="text-sm font-medium text-muted-foreground mb-2">其他课程要求或学习建议</div>
+                <SafeRichTextContent content={courseDetail.otherSuggestions} className="text-base text-muted-foreground leading-relaxed" plainTextClassName="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap" />
               </div>
             )}
           </div>
@@ -381,38 +379,39 @@ export function CourseBasicInfo({ name, courseDetail, createTime }: CourseBasicI
           <Divider spacing="lg" />
           <SectionHeader title="考核评价" className="mb-3" />
           <div className="space-y-4">
-            {/* 考核方式 */}
             {courseDetail?.assessmentMethod && (
-              <div>
-                <div className="text-sm font-medium text-muted-foreground mb-2">考核方式</div>
-                <div className="text-base text-muted-foreground">{courseDetail.assessmentMethod}</div>
-              </div>
+              <AssessmentField label="考核方式">
+                {courseDetail.assessmentMethod}
+              </AssessmentField>
             )}
 
-            {/* 具体形式 */}
             {courseDetail?.assessmentForm && (
-              <div>
-                <div className="text-sm font-medium text-muted-foreground mb-2">具体形式</div>
-                <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                  {courseDetail.assessmentForm}
-                </div>
-              </div>
+              <AssessmentField label="具体形式" alignTop>
+                <SafeRichTextContent
+                  content={courseDetail.assessmentForm}
+                  className="leading-relaxed"
+                  plainTextClassName="whitespace-pre-wrap"
+                />
+              </AssessmentField>
             )}
 
-            {/* 总成绩类型 */}
             {courseDetail?.scoreType && (
-              <div>
-                <div className="text-sm font-medium text-muted-foreground mb-2">总成绩为</div>
-                <div className="text-base text-muted-foreground">{courseDetail.scoreType}</div>
-              </div>
+              <AssessmentField label="总成绩为" alignTop>
+                <div className="space-y-3">
+                  <div>{courseDetail.scoreType}</div>
+                  {courseDetail.scoreType === "五级分制" && (
+                    <div className="rounded-md border border-border bg-secondary/30 p-4 text-sm leading-relaxed text-muted-foreground">
+                      五级分制的成绩等级与分值对应如下：90-100分为优秀，80-89分为良好，70-79分为中等，60-69分为及格，60分以下为不及格（详细列示五级分制的考核标准和具体要求）。
+                    </div>
+                  )}
+                </div>
+              </AssessmentField>
             )}
 
-            {/* 总成绩表格 */}
             {courseDetail?.scoreTable && (() => {
               const scoreTable = courseDetail.scoreTable
               return (
-                <div>
-                  <div className="text-sm font-medium text-muted-foreground mb-2">总成绩</div>
+                <AssessmentField label="总成绩" alignTop>
                   <div className="border border-input rounded-md overflow-hidden">
                     <table className="w-full text-sm">
                       <thead>
@@ -437,27 +436,18 @@ export function CourseBasicInfo({ name, courseDetail, createTime }: CourseBasicI
                       </tbody>
                     </table>
                   </div>
-                </div>
+                </AssessmentField>
               )
             })()}
 
-            {/* 五级分制说明 */}
-            {courseDetail?.scoreType === "五级分制" && (
-              <div className="p-4 bg-secondary/30 rounded-md border border-border">
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  五级分制的成绩等级与分值对应如下：90-100分为优秀，80-89分为良好，70-79分为中等，60-69分为及格，60分以下为不及格（详细列示五级分制的考核标准和具体要求）。
-                </p>
-              </div>
-            )}
-
-            {/* 考核评价说明 */}
             {courseDetail?.assessmentDescription && (
-              <div>
-                <div className="text-sm font-medium text-muted-foreground mb-2">考核评价说明</div>
-                <div className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                  {courseDetail.assessmentDescription}
-                </div>
-              </div>
+              <AssessmentField label="考核评价说明" alignTop>
+                <SafeRichTextContent
+                  content={courseDetail.assessmentDescription}
+                  className="leading-relaxed"
+                  plainTextClassName="whitespace-pre-wrap"
+                />
+              </AssessmentField>
             )}
           </div>
         </div>

@@ -23,6 +23,7 @@ import type {
 } from "./canvas-elements/types"
 import type { TreeNode } from "@/types"
 import { CanvasSaveWizard } from "./canvas-save-wizard"
+import { SafeRichTextContent } from "@/shared/components/ui/safe-rich-text-content"
 import { showError, showSuccess } from "@/shared/utils/toast-utils"
 import { getStoredAuthToken } from "@/lib/api/auth-config"
 
@@ -220,12 +221,16 @@ function InfoField({ label, value }: { label: string; value?: string | number | 
 /**
  * 文本区块组件
  */
-function TextBlock({ label, value }: { label: string; value?: string }) {
+function TextBlock({ label, value, richText = false }: { label: string; value?: string; richText?: boolean }) {
   if (!value) return null
   return (
     <div>
       <span className="text-sm text-muted-foreground">{label}</span>
-      <p className="text-sm mt-1 whitespace-pre-wrap">{value}</p>
+      {richText ? (
+        <SafeRichTextContent content={value} className="mt-1 text-sm" plainTextClassName="mt-1 text-sm whitespace-pre-wrap" />
+      ) : (
+        <p className="text-sm mt-1 whitespace-pre-wrap">{value}</p>
+      )}
     </div>
   )
 }
@@ -382,10 +387,10 @@ export function CanvasCourseReportPreview({
                   <InfoField label="授课时间" value={parseTeachingTime(metadata?.teachingTime)} />
                 </div>
                 {/* 长文本字段 */}
-                <TextBlock label="课程介绍" value={metadata?.introduction} />
+                <TextBlock label="课程介绍" value={metadata?.introduction} richText />
                 <div className="grid grid-cols-2 gap-4">
-                  <TextBlock label="主要教材" value={metadata?.mainTextbook} />
-                  <TextBlock label="参考文献" value={metadata?.referenceResources} />
+                  <TextBlock label="主要教材" value={metadata?.mainTextbook} richText />
+                  <TextBlock label="参考文献" value={metadata?.referenceResources} richText />
                 </div>
               </div>
             ) : (
@@ -401,13 +406,13 @@ export function CanvasCourseReportPreview({
               <SectionTitle icon={ClipboardCheck} title="课程要求" bgColor="bg-orange-100" iconColor="text-orange-600" />
               <div className="bg-orange-50/50 border border-orange-200 rounded-lg p-4 space-y-3">
                 <div className="grid grid-cols-2 gap-4">
-                  <TextBlock label="关于课堂出席政策及要求" value={metadata?.attendancePolicy} />
-                  <TextBlock label="关于作业提交的政策及要求" value={metadata?.assignmentPolicy} />
-                  <TextBlock label="关于上课行为规范、诚信学习要求" value={metadata?.conductRequirements} />
-                  <TextBlock label="关于参与实践环节的要求" value={metadata?.practiceRequirements} />
-                  <TextBlock label="关于团队学习、分组讨论的要求" value={metadata?.teamworkRequirements} />
-                  <TextBlock label="关于专利、论文等加分项的要求" value={metadata?.bonusRequirements} />
-                  <TextBlock label="其他学习建议" value={metadata?.otherSuggestions} />
+                  <TextBlock label="关于课堂出席政策及要求" value={metadata?.attendancePolicy} richText />
+                  <TextBlock label="关于作业提交的政策及要求" value={metadata?.assignmentPolicy} richText />
+                  <TextBlock label="关于上课行为规范、诚信学习要求" value={metadata?.conductRequirements} richText />
+                  <TextBlock label="关于参与实践环节的要求" value={metadata?.practiceRequirements} richText />
+                  <TextBlock label="关于团队学习、分组讨论的要求" value={metadata?.teamworkRequirements} richText />
+                  <TextBlock label="关于专利、论文等加分项的要求" value={metadata?.bonusRequirements} richText />
+                  <TextBlock label="其他课程要求或学习建议" value={metadata?.otherSuggestions} richText />
                 </div>
               </div>
             </section>
@@ -422,8 +427,8 @@ export function CanvasCourseReportPreview({
                   <InfoField label="考核方式" value={metadata?.assessmentMethod} />
                   <InfoField label="总成绩类型" value={metadata?.scoreType} />
                 </div>
-                <TextBlock label="具体形式" value={metadata?.assessmentForm} />
-                <TextBlock label="考核评价说明" value={metadata?.assessmentDescription} />
+                <TextBlock label="具体形式" value={metadata?.assessmentForm} richText />
+                <TextBlock label="考核评价说明" value={metadata?.assessmentDescription} richText />
                 {/* 成绩表格 */}
                 {metadata?.scoreTable && metadata.scoreTable.rows && metadata.scoreTable.rows.length > 0 && (
                   <div>

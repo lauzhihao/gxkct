@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/shared/components/ui/table"
 import { useToast } from "@/shared/hooks/use-toast"
 import { api } from "@/lib/api"
-import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
+import { RichTextEditor } from "@/shared/components/ui/rich-text-editor"
 import { usePermission } from "@/shared/hooks/use-permission"
 import type { PermissionAction } from "@/shared/permissions/types"
 
@@ -832,11 +832,6 @@ function AddCourseForm({
 
           <TabsContent value="basic" className="space-y-6 mt-6">
             <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-sm bg-[var(--naive-primary)]" />
-                <h3 className="text-base font-semibold text-foreground">基本信息</h3>
-              </div>
-              <div className="border-t border-dashed border-border" />
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="opening-date">开课日期</Label>
@@ -963,35 +958,29 @@ function AddCourseForm({
                 {/* 主要教材和参考文献放在一行 */}
                 <div className="space-y-2">
                   <Label htmlFor="main-textbook">课程使用的主要教材</Label>
-                  <ExpandableTextarea
+                  <RichTextEditor
                     value={mainTextbook}
                     onChange={setMainTextbook}
-                    placeholder=""
-                    maxLength={500}
-                    rows={4}
+                    placeholder="支持粘贴 Word、Excel 或网页表格"
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="reference-resources">建议阅读材料和参考文献</Label>
-                  <ExpandableTextarea
+                  <RichTextEditor
                     value={referenceResources}
                     onChange={setReferenceResources}
-                    placeholder=""
-                    maxLength={1000}
-                    rows={4}
+                    placeholder="支持粘贴 Word、Excel 或网页表格"
                   />
                 </div>
 
                 {/* 课程介绍 */}
                 <div className="space-y-2 col-span-2">
                   <Label htmlFor="introduction">课程介绍</Label>
-                  <ExpandableTextarea
+                  <RichTextEditor
                     value={introduction}
                     onChange={setIntroduction}
-                    placeholder="输入课程介绍"
-                    maxLength={1024}
-                    rows={10}
+                    placeholder="输入课程介绍，支持粘贴 Word、Excel 或网页表格"
                   />
                 </div>
 
@@ -1188,95 +1177,75 @@ function AddCourseForm({
 
           <TabsContent value="requirements" className="space-y-6 mt-6">
             <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-sm bg-[var(--naive-primary)]" />
-                <h3 className="text-base font-semibold text-foreground">课程要求</h3>
-              </div>
-              <div className="border-t border-dashed border-border" />
-
               {/* 课程要求字段 - 2列布局 */}
               <div className="grid grid-cols-2 gap-4">
                 {/* 1. 关于课堂出席政策及要求 */}
                 <div className="space-y-2">
                   <Label htmlFor="attendance-policy">关于课堂出席政策及要求</Label>
-                  <ExpandableTextarea
+                  <RichTextEditor
                     value={attendancePolicy}
                     onChange={setAttendancePolicy}
-                    placeholder=""
-                    maxLength={500}
-                    rows={4}
+                    placeholder="支持粘贴 Word、Excel 或网页表格"
                   />
                 </div>
 
                 {/* 2. 关于作业提交的政策及要求 */}
                 <div className="space-y-2">
                   <Label htmlFor="assignment-policy">关于作业提交的政策及要求</Label>
-                  <ExpandableTextarea
+                  <RichTextEditor
                     value={assignmentPolicy}
                     onChange={setAssignmentPolicy}
-                    placeholder=""
-                    maxLength={500}
-                    rows={4}
+                    placeholder="支持粘贴 Word、Excel 或网页表格"
                   />
                 </div>
 
                 {/* 3. 关于上课行为规范、诚信学习要求 */}
                 <div className="space-y-2">
                   <Label htmlFor="conduct-requirements">关于上课行为规范、诚信学习要求</Label>
-                  <ExpandableTextarea
+                  <RichTextEditor
                     value={conductRequirements}
                     onChange={setConductRequirements}
-                    placeholder=""
-                    maxLength={500}
-                    rows={4}
+                    placeholder="支持粘贴 Word、Excel 或网页表格"
                   />
                 </div>
 
                 {/* 4. 关于参与实践环节的要求 */}
                 <div className="space-y-2">
                   <Label htmlFor="practice-requirements">关于参与实践环节的要求</Label>
-                  <ExpandableTextarea
+                  <RichTextEditor
                     value={practiceRequirements}
                     onChange={setPracticeRequirements}
-                    placeholder=""
-                    maxLength={500}
-                    rows={4}
+                    placeholder="支持粘贴 Word、Excel 或网页表格"
                   />
                 </div>
 
                 {/* 5. 关于团队学习、分组讨论的要求 */}
                 <div className="space-y-2">
                   <Label htmlFor="teamwork-requirements">关于团队学习、分组讨论的要求</Label>
-                  <ExpandableTextarea
+                  <RichTextEditor
                     value={teamworkRequirements}
                     onChange={setTeamworkRequirements}
-                    placeholder=""
-                    maxLength={500}
-                    rows={4}
+                    placeholder="支持粘贴 Word、Excel 或网页表格"
                   />
                 </div>
 
                 {/* 6. 关于专利、论文等加分项的要求 */}
                 <div className="space-y-2">
                   <Label htmlFor="bonus-requirements">关于专利、论文等加分项的要求</Label>
-                  <ExpandableTextarea
+                  <RichTextEditor
                     value={bonusRequirements}
                     onChange={setBonusRequirements}
-                    placeholder=""
-                    maxLength={500}
-                    rows={4}
+                    placeholder="支持粘贴 Word、Excel 或网页表格"
                   />
                 </div>
 
-                {/* 7. 其他学习建议 */}
+                {/* 7. 其他课程要求或学习建议 */}
                 <div className="space-y-2">
-                  <Label htmlFor="other-suggestions">其他学习建议</Label>
-                  <ExpandableTextarea
+                  <Label htmlFor="other-suggestions">其他课程要求或学习建议</Label>
+                  <RichTextEditor
                     value={otherSuggestions}
                     onChange={setOtherSuggestions}
-                    placeholder=""
-                    maxLength={500}
-                    rows={4}
+                    placeholder="支持粘贴 Word、Excel 或网页表格"
                   />
                 </div>
               </div>
@@ -1285,12 +1254,6 @@ function AddCourseForm({
 
           <TabsContent value="assessment" className="space-y-6 mt-6">
             <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-sm bg-[var(--naive-primary)]" />
-                <h3 className="text-base font-semibold text-foreground">考核评价</h3>
-              </div>
-              <div className="border-t border-dashed border-border" />
-
               {/* 1. 考核方式 和 3. 总成绩类型 - 同一行 */}
               <div className="grid grid-cols-2 gap-4">
                 {/* 1. 考核方式 */}
@@ -1345,24 +1308,20 @@ function AddCourseForm({
                 {/* 2. 具体形式 */}
                 <div className="space-y-2">
                   <Label htmlFor="assessment-form">具体形式</Label>
-                  <ExpandableTextarea
+                  <RichTextEditor
                     value={assessmentForm}
                     onChange={setAssessmentForm}
-                    placeholder=""
-                    maxLength={500}
-                    rows={4}
+                    placeholder="支持粘贴 Word、Excel 或网页表格"
                   />
                 </div>
 
                 {/* 6. 考核评价说明 */}
                 <div className="space-y-2">
                   <Label htmlFor="assessment-description">考核评价说明</Label>
-                  <ExpandableTextarea
+                  <RichTextEditor
                     value={assessmentDescription}
                     onChange={setAssessmentDescription}
-                    placeholder=""
-                    maxLength={1000}
-                    rows={4}
+                    placeholder="支持粘贴 Word、Excel 或网页表格"
                   />
                 </div>
               </div>
@@ -1471,12 +1430,6 @@ function AddCourseForm({
 
           <TabsContent value="chapters" className="space-y-6 mt-6">
             <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-sm bg-[var(--naive-primary)]" />
-                <h3 className="text-base font-semibold text-foreground">章节项目</h3>
-              </div>
-              <div className="border-t border-dashed border-border" />
-
               <div className="border border-input rounded-md overflow-hidden bg-background">
                 <Table>
                   <TableHeader className="[&_tr]:border-0">
