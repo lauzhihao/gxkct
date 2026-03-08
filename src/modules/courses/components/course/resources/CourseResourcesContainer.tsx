@@ -21,6 +21,43 @@ interface CourseResourcesContainerProps {
   courseEditable?: boolean
 }
 
+const MAX_RESOURCE_UPLOAD_SIZE = 1024 * 1024 * 1024
+const FALLBACK_RESOURCE_MIME_TYPE = "application/octet-stream"
+
+const resolveUploadMimeType = (file: File): string => {
+  if (typeof file.type !== "string") {
+    throw new Error("文件类型无效，无法上传")
+  }
+
+  const normalizedMimeType = file.type.trim()
+  if (normalizedMimeType.length === 0) {
+    return FALLBACK_RESOURCE_MIME_TYPE
+  }
+
+  return normalizedMimeType
+}
+
+const createUploadHeaders = (
+  uploadHeaders: Record<string, string> | undefined,
+  mimeType: string,
+): Record<string, string> => {
+  if (!uploadHeaders) {
+    return {
+      "Content-Type": mimeType,
+    }
+  }
+
+  const hasContentTypeHeader = Object.keys(uploadHeaders).some((key) => key.toLowerCase() === "content-type")
+  if (hasContentTypeHeader) {
+    return uploadHeaders
+  }
+
+  return {
+    ...uploadHeaders,
+    "Content-Type": mimeType,
+  }
+}
+
 export function CourseResourcesContainer({ nodeId, courseEditable = false }: CourseResourcesContainerProps) {
   const canManageCourseResource = courseEditable
 
@@ -129,9 +166,10 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
       }
       const uploadedPaths: string[] = []
       for (const file of files) {
+        const resolvedMimeType = resolveUploadMimeType(file)
         const signatureResponse = await courseResourcesApi.getUploadSignature(nodeId, currentParentId, {
           fileName: file.name,
-          mimeType: file.type || undefined,
+          mimeType: resolvedMimeType,
           size: file.size,
         })
         if (signatureResponse.error || !signatureResponse.data) {
@@ -147,7 +185,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
         }
         const uploadResponse = await fetch(uploadUrl, {
           method: uploadMethod ?? "PUT",
-          headers: uploadHeaders,
+          headers: createUploadHeaders(uploadHeaders, resolvedMimeType),
           body: file,
         })
         if (!uploadResponse.ok) {
@@ -160,7 +198,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
           fileName: file.name,
           uploadPath,
           size: file.size,
-          mimeType: file.type || undefined,
+          mimeType: resolvedMimeType,
           checksum,
         })
         if (confirmResponse.error) {
@@ -313,6 +351,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
                 onUpload: handleUploadFiles,
                 buttonText: "上传",
                 fileType: "任意文件",
+                maxFileSize: MAX_RESOURCE_UPLOAD_SIZE,
                 maxFileCount: 20,
                 disabled: isLoading,
                 buttonClassName: "text-muted-foreground",
