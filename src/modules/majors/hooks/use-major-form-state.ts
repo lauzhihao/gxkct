@@ -70,7 +70,7 @@ export function useMajorFormState(initialData?: InitialData): UseMajorFormStateR
   // 基础信息状态 - 直接访问 initialData 的属性
   const [majorCode, setMajorCode] = useState(initialData?.majorClass || initialData?.code || "")
   const [majorName, setMajorName] = useState(initialData?.name || initialData?.nodeName || "")
-  const [majorLevel, setMajorLevel] = useState(initialData?.majorLevel || "1")
+  const [majorLevel, setMajorLevel] = useState(initialData?.majorLevel || "2")
   const [educationalFeatures, setEducationalFeatures] = useState(initialData?.feature || "")
 
   // 需求状况状态

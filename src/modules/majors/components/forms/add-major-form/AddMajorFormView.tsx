@@ -31,6 +31,9 @@ interface AddMajorFormViewProps {
   handleSubmit: () => void
   toast: any
   isLoadingDetail?: boolean
+  onUploadGraduationRequirements: (files: File[]) => Promise<string[]>
+  onDownloadGraduationTemplate: () => Promise<void>
+  isGraduationUploadDisabled: boolean
 }
 
 export function AddMajorFormView({
@@ -45,6 +48,9 @@ export function AddMajorFormView({
   handleSubmit,
   toast,
   isLoadingDetail = false,
+  onUploadGraduationRequirements,
+  onDownloadGraduationTemplate,
+  isGraduationUploadDisabled,
 }: AddMajorFormViewProps) {
   // 加载专业详情时显示加载状态
   if (isLoadingDetail) {
@@ -115,6 +121,9 @@ export function AddMajorFormView({
           majorId={initialData?.id}
           departmentId={effectiveDepartmentId}
           toast={toast}
+          onUploadGraduationRequirements={onUploadGraduationRequirements}
+          onDownloadGraduationTemplate={onDownloadGraduationTemplate}
+          isUploadDisabled={isGraduationUploadDisabled}
         />
       </Card>
 

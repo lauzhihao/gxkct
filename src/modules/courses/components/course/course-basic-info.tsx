@@ -1,10 +1,11 @@
 "use client"
 import { useMemo, type ReactNode } from "react"
-import { Calendar, BookOpen, FileText, Clock, Tag } from "lucide-react"
+import { Calendar, BookOpen, FileText, Clock, Tag, Square, Check } from "lucide-react"
 import { formatDate } from "@/shared/utils/date-utils"
 import { getCourseType } from "@/shared/utils/data-transform"
 import { SectionCard, SectionHeader, Divider } from "@/shared/components/design-system"
 import { SafeRichTextContent } from "@/shared/components/ui/safe-rich-text-content"
+import { Button } from "@/shared/components/ui/button"
 
 type ScoreTableRow = Record<string, string | number | null | undefined>
 type ScheduleRow = Record<string, string | number | null | undefined>
@@ -49,6 +50,8 @@ interface CourseBasicInfoProps {
   courseNameData?: unknown
   createTime?: string
   metadata?: unknown
+  courseEditable?: boolean
+  onOpenCourseSyllabus?: () => void
 }
 
 interface AssessmentFieldProps {
@@ -68,12 +71,43 @@ function AssessmentField({ label, children, alignTop = false }: AssessmentFieldP
   )
 }
 
-export function CourseBasicInfo({ name, courseDetail, createTime }: CourseBasicInfoProps) {
+function AssessmentMethodOption({
+  label,
+  checked,
+}: {
+  label: string
+  checked: boolean
+}) {
+  return (
+    <div className="flex items-center gap-2 text-base text-muted-foreground">
+      <span className="relative inline-flex h-5 w-5 items-center justify-center overflow-visible">
+        <Square className={`h-5 w-5 ${checked ? "text-green-600" : "text-muted-foreground"}`} strokeWidth={1.8} />
+        {checked ? <Check className="absolute left-1/2 top-1/2 h-7.5 w-7.5 -translate-x-[42%] -translate-y-[58%] text-green-600" strokeWidth={2.8} /> : null}
+      </span>
+      <span>{label}</span>
+    </div>
+  )
+}
+
+export function CourseBasicInfo({
+  name,
+  courseDetail,
+  createTime,
+  courseEditable = false,
+  onOpenCourseSyllabus,
+}: CourseBasicInfoProps) {
   const courseTypeName = useMemo(() => getCourseType(courseDetail?.typeId), [courseDetail?.typeId])
 
   return (
     <SectionCard>
-      <SectionHeader title="基本信息" />
+      <SectionHeader
+        title="基本信息"
+        action={courseEditable && onOpenCourseSyllabus ? (
+          <Button size="sm" onClick={onOpenCourseSyllabus} className="bg-primary text-primary-foreground hover:bg-primary/90">
+            开课说明
+          </Button>
+        ) : null}
+      />
       <Divider spacing="none" className="mb-4" />
       <div className="grid grid-cols-3 gap-6">
         {/* 课程名称 */}
@@ -381,7 +415,10 @@ export function CourseBasicInfo({ name, courseDetail, createTime }: CourseBasicI
           <div className="space-y-4">
             {courseDetail?.assessmentMethod && (
               <AssessmentField label="考核方式">
-                {courseDetail.assessmentMethod}
+                <div className="flex flex-wrap items-center gap-8">
+                  <AssessmentMethodOption label="考试" checked={courseDetail.assessmentMethod === "考试"} />
+                  <AssessmentMethodOption label="考查" checked={courseDetail.assessmentMethod === "考查"} />
+                </div>
               </AssessmentField>
             )}
 
@@ -398,7 +435,10 @@ export function CourseBasicInfo({ name, courseDetail, createTime }: CourseBasicI
             {courseDetail?.scoreType && (
               <AssessmentField label="总成绩为" alignTop>
                 <div className="space-y-3">
-                  <div>{courseDetail.scoreType}</div>
+                  <div className="flex flex-wrap items-center gap-8">
+                    <AssessmentMethodOption label="百分制" checked={courseDetail.scoreType === "百分制"} />
+                    <AssessmentMethodOption label="五级分制" checked={courseDetail.scoreType === "五级分制"} />
+                  </div>
                   {courseDetail.scoreType === "五级分制" && (
                     <div className="rounded-md border border-border bg-secondary/30 p-4 text-sm leading-relaxed text-muted-foreground">
                       五级分制的成绩等级与分值对应如下：90-100分为优秀，80-89分为良好，70-79分为中等，60-69分为及格，60分以下为不及格（详细列示五级分制的考核标准和具体要求）。

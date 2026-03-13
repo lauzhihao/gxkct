@@ -127,6 +127,7 @@ export function AddMajorFormContainer({
 
   // 加载状态
   const [isLoadingDetail, setIsLoadingDetail] = useState(false)
+  const [hasUploadedRequirements, setHasUploadedRequirements] = useState(false)
   const hasLoadedDetailRef = useRef(false)
   const {
     setMajorCode,
@@ -138,6 +139,79 @@ export function AddMajorFormContainer({
   } = formState
   const { setCareerInfoList } = careerInfo
   const { setGraduationRequirements, setIndicatorCourseSupports, clearDeletedNodeIds } = graduationReqs
+
+  const downloadBlobFile = (blob: Blob, filename: string) => {
+    const objectUrl = window.URL.createObjectURL(blob)
+    const anchor = document.createElement("a")
+    anchor.style.display = "none"
+    anchor.href = objectUrl
+    anchor.download = filename
+    document.body.appendChild(anchor)
+    anchor.click()
+    document.body.removeChild(anchor)
+    window.URL.revokeObjectURL(objectUrl)
+  }
+
+  const resolveCurrentLangCode = (): string => {
+    if (typeof window === "undefined") {
+      return "80101"
+    }
+
+    const storedLang = window.sessionStorage.getItem("lang")
+    if (typeof storedLang !== "string" || storedLang.trim() === "") {
+      return "80101"
+    }
+
+    return storedLang
+  }
+
+  const normalizeRequirementRows = (requiresVOS: MajorDetailRequireVO[], source: "detail" | "upload" = "detail") => {
+    return requiresVOS.map((requireVO, index) => ({
+      id: requireVO.id > 0 ? String(requireVO.id) : `${source}-req-${index}-${Date.now()}`,
+      content: requireVO.description ?? "",
+      indicators: requireVO.children?.map((child) => child.description ?? "") ?? [""],
+      indicatorIds: requireVO.children?.map((child) => child.id) ?? [0],
+    }))
+  }
+
+  const handleDownloadGraduationTemplate = async () => {
+    const response = await api.tree.downloadRequireTemplate(resolveCurrentLangCode())
+    if (response.error || !response.data) {
+      throw new Error(response.error || "下载毕业要求模板失败")
+    }
+
+    downloadBlobFile(response.data.blob, response.data.filename)
+  }
+
+  const handleUploadGraduationRequirements = async (files: File[]) => {
+    const file = files[0]
+    if (!file) {
+      throw new Error("未选择毕业要求 Excel 文件")
+    }
+
+    const rawMajorId = initialData?.id ?? initialData?.nodeId
+    if (typeof rawMajorId !== "string") {
+      throw new Error("当前为新建专业，需保存后才能上传毕业要求表")
+    }
+
+    const normalizedMajorId = extractNumericId(rawMajorId)
+    if (!Number.isInteger(normalizedMajorId) || normalizedMajorId <= 0) {
+      throw new Error("专业ID无效，无法上传毕业要求表")
+    }
+
+    const response = await api.tree.resolveRequires(String(normalizedMajorId), file)
+    if (response.error || !response.data) {
+      throw new Error(response.error || "上传毕业要求表失败")
+    }
+
+    setGraduationRequirements(normalizeRequirementRows(response.data, "upload"))
+    setIndicatorCourseSupports({})
+    clearDeletedNodeIds()
+    formState.setUploadedFile(file)
+    setHasUploadedRequirements(true)
+
+    return [file.name]
+  }
 
   // 编辑模式下加载专业详情
   useEffect(() => {
@@ -232,13 +306,7 @@ export function AddMajorFormContainer({
 
           // 更新毕业要求
           if (detailData.requiresVOS && detailData.requiresVOS.length > 0) {
-            const graduationRequirements = detailData.requiresVOS.map((requireVO) => ({
-              id: String(requireVO.id),
-              content: requireVO.description ?? "",
-              indicators: requireVO.children?.map((child) => child.description ?? "") ?? [""],
-              indicatorIds: requireVO.children?.map((child) => child.id) ?? [0],
-            }))
-            setGraduationRequirements(graduationRequirements)
+            setGraduationRequirements(normalizeRequirementRows(detailData.requiresVOS))
             clearDeletedNodeIds()
           }
 
@@ -360,26 +428,54 @@ export function AddMajorFormContainer({
     })
 
     // 将 graduationRequirements 转换为 requiresVOS 格式
+    const deletedIndicatorMap = new Map<number, number[]>()
+    graduationReqs.deletedIndicators.forEach((item) => {
+      const current = deletedIndicatorMap.get(item.requirementId)
+      if (current) {
+        current.push(item.indicatorId)
+        return
+      }
+      deletedIndicatorMap.set(item.requirementId, [item.indicatorId])
+    })
+
     const requiresVOS = graduationReqs.graduationRequirements.map((requirement) => {
       const requirementNumericId = parsePersistedEntityId(requirement.id)
+      const deletedChildIds = requirementNumericId > 0 ? deletedIndicatorMap.get(requirementNumericId) ?? [] : []
       return {
         id: requirementNumericId,
         description: requirement.content,
-        children: requirement.indicators.map((indicator, indIndex) => ({
-          id: requirement.indicatorIds[indIndex] > 0 ? requirement.indicatorIds[indIndex] : 0,
-          description: indicator,
-          children: [] as CreateMajorRequest["requiresVOS"][number]["children"][number]["children"],
-        })),
+        children: [
+          ...requirement.indicators.map((indicator, indIndex) => ({
+            id: requirement.indicatorIds[indIndex] > 0 ? requirement.indicatorIds[indIndex] : 0,
+            description: indicator,
+            children: [] as CreateMajorRequest["requiresVOS"][number]["children"][number]["children"],
+          })),
+          ...deletedChildIds.map((indicatorId) => ({
+            id: -indicatorId,
+            description: "",
+            children: [] as CreateMajorRequest["requiresVOS"][number]["children"][number]["children"],
+          })),
+        ],
       }
     })
 
-    const deletedRequiresVOS = graduationReqs.deletedNodeIds.map((deletedId) => ({
+    const deletedRequiresVOS = graduationReqs.deletedRequirementIds.map((deletedId) => ({
       id: -deletedId,
       description: "",
       children: [] as CreateMajorRequest["requiresVOS"][number]["children"],
     }))
 
-    const mergedRequiresVOS = [...requiresVOS, ...deletedRequiresVOS]
+    let mergedRequiresVOS = [...requiresVOS, ...deletedRequiresVOS]
+    if (
+      mergedRequiresVOS.length === 1
+      && mergedRequiresVOS[0]?.id === 0
+      && mergedRequiresVOS[0]?.description === ""
+      && mergedRequiresVOS[0]?.children.length === 1
+      && mergedRequiresVOS[0]?.children[0]?.id === 0
+      && mergedRequiresVOS[0]?.children[0]?.description === ""
+    ) {
+      mergedRequiresVOS = []
+    }
 
     const majorData = {
       name: formState.majorName,
@@ -427,7 +523,7 @@ export function AddMajorFormContainer({
           demandArea: formState.selectedProvince,
           position: formState.position,
           requiresVOS: mergedRequiresVOS,
-          upload: false,
+          upload: hasUploadedRequirements,
           professionsVOS: professionsVOS.map((p) => ({
             id: p.id,
             majorId: parsedMajorId,
@@ -440,6 +536,7 @@ export function AddMajorFormContainer({
 
         if (response.status === 200 || response.data) {
           clearDeletedNodeIds()
+          setHasUploadedRequirements(false)
           if (isAutoSave) {
             // 自动保存成功：更新状态，不退出编辑模式
             formState.setAutoSaveStatus("saved")
@@ -513,6 +610,9 @@ export function AddMajorFormContainer({
       handleSubmit={handleSubmit}
       toast={toast}
       isLoadingDetail={isLoadingDetail}
+      onUploadGraduationRequirements={handleUploadGraduationRequirements}
+      onDownloadGraduationTemplate={handleDownloadGraduationTemplate}
+      isGraduationUploadDisabled={!isEditMode || !initialData?.id}
     />
   )
 }

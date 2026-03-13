@@ -1,6 +1,6 @@
 import { api, type MajorMatrixData } from "@/lib/api"
 import type { ApiResponse } from "@/lib/api/types"
-import type { CourseMatrixItem, CourseMatrixSavePayload } from "@/lib/api/matrix-api"
+import type { CourseMatrixItem, CourseMatrixSavePayload, MajorMatrixItemResponse } from "@/lib/api/matrix-api"
 
 export const courseMatrixApi = {
   getCourseMajorMatrix(courseId: string, majorId: string): Promise<ApiResponse<MajorMatrixData | null>> {
@@ -17,6 +17,9 @@ export const courseMatrixApi = {
   },
   getCourseMatrix(courseId: string): Promise<ApiResponse<CourseMatrixItem[] | null>> {
     return api.matrices.getCourseMatrix(courseId)
+  },
+  getMajorMatrix(courseId: string): Promise<ApiResponse<MajorMatrixItemResponse[] | null>> {
+    return api.matrices.getMajorMatrix(courseId)
   },
   updateCourseMatrix(courseId: string, matrix: CourseMatrixSavePayload[]): Promise<ApiResponse<CourseMatrixItem[] | null>> {
     return api.matrices.updateCourseMatrix(courseId, matrix)

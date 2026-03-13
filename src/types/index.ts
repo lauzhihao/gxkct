@@ -32,6 +32,13 @@ export interface TreeNodeManager {
   label: string
 }
 
+export interface TreeNodeMenuItem {
+  label?: string
+  value?: string
+  path?: string
+  type?: string
+}
+
 export interface TaskMember {
   id: Long
   account: string
@@ -152,6 +159,8 @@ export interface TreeNode {
   nodeLevel?: number
   children?: TreeNode[]
   manager?: TreeNodeManager[] | null
+  btnMenus?: TreeNodeMenuItem[] | null
+  coverMenus?: TreeNodeMenuItem[] | null
   isStarred?: boolean
   // 兼容属性：从 nodeId 解析出的数字 ID（右侧组件使用）
   id?: string

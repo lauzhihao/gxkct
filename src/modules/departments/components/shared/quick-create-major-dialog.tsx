@@ -9,7 +9,7 @@ import { Plus, X, Check } from "lucide-react"
 import { cn } from "@/shared/utils/utils"
 import { MemberSelector } from "@/shared/components/member-selector"
 import { useToast } from "@/shared/hooks/use-toast"
-import { majorApiService, type CreateMajorRequest } from "@/modules/majors/api"
+import { majorApiService } from "@/modules/majors/api"
 
 interface QuickCreateMajorDialogProps {
   open: boolean
@@ -91,26 +91,14 @@ export function QuickCreateMajorDialog({
 
     setIsSubmitting(true)
 
-    // 构建 API 请求体
-    const requestData: CreateMajorRequest = {
-      id: 0,
-      departmentId: parseInt(departmentId, 10),
-      name: majorName,
-      keyword: "",
-      majorLevel: "",
-      majorClass: "",
-      feature: "",
-      careerLevel: "",
-      demandType: "",
-      demandArea: "",
-      position: "",
-      requiresVOS: [],
-      upload: false,
-      professionsVOS: [],
-    }
+    const managerIds = directors.map((director) => director.id)
 
     try {
-      const response = await majorApiService.createMajor(requestData)
+      const response = await majorApiService.quickCreateMajor({
+        departmentId: parseInt(departmentId, 10),
+        name: majorName,
+        managerIds,
+      })
 
       if (response.error) {
         toast({

@@ -25,6 +25,7 @@ function convertToProjectMatrixData(responseData: ProjectMatrixDataResponse["dat
       goals: (p.goals || []).map((g) => ({
         id: g.id,
         description: g.description,
+        product: g.product,
       })),
     })),
     data: responseData.data as ProjectMatrixData["data"],
@@ -89,6 +90,7 @@ export interface ProjectMatrixProject {
 export interface ProjectMatrixGoal {
   id: number
   description: string
+  product?: string
 }
 
 export interface ProjectMatrixProjectItem {

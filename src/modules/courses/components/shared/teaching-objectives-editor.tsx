@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useRef, useMemo } from "react"
 import { Button } from "@/shared/components/ui/button"
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/shared/components/ui/accordion"
-import { Check, Plus, Search, Trash2, Star, ArrowLeft, XCircle } from "lucide-react"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/shared/components/ui/accordion"
+import { Check, Plus, Search, Trash2, ArrowLeft, X } from "lucide-react"
 import { Spinner } from "@/shared/components/ui/spinner"
-import { FileUpload } from "@/shared/components/ui/file-upload"
 import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 import type { TreeNode } from "@/types"
 import type { CourseGoal } from "@/lib/api/course-goals-api"
 import { courseGoalsApi } from "@/modules/courses/api/courseGoalsApi"
+import type { TeachingObjectiveMajorIndicator } from "@/modules/courses/model/course-matrix"
 
 interface TeachingObjectivesEditorProps {
   isOpen: boolean
@@ -17,7 +17,7 @@ interface TeachingObjectivesEditorProps {
   courseGoals: CourseGoal[]
   node: TreeNode
   majorId?: string | number
-  majorIndicators: Array<{ requirementId: string; indicatorIndex: number; content: string }>
+  majorIndicators: TeachingObjectiveMajorIndicator[]
   teachingObjectiveIndicatorMap: Record<string, string[]>
   isLoadingMajorIndicators: boolean
   isLoadingTeachingObjectiveIndicators: boolean
@@ -30,6 +30,7 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
     courseGoals,
     node,
     majorId,
+    majorIndicators,
   } = props
   // 教学目标编辑状态
   const [editingGoalObjectives, setEditingGoalObjectives] = useState<Record<string, any[]>>({})
@@ -42,7 +43,7 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
   const [teachingObjectivesFilterKeyword, setTeachingObjectivesFilterKeyword] = useState("")
   const [debouncedFilterKeyword, setDebouncedFilterKeyword] = useState("")
   const [isFilteringTeachingObjectives, setIsFilteringTeachingObjectives] = useState(false)
-  const [expandedGoals, setExpandedGoals] = useState<string[]>([])
+  const [expandedIndicators, setExpandedIndicators] = useState<string[]>([])
 
   const filterDebounceTimerRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -67,24 +68,17 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
 
   const isNumericObjectiveId = (objectiveId: string): boolean => /^\d+$/.test(objectiveId)
 
-  // 初始化expandedGoals
-  useEffect(() => {
-    if (isOpen && courseGoals && courseGoals.length > 0 && expandedGoals.length === 0) {
-      const defaultExpanded = courseGoals
-        .filter((goal) => goal.children && goal.children.length > 0)
-        .map((goal) => `goal-${goal.id}`)
-      if (defaultExpanded.length > 0) {
-        setExpandedGoals(defaultExpanded)
-      }
-    }
-  }, [isOpen, courseGoals, expandedGoals.length])
-
   // 初始化editingGoalObjectives及基线
   useEffect(() => {
     if (isOpen && courseGoals && courseGoals.length > 0) {
       const state = toEditingState(courseGoals)
       setEditingGoalObjectives(state)
       setBaselineObjectives(state)
+
+      const defaultExpandedIndicators = courseGoals
+        .filter((goal) => Array.isArray(goal.children) && goal.children.length > 0)
+        .map((goal) => `indicator-${goal.id}`)
+      setExpandedIndicators(defaultExpandedIndicators)
     }
   }, [isOpen, courseGoals])
 
@@ -116,14 +110,11 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
     }))
   }
 
-  const handleAddObjectiveForGoal = (goalId: string, accordionValue: string) => {
-    setExpandedGoals((prev) => {
-      if (prev.includes(accordionValue)) {
-        return prev
-      }
-      return [...prev, accordionValue]
-    })
-
+  const handleAddObjectiveForGoal = (goalId: string) => {
+    const accordionValue = `indicator-${goalId}`
+    setExpandedIndicators((prev) => (
+      prev.includes(accordionValue) ? prev : [...prev, accordionValue]
+    ))
     startAddingObjectiveForGoal(goalId)
   }
 
@@ -134,19 +125,18 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
     }))
   }
 
-  const cancelAddingObjectiveForGoal = (goalId: string) => {
-    setGoalObjectiveInputs((prev) => ({
-      ...prev,
-      [goalId]: { inputValue: "", isEditing: false },
-    }))
-  }
-
   const removeGoalObjective = (goalId: string, objectiveId: string) => {
     setEditingGoalObjectives((prev) => ({
       ...prev,
       [goalId]: (prev[goalId] || []).filter((obj) => obj.id !== objectiveId),
     }))
   }
+
+  const restoreGoalObjective = async () => {
+    await syncObjectivesFromServer()
+  }
+
+  const getObjectiveLabel = (index: number): string => String.fromCharCode(65 + index)
 
   const updateTeachingObjective = (objectiveId: string, content: string) => {
     setEditingGoalObjectives((prev) => {
@@ -255,6 +245,11 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
   }
 
   const handleDeleteSingleObjective = async (goalId: string, objectiveId: string) => {
+    const confirmed = window.confirm("确定要删除该教学目标吗？\n引用它的二级矩阵数据将立即失效，且此操作不可逆")
+    if (!confirmed) {
+      return
+    }
+
     const objectiveKey = getObjectiveActionKey(String(goalId), String(objectiveId))
     setDeletingObjectiveKeys((prev) => ({
       ...prev,
@@ -280,32 +275,6 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
       })
     }
   }
-  const filteredCourseGoals = useMemo(() => {
-    if (!courseGoals || courseGoals.length === 0) {
-      return []
-    }
-
-    if (!debouncedFilterKeyword.trim()) {
-      return courseGoals
-    }
-
-    const keyword = debouncedFilterKeyword.toLowerCase()
-
-    return courseGoals.filter((goal: any) => {
-      const goalObjectivesList = editingGoalObjectives[goal.id] || []
-
-      if (goal.description?.toLowerCase().includes(keyword)) {
-        return true
-      }
-
-      if (goalObjectivesList.some((obj: any) => obj.description?.toLowerCase().includes(keyword))) {
-        return true
-      }
-
-      return false
-    })
-  }, [courseGoals, debouncedFilterKeyword, editingGoalObjectives])
-
   const isObjectiveDirty = (goalId: string, objective: { id: string; description: string }): boolean => {
     const baselineList = baselineObjectives[goalId]
     if (!baselineList) return true
@@ -315,13 +284,56 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
     return objective.description !== baselineObj.description
   }
 
-  const handleObjectiveBlur = (goal: any, objective: { id: string; description: string }) => {
-    if (!isObjectiveDirty(String(goal.id), objective)) return
-    const objectiveKey = getObjectiveActionKey(String(goal.id), String(objective.id))
-    // 正在保存/删除中则跳过
-    if (savingObjectiveKeys[objectiveKey] || deletingObjectiveKeys[objectiveKey] || isSyncingObjectives) return
-    void handleSaveSingleObjective(goal, objective)
-  }
+  const filteredIndicatorGroups = useMemo(() => {
+    const indicatorGoalMap = new Map(courseGoals.map((goal) => [String(goal.id), goal]))
+    const requirementMap = new Map<string, {
+      requirementId: string
+      requirementDescription: string
+      indicators: Array<TeachingObjectiveMajorIndicator & { goal: CourseGoal }>
+    }>()
+
+    majorIndicators.forEach((indicator) => {
+      const matchedGoal = indicatorGoalMap.get(indicator.indicatorId)
+      if (!matchedGoal) {
+        return
+      }
+
+      const existing = requirementMap.get(indicator.requirementId)
+      const indicatorWithGoal = {
+        ...indicator,
+        goal: matchedGoal,
+      }
+
+      if (existing) {
+        existing.indicators.push(indicatorWithGoal)
+        return
+      }
+
+      requirementMap.set(indicator.requirementId, {
+        requirementId: indicator.requirementId,
+        requirementDescription: indicator.requirementDescription,
+        indicators: [indicatorWithGoal],
+      })
+    })
+
+    const groups = Array.from(requirementMap.values())
+    if (!debouncedFilterKeyword.trim()) {
+      return groups
+    }
+
+    const keyword = debouncedFilterKeyword.toLowerCase()
+    return groups
+      .map((group) => ({
+        ...group,
+        indicators: group.indicators.filter((indicator) => {
+          const objectiveList = editingGoalObjectives[String(indicator.goal.id)] || []
+          return indicator.requirementDescription.toLowerCase().includes(keyword)
+            || indicator.indicatorDescription.toLowerCase().includes(keyword)
+            || objectiveList.some((objective: { description: string }) => objective.description?.toLowerCase().includes(keyword))
+        }),
+      }))
+      .filter((group) => group.indicators.length > 0)
+  }, [courseGoals, debouncedFilterKeyword, editingGoalObjectives, majorIndicators])
 
   const highlightKeyword = (text: string, keyword: string) => {
     if (!keyword.trim()) {
@@ -384,7 +396,7 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
                     }}
                     className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    <XCircle className="w-4 h-4" />
+                    <X className="w-4 h-4" />
                   </button>
                 )}
                 {isFilteringTeachingObjectives && (
@@ -400,178 +412,196 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
                 <Star className="w-4 h-4" />
                 AI一键生成
               </Button> */}
-              <FileUpload
-                buttonText="上传Excel"
-                fileType="Excel文件"
-                maxFileSize={10 * 1024 * 1024}
-                maxFileCount={1}
-                accept=".xlsx,.xls"
-                onUpload={async (files) => {
-                  return files.map((file) => `/uploads/${file.name}`)
-                }}
-                disabled={isSyncingObjectives}
-              />
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={onClose}
-                className="gap-2 bg-transparent"
-                disabled={isSyncingObjectives}
-              >
-                <ArrowLeft className="w-4 h-4" />
-                退出
-              </Button>
             </div>
           </div>
 
           {/* 教学目标编辑内容 */}
           <div className="w-full">
-            <Accordion
-              type="multiple"
-              value={expandedGoals}
-              onValueChange={setExpandedGoals}
-              className="space-y-3"
-            >
-              {filteredCourseGoals?.map((goal: any, goalIdx: number) => {
-                const goalObjectivesList = editingGoalObjectives[goal.id] || []
-                const goalInput = goalObjectiveInputs[goal.id]
-                const accordionValue = `goal-${goal.id}`
-
-                return (
-                  <AccordionItem
-                    key={goal.id}
-                    value={accordionValue}
-                    className="rounded-lg border border-border bg-secondary/10 backdrop-blur-sm relative"
-                  >
-                    <div className="absolute top-3 right-3 z-10">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleAddObjectiveForGoal(goal.id, accordionValue)
-                        }}
-                        className="inline-flex items-center justify-center h-6 w-6 p-0 text-primary hover:bg-primary/10 rounded transition-colors"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
+            {props.isLoadingMajorIndicators ? (
+              <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+                <Spinner className="w-4 h-4" />
+                加载毕业要求指标点中
+              </div>
+            ) : filteredIndicatorGroups.length > 0 ? (
+              <div className="space-y-6">
+                {filteredIndicatorGroups.map((requirement, requirementIndex) => (
+                  <section key={requirement.requirementId} className="space-y-3">
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <span className="h-4 w-1.5 rounded-full bg-primary" />
+                        <p className="text-sm font-medium text-foreground">
+                          毕业要求 {requirementIndex + 1}：{highlightKeyword(requirement.requirementDescription, debouncedFilterKeyword)}
+                        </p>
+                      </div>
+                      <div className="mt-3 border-t border-dashed border-border" />
                     </div>
-                    <AccordionTrigger className="px-4 py-3 hover:no-underline pr-12">
-                      <div className="flex items-center gap-3 w-full">
-                        <div className="flex-shrink-0 w-6 h-6 rounded-full bg-accent/10 border border-primary/30 flex items-center justify-center text-xs font-medium text-primary">
-                          {goalIdx + 1}
-                        </div>
-                        <div className="text-left min-w-0 w-[95%]">
-                          <p className="text-base font-medium text-foreground break-words">
-                            {highlightKeyword(goal.description, debouncedFilterKeyword)}
-                          </p>
-                        </div>
-                      </div>
-                    </AccordionTrigger>
 
-                    <AccordionContent className="pt-3 pb-4">
-                      <div className="space-y-3 pl-12 pr-4">
-                        {/* 教学目标输入框 */}
-                        {goalInput?.isEditing && (
-                          <div className="flex gap-2 items-start">
-                            <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[0.7rem] font-medium text-primary mt-2">
-                              {String.fromCharCode(97)}
-                            </div>
-                            <ExpandableTextarea
-                              value={goalInput.inputValue}
-                              onChange={(value) => updateGoalObjectiveInput(goal.id, value)}
-                              placeholder="输入教学目标内容"
-                              maxLength={500}
-                              rows={4}
-                              className="flex-1 px-3 py-2 text-lg"
-                              autoFocus
-                            />
-                            <Button
-                              size="sm"
-                              onClick={() => void handleSaveDraftObjective(goal)}
-                              className="gap-1 h-8 px-2 mt-2"
-                            >
-                              <Check className="w-3 h-3" />
-                              保存
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => cancelAddingObjectiveForGoal(goal.id)}
-                              className="gap-1 h-8 px-2 mt-2"
-                            >
-                              <XCircle className="w-3 h-3" />
-                              取消
-                            </Button>
-                          </div>
-                        )}
+                    <div className="space-y-4">
+                      {requirement.indicators.map((indicator, indicatorIndex) => {
+                        const goal = indicator.goal
+                        const goalObjectivesList = editingGoalObjectives[String(goal.id)] || []
+                        const goalInput = goalObjectiveInputs[String(goal.id)]
+                        const accordionValue = `indicator-${goal.id}`
 
-                        {/* 教学目标列表 */}
-                        {goalObjectivesList.length > 0 ? (
-                          <div className="space-y-2">
-                            {goalObjectivesList.map((objective, objIdx) => {
-                              const objectiveKey = getObjectiveActionKey(String(goal.id), String(objective.id))
-                              const isSavingObjective = !!savingObjectiveKeys[objectiveKey]
-                              const isDeletingObjective = !!deletingObjectiveKeys[objectiveKey]
-                              const dirty = isObjectiveDirty(String(goal.id), objective)
-                              return (
-                                <div key={objective.id} className="flex gap-2 items-start">
-                                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[0.7rem] font-medium text-primary mt-2">
-                                    {String.fromCharCode(97 + objIdx)}
+                        return (
+                          <Accordion
+                            key={indicator.indicatorId}
+                            type="multiple"
+                            value={expandedIndicators}
+                            onValueChange={setExpandedIndicators}
+                            className="rounded-lg border border-border bg-secondary/10"
+                          >
+                            <AccordionItem value={accordionValue} className="border-none">
+                              <div className="relative">
+                                <AccordionTrigger className="px-4 py-4 pr-14 hover:no-underline">
+                                  <div className="min-w-0 flex items-start gap-2 text-left">
+                                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-primary/30 bg-primary/10 px-2 text-xs font-medium text-primary">
+                                      {indicatorIndex + 1}
+                                    </span>
+                                    <span className="text-base font-medium text-foreground break-words">
+                                      {highlightKeyword(indicator.indicatorDescription, debouncedFilterKeyword)}
+                                    </span>
                                   </div>
-                                  <ExpandableTextarea
-                                    value={objective.description || ""}
-                                    onChange={(value) => updateTeachingObjective(objective.id, value)}
-                                    onBlur={() => handleObjectiveBlur(goal, objective)}
-                                    placeholder="输入教学目标内容"
-                                    maxLength={500}
-                                    rows={4}
-                                    className="flex-1 px-3 py-2 text-lg"
-                                  />
-                                  {(dirty || isSavingObjective) && (
-                                    <Button
-                                      size="sm"
-                                      onClick={() => handleSaveSingleObjective(goal, objective)}
-                                      disabled={isSavingObjective || isDeletingObjective || isSyncingObjectives}
-                                      className="h-8 w-8 p-0 flex-shrink-0 mt-2"
-                                      title="保存"
-                                    >
-                                      {isSavingObjective ? <Spinner className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
-                                    </Button>
-                                  )}
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => handleDeleteSingleObjective(String(goal.id), String(objective.id))}
-                                    disabled={isSavingObjective || isDeletingObjective || isSyncingObjectives}
-                                    className="text-red-500 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0 flex-shrink-0 mt-2"
-                                    title="删除"
-                                  >
-                                    {isDeletingObjective ? <Spinner className="w-3.5 h-3.5" /> : <Trash2 className="w-3.5 h-3.5" />}
-                                  </Button>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        ) : (
-                          !goalInput?.isEditing && (
-                            <div className="text-center py-3 text-muted-foreground text-base">
-                              暂无教学目标
-                            </div>
-                          )
-                        )}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                )
-              })}
+                                </AccordionTrigger>
 
-              {/* 筛选无结果提示 */}
-              {debouncedFilterKeyword.trim() && filteredCourseGoals?.length === 0 && (
-                <div className="text-center py-12 text-muted-foreground">
-                  <p className="text-sm">暂无"{debouncedFilterKeyword}"相关的内容</p>
-                </div>
-              )}
-            </Accordion>
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    handleAddObjectiveForGoal(String(goal.id))
+                                  }}
+                                  className="absolute right-4 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-primary transition-colors hover:bg-primary/10"
+                                  title="新增教学目标"
+                                >
+                                  <Plus className="w-4 h-4" />
+                                </button>
+                              </div>
+
+                              <AccordionContent className="px-4 pb-4">
+                                <div className="ml-8 space-y-3">
+                                  {goalInput?.isEditing && (
+                                    <div className="flex gap-2 items-start">
+                                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-medium text-primary mt-2">
+                                        {getObjectiveLabel(goalObjectivesList.length)}
+                                      </div>
+                                      <div className="flex w-4/5 items-start gap-2">
+                                        <ExpandableTextarea
+                                          value={goalInput.inputValue}
+                                          onChange={(value) => updateGoalObjectiveInput(String(goal.id), value)}
+                                          placeholder="输入教学目标内容"
+                                          maxLength={500}
+                                          rows={4}
+                                          className="flex-1 px-3 py-2 text-lg"
+                                          autoFocus
+                                        />
+                                        <Button
+                                          size="sm"
+                                          onClick={() => void handleSaveDraftObjective(goal)}
+                                          disabled={isSyncingObjectives}
+                                          className="mt-0 h-10 w-10 p-0"
+                                          title="保存"
+                                        >
+                                          <Check className="w-3.5 h-3.5" />
+                                        </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() => void syncObjectivesFromServer()}
+                                            className="mt-0 h-10 w-10 p-0 text-muted-foreground hover:text-white"
+                                            title="取消"
+                                          >
+                                          <X className="w-4 h-4" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {goalObjectivesList.length > 0 ? (
+                                    <div className="space-y-2">
+                                      {goalObjectivesList.map((objective, objIdx) => {
+                                        const objectiveKey = getObjectiveActionKey(String(goal.id), String(objective.id))
+                                        const isSavingObjective = !!savingObjectiveKeys[objectiveKey]
+                                        const isDeletingObjective = !!deletingObjectiveKeys[objectiveKey]
+                                        const dirty = isObjectiveDirty(String(goal.id), objective)
+                                        const showSaveAction = dirty || isSavingObjective
+
+                                        return (
+                                          <div key={objective.id} className="flex gap-2 items-start">
+                                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-medium text-primary mt-2">
+                                              {getObjectiveLabel(objIdx)}
+                                            </div>
+                                            <div className="flex w-4/5 items-start gap-2">
+                                              <ExpandableTextarea
+                                                value={objective.description || ""}
+                                                onChange={(value) => updateTeachingObjective(String(objective.id), value)}
+                                                placeholder="输入教学目标内容"
+                                                maxLength={500}
+                                                rows={4}
+                                                className="flex-1 px-3 py-2 text-lg"
+                                              />
+                                              {showSaveAction ? (
+                                                <div className="mt-0 flex flex-shrink-0 items-start gap-2">
+                                                  <Button
+                                                    size="sm"
+                                                    onClick={() => void handleSaveSingleObjective(goal, objective)}
+                                                    disabled={isSavingObjective || isDeletingObjective || isSyncingObjectives}
+                                                    className="h-10 w-10 p-0"
+                                                    title="保存"
+                                                  >
+                                                    {isSavingObjective ? <Spinner className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
+                                                  </Button>
+                                                  <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => void restoreGoalObjective()}
+                                                    disabled={isSavingObjective || isDeletingObjective || isSyncingObjectives}
+                                                    className="h-10 w-10 p-0 text-muted-foreground hover:text-white"
+                                                    title="取消"
+                                                  >
+                                                    <X className="w-4 h-4" />
+                                                  </Button>
+                                                </div>
+                                              ) : (
+                                                <Button
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  onClick={() => void handleDeleteSingleObjective(String(goal.id), String(objective.id))}
+                                                  disabled={isSavingObjective || isDeletingObjective || isSyncingObjectives}
+                                                  className="mt-0 h-10 w-10 flex-shrink-0 p-0 text-red-500 hover:bg-red-50 hover:text-red-600"
+                                                  title="删除"
+                                                >
+                                                  {isDeletingObjective ? <Spinner className="w-3.5 h-3.5" /> : <Trash2 className="w-3.5 h-3.5" />}
+                                                </Button>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  ) : (
+                                    !goalInput?.isEditing && (
+                                      <div className="text-center py-3 text-muted-foreground text-base">
+                                        暂无教学目标
+                                      </div>
+                                    )
+                                  )}
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+                          </Accordion>
+                        )
+                      })}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <p className="text-sm">
+                  {debouncedFilterKeyword.trim() ? `暂无"${debouncedFilterKeyword}"相关的内容` : "当前课程暂无可展示的毕业要求指标点"}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* 底部按钮 */}

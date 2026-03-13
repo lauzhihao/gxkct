@@ -43,6 +43,18 @@ export interface CourseDetailData {
     credits?: number
     mainTextbook?: string
     referenceResources?: string
+    attendancePolicy?: string
+    assignmentPolicy?: string
+    conductRequirements?: string
+    practiceRequirements?: string
+    teamworkRequirements?: string
+    bonusRequirements?: string
+    otherSuggestions?: string
+    assessmentMethod?: string
+    assessmentForm?: string
+    scoreType?: string
+    scoreTable?: any
+    assessmentDescription?: string
   }
   pointksa: {
     points: any[]
@@ -185,6 +197,18 @@ export class CourseDetailApi {
           credits?: number
           mainTextbook?: string
           referenceResources?: string
+          attendancePolicy?: string
+          assignmentPolicy?: string
+          conductRequirements?: string
+          practiceRequirements?: string
+          teamworkRequirements?: string
+          bonusRequirements?: string
+          otherSuggestions?: string
+          assessmentMethod?: string
+          assessmentForm?: string
+          scoreType?: string
+          scoreTable?: any
+          assessmentDescription?: string
         }
         pointksa: {
           points: any[]
@@ -326,4 +350,3 @@ export class CourseDetailApi {
     }
   }
 }
-

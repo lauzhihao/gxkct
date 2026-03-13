@@ -97,6 +97,7 @@ export function QuickCreateCourseDialog({
 
       // 从 majorId 中提取数字 ID
       const numericMajorId = majorId.match(/\d+/)?.[0] || majorId
+      const teacherIds = teacher?.id ? [teacher.id] : []
 
       const response = await fetch(url, {
         method: "POST",
@@ -104,6 +105,7 @@ export function QuickCreateCourseDialog({
         body: JSON.stringify({
           majorId: parseInt(numericMajorId, 10),
           name: courseName.trim(),
+          teacherIds,
         }),
       })
 
@@ -246,4 +248,3 @@ export function QuickCreateCourseDialog({
     </>
   )
 }
-

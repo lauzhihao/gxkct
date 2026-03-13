@@ -1,6 +1,8 @@
 "use client"
 
 import { Fragment, useEffect, useRef, useState } from "react"
+import { mergeAttributes, Node } from "@tiptap/core"
+import type { EditorView } from "@tiptap/pm/view"
 import { EditorContent, useEditor } from "@tiptap/react"
 import { BubbleMenu } from "@tiptap/react/menus"
 import StarterKit from "@tiptap/starter-kit"
@@ -20,6 +22,7 @@ import {
   Quote,
   Redo2,
   Save,
+  Search,
   Split,
   SquarePen,
   Table2,
@@ -29,12 +32,14 @@ import {
 } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
+import { useToast } from "@/shared/hooks/use-toast"
 import { cn } from "@/shared/utils/utils"
 import { getRichTextPreview, hasRichTextTable, isRichTextEmpty } from "@/shared/utils/rich-text"
 
 interface RichTextEditorProps {
   value: string
   onChange: (value: string) => void
+  onPasteImageUpload?: (file: File) => Promise<string>
   placeholder?: string
   className?: string
   disabled?: boolean
@@ -65,12 +70,47 @@ interface TableActionState {
   canDeleteTable: boolean
 }
 
+const RichTextImage = Node.create({
+  name: "image",
+  group: "block",
+  draggable: true,
+  selectable: true,
+  atom: true,
+
+  addAttributes() {
+    return {
+      src: {
+        default: null,
+      },
+      alt: {
+        default: null,
+      },
+      title: {
+        default: null,
+      },
+    }
+  },
+
+  parseHTML() {
+    return [
+      {
+        tag: "img[src]",
+      },
+    ]
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ["img", mergeAttributes(HTMLAttributes)]
+  },
+})
+
 const editorExtensions = [
   StarterKit.configure({
     code: false,
     codeBlock: false,
     horizontalRule: false,
   }),
+  RichTextImage,
   Table.configure({
     resizable: true,
   }),
@@ -78,6 +118,27 @@ const editorExtensions = [
   TableHeader,
   TableCell,
 ]
+
+function getPastedImageFile(event: ClipboardEvent): File | null {
+  const clipboardItems = event.clipboardData?.items
+
+  if (!clipboardItems) {
+    return null
+  }
+
+  for (const item of Array.from(clipboardItems)) {
+    if (item.kind !== "file" || !item.type.startsWith("image/")) {
+      continue
+    }
+
+    const file = item.getAsFile()
+    if (file) {
+      return file
+    }
+  }
+
+  return null
+}
 
 function getTableActionState(editor: NonNullable<ReturnType<typeof useEditor>>): TableActionState {
   return {
@@ -101,10 +162,13 @@ function isSameTableActionState(current: TableActionState, next: TableActionStat
     && current.canDeleteTable === next.canDeleteTable
 }
 
-export function RichTextEditor({ value, onChange, placeholder, className, disabled = false }: RichTextEditorProps) {
+export function RichTextEditor({ value, onChange, onPasteImageUpload, placeholder, className, disabled = false }: RichTextEditorProps) {
+  const { toast } = useToast()
   const [isExpanded, setIsExpanded] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [dialogDraft, setDialogDraft] = useState(value)
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
+  const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null)
   const [inlineTableActionState, setInlineTableActionState] = useState<TableActionState>({
     canAddRow: false,
     canDeleteRow: false,
@@ -124,16 +188,63 @@ export function RichTextEditor({ value, onChange, placeholder, className, disabl
     canDeleteTable: false,
   })
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const createEditorProps = (contentClassName: string) => ({
+    attributes: {
+      class: contentClassName,
+    },
+    handlePaste: (view: EditorView, event: ClipboardEvent) => {
+      if (disabled || !onPasteImageUpload) {
+        return false
+      }
+
+      const imageFile = getPastedImageFile(event)
+      if (!imageFile) {
+        return false
+      }
+
+      event.preventDefault()
+
+      void (async () => {
+        try {
+          setIsUploadingImage(true)
+          const imageUrl = await onPasteImageUpload(imageFile)
+          const imageNodeType = view.state.schema.nodes.image
+
+          if (!imageNodeType) {
+            throw new Error("富文本编辑器未启用图片节点")
+          }
+
+          const imageNode = imageNodeType.create({
+            src: imageUrl,
+            alt: imageFile.name,
+            title: imageFile.name,
+          })
+
+          view.dispatch(view.state.tr.replaceSelectionWith(imageNode).scrollIntoView())
+          view.focus()
+        } catch (error) {
+          toast({
+            variant: "destructive",
+            title: "图片上传失败",
+            description: error instanceof Error ? error.message : "无法处理粘贴的图片",
+            duration: 3000,
+          })
+        } finally {
+          setIsUploadingImage(false)
+        }
+      })()
+
+      return true
+    },
+  })
+
   const editor = useEditor({
     immediatelyRender: false,
     editable: !disabled,
     extensions: editorExtensions,
     content: value,
-    editorProps: {
-      attributes: {
-        class: "w-full rounded-b-md px-3 py-3 text-sm text-foreground focus:outline-none",
-      },
-    },
+    editorProps: createEditorProps("w-full rounded-b-md px-3 py-3 text-sm text-foreground focus:outline-none"),
     onUpdate: ({ editor: currentEditor }) => {
       const html = currentEditor.getHTML()
       onChange(isRichTextEmpty(html) ? "" : html)
@@ -144,11 +255,7 @@ export function RichTextEditor({ value, onChange, placeholder, className, disabl
     editable: !disabled,
     extensions: editorExtensions,
     content: dialogDraft,
-    editorProps: {
-      attributes: {
-        class: "w-full rounded-b-md px-4 py-4 text-sm text-foreground focus:outline-none",
-      },
-    },
+    editorProps: createEditorProps("w-full rounded-b-md px-4 py-4 text-sm text-foreground focus:outline-none"),
     onUpdate: ({ editor: currentEditor }) => {
       const html = currentEditor.getHTML()
       setDialogDraft(isRichTextEmpty(html) ? "" : html)
@@ -515,7 +622,7 @@ export function RichTextEditor({ value, onChange, placeholder, className, disabl
   ]
 
   const editorContentClassName =
-    "[&_p.is-editor-empty:first-child::before]:pointer-events-none [&_p.is-editor-empty:first-child::before]:float-left [&_p.is-editor-empty:first-child::before]:h-0 [&_p.is-editor-empty:first-child::before]:text-muted-foreground [&_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror]:outline-none [&_.ProseMirror]:whitespace-pre-wrap [&_.ProseMirror_blockquote]:border-l-4 [&_.ProseMirror_blockquote]:border-border [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:text-muted-foreground [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-6 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_table]:table-fixed [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-border [&_.ProseMirror_td]:px-2 [&_.ProseMirror_td]:py-2 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-border [&_.ProseMirror_th]:bg-secondary/40 [&_.ProseMirror_th]:px-2 [&_.ProseMirror_th]:py-2 [&_.ProseMirror_th]:text-left [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-6"
+    "[&_p.is-editor-empty:first-child::before]:pointer-events-none [&_p.is-editor-empty:first-child::before]:float-left [&_p.is-editor-empty:first-child::before]:h-0 [&_p.is-editor-empty:first-child::before]:text-muted-foreground [&_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror]:outline-none [&_.ProseMirror]:whitespace-pre-wrap [&_.ProseMirror_blockquote]:border-l-4 [&_.ProseMirror_blockquote]:border-border [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:text-muted-foreground [&_.ProseMirror_img]:block [&_.ProseMirror_img]:h-auto [&_.ProseMirror_img]:max-h-[40vh] [&_.ProseMirror_img]:max-w-[85%] [&_.ProseMirror_img]:object-contain [&_.ProseMirror_img]:rounded-md [&_.ProseMirror_img]:border [&_.ProseMirror_img]:border-border [&_.ProseMirror_img]:shadow-sm [&_.ProseMirror_img]:my-3 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-6 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_table]:table-fixed [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-border [&_.ProseMirror_td]:px-2 [&_.ProseMirror_td]:py-2 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-border [&_.ProseMirror_th]:bg-secondary/40 [&_.ProseMirror_th]:px-2 [&_.ProseMirror_th]:py-2 [&_.ProseMirror_th]:text-left [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-6"
 
   const renderToolbar = (toolbarGroups: ToolbarGroup[], showInlineHint: boolean = false) => (
     <div className="flex flex-wrap items-center gap-2 border-b border-border bg-secondary/35 px-3 py-2">
@@ -667,8 +774,73 @@ export function RichTextEditor({ value, onChange, placeholder, className, disabl
     </BubbleMenu>
   )
 
+  const renderImageBubbleMenu = (currentEditor: NonNullable<typeof editor>) => (
+    <BubbleMenu
+      editor={currentEditor}
+      shouldShow={({ editor: bubbleEditor }) => bubbleEditor.isEditable && bubbleEditor.isActive("image")}
+      options={{ placement: "top", offset: 10 }}
+      className="z-50"
+    >
+      <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 shadow-lg">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 gap-1.5 rounded-md border-border bg-background px-2.5"
+          onMouseDown={(event) => {
+            event.preventDefault()
+            clearCollapseTimer()
+          }}
+          onClick={() => {
+            const imageAttributes = currentEditor.getAttributes("image")
+            if (typeof imageAttributes.src !== "string" || imageAttributes.src.trim().length === 0) {
+              toast({
+                variant: "destructive",
+                title: "预览失败",
+                description: "当前图片缺少可预览地址",
+                duration: 3000,
+              })
+              return
+            }
+
+            setPreviewImage({
+              src: imageAttributes.src,
+              alt: typeof imageAttributes.alt === "string" && imageAttributes.alt.trim().length > 0
+                ? imageAttributes.alt
+                : typeof imageAttributes.title === "string"
+                  ? imageAttributes.title
+                  : "",
+            })
+          }}
+        >
+          <Search className="h-4 w-4" />
+          <span className="text-xs">预览</span>
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 gap-1.5 rounded-md border-border bg-background px-2.5 text-destructive hover:text-destructive"
+          onMouseDown={(event) => {
+            event.preventDefault()
+            clearCollapseTimer()
+          }}
+          onClick={() => currentEditor.chain().focus().deleteSelection().run()}
+        >
+          <Trash2 className="h-4 w-4" />
+          <span className="text-xs">删除</span>
+        </Button>
+      </div>
+    </BubbleMenu>
+  )
+
   const renderEditorContent = (currentEditor: NonNullable<typeof editor>, minHeightClassName: string) => (
     <div className="relative">
+      {isUploadingImage ? (
+        <div className="pointer-events-none absolute right-3 top-3 z-10 rounded-md bg-background/95 px-2 py-1 text-xs text-muted-foreground shadow-sm ring-1 ring-border">
+          正在上传图片...
+        </div>
+      ) : null}
       <EditorContent
         editor={currentEditor}
         className={cn(
@@ -723,6 +895,7 @@ export function RichTextEditor({ value, onChange, placeholder, className, disabl
       >
         {renderToolbar(inlineToolbarGroups, true)}
         {renderTableBubbleMenu(editor, inlineTableActionState)}
+        {renderImageBubbleMenu(editor)}
         <div className={cn(isDialogOpen ? "opacity-60" : "", "transition-opacity")}>{renderEditorContent(editor, "[&_.ProseMirror]:min-h-[160px]")}</div>
       </div>
 
@@ -733,6 +906,7 @@ export function RichTextEditor({ value, onChange, placeholder, className, disabl
           </DialogHeader>
           <div className="flex max-h-[calc(90vh-73px)] flex-col overflow-hidden">
             {renderToolbar(dialogToolbarGroups)}
+            {renderImageBubbleMenu(dialogEditor)}
             <div className="flex-1 overflow-auto">{renderEditorContent(dialogEditor, "[&_.ProseMirror]:min-h-[420px]")}</div>
           </div>
           <DialogFooter className="border-t border-border px-6 py-4">
@@ -745,6 +919,31 @@ export function RichTextEditor({ value, onChange, placeholder, className, disabl
               保存
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={previewImage !== null} onOpenChange={(open) => {
+        if (!open) {
+          setPreviewImage(null)
+        }
+      }}>
+        <DialogContent className="w-[min(96vw,1200px)] max-w-[calc(100vw-2rem)] border-none bg-background/95 p-3 shadow-2xl sm:max-w-[min(96vw,1200px)] sm:p-4">
+          <DialogHeader className="sr-only">
+            <DialogTitle>图片预览</DialogTitle>
+          </DialogHeader>
+          {previewImage ? (
+            <div className="flex max-h-[85vh] flex-col gap-3 overflow-hidden">
+              <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-md bg-muted/30 p-2 sm:p-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={previewImage.src}
+                  alt={previewImage.alt}
+                  className="h-auto max-h-[78vh] w-auto max-w-full object-contain"
+                />
+              </div>
+              {previewImage.alt.trim().length > 0 ? <p className="text-sm text-muted-foreground">{previewImage.alt}</p> : null}
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
     </>

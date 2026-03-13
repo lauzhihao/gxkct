@@ -1,7 +1,7 @@
 import { Input } from "@/shared/components/ui/input"
 import { LoadingState } from "@/shared/components/ui/loading-state"
 import { cn } from "@/shared/utils/utils"
-import { GripVertical, Plus, Trash2, BookMarked } from "lucide-react"
+import { GripVertical, Plus, BookMarked } from "lucide-react"
 import { SupportLabel } from "@/shared/components/support-label"
 import { useCourseMatrixContext } from "@/modules/courses/hooks/use-course-matrix-data"
 import type { CourseGoal } from "@/lib/api/course-goals-api"
@@ -22,7 +22,6 @@ export const ProjectMatrixTable = ({ courseEditable }: ProjectMatrixTableProps) 
     handleAddCoursePoint,
     handleRemoveCoursePoint,
     handleAddProject,
-    handleDeleteProject,
     draggedProjectId,
     dragOverIndex,
     handleDragStart,
@@ -33,11 +32,6 @@ export const ProjectMatrixTable = ({ courseEditable }: ProjectMatrixTableProps) 
     editingProjectNames,
     setEditingProjectNames,
   } = useCourseMatrixContext()
-
-  const handleDeleteProjectWithPermission = (projectId: number | string) => {
-    if (!courseEditable) return
-    handleDeleteProject(projectId)
-  }
 
   const handleAddProjectWithPermission = () => {
     if (!courseEditable) return
@@ -136,17 +130,12 @@ export const ProjectMatrixTable = ({ courseEditable }: ProjectMatrixTableProps) 
           {projectTeachGoalData.projects.map((project, projectIdx) => (
             <tr
               key={project.id}
-              draggable={isEditingCourseMatrix && courseEditable}
-              onDragStart={() => {
-                if (!courseEditable) return
-                handleDragStart(project.id)
-              }}
               onDragEnd={handleDragEnd}
               onDragOver={(e) => {
                 if (!courseEditable) return
                 handleDragOver(e, projectIdx)
               }}
-              onDragLeave={handleDragLeave}
+              onDragLeave={(e) => handleDragLeave(e)}
               onDrop={(e) => {
                 if (!courseEditable) return
                 handleDrop(e, projectIdx)
@@ -181,20 +170,11 @@ export const ProjectMatrixTable = ({ courseEditable }: ProjectMatrixTableProps) 
                     />
                     {courseEditable && (
                       <button
-                        onClick={() => handleDeleteProjectWithPermission(project.id)}
-                        className="flex-shrink-0 p-1 text-muted-foreground hover:text-red-600 transition-colors"
-                        title="删除项目"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                    {courseEditable && (
-                      <button
                         draggable
                         onDragStart={(e) => {
                           if (!courseEditable) return
                           e.stopPropagation()
-                          handleDragStart(project.id)
+                          handleDragStart(e, project.id)
                         }}
                         className="flex-shrink-0 p-1 text-muted-foreground hover:text-primary transition-colors cursor-grab active:cursor-grabbing"
                         title="拖动调整顺序"

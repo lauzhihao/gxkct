@@ -159,7 +159,21 @@ export default function Page() {
       return selectedNode
     }
 
-    return treeDataHook.findNodeById(treeDataHook.treeData, selectedNode.nodeId) ?? selectedNode
+    const treeNode = treeDataHook.findNodeById(treeDataHook.treeData, selectedNode.nodeId)
+    if (!treeNode) {
+      return selectedNode
+    }
+
+    return {
+      ...treeNode,
+      btnMenus: Array.isArray(selectedNode.btnMenus) && selectedNode.btnMenus.length > 0 ? selectedNode.btnMenus : treeNode.btnMenus,
+      coverMenus: Array.isArray(selectedNode.coverMenus) && selectedNode.coverMenus.length > 0 ? selectedNode.coverMenus : treeNode.coverMenus,
+      manager: Array.isArray(selectedNode.manager) && selectedNode.manager.length > 0 ? selectedNode.manager : treeNode.manager,
+      metadata: {
+        ...(treeNode.metadata || {}),
+        ...(selectedNode.metadata || {}),
+      },
+    }
   }, [selectedNode, treeDataHook])
 
   useEffect(() => {

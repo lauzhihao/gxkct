@@ -156,7 +156,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
   }, [])
 
   const handleUploadFiles = useCallback(
-    async (files: File[]) => {
+    async (files: File[], onProgress?: (progress: number) => void) => {
       if (!courseEditable) {
         return []
       }
@@ -164,6 +164,51 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
         showError("请先进入具体目录再上传文件")
         return []
       }
+
+      const totalBytes = files.reduce((sum, file) => sum + file.size, 0)
+      let uploadedBytes = 0
+
+      const uploadFileWithProgress = async (
+        uploadUrl: string,
+        uploadMethod: string,
+        uploadHeaders: HeadersInit,
+        file: File,
+      ) =>
+        new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest()
+          xhr.open(uploadMethod, uploadUrl)
+
+          Object.entries(uploadHeaders).forEach(([key, value]) => {
+            xhr.setRequestHeader(key, value)
+          })
+
+          xhr.upload.onprogress = (event) => {
+            if (!onProgress || !event.lengthComputable || totalBytes <= 0) {
+              return
+            }
+
+            const overallLoaded = uploadedBytes + event.loaded
+            onProgress((overallLoaded / totalBytes) * 100)
+          }
+
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              uploadedBytes += file.size
+              onProgress?.((uploadedBytes / totalBytes) * 100)
+              resolve()
+              return
+            }
+
+            reject(new Error(`上传文件 ${file.name} 失败`))
+          }
+
+          xhr.onerror = () => {
+            reject(new Error(`上传文件 ${file.name} 失败`))
+          }
+
+          xhr.send(file)
+        })
+
       const uploadedPaths: string[] = []
       for (const file of files) {
         const resolvedMimeType = resolveUploadMimeType(file)
@@ -183,16 +228,12 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
           showError(message)
           throw new Error(message)
         }
-        const uploadResponse = await fetch(uploadUrl, {
-          method: uploadMethod ?? "PUT",
-          headers: createUploadHeaders(uploadHeaders, resolvedMimeType),
-          body: file,
-        })
-        if (!uploadResponse.ok) {
-          const message = `上传文件 ${file.name} 失败`
-          showError(message)
-          throw new Error(message)
-        }
+        await uploadFileWithProgress(
+          uploadUrl,
+          uploadMethod ?? "PUT",
+          createUploadHeaders(uploadHeaders, resolvedMimeType),
+          file,
+        )
         const checksum = await calculateChecksum(file)
         const confirmResponse = await courseResourcesApi.confirmUpload(nodeId, currentParentId, {
           fileName: file.name,
@@ -207,6 +248,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
         }
         uploadedPaths.push(uploadPath)
       }
+      onProgress?.(100)
       showSuccess("文件上传成功")
       refreshCurrentLevel()
       return uploadedPaths

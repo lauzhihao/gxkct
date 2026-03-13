@@ -46,9 +46,9 @@ interface MajorDetailData {
 
 // 专业层次字典映射
 const majorLevelMap: { [key: string]: string } = {
-  "1": "本科",
-  "2": "高职",
-  "3": "中职",
+  "2": "本科",
+  "1": "高职",
+  "0": "中职",
 }
 
 // 创建单例 TreeApi 实例

@@ -6,6 +6,7 @@ import { ProjectMatrixTable } from "./course-matrix/project-matrix-table"
 import { CoursePointManagerDialog } from "../../dialogs/course-point-manager-dialog"
 import { CoursePointSelectionDialog } from "../../dialogs/course-point-selection-dialog"
 import { CourseMatrixProvider, useCourseMatrixData } from "@/modules/courses/hooks/use-course-matrix-data"
+import type { TeachingObjectiveFilterData } from "@/modules/courses/model/course-matrix"
 
 interface CourseMatrixProps {
   node: TreeNode
@@ -13,7 +14,7 @@ interface CourseMatrixProps {
   majorId?: string | number
   refreshToken?: number
   courseEditable?: boolean
-  onEditTeachingObjectives?: () => void
+  onEditTeachingObjectives?: (filterData: TeachingObjectiveFilterData) => void
 }
 
 export function CourseMatrix({ node, onUpdateNode, majorId, refreshToken, courseEditable = false, onEditTeachingObjectives }: CourseMatrixProps) {

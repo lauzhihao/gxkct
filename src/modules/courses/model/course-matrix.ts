@@ -2,11 +2,19 @@ import type { TreeNode } from "@/types"
 import type { CourseGoal } from "@/lib/api/course-goals-api"
 import type { CoursePoint as ApiCoursePoint } from "@/lib/api/course-points-api"
 import type { ProjectTeachGoalData } from "@/lib/api/project-teach-goal-api"
-import type { ReactNode, Dispatch, SetStateAction } from "react"
+import type { ReactNode, Dispatch, SetStateAction, DragEvent } from "react"
 
 type Setter<T> = Dispatch<SetStateAction<T>>
 
 export type SupportStrength = "strong" | "weak"
+
+export interface TeachingObjectiveMajorIndicator {
+  indicatorId: string
+  requirementId: string
+  requirementDescription: string
+  indicatorDescription: string
+  supportLevel: SupportStrength
+}
 
 export interface CourseMatrixPointItem {
   id: string
@@ -21,6 +29,24 @@ export type CourseMatrixRecord = Record<string, CourseMatrixPointItem[]>
 export interface SelectedMatrixCell {
   projectId: string
   graduateRequireId: string
+}
+
+export interface TeachingObjectiveFilterData {
+  majorIndicators: TeachingObjectiveMajorIndicator[]
+  isLoadingMajorIndicators: boolean
+  teachingObjectiveIndicatorMap: Record<string, string[]>
+  isLoadingTeachingObjectiveIndicators: boolean
+}
+
+export interface CoursePointSmartParseSummary {
+  totalCount: number
+  addedCount: number
+  duplicateCount: number
+}
+
+export interface CoursePointFooterMessage {
+  text: string
+  tone: "default" | "error"
 }
 
 export interface UseCourseMatrixDataParams {
@@ -58,15 +84,16 @@ export interface CourseMatrixContextValue {
   setEditingProjectNames: Setter<Record<string, string>>
   draggedProjectId: string | null
   dragOverIndex: number | null
-  handleDragStart: (projectId: string | number) => void
+  handleDragStart: (event: DragEvent<Element>, projectId: string | number) => void
   handleDragEnd: () => void
-  handleDragOver: (event: React.DragEvent<Element>, index: number) => void
-  handleDragLeave: () => void
-  handleDrop: (event: React.DragEvent<Element>, index: number) => void
+  handleDragOver: (event: DragEvent<Element>, index: number) => void
+  handleDragLeave: (event: DragEvent<Element>) => void
+  handleDrop: (event: DragEvent<Element>, index: number) => void
   isShowCoursePointsDialog: boolean
   setIsShowCoursePointsDialog: Setter<boolean>
   handleCoursePointsDialogOpenChange: (open: boolean) => void
   handleOpenCoursePointsDialog: () => void
+  resetCoursePointsDialogState: () => void
   coursePointsList: ApiCoursePoint[]
   setCoursePointsList: Setter<ApiCoursePoint[]>
   isLoadingCoursePoints: boolean
@@ -87,23 +114,26 @@ export interface CourseMatrixContextValue {
   newCoursePoint: Partial<ApiCoursePoint> | null
   setNewCoursePoint: Setter<Partial<ApiCoursePoint> | null>
   isSavingNewCoursePoint: boolean
-  isImportingCoursePoints: boolean
+  isSmartParsingCoursePoints: boolean
+  isSmartParseExpanded: boolean
+  setIsSmartParseExpanded: Setter<boolean>
+  smartParseInput: string
+  setSmartParseInput: Setter<string>
+  smartParseSummary: CoursePointSmartParseSummary | null
+  coursePointFooterMessage: CoursePointFooterMessage | null
   isSavingEditingCoursePoint: boolean
   setIsSavingEditingCoursePoint: Setter<boolean>
   handleAddNewCoursePoint: () => void
   handleSaveNewCoursePoint: () => Promise<void>
-  handleDownloadCoursePointTemplate: () => Promise<void>
-  handleImportCoursePoints: (files: File[]) => Promise<string[]>
+  handleSmartParseCoursePoints: () => Promise<void>
   handleDeleteSelectedCoursePoints: () => Promise<void>
   handleUpdateCoursePoint: (coursePointId: number, data: Partial<ApiCoursePoint>) => Promise<void>
   handleDeleteSingleCoursePoint: (coursePointId: number) => Promise<void>
   courseGoals: CourseGoal[]
-  majorIndicators: Array<{ requirementId: string; indicatorIndex: number; content: string }>
+  majorIndicators: TeachingObjectiveMajorIndicator[]
   isLoadingMajorIndicators: boolean
   teachingObjectiveIndicatorMap: Record<string, string[]>
   isLoadingTeachingObjectiveIndicators: boolean
-  isAutoSavePaused: boolean
-  setIsAutoSavePaused: Setter<boolean>
 }
 
 export interface CourseMatrixProviderProps {

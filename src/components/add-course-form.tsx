@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/shared/components/ui/table"
 import { useToast } from "@/shared/hooks/use-toast"
 import { api } from "@/lib/api"
+import { canvasApi } from "@/lib/api/canvas-api"
 import { RichTextEditor } from "@/shared/components/ui/rich-text-editor"
 import { usePermission } from "@/shared/hooks/use-permission"
 import type { PermissionAction } from "@/shared/permissions/types"
@@ -179,6 +180,77 @@ function AddCourseForm({
     })
   }, [toast])
 
+  const uploadCourseRichTextImage = useCallback(async (file: File): Promise<string> => {
+    if (!file.type.startsWith("image/")) {
+      throw new Error("仅支持粘贴图片文件")
+    }
+
+    const trimmedMimeType = file.type.trim()
+    if (trimmedMimeType.length === 0) {
+      throw new Error("图片 MIME type 缺失，无法上传")
+    }
+
+    const now = new Date()
+    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`
+    const timestamp = Date.now()
+    const rawFileName = file.name.trim().length > 0 ? file.name : `pasted-image-${timestamp}.png`
+    const safeFileName = rawFileName.replace(/[^a-zA-Z0-9._\u4e00-\u9fa5-]/g, "_")
+    const courseScope = realCourseId ? `course_${realCourseId}` : `major_${realMajorId}`
+    const fileName = `gxkct/course_rich_text_images/${dateStr}/${courseScope}_${timestamp}_${safeFileName}`
+
+    const presignResponse = await canvasApi.getPresignUrl({
+      fileName,
+      mimeType: trimmedMimeType,
+      size: file.size,
+    })
+
+    if (presignResponse.error || !presignResponse.data) {
+      throw new Error(presignResponse.error || "获取图片上传签名失败")
+    }
+
+    const responseData = presignResponse.data as unknown as Record<string, unknown>
+    const uploadUrl = typeof responseData.uploadUrl === "string"
+      ? responseData.uploadUrl
+      : typeof responseData.url === "string"
+        ? responseData.url
+        : ""
+    const ossKey = typeof responseData.ossKey === "string"
+      ? responseData.ossKey
+      : typeof responseData.uploadPath === "string"
+        ? responseData.uploadPath
+        : ""
+    const uploadHeaders = (() => {
+      const rawHeaders = "headers" in responseData ? responseData.headers : responseData.uploadHeaders
+      if (!rawHeaders || typeof rawHeaders !== "object" || Array.isArray(rawHeaders)) {
+        return {}
+      }
+
+      return Object.fromEntries(
+        Object.entries(rawHeaders).filter((entry): entry is [string, string] => typeof entry[1] === "string")
+      )
+    })()
+
+    if (uploadUrl.length === 0 || ossKey.length === 0) {
+      throw new Error("上传签名响应缺少必要字段")
+    }
+
+    const uploadResponse = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": trimmedMimeType,
+        ...uploadHeaders,
+      },
+      body: file,
+    })
+
+    if (!uploadResponse.ok) {
+      throw new Error(`上传图片失败，HTTP ${uploadResponse.status}`)
+    }
+
+    const urlObj = new URL(uploadUrl)
+    return `${urlObj.origin}/${ossKey}`
+  }, [realCourseId, realMajorId])
+
   const addScheduleRow = () => {
     if (!canManageCourse) {
       notifyNoPermission()
@@ -270,6 +342,20 @@ function AddCourseForm({
   const [chapters, setChapters] = useState<ChapterProject[]>(() =>
     normalizeChapterProjects(initialData?.chapters),
   )
+  const summarizedPeriods = useMemo(() => {
+    return chapters.reduce(
+      (totals, chapter) => ({
+        theoryPeriod: totals.theoryPeriod + (Number.isFinite(Number(chapter.theoryHours)) ? Number(chapter.theoryHours) : 0),
+        practicePeriod: totals.practicePeriod + (Number.isFinite(Number(chapter.practiceHours)) ? Number(chapter.practiceHours) : 0),
+      }),
+      { theoryPeriod: 0, practicePeriod: 0 },
+    )
+  }, [chapters])
+
+  useEffect(() => {
+    setTheoryPeriod((current: number) => (current === summarizedPeriods.theoryPeriod ? current : summarizedPeriods.theoryPeriod))
+    setPracticePeriod((current: number) => (current === summarizedPeriods.practicePeriod ? current : summarizedPeriods.practicePeriod))
+  }, [summarizedPeriods.practicePeriod, summarizedPeriods.theoryPeriod])
 
   // 在编辑模式下，使用传入的 courseDetailData 初始化表单字段
   useEffect(() => {
@@ -337,6 +423,12 @@ function AddCourseForm({
       setActiveTab("basic")
     }
   }, [activeTab, showChapterTab])
+
+  const handleTabChange = useCallback((value: string) => {
+    if (value === "basic" || value === "requirements" || value === "assessment" || value === "chapters") {
+      setActiveTab(value)
+    }
+  }, [])
 
   const addChapter = () => {
     if (!canManageCourse) {
@@ -812,7 +904,7 @@ function AddCourseForm({
       </div>
 
       <Card className="p-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <UnderlineTabsList className={`grid ${showChapterTab ? "grid-cols-4" : "grid-cols-3"}`}>
             <UnderlineTabsTrigger value="basic">
               基本信息
@@ -940,6 +1032,7 @@ function AddCourseForm({
                     placeholder="例如：32"
                     value={theoryPeriod}
                     onChange={(e) => setTheoryPeriod(Number.parseInt(e.target.value) || 0)}
+                    readOnly={isEditMode}
                   />
                 </div>
 
@@ -952,6 +1045,7 @@ function AddCourseForm({
                     placeholder="例如：16"
                     value={practicePeriod}
                     onChange={(e) => setPracticePeriod(Number.parseInt(e.target.value) || 0)}
+                    readOnly={isEditMode}
                   />
                 </div>
 
@@ -962,6 +1056,7 @@ function AddCourseForm({
                     value={mainTextbook}
                     onChange={setMainTextbook}
                     placeholder="支持粘贴 Word、Excel 或网页表格"
+                    onPasteImageUpload={uploadCourseRichTextImage}
                   />
                 </div>
 
@@ -971,6 +1066,7 @@ function AddCourseForm({
                     value={referenceResources}
                     onChange={setReferenceResources}
                     placeholder="支持粘贴 Word、Excel 或网页表格"
+                    onPasteImageUpload={uploadCourseRichTextImage}
                   />
                 </div>
 
@@ -981,6 +1077,7 @@ function AddCourseForm({
                     value={introduction}
                     onChange={setIntroduction}
                     placeholder="输入课程介绍，支持粘贴 Word、Excel 或网页表格"
+                    onPasteImageUpload={uploadCourseRichTextImage}
                   />
                 </div>
 
@@ -1186,6 +1283,7 @@ function AddCourseForm({
                     value={attendancePolicy}
                     onChange={setAttendancePolicy}
                     placeholder="支持粘贴 Word、Excel 或网页表格"
+                    onPasteImageUpload={uploadCourseRichTextImage}
                   />
                 </div>
 
@@ -1196,6 +1294,7 @@ function AddCourseForm({
                     value={assignmentPolicy}
                     onChange={setAssignmentPolicy}
                     placeholder="支持粘贴 Word、Excel 或网页表格"
+                    onPasteImageUpload={uploadCourseRichTextImage}
                   />
                 </div>
 
@@ -1206,6 +1305,7 @@ function AddCourseForm({
                     value={conductRequirements}
                     onChange={setConductRequirements}
                     placeholder="支持粘贴 Word、Excel 或网页表格"
+                    onPasteImageUpload={uploadCourseRichTextImage}
                   />
                 </div>
 
@@ -1216,6 +1316,7 @@ function AddCourseForm({
                     value={practiceRequirements}
                     onChange={setPracticeRequirements}
                     placeholder="支持粘贴 Word、Excel 或网页表格"
+                    onPasteImageUpload={uploadCourseRichTextImage}
                   />
                 </div>
 
@@ -1226,6 +1327,7 @@ function AddCourseForm({
                     value={teamworkRequirements}
                     onChange={setTeamworkRequirements}
                     placeholder="支持粘贴 Word、Excel 或网页表格"
+                    onPasteImageUpload={uploadCourseRichTextImage}
                   />
                 </div>
 
@@ -1236,6 +1338,7 @@ function AddCourseForm({
                     value={bonusRequirements}
                     onChange={setBonusRequirements}
                     placeholder="支持粘贴 Word、Excel 或网页表格"
+                    onPasteImageUpload={uploadCourseRichTextImage}
                   />
                 </div>
 
@@ -1246,6 +1349,7 @@ function AddCourseForm({
                     value={otherSuggestions}
                     onChange={setOtherSuggestions}
                     placeholder="支持粘贴 Word、Excel 或网页表格"
+                    onPasteImageUpload={uploadCourseRichTextImage}
                   />
                 </div>
               </div>
@@ -1312,6 +1416,7 @@ function AddCourseForm({
                     value={assessmentForm}
                     onChange={setAssessmentForm}
                     placeholder="支持粘贴 Word、Excel 或网页表格"
+                    onPasteImageUpload={uploadCourseRichTextImage}
                   />
                 </div>
 
@@ -1322,6 +1427,7 @@ function AddCourseForm({
                     value={assessmentDescription}
                     onChange={setAssessmentDescription}
                     placeholder="支持粘贴 Word、Excel 或网页表格"
+                    onPasteImageUpload={uploadCourseRichTextImage}
                   />
                 </div>
               </div>

@@ -2,10 +2,11 @@ import { Button } from "@/shared/components/ui/button"
 import { Spinner } from "@/shared/components/ui/spinner"
 import { BookMarked, Check, Flag, Pencil, Settings, X } from "lucide-react"
 import { useCourseMatrixContext } from "@/modules/courses/hooks/use-course-matrix-data"
+import type { TeachingObjectiveFilterData } from "@/modules/courses/model/course-matrix"
 
 interface CourseMatrixHeaderProps {
   courseEditable: boolean
-  onEditTeachingObjectives?: () => void
+  onEditTeachingObjectives?: (filterData: TeachingObjectiveFilterData) => void
 }
 
 export const CourseMatrixHeader = ({ courseEditable, onEditTeachingObjectives }: CourseMatrixHeaderProps) => {
@@ -17,10 +18,20 @@ export const CourseMatrixHeader = ({ courseEditable, onEditTeachingObjectives }:
     handleCancelCourseMatrix,
     handleSaveCourseMatrix,
     handleOpenCoursePointsDialog,
+    majorIndicators,
+    isLoadingMajorIndicators,
+    teachingObjectiveIndicatorMap,
+    isLoadingTeachingObjectiveIndicators,
   } = useCourseMatrixContext()
+
   const handleEditTeachingObjectives = () => {
     if (!courseEditable) return
-    onEditTeachingObjectives?.()
+    onEditTeachingObjectives?.({
+      majorIndicators,
+      isLoadingMajorIndicators,
+      teachingObjectiveIndicatorMap,
+      isLoadingTeachingObjectiveIndicators,
+    })
   }
 
   const handleManageCoursePoints = () => {

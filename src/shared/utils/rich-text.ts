@@ -11,6 +11,7 @@ const ALLOWED_TAGS = [
   "ol",
   "li",
   "blockquote",
+  "img",
   "table",
   "thead",
   "tbody",
@@ -19,7 +20,7 @@ const ALLOWED_TAGS = [
   "td",
 ]
 
-const ALLOWED_ATTR = ["colspan", "rowspan"]
+const ALLOWED_ATTR = ["alt", "colspan", "height", "rowspan", "src", "title", "width"]
 
 export function sanitizeRichTextHtml(value: string): string {
   return DOMPurify.sanitize(value, {

@@ -36,7 +36,8 @@ export interface ProjectMatrixItem {
   teach: string
   product: string
   week: string
-  period: string
+  theoryPeriod: string
+  practicePeriod: string
 }
 
 export interface KsaInfo {
@@ -117,6 +118,7 @@ export interface TableOption {
   footer?: FooterOption
   style: {
     dataAlign: "left" | "center" | "right"
+    titleAlign?: "left" | "center" | "right"
   }
   column: ColumnOption[]
   showHeader?: boolean

@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/shared/components/ui/card"
 import { Badge } from "@/shared/components/ui/badge"
 import { Checkbox } from "@/shared/components/ui/checkbox"
 import { Label } from "@/shared/components/ui/label"
-import type { TreeNode } from "@/types"
+import type { TreeNode, TreeNodeManager, TreeNodeMenuItem } from "@/types"
 import { LoadingState } from "@/shared/components/ui/loading-state"
 import { Building2, GraduationCap, BookOpen, FileText, Search, User } from "lucide-react"
 import cn from "classnames"
@@ -19,90 +19,12 @@ interface MajorItem {
   lang: number
   parent: { value: string; label: string } | null
   self: { value: string; label: string } | null
-  manager: Array<{ value: string; label: string }> | null
+  manager: TreeNodeManager[] | null
   info: Record<string, unknown> | null
   cover: Record<string, unknown> | null
-  btnMenus: Array<Record<string, unknown>>
-  coverMenus: Array<Record<string, unknown>>
+  btnMenus: TreeNodeMenuItem[]
+  coverMenus: TreeNodeMenuItem[]
   props: Record<string, unknown> | null
-}
-
-const isCourseLevelPayload = (items: MajorItem[], datatype: unknown) => {
-  if (typeof datatype === "number" && datatype === 3) {
-    return true
-  }
-
-  return items.some((item) => {
-    if (!Array.isArray(item.btnMenus)) {
-      return false
-    }
-
-    return item.btnMenus.some((menu) => {
-      const menuValue = (menu as { value?: unknown }).value
-      return menuValue === "courseedit" || menuValue === "coursedel"
-    })
-  })
-}
-
-const buildVirtualMajorsFromCourses = (courseItems: MajorItem[]): MajorItem[] => {
-  const majorMap = new Map<string, MajorItem>()
-  const majorCourseMap = new Map<string, MajorItem[]>()
-
-  courseItems.forEach((course) => {
-    const majorId = course.parent?.value?.trim()
-    const majorName = course.parent?.label?.trim()
-    const mapKey = majorId || majorName || ""
-
-    if (!mapKey) {
-      return
-    }
-
-    const currentCourses = majorCourseMap.get(mapKey) || []
-    majorCourseMap.set(mapKey, [...currentCourses, course])
-
-    const existed = majorMap.get(mapKey)
-    if (!existed) {
-      majorMap.set(mapKey, {
-        lang: course.lang,
-        parent: null,
-        self: {
-          value: majorId || mapKey,
-          label: majorName || "未命名专业",
-        },
-        manager: [...(course.manager || [])],
-        info: null,
-        cover: null,
-        btnMenus: [],
-        coverMenus: [],
-        props: {
-          source: "course-level-switchDpt",
-        },
-      })
-      return
-    }
-
-    const mergedManagers = [...(existed.manager || []), ...(course.manager || [])]
-    const uniqueManagers = new Map<string, { value: string; label: string }>()
-
-    mergedManagers.forEach((manager) => {
-      const managerKey = `${manager.value}-${manager.label}`
-      uniqueManagers.set(managerKey, manager)
-    })
-
-    existed.manager = Array.from(uniqueManagers.values())
-  })
-
-  return Array.from(majorMap.entries()).map(([mapKey, major]) => {
-    const prefetchedCourses = majorCourseMap.get(mapKey) || []
-
-    return {
-      ...major,
-      props: {
-        ...(major.props || {}),
-        prefetchedCourses,
-      },
-    }
-  })
 }
 
 interface StatisticsCardsProps {
@@ -155,7 +77,7 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
 
       setIsLoadingMajors(true)
       try {
-        const url = buildApiUrl(`/api/v4/webpage/home/switchDpt?dptId=${node.id}&lang=80101`)
+        const url = buildApiUrl(`/api/v5/tree/departments/${node.id}/majors?lang=80101`)
         const headers: Record<string, string> = {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -172,14 +94,9 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
 
         if (response.ok) {
           const result = await response.json()
-          if (result.code === '0' && Array.isArray(result.data?.data)) {
-            const responseItems = result.data.data as MajorItem[]
-            const shouldConvertToVirtualMajors = isCourseLevelPayload(responseItems, result.data?.datatype)
-            const normalizedMajors = shouldConvertToVirtualMajors
-              ? buildVirtualMajorsFromCourses(responseItems)
-              : responseItems
-
-            setMajors(normalizedMajors)
+          if (result.code === '0' && Array.isArray(result.data)) {
+            const responseItems = result.data as MajorItem[]
+            setMajors(responseItems)
           } else {
             setMajors([])
           }
@@ -443,11 +360,15 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
                           nodeName: majorName,
                           type: 'major',
                           nodeType: 'major',
+                          btnMenus: major.btnMenus,
+                          coverMenus: major.coverMenus,
                           manager: isVirtualMajor ? [] : managers,
                           metadata: {
                             managers: isVirtualMajor ? [] : managers,
                             source: (major.props as { source?: string } | null)?.source,
                             prefetchedCourses,
+                            btnMenus: major.btnMenus,
+                            coverMenus: major.coverMenus,
                           },
                         })
                       }}

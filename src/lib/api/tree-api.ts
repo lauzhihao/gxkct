@@ -1,7 +1,62 @@
 import type { TaskMember, TreeNode } from "@/types"
+import { buildApiUrl } from "./config"
 import { StorageAdapter } from "./storage-adapter"
 import type { ApiResponse } from "./types"
-import { getStoredAuthUser } from "./auth-config"
+import { getStoredAuthToken, getStoredAuthUser } from "./auth-config"
+
+interface DownloadTemplateData {
+  blob: Blob
+  filename: string
+  mimeType: string
+}
+
+interface MajorDetailRequireChild {
+  id: number
+  description?: string
+}
+
+interface MajorDetailRequireVO {
+  id: number
+  description?: string
+  children?: MajorDetailRequireChild[]
+}
+
+interface BackendResponse<T> {
+  code: string | number
+  message: string
+  data: T
+}
+
+function buildAuthHeaders(): Headers {
+  const headers = new Headers()
+  const authToken = getStoredAuthToken()
+  if (authToken && authToken.trim() !== "") {
+    headers.set("authToken", authToken)
+  }
+  return headers
+}
+
+function parseContentDispositionFilename(contentDisposition: string | null, fallbackFilename: string): string {
+  if (!contentDisposition) {
+    return fallbackFilename
+  }
+
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
+  if (utf8Match && utf8Match[1]) {
+    return decodeURIComponent(utf8Match[1])
+  }
+
+  const normalMatch = contentDisposition.match(/filename="?([^";]+)"?/i)
+  if (normalMatch && normalMatch[1]) {
+    return normalMatch[1]
+  }
+
+  return fallbackFilename
+}
+
+function isSuccessCode(code: string | number | undefined): boolean {
+  return code === "0" || code === 0
+}
 
 /**
  * 从 nodeId 中提取数字 ID
@@ -234,6 +289,99 @@ export class TreeApi {
     } catch (error) {
       console.error(`[TreeApi] 获取专业详情异常:`, error)
       return { data: null, error: String(error), status: 500 }
+    }
+  }
+
+  async downloadRequireTemplate(lang: string | number): Promise<ApiResponse<DownloadTemplateData | null>> {
+    try {
+      const url = buildApiUrl(`/api/major/v2.0/download/require?lang=${encodeURIComponent(String(lang))}`)
+      const response = await fetch(url, {
+        method: "POST",
+        headers: buildAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        return {
+          data: null,
+          error: `HTTP ${response.status}: ${response.statusText}`,
+          status: response.status,
+        }
+      }
+
+      const contentType = response.headers.get("content-type")
+      const blob = await response.blob()
+      const filename = parseContentDispositionFilename(
+        response.headers.get("content-disposition"),
+        "毕业要求指标点模板.xlsx"
+      )
+
+      return {
+        data: {
+          blob,
+          filename,
+          mimeType: contentType && contentType.trim() !== ""
+            ? contentType
+            : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        },
+        error: null,
+        status: response.status,
+      }
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "下载毕业要求模板失败",
+        status: 500,
+      }
+    }
+  }
+
+  async resolveRequires(majorId: string, file: File): Promise<ApiResponse<MajorDetailRequireVO[] | null>> {
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const response = await fetch(buildApiUrl(`/api/major/v2.0/resolverequires?majorid=${majorId}`), {
+        method: "POST",
+        headers: buildAuthHeaders(),
+        body: formData,
+      })
+
+      if (!response.ok) {
+        return {
+          data: null,
+          error: `HTTP ${response.status}: ${response.statusText}`,
+          status: response.status,
+        }
+      }
+
+      const backend = await response.json() as BackendResponse<MajorDetailRequireVO[]>
+      if (!isSuccessCode(backend.code)) {
+        return {
+          data: null,
+          error: backend.message,
+          status: response.status,
+        }
+      }
+
+      if (!Array.isArray(backend.data)) {
+        return {
+          data: null,
+          error: "毕业要求上传结果格式错误",
+          status: response.status,
+        }
+      }
+
+      return {
+        data: backend.data,
+        error: null,
+        status: response.status,
+      }
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "上传毕业要求表失败",
+        status: 500,
+      }
     }
   }
 

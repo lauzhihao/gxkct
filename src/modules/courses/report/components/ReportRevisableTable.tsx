@@ -132,7 +132,13 @@ export function ReportRevisableTable({
             </thead>
           )}
           <tbody>
-            {rows.map((row, rowIndex) => (
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={Math.max(columnCount, options.column.length, 1)} className="border border-slate-300 px-2 py-4 text-center text-slate-500">
+                  暂无数据
+                </td>
+              </tr>
+            ) : rows.map((row, rowIndex) => (
               <tr key={`row-${rowIndex}`}>
                 {row.data.map((cell, colIndex) => {
                   const cellSpan = spanState?.[rowIndex]?.[colIndex]

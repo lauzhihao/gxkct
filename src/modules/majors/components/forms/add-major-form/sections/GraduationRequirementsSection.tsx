@@ -7,7 +7,7 @@
 
 import { Button } from "@/shared/components/ui/button"
 import { Label } from "@/shared/components/ui/label"
-import { Plus, Star, Trash2, Search, X, FileSpreadsheet } from "lucide-react"
+import { Plus, Trash2, Search, X, FileSpreadsheet } from "lucide-react"
 import { FileUpload } from "@/shared/components/ui/file-upload"
 import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 import { Popover, PopoverTrigger, PopoverContent } from "@/shared/components/ui/popover"
@@ -44,6 +44,9 @@ interface GraduationRequirementsSectionProps {
   majorId?: string
   departmentId: string
   toast: ToastInvoker
+  onUploadGraduationRequirements: (files: File[]) => Promise<string[]>
+  onDownloadGraduationTemplate: () => Promise<void>
+  isUploadDisabled: boolean
 }
 
 export function GraduationRequirementsSection({
@@ -54,11 +57,15 @@ export function GraduationRequirementsSection({
   majorId,
   departmentId,
   toast,
+  onUploadGraduationRequirements,
+  onDownloadGraduationTemplate,
+  isUploadDisabled,
 }: GraduationRequirementsSectionProps) {
   void isEditMode
   void majorName
   void majorId
   void departmentId
+  void toast
 
   const {
     graduationRequirements,
@@ -151,15 +158,20 @@ export function GraduationRequirementsSection({
               maxFileSize={10 * 1024 * 1024}
               maxFileCount={1}
               accept=".xlsx,.xls"
-              templateUrl="/毕业要求指标点模板.xlsx"
-              onUpload={async (files) => {
-                // TODO: 将文件上传到OSS，返回文件地址
-                return files.map((file) => `/uploads/${file.name}`)
-              }}
+              onDownloadTemplate={onDownloadGraduationTemplate}
+              onUpload={onUploadGraduationRequirements}
+              disabled={isUploadDisabled || !canManageGraduationRequirement}
             />
           </div>
         </div>
         <div className="border-t border-dashed border-border" />
+        {!isUploadDisabled && canManageGraduationRequirement && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 space-y-1">
+            <p className="font-medium">重要提醒</p>
+            <p>1、上传新的毕业要求表会覆盖原有毕业要求表，并导致该专业下所有课程的三级矩阵数据失效，请谨慎上传。</p>
+            <p>2、如需小范围修改，请优先使用当前页面上方的逐条编辑能力。</p>
+          </div>
+        )}
         {uploadedFile && (
           <div className="mb-4 p-3 rounded-lg bg-green-50 border border-green-200 flex items-center justify-between">
             <div className="flex items-center gap-2">

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Tabs, TabsContent } from "@/shared/components/ui/tabs"
 import { UnderlineTabsList, UnderlineTabsTrigger } from "@/shared/components/ui/underline-tabs"
 import type { TreeNode } from "@/types"
+import type { TeachingObjectiveFilterData } from "@/modules/courses/model/course-matrix"
 import { CourseMatrix } from "./course-matrix"
 import { CourseProjectMatrix } from "./course-project-matrix"
 import { CourseMajorMatrix } from "./course-major-matrix"
@@ -15,7 +16,7 @@ interface CourseThreeLevelMatrixProps {
   majorId?: string | number
   refreshToken?: number
   courseEditable?: boolean
-  onEditTeachingObjectives?: () => void
+  onEditTeachingObjectives?: (filterData: TeachingObjectiveFilterData) => void
   activeMatrixTab?: string
   onActiveMatrixTabChange?: (tab: string) => void
 }

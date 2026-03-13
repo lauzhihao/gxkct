@@ -129,34 +129,30 @@ export function MajorBasicInfoSection({
             专业层次 <span className="text-red-500">*</span>
           </Label>
           <div className="flex flex-col gap-2">
-            {canManageMajor && (
-              <>
-                <Button
-                  type="button"
-                  variant={majorLevel === "1" ? "default" : "outline"}
-                  className="justify-center"
-                  onClick={() => handleSetMajorLevel("1")}
-                >
-                  本科
-                </Button>
-                <Button
-                  type="button"
-                  variant={majorLevel === "2" ? "default" : "outline"}
-                  className="justify-center"
-                  onClick={() => handleSetMajorLevel("2")}
-                >
-                  高职
-                </Button>
-                <Button
-                  type="button"
-                  variant={majorLevel === "3" ? "default" : "outline"}
-                  className="justify-center"
-                  onClick={() => handleSetMajorLevel("3")}
-                >
-                  中职
-                </Button>
-              </>
-            )}
+            <Button
+              type="button"
+              variant={majorLevel === "2" ? "default" : "outline"}
+              className="justify-center"
+              onClick={() => handleSetMajorLevel("2")}
+            >
+              本科
+            </Button>
+            <Button
+              type="button"
+              variant={majorLevel === "1" ? "default" : "outline"}
+              className="justify-center"
+              onClick={() => handleSetMajorLevel("1")}
+            >
+              高职
+            </Button>
+            <Button
+              type="button"
+              variant={majorLevel === "0" ? "default" : "outline"}
+              className="justify-center"
+              onClick={() => handleSetMajorLevel("0")}
+            >
+              中职
+            </Button>
           </div>
         </div>
 

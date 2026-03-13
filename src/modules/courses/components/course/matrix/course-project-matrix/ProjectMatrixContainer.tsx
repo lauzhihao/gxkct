@@ -246,6 +246,31 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId, courseEditable
     setIsEditingProjectMatrix(true)
   }
 
+  const handleUpdateCourseMatrixField = (
+    courseMatrixId: number | undefined,
+    field: "study" | "teach" | "product" | "week" | "theoryPeriod" | "practicePeriod",
+    value: string,
+  ) => {
+    if (!courseEditable || !courseMatrixId || !projectMatrixData?.data) return
+
+    setProjectMatrixData({
+      ...projectMatrixData,
+      data: projectMatrixData.data.map((item) => {
+        if (item.courseMatrix?.id !== courseMatrixId) {
+          return item
+        }
+
+        return {
+          ...item,
+          courseMatrix: {
+            ...item.courseMatrix,
+            [field]: value,
+          },
+        }
+      }),
+    })
+  }
+
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -330,6 +355,7 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId, courseEditable
           projectMatrixData={projectMatrixData}
           isEditingProjectMatrix={isEditingProjectMatrix}
           focusedCell={focusedCell}
+          onUpdateCourseMatrixField={handleUpdateCourseMatrixField}
           onOpenTaskObjectivesDialog={openTaskObjectivesDialog}
           onOpenKsaDialog={handleOpenKsaDialog}
           onFocusCell={setFocusedCell}

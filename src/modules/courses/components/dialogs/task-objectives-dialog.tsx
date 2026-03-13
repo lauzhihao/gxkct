@@ -134,6 +134,7 @@ export function TaskObjectivesDialog({
     const mappedGoals: ProjectMatrixGoal[] = goals.map((g) => ({
       id: g.id,
       description: g.description,
+      product: g.product,
     }))
     setProjectGoalsForDialog(mappedGoals)
 

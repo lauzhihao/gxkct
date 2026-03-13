@@ -34,6 +34,8 @@ import { useDepartmentMajors } from "@/modules/departments/hooks/use-department-
 import { PermissionGate } from "@/shared/components/permission-gate"
 import { getCourseCache } from "@/shared/utils/course-cache"
 import { WorkshopCreateDialog } from "@/components/workshop-create-dialog"
+import { buildApiUrl } from "@/lib/api/config"
+import { getStoredAuthToken } from "@/lib/api/auth-config"
 
 const CREATE_SCHOOL_ACTION = "root.college.create"
 const CREATE_SCHOOL_CONTEXT = { scope: "root" } as const
@@ -76,6 +78,7 @@ interface TreeNodeProps {
   node: TreeNode
   level: number
   onSelect: (node: TreeNode) => void
+  selectedNode?: TreeNode | null
   selectedNodeId: string | null
   expandedNodes: Set<string>
   onToggleExpand: (nodeId: string) => void
@@ -96,6 +99,7 @@ function TreeNodeComponent({
   node,
   level,
   onSelect,
+  selectedNode,
   selectedNodeId,
   expandedNodes,
   onToggleExpand,
@@ -169,6 +173,82 @@ function TreeNodeComponent({
   }
 
   const handleClick = () => {
+    let shouldToggleExpand = node.nodeType === "department" || node.nodeType === "major" || hasChildren
+    const selectMajorNodeWithMenus = async () => {
+      if (node.nodeType !== "major") {
+        onSelect(node)
+        return
+      }
+
+      if (Array.isArray(node.btnMenus) && node.btnMenus.length > 0) {
+        onSelect(node)
+        return
+      }
+
+      const departmentId = node.parentId ? extractNumericId(node.parentId) : ""
+      const majorId = String(node.id || extractNumericId(node.nodeId || ""))
+      if (!departmentId || !majorId) {
+        onSelect(node)
+        return
+      }
+
+      try {
+        const headers: Record<string, string> = {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        }
+        const authToken = getStoredAuthToken()
+        if (authToken) {
+          headers.authToken = authToken
+        }
+
+        const url = buildApiUrl(`/api/v5/tree/departments/${departmentId}/majors?lang=80101`)
+        const response = await fetch(url, { method: "GET", headers })
+        if (!response.ok) {
+          onSelect(node)
+          return
+        }
+
+        const result = await response.json() as {
+          code?: string | number
+          data?: Array<{
+            self?: { value?: string; label?: string } | null
+            manager?: Array<{ value?: string; label?: string }> | null
+            btnMenus?: Array<{ label?: string; value?: string; path?: string; type?: string }>
+            coverMenus?: Array<{ label?: string; value?: string; path?: string; type?: string }>
+            props?: Record<string, unknown> | null
+          }>
+        }
+
+        if ((result.code !== "0" && result.code !== 0) || !Array.isArray(result.data)) {
+          onSelect(node)
+          return
+        }
+
+        const matchedMajor = result.data.find((major) => major.self?.value === majorId)
+        if (!matchedMajor) {
+          onSelect(node)
+          return
+        }
+
+        onSelect({
+          ...node,
+          btnMenus: Array.isArray(matchedMajor.btnMenus) ? matchedMajor.btnMenus : node.btnMenus,
+          coverMenus: Array.isArray(matchedMajor.coverMenus) ? matchedMajor.coverMenus : node.coverMenus,
+          manager: Array.isArray(matchedMajor.manager) ? matchedMajor.manager.filter((manager): manager is { value: string; label: string } => Boolean(manager?.value || manager?.label)) : node.manager,
+          metadata: {
+            ...(node.metadata || {}),
+            btnMenus: Array.isArray(matchedMajor.btnMenus) ? matchedMajor.btnMenus : undefined,
+            coverMenus: Array.isArray(matchedMajor.coverMenus) ? matchedMajor.coverMenus : undefined,
+            managers: Array.isArray(matchedMajor.manager) ? matchedMajor.manager : undefined,
+            ...(matchedMajor.props || {}),
+          },
+        })
+      } catch {
+        onSelect(node)
+      }
+    }
+
     if (node.nodeType === "course") {
       const courseId = String(node.id || extractNumericId(node.nodeId || ""))
       const courseCache = getCourseCache(courseId)
@@ -190,13 +270,19 @@ function TreeNodeComponent({
       } else {
         onSelect(node)
       }
+    } else if (node.nodeType === "major") {
+      const isAlreadyViewingMajor = selectedNode?.nodeType === "major" && selectedNode.nodeId === node.nodeId
+      if (!isAlreadyViewingMajor) {
+        shouldToggleExpand = false
+        void selectMajorNodeWithMenus()
+      }
     } else {
       onSelect(node)
     }
 
     // department和major节点始终触发展开（会动态加载数据）
     // 其他节点只有在有children时才展开
-    if (node.nodeType === "department" || node.nodeType === "major" || hasChildren) {
+    if (shouldToggleExpand) {
       onToggleExpand(node.nodeId)
     }
   }
@@ -335,6 +421,7 @@ function TreeNodeComponent({
                   node={child}
                   level={level + 1}
                   onSelect={onSelect}
+                  selectedNode={selectedNode}
                   selectedNodeId={selectedNodeId}
                   expandedNodes={expandedNodes}
                   onToggleExpand={onToggleExpand}
@@ -915,6 +1002,7 @@ export const TreeView = React.forwardRef<
               node={child}
               level={0}
               onSelect={onNodeSelect}
+              selectedNode={selectedNode}
               selectedNodeId={selectedNode?.nodeId || null}
               expandedNodes={expandedNodes}
               onToggleExpand={handleToggleExpand}

@@ -10,7 +10,8 @@ import type { TreeNode } from "@/types"
 export interface UseGraduationRequirementsResult {
   // 状态
   graduationRequirements: GraduationRequirement[]
-  deletedNodeIds: number[]
+  deletedRequirementIds: number[]
+  deletedIndicators: Array<{ requirementId: number; indicatorId: number }>
   indicatorCourseSupports: Record<string, IndicatorCourseSupport[]>
   courseSelectorOpen: boolean
   selectedIndicatorForCourse: {
@@ -108,7 +109,8 @@ export function useGraduationRequirements(
   const [graduationRequirements, setGraduationRequirements] = useState<GraduationRequirement[]>(
     loadGraduationRequirements()
   )
-  const [deletedNodeIds, setDeletedNodeIds] = useState<number[]>([])
+  const [deletedRequirementIds, setDeletedRequirementIds] = useState<number[]>([])
+  const [deletedIndicators, setDeletedIndicators] = useState<Array<{ requirementId: number; indicatorId: number }>>([])
   const [indicatorCourseSupports, setIndicatorCourseSupports] = useState<Record<string, IndicatorCourseSupport[]>>({})
   const [courseSelectorOpen, setCourseSelectorOpen] = useState(false)
   const [selectedIndicatorForCourse, setSelectedIndicatorForCourse] = useState<{
@@ -136,19 +138,10 @@ export function useGraduationRequirements(
     if (graduationRequirements.length > 1) {
       const targetRequirement = graduationRequirements.find((req) => req.id === id)
       if (targetRequirement) {
-        const idsToDelete: number[] = []
         const requirementId = Number.parseInt(targetRequirement.id, 10)
         if (Number.isInteger(requirementId) && requirementId > 0) {
-          idsToDelete.push(requirementId)
-        }
-        targetRequirement.indicatorIds.forEach((indicatorId) => {
-          if (Number.isInteger(indicatorId) && indicatorId > 0) {
-            idsToDelete.push(indicatorId)
-          }
-        })
-
-        if (idsToDelete.length > 0) {
-          setDeletedNodeIds((prev) => Array.from(new Set([...prev, ...idsToDelete])))
+          setDeletedRequirementIds((prev) => Array.from(new Set([...prev, requirementId])))
+          setDeletedIndicators((prev) => prev.filter((item) => item.requirementId !== requirementId))
         }
       }
 
@@ -180,9 +173,16 @@ export function useGraduationRequirements(
   const removeIndicator = (reqId: string, index: number) => {
     const targetRequirement = graduationRequirements.find((req) => req.id === reqId)
     if (targetRequirement) {
+      const requirementId = Number.parseInt(targetRequirement.id, 10)
       const indicatorId = targetRequirement.indicatorIds[index]
-      if (Number.isInteger(indicatorId) && indicatorId > 0) {
-        setDeletedNodeIds((prev) => Array.from(new Set([...prev, indicatorId])))
+      if (Number.isInteger(requirementId) && requirementId > 0 && Number.isInteger(indicatorId) && indicatorId > 0) {
+        setDeletedIndicators((prev) => {
+          const exists = prev.some((item) => item.requirementId === requirementId && item.indicatorId === indicatorId)
+          if (exists) {
+            return prev
+          }
+          return [...prev, { requirementId, indicatorId }]
+        })
       }
     }
 
@@ -249,12 +249,14 @@ export function useGraduationRequirements(
   }
 
   const clearDeletedNodeIds = () => {
-    setDeletedNodeIds([])
+    setDeletedRequirementIds([])
+    setDeletedIndicators([])
   }
 
   return {
     graduationRequirements,
-    deletedNodeIds,
+    deletedRequirementIds,
+    deletedIndicators,
     indicatorCourseSupports,
     courseSelectorOpen,
     selectedIndicatorForCourse,

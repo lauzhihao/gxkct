@@ -34,7 +34,7 @@ export interface FileUploadProps {
   // 自定义模板下载逻辑，可选
   onDownloadTemplate?: () => Promise<void>
   // 上传完成回调，返回上传后的文件地址数组
-  onUpload: (files: File[]) => Promise<string[]>
+  onUpload: (files: File[], onProgress?: (progress: number) => void) => Promise<string[]>
   // HTML accept属性，用于文件类型过滤
   accept?: string
   // 自定义按钮样式
@@ -203,21 +203,11 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
       try {
         const files = uploadFiles.map((uf) => uf.file)
 
-        // 模拟上传进度
-        const progressInterval = setInterval(() => {
-          setUploadProgress((prev) => {
-            if (prev >= 90) {
-              clearInterval(progressInterval)
-              return prev
-            }
-            return prev + Math.random() * 30
-          })
-        }, 300)
-
         // 调用上传回调
-        await onUpload(files)
+        await onUpload(files, (progress) => {
+          setUploadProgress(Math.max(0, Math.min(100, progress)))
+        })
 
-        clearInterval(progressInterval)
         setUploadProgress(100)
 
         // 延迟关闭以显示100%进度

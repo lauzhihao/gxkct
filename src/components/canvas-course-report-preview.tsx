@@ -26,6 +26,7 @@ import { CanvasSaveWizard } from "./canvas-save-wizard"
 import { SafeRichTextContent } from "@/shared/components/ui/safe-rich-text-content"
 import { showError, showSuccess } from "@/shared/utils/toast-utils"
 import { getStoredAuthToken } from "@/lib/api/auth-config"
+import { exportReport } from "@/modules/courses/report/api"
 
 // 开课报告预览数据结构
 export interface CourseReportPreviewData {
@@ -108,74 +109,25 @@ function getExportFileBaseName(courseName?: string): string {
   return `${sanitizeFileName(courseName || "开课报告")}_${date}`
 }
 
-const COURSE_REPORT_EXPORT_ENDPOINT = "/lang-chain/v1/chat/export"
-const COURSE_REPORT_TEMPLATE_NAME = "default_course_report"
-
-type ExportFormat = "docx"
-
-interface ExportElement {
-  type: string
-  data: unknown
+interface DraftExportRequestBody {
+  courseInfo: CourseInfoData | null
+  objectives: ObjectiveCardData[]
+  chapters: ChapterCardData[]
+  coursePoints: CoursePointCardData[]
+  ksaItems: KsaItemData[]
+  courseMatrix: CourseMatrixData | null
+  projectMatrices: ProjectMatrixData[]
 }
 
-interface ExportRequestBody {
-  canvas_json: {
-    elements: ExportElement[]
-  }
-  format: ExportFormat
-  template_name: string
-  filename: string
-}
-
-function toExportElementsFromCanvas(canvasElements: CanvasElementData[]): ExportElement[] {
-  return canvasElements.flatMap((element) => {
-    const elementWithType = element as unknown as { type?: unknown; data?: unknown }
-    if (typeof elementWithType.type !== "string") {
-      return []
-    }
-    return [{
-      type: elementWithType.type,
-      data: elementWithType.data ?? {},
-    }]
-  })
-}
-
-function buildFallbackExportElements(report: CourseReportPreviewData, currentCourseInfo: CourseInfoData | null): ExportElement[] {
-  const elements: ExportElement[] = []
-
-  if (currentCourseInfo) {
-    elements.push({ type: "course_info", data: currentCourseInfo })
-  }
-  elements.push(...report.objectives.map((item) => ({ type: "objective_card", data: item })))
-  elements.push(...report.chapters.map((item) => ({ type: "chapter_card", data: item })))
-  elements.push(...report.coursePoints.map((item) => ({ type: "course_point_card", data: item })))
-  elements.push(...report.ksaItems.map((item) => ({ type: "ksa_item", data: item })))
-  if (report.courseMatrix) {
-    elements.push({ type: "course_matrix", data: report.courseMatrix })
-  }
-  elements.push(...report.projectMatrices.map((item) => ({ type: "project_matrix", data: item })))
-
-  return elements
-}
-
-function buildExportRequestBody(
-  format: ExportFormat,
-  report: CourseReportPreviewData,
-  currentCourseInfo: CourseInfoData | null,
-  canvasElements: CanvasElementData[],
-): ExportRequestBody {
-  const normalizedElements = toExportElementsFromCanvas(canvasElements)
-  const exportElements = normalizedElements.length > 0
-    ? normalizedElements
-    : buildFallbackExportElements(report, currentCourseInfo)
-
+function buildDraftExportRequestBody(report: CourseReportPreviewData, currentCourseInfo: CourseInfoData | null): DraftExportRequestBody {
   return {
-    canvas_json: {
-      elements: exportElements,
-    },
-    format,
-    template_name: COURSE_REPORT_TEMPLATE_NAME,
-    filename: `${sanitizeFileName(currentCourseInfo?.name || "课程")}_导出报告`,
+    courseInfo: currentCourseInfo,
+    objectives: report.objectives,
+    chapters: report.chapters,
+    coursePoints: report.coursePoints,
+    ksaItems: report.ksaItems,
+    courseMatrix: report.courseMatrix,
+    projectMatrices: report.projectMatrices,
   }
 }
 
@@ -195,15 +147,20 @@ function parseFilenameFromContentDisposition(headerValue: string | null): string
   return asciiMatch?.[1] ?? null
 }
 
-function downloadBlob(blob: Blob, fileName: string): void {
+function downloadBlob(blob: Blob, fileName: string): Promise<void> {
+  return new Promise((resolve) => {
   const url = URL.createObjectURL(blob)
   const link = document.createElement("a")
   link.href = url
   link.download = fileName
   document.body.appendChild(link)
   link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
+    window.setTimeout(() => {
+      link.remove()
+      URL.revokeObjectURL(url)
+      resolve()
+    }, 400)
+  })
 }
 
 /**
@@ -323,43 +280,41 @@ export function CanvasCourseReportPreview({
   const hasAssessment = metadata?.assessmentMethod || metadata?.assessmentForm ||
     metadata?.scoreType || metadata?.scoreTable || metadata?.assessmentDescription
 
-  const handleExportWithBackend = useCallback(async (format: ExportFormat) => {
-    const fileExt = "docx"
+  const handleExportWord = useCallback(async () => {
+    setIsExportingWord(true)
     try {
-      const authToken = getStoredAuthToken()
-      const response = await fetch(COURSE_REPORT_EXPORT_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(authToken ? { authToken } : {}),
-        },
-        body: JSON.stringify(buildExportRequestBody(format, data, courseInfo, canvasElements)),
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
+      let response: Response
+      const savedCourseId = courseInfo?.metadata?.courseId
+      if (typeof savedCourseId === "number" && Number.isFinite(savedCourseId)) {
+        response = await exportReport(savedCourseId)
+      } else {
+        const authToken = getStoredAuthToken()
+        response = await fetch("/api/v5/courses/syllabus/export-docx", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(authToken ? { authToken } : {}),
+          },
+          body: JSON.stringify(buildDraftExportRequestBody(data, courseInfo)),
+        })
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`)
+        }
       }
 
       const blob = await response.blob()
       const headerFilename = parseFilenameFromContentDisposition(response.headers.get("content-disposition"))
-      const fallbackFileName = `${getExportFileBaseName(courseInfo?.name)}.${fileExt}`
+      const fallbackFileName = `${getExportFileBaseName(courseInfo?.name)}.docx`
       const fileName = headerFilename || fallbackFileName
-      downloadBlob(blob, fileName)
+      await downloadBlob(blob, fileName)
       showSuccess("Word 导出成功")
     } catch (error) {
-      console.error(`${format} export failed`, error)
+      console.error("docx export failed", error)
       showError("Word 导出失败，请稍后重试")
-    }
-  }, [canvasElements, courseInfo, data])
-
-  const handleExportWord = useCallback(async () => {
-    setIsExportingWord(true)
-    try {
-      await handleExportWithBackend("docx")
     } finally {
       setIsExportingWord(false)
     }
-  }, [handleExportWithBackend])
+  }, [courseInfo, data])
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -693,12 +648,12 @@ export function CanvasCourseReportPreview({
             <SectionTitle icon={Table} title="项目矩阵" count={projectMatrices.length} bgColor="bg-slate-100" iconColor="text-slate-600" />
             {projectMatrices.length > 0 ? (
               <div className="space-y-6">
-                {projectMatrices.map((matrix) => (
+                {projectMatrices.map((matrix, matrixIndex) => (
                   <div key={matrix.chapter_id} className="border border-slate-200 rounded-lg overflow-hidden">
                     {/* 章节标题 */}
                     <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
                       <span className="px-2 py-0.5 rounded bg-slate-500 text-white text-xs font-medium">
-                        第{matrix.chapter_index}章
+                        {matrixIndex + 1}
                       </span>
                       <span className="font-semibold text-slate-700">{matrix.chapter_name}</span>
                     </div>

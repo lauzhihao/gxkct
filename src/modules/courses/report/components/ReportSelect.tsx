@@ -19,9 +19,22 @@ interface ReportSelectProps {
   onChange?: (name: string, value: string) => void
 }
 
+function formatLabel(title: string): string {
+  if (!title) {
+    return ""
+  }
+
+  if (title.endsWith(":") || title.endsWith("：")) {
+    return title
+  }
+
+  return `${title}:`
+}
+
 export function ReportSelect({ name, title, options, revisable = false, data, onChange }: ReportSelectProps) {
   const [editing, setEditing] = useState(false)
   const [localValue, setLocalValue] = useState("")
+  const labelText = formatLabel(title)
 
   useEffect(() => {
     setLocalValue(data)
@@ -29,7 +42,7 @@ export function ReportSelect({ name, title, options, revisable = false, data, on
 
   return (
     <div className="inline-block align-top mr-8">
-      <div className="inline-block align-top text-[12pt] leading-[22pt]">{title}</div>
+      <div className="inline-block align-top text-[12pt] leading-[22pt]">{labelText}</div>
       <div className="inline-block align-top">
         {editing ? (
           <Select value={localValue} onValueChange={setLocalValue}>

@@ -1,9 +1,19 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/shared/components/ui/alert-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
-import { FileUpload } from "@/shared/components/ui/file-upload"
-import { Check, Pencil, Plus, Search, Trash2, X } from "lucide-react"
+import { Textarea } from "@/shared/components/ui/textarea"
+import { Check, Pencil, Plus, Search, Sparkles, Trash2, X } from "lucide-react"
 import { LoadingState } from "@/shared/components/ui/loading-state"
 import { Spinner } from "@/shared/components/ui/spinner"
 import { useCourseMatrixContext } from "@/modules/courses/hooks/use-course-matrix-data"
@@ -11,15 +21,24 @@ import { matchesCoursePointKeyword, sortCoursePointsByTitle } from "@/modules/co
 import type { CoursePoint as ApiCoursePoint } from "@/lib/api/course-points-api"
 
 export const CoursePointManagerDialog = () => {
+  const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<
+    { type: "single"; count: 1; coursePointId: number } | { type: "batch"; count: number } | null
+  >(null)
+
   const {
     isShowCoursePointsDialog,
-    setIsShowCoursePointsDialog,
     handleCoursePointsDialogOpenChange,
     coursePointsSearch,
     setCoursePointsSearch,
     handleAddNewCoursePoint,
     isSavingNewCoursePoint,
-    isImportingCoursePoints,
+    isSmartParsingCoursePoints,
+    isSmartParseExpanded,
+    setIsSmartParseExpanded,
+    smartParseInput,
+    setSmartParseInput,
+    smartParseSummary,
+    coursePointFooterMessage,
     coursePointsList,
     setCoursePointsList,
     isLoadingCoursePoints,
@@ -31,27 +50,43 @@ export const CoursePointManagerDialog = () => {
     setSelectedCoursePointIds,
     isDeletingCoursePoints,
     deletingCoursePointId,
-    setDeletingCoursePointId,
     newCoursePoint,
     setNewCoursePoint,
     isSavingEditingCoursePoint,
-    setIsSavingEditingCoursePoint,
     handleSaveNewCoursePoint,
-    handleDownloadCoursePointTemplate,
-    handleImportCoursePoints,
+    handleSmartParseCoursePoints,
     handleDeleteSelectedCoursePoints,
     handleUpdateCoursePoint,
     handleDeleteSingleCoursePoint,
   } = useCourseMatrixContext()
 
-  const filteredCoursePoints = useMemo(
-    () => coursePointsList.filter((cp) => matchesCoursePointKeyword(cp, coursePointsSearch)),
-    [coursePointsList, coursePointsSearch]
-  )
+  const filteredCoursePoints = useMemo(() => coursePointsList.filter((cp) => matchesCoursePointKeyword(cp, coursePointsSearch)), [coursePointsList, coursePointsSearch])
+
+  const displayCoursePoints = useMemo(() => {
+    const sortedCoursePoints = sortCoursePointsByTitle(filteredCoursePoints)
+
+    if (!newCoursePoint?.id) {
+      return sortedCoursePoints
+    }
+
+    const newCoursePointIndex = sortedCoursePoints.findIndex((coursePoint) => coursePoint.id === newCoursePoint.id)
+    if (newCoursePointIndex <= 0) {
+      return sortedCoursePoints
+    }
+
+    const nextCoursePoints = [...sortedCoursePoints]
+    const [tempCoursePoint] = nextCoursePoints.splice(newCoursePointIndex, 1)
+    if (!tempCoursePoint) {
+      return sortedCoursePoints
+    }
+
+    nextCoursePoints.unshift(tempCoursePoint)
+    return nextCoursePoints
+  }, [filteredCoursePoints, newCoursePoint?.id])
 
   // [MOD] 委托给 context handler，不再直接调用 API
   const handleSingleDelete = (coursePointId: number) => {
-    handleDeleteSingleCoursePoint(coursePointId)
+    setDeleteConfirmTarget({ type: "single", count: 1, coursePointId })
   }
 
   // [MOD] 委托给 context handler，不再直接调用 API
@@ -65,10 +100,8 @@ export const CoursePointManagerDialog = () => {
 
   const handleCancelEdit = (coursePoint: ApiCoursePoint) => {
     if (newCoursePoint && coursePoint.id === newCoursePoint.id) {
-      if (!editingCoursePointData.title?.trim() || !editingCoursePointData.description?.trim()) {
-        setCoursePointsList((prev) => prev.filter((cp) => cp.id !== coursePoint.id))
-        setNewCoursePoint(null)
-      }
+      setCoursePointsList((prev) => prev.filter((cp) => cp.id !== coursePoint.id))
+      setNewCoursePoint(null)
     } else {
       setEditingCoursePointData({})
     }
@@ -84,18 +117,38 @@ export const CoursePointManagerDialog = () => {
   }
 
   const closeDialog = () => {
-    setIsShowCoursePointsDialog(false)
-    setSelectedCoursePointIds(new Set())
-    setNewCoursePoint(null)
-    setEditingCoursePointId(null)
-    setEditingCoursePointData({})
-    setIsSavingEditingCoursePoint(false)
-    setDeletingCoursePointId(null)
+    handleCoursePointsDialogOpenChange(false)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmTarget) {
+      return
+    }
+
+    if (deleteConfirmTarget.type === "single") {
+      await handleDeleteSingleCoursePoint(deleteConfirmTarget.coursePointId)
+    } else {
+      await handleDeleteSelectedCoursePoints()
+    }
+
+    setDeleteConfirmTarget(null)
   }
 
   return (
-    <Dialog open={isShowCoursePointsDialog} onOpenChange={handleCoursePointsDialogOpenChange}>
-      <DialogContent className="!max-w-2xl max-h-[80vh] flex flex-col p-0 gap-0">
+    <>
+      <Dialog open={isShowCoursePointsDialog} onOpenChange={handleCoursePointsDialogOpenChange}>
+        <DialogContent
+          className="!max-w-2xl max-h-[80vh] flex flex-col p-0 gap-0"
+          onEscapeKeyDown={(event) => {
+            event.preventDefault()
+          }}
+          onPointerDownOutside={(event) => {
+            event.preventDefault()
+          }}
+          onInteractOutside={(event) => {
+            event.preventDefault()
+          }}
+        >
         <DialogHeader className="border-b border-border px-6 py-4 flex-shrink-0">
           <DialogTitle>课点管理</DialogTitle>
         </DialogHeader>
@@ -109,7 +162,7 @@ export const CoursePointManagerDialog = () => {
                 placeholder="搜索课点..."
                 value={coursePointsSearch}
                 onChange={(e) => setCoursePointsSearch(e.target.value)}
-                disabled={editingCoursePointId !== null || isDeletingCoursePoints || isImportingCoursePoints || deletingCoursePointId !== null}
+                disabled={editingCoursePointId !== null || isDeletingCoursePoints || isSmartParsingCoursePoints || deletingCoursePointId !== null}
                 className="w-full pl-10 pr-4 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
@@ -118,31 +171,58 @@ export const CoursePointManagerDialog = () => {
               variant="outline"
               className="gap-2 flex-shrink-0"
               onClick={handleAddNewCoursePoint}
-              disabled={isSavingNewCoursePoint || editingCoursePointId !== null || isDeletingCoursePoints || isImportingCoursePoints || deletingCoursePointId !== null}
+              disabled={isSavingNewCoursePoint || editingCoursePointId !== null || isDeletingCoursePoints || isSmartParsingCoursePoints || deletingCoursePointId !== null}
             >
               <Plus className="w-4 h-4" />
-              新增
+              新增课点
             </Button>
-            <div className="flex-shrink-0">
-              <FileUpload
-                buttonText="模板导入"
-                fileType="Excel文件"
-                maxFileSize={10 * 1024 * 1024}
-                maxFileCount={1}
-                accept=".xlsx,.xls"
-                disabled={editingCoursePointId !== null || isDeletingCoursePoints || isImportingCoursePoints || deletingCoursePointId !== null}
-                onDownloadTemplate={handleDownloadCoursePointTemplate}
-                onUpload={handleImportCoursePoints}
-              />
-            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-2 flex-shrink-0"
+              onClick={() => setIsSmartParseExpanded((prev) => !prev)}
+              disabled={editingCoursePointId !== null || isDeletingCoursePoints || isSmartParsingCoursePoints || deletingCoursePointId !== null}
+            >
+              <Sparkles className="w-4 h-4" />
+              智能解析
+            </Button>
           </div>
-          <p className="mt-3 text-xs text-destructive">
-            重新导入会覆盖当前课点数据，并可能影响相关矩阵配置，请谨慎操作。
-          </p>
         </div>
 
         <div className="flex-1 overflow-hidden flex flex-col">
-          {isLoadingCoursePoints ? (
+          {isSmartParseExpanded ? (
+            <div className="flex-1 px-6 pb-6">
+              <div className="flex h-full flex-col gap-3 rounded-lg border border-dashed border-border p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-muted-foreground">按换行符或英文分号分隔，系统会按输入顺序自动生成新的课点序号。</p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSmartParseInput("")
+                        setIsSmartParseExpanded(false)
+                      }}
+                      disabled={isSmartParsingCoursePoints}
+                    >
+                      返回列表
+                    </Button>
+                    <Button size="sm" onClick={handleSmartParseCoursePoints} disabled={isSmartParsingCoursePoints}>
+                      {isSmartParsingCoursePoints ? <Spinner className="w-4 h-4" /> : null}
+                      解析并新增
+                    </Button>
+                  </div>
+                </div>
+                <Textarea
+                  value={smartParseInput}
+                  onChange={(event) => setSmartParseInput(event.target.value)}
+                  placeholder="请输入课点描述，每行一个。"
+                  className="min-h-[280px] flex-1 resize-none"
+                  disabled={isSmartParsingCoursePoints}
+                />
+              </div>
+            </div>
+          ) : isLoadingCoursePoints ? (
             <LoadingState title="加载中..." className="flex-1" />
           ) : coursePointsList.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm flex-1 flex items-center justify-center">
@@ -155,13 +235,13 @@ export const CoursePointManagerDialog = () => {
                   <thead>
                     <tr className="border-b border-border bg-secondary/30">
                       <th className="px-4 py-3 text-center text-sm font-medium text-foreground w-12">
-                        <input
-                          type="checkbox"
-                          checked={selectedCoursePointIds.size === filteredCoursePoints.length && filteredCoursePoints.length > 0}
-                          onChange={(e) => toggleSelectAll(e.target.checked)}
-                          className="w-4 h-4 cursor-pointer"
-                          disabled={editingCoursePointId !== null || isDeletingCoursePoints || isImportingCoursePoints || deletingCoursePointId !== null}
-                        />
+                          <input
+                            type="checkbox"
+                            checked={selectedCoursePointIds.size === filteredCoursePoints.length && filteredCoursePoints.length > 0}
+                            onChange={(e) => toggleSelectAll(e.target.checked)}
+                            className="w-4 h-4 cursor-pointer"
+                            disabled={editingCoursePointId !== null || isDeletingCoursePoints || isSmartParsingCoursePoints || deletingCoursePointId !== null}
+                          />
                       </th>
                       <th className="px-4 py-3 text-left text-sm font-medium text-foreground w-[150px]">课点名称</th>
                       <th className="px-4 py-3 text-left text-sm font-medium text-foreground">课点描述</th>
@@ -173,13 +253,13 @@ export const CoursePointManagerDialog = () => {
               <div className="overflow-y-auto flex-1">
                 <table className="w-full">
                   <tbody>
-                    {sortCoursePointsByTitle(filteredCoursePoints).map((coursePoint) => (
+                    {displayCoursePoints.map((coursePoint) => (
                       <tr key={coursePoint.id} className="border-b border-border hover:bg-secondary/20 transition-colors">
                         <td className="px-4 py-3 text-center w-12">
                           <input
                             type="checkbox"
                             checked={selectedCoursePointIds.has(coursePoint.id)}
-                          onChange={(e) => {
+                           onChange={(e) => {
                               const newSelected = new Set(selectedCoursePointIds)
                               if (e.target.checked) {
                                 newSelected.add(coursePoint.id)
@@ -188,12 +268,12 @@ export const CoursePointManagerDialog = () => {
                               }
                               setSelectedCoursePointIds(newSelected)
                             }}
-                            disabled={editingCoursePointId !== null || isDeletingCoursePoints || isImportingCoursePoints || deletingCoursePointId !== null}
+                            disabled={editingCoursePointId !== null || isDeletingCoursePoints || isSmartParsingCoursePoints || deletingCoursePointId !== null}
                             className="w-4 h-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                           />
                         </td>
                         <td className="px-4 py-3 text-sm w-[150px]">
-                          {editingCoursePointId === coursePoint.id ? (
+                          {editingCoursePointId === coursePoint.id && newCoursePoint?.id === coursePoint.id ? (
                             <Input
                               type="text"
                               value={editingCoursePointData.title || coursePoint.title}
@@ -206,7 +286,7 @@ export const CoursePointManagerDialog = () => {
                               className="h-8"
                             />
                           ) : (
-                            coursePoint.title
+                            <span>{coursePoint.title}</span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-sm">
@@ -234,9 +314,9 @@ export const CoursePointManagerDialog = () => {
                                   onClick={() => handleSubmitEdit(coursePoint)}
                                   disabled={
                                     isSavingNewCoursePoint ||
-                                    isImportingCoursePoints ||
+                                    isSmartParsingCoursePoints ||
                                     isSavingEditingCoursePoint ||
-                                    !editingCoursePointData.title?.trim()
+                                    !editingCoursePointData.description?.trim()
                                   }
                                   className="p-1 text-muted-foreground hover:text-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                   title="提交"
@@ -249,7 +329,7 @@ export const CoursePointManagerDialog = () => {
                                 </button>
                                 <button
                                   onClick={() => handleCancelEdit(coursePoint)}
-                                  disabled={isSavingNewCoursePoint || isImportingCoursePoints || isSavingEditingCoursePoint}
+                                  disabled={isSavingNewCoursePoint || isSmartParsingCoursePoints || isSavingEditingCoursePoint}
                                   className="p-1 text-muted-foreground hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                   title="取消"
                                 >
@@ -263,7 +343,7 @@ export const CoursePointManagerDialog = () => {
                                     setEditingCoursePointId(coursePoint.id)
                                     setEditingCoursePointData(coursePoint)
                                   }}
-                                  disabled={editingCoursePointId !== null || isDeletingCoursePoints || isImportingCoursePoints || deletingCoursePointId !== null}
+                                  disabled={editingCoursePointId !== null || isDeletingCoursePoints || isSmartParsingCoursePoints || deletingCoursePointId !== null}
                                   className="p-1 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                   title="编辑"
                                 >
@@ -271,7 +351,7 @@ export const CoursePointManagerDialog = () => {
                                 </button>
                                 <button
                                   onClick={() => handleSingleDelete(coursePoint.id)}
-                                  disabled={editingCoursePointId !== null || isDeletingCoursePoints || isImportingCoursePoints || deletingCoursePointId !== null}
+                                  disabled={editingCoursePointId !== null || isDeletingCoursePoints || isSmartParsingCoursePoints || deletingCoursePointId !== null}
                                   className="p-1 text-muted-foreground hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                   title="删除"
                                 >
@@ -295,25 +375,63 @@ export const CoursePointManagerDialog = () => {
         </div>
 
         <div className="border-t border-border px-6 py-4 flex items-center justify-between flex-shrink-0">
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={handleDeleteSelectedCoursePoints}
-            disabled={selectedCoursePointIds.size === 0 || isDeletingCoursePoints || isImportingCoursePoints}
-            className="gap-2"
-          >
-            {isDeletingCoursePoints ? <Spinner className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}
-            删除选中 ({selectedCoursePointIds.size})
-          </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => setDeleteConfirmTarget({ type: "batch", count: selectedCoursePointIds.size })}
+              disabled={selectedCoursePointIds.size === 0 || isDeletingCoursePoints || isSmartParsingCoursePoints}
+              className="gap-2"
+            >
+              {isDeletingCoursePoints ? <Spinner className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}
+              删除 ({selectedCoursePointIds.size})
+            </Button>
+            <div className="flex-1 px-4 text-center text-sm text-primary">
+              {coursePointFooterMessage ? (
+                <span className={coursePointFooterMessage.tone === "error" ? "text-destructive" : "text-primary"}>{coursePointFooterMessage.text}</span>
+              ) : smartParseSummary
+                ? `本次共解析${smartParseSummary.totalCount}个课点，新增${smartParseSummary.addedCount}个，重复${smartParseSummary.duplicateCount}个。`
+                : null}
+            </div>
             <Button
               variant="outline"
               onClick={closeDialog}
-              disabled={isDeletingCoursePoints || deletingCoursePointId !== null || isSavingNewCoursePoint || isImportingCoursePoints || isSavingEditingCoursePoint}
+              disabled={isDeletingCoursePoints || deletingCoursePointId !== null || isSavingNewCoursePoint || isSmartParsingCoursePoints || isSavingEditingCoursePoint}
             >
               关闭
             </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={deleteConfirmTarget !== null} onOpenChange={(open) => {
+        if (!open) {
+          setDeleteConfirmTarget(null)
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-1 whitespace-pre-line">
+              {deleteConfirmTarget
+                ? `确定要删除选中的${deleteConfirmTarget.count}个课点吗？\n课程矩阵中引用的该课点将立即失效。\n该操作不可逆。`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingCoursePoints || deletingCoursePointId !== null}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={(event) => {
+                event.preventDefault()
+                void handleConfirmDelete()
+              }}
+              disabled={isDeletingCoursePoints || deletingCoursePointId !== null}
+            >
+              确认删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }

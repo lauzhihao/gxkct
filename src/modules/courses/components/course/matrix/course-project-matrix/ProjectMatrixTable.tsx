@@ -22,6 +22,11 @@ interface ProjectMatrixTableProps {
   projectMatrixData: ProjectMatrixData | null
   isEditingProjectMatrix: boolean
   focusedCell: string | null
+  onUpdateCourseMatrixField: (
+    courseMatrixId: number | undefined,
+    field: "study" | "teach" | "product" | "week" | "theoryPeriod" | "practicePeriod",
+    value: string,
+  ) => void
   onOpenTaskObjectivesDialog: (projectId: string, goals: ProjectMatrixGoal[]) => void
   onOpenKsaDialog: (chapterId: string, coursePointId: string, taskId: string) => void
   onFocusCell: (cellId: string | null) => void
@@ -32,6 +37,7 @@ export function ProjectMatrixTable({
   projectMatrixData,
   isEditingProjectMatrix,
   focusedCell,
+  onUpdateCourseMatrixField,
   onOpenTaskObjectivesDialog,
   onOpenKsaDialog,
   onFocusCell,
@@ -102,10 +108,10 @@ export function ProjectMatrixTable({
               {(projectMatrixData?.data?.some(
                 (item: ProjectMatrixItem) => item.courseMatrix?.projectId === projectId
               )) ? (
-                <div className="border border-border overflow-hidden w-[98%] mx-[1%]">
-                  <div className="overflow-x-auto">
+                <div className="w-full overflow-hidden rounded-lg border border-border bg-background">
+                  <div className="w-full overflow-x-auto">
                     <table
-                      className="w-auto text-xs border-collapse border border-border"
+                      className="min-w-full w-max border-collapse border border-border text-sm"
                       style={{ tableLayout: "fixed" }}
                     >
                       <thead>
@@ -113,7 +119,7 @@ export function ProjectMatrixTable({
                         <tr className="bg-secondary/50 border-b border-border">
                           <th
                             rowSpan={2}
-                            className="text-center p-2 text-muted-foreground font-medium border-r border-border w-[100px] align-middle"
+                            className="w-[120px] border-r border-border p-2.5 text-center align-middle font-medium text-muted-foreground"
                           >
                             课点
                           </th>
@@ -121,45 +127,45 @@ export function ProjectMatrixTable({
                             <th
                               key={goal.id || goalIdx}
                               rowSpan={2}
-                              className="text-left p-2 text-muted-foreground font-medium border-r border-border align-middle"
+                              className="border-r border-border p-2.5 text-left align-middle font-medium text-muted-foreground"
                             >
-                              <div className="text-xs whitespace-normal break-words">{goal.description}</div>
+                              <div className="text-sm whitespace-normal break-words">{goal.description}</div>
                             </th>
                           ))}
                           <th
                             rowSpan={2}
-                            className="text-center p-2 text-muted-foreground font-medium border-r border-border w-[120px] align-middle"
+                            className="w-[144px] border-r border-border p-2.5 text-center align-middle font-medium text-muted-foreground"
                           >
                             学法
                           </th>
                           <th
                             rowSpan={2}
-                            className="text-center p-2 text-muted-foreground font-medium border-r border-border w-[220px] align-middle"
+                            className="w-[264px] border-r border-border p-2.5 text-center align-middle font-medium text-muted-foreground"
                           >
                             教法
                           </th>
                           <th
                             rowSpan={2}
-                            className="text-center p-2 text-muted-foreground font-medium border-r border-border w-[280px] align-middle"
+                            className="w-[336px] border-r border-border p-2.5 text-center align-middle font-medium text-muted-foreground"
                           >
                             课点学习产出及测量
                           </th>
                           <th
                             colSpan={3}
-                            className="text-center p-2 text-muted-foreground font-medium border-r border-border align-middle"
+                            className="border-r border-border p-2.5 text-center align-middle font-medium text-muted-foreground"
                           >
                             教学安排
                           </th>
                         </tr>
                         {/* 第二行表头 - 仅教学安排的子列 */}
                         <tr className="bg-secondary/50 border-b border-border">
-                          <th className="text-center p-1 text-muted-foreground font-medium border-r border-border w-[70px] align-middle whitespace-nowrap text-xs">
+                          <th className="w-[84px] border-r border-border p-1.5 text-center align-middle text-sm font-medium whitespace-nowrap text-muted-foreground">
                             开课周数
                           </th>
-                          <th className="text-center p-1 text-muted-foreground font-medium border-r border-border w-[70px] align-middle whitespace-nowrap text-xs">
+                          <th className="w-[84px] border-r border-border p-1.5 text-center align-middle text-sm font-medium whitespace-nowrap text-muted-foreground">
                             理论学时
                           </th>
-                          <th className="text-center p-1 text-muted-foreground font-medium w-[70px] align-middle whitespace-nowrap text-xs">
+                          <th className="w-[84px] p-1.5 text-center align-middle text-sm font-medium whitespace-nowrap text-muted-foreground">
                             实践学时
                           </th>
                         </tr>
@@ -172,7 +178,7 @@ export function ProjectMatrixTable({
                               key={item.courseMatrix?.id || rowIdx}
                               className="border-b border-border hover:bg-secondary/20"
                             >
-                              <td className="p-2 text-center border-r border-border">
+                              <td className="border-r border-border p-2.5 text-center">
                                 <SupportLabel
                                   title={item.courseMatrix?.point?.title || "-"}
                                   desc={item.courseMatrix?.point?.description}
@@ -191,7 +197,7 @@ export function ProjectMatrixTable({
                                 return (
                                   <td
                                     key={goal.id || goalIdx}
-                                    className="p-2 text-center border-r border-border text-foreground"
+                                    className="border-r border-border p-2.5 text-center text-foreground"
                                   >
                                     {isEditingProjectMatrix ? (
                                       <div
@@ -217,10 +223,10 @@ export function ProjectMatrixTable({
                                                 String(goal.id)
                                               )
                                             }
-                                            className="w-4 h-4 rounded-full border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/10 flex items-center justify-center transition-all group flex-shrink-0"
+                                            className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 border-dashed border-primary/40 transition-all group hover:border-primary hover:bg-primary/10"
                                             title="添加KSA支撑关系"
                                           >
-                                            <Plus className="w-2 h-2 text-primary/60 group-hover:text-primary" />
+                                            <Plus className="h-2.5 w-2.5 text-primary/60 group-hover:text-primary" />
                                           </button>
                                         )}
                                       </div>
@@ -237,22 +243,22 @@ export function ProjectMatrixTable({
                                             />
                                           ))
                                         ) : (
-                                          <span className="text-xs text-muted-foreground">-</span>
+                                          <span className="text-sm text-muted-foreground">-</span>
                                         )}
                                       </div>
                                     )}
                                   </td>
                                 )
                               })}
-                              <td className="p-2 text-center border-r border-border text-foreground w-[120px] overflow-hidden">
+                              <td className="w-[144px] overflow-hidden border-r border-border p-2.5 text-center text-foreground">
                                 {isEditingProjectMatrix ? (
                                   focusedCell === `study-${item.courseMatrix?.id}` ? (
                                     <textarea
                                       autoFocus
                                       value={item.courseMatrix?.study || ""}
-                                      onChange={() => {}}
+                                      onChange={(e) => onUpdateCourseMatrixField(item.courseMatrix?.id, "study", e.target.value)}
                                       onBlur={() => onFocusCell(null)}
-                                      className="w-full px-2 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"
+                                       className="w-full resize-none rounded border border-border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
                                       placeholder="输入学法"
                                       rows={4}
                                     />
@@ -260,9 +266,9 @@ export function ProjectMatrixTable({
                                     <input
                                       type="text"
                                       value={item.courseMatrix?.study || ""}
-                                      onChange={() => {}}
+                                      onChange={(e) => onUpdateCourseMatrixField(item.courseMatrix?.id, "study", e.target.value)}
                                       onFocus={() => onFocusCell(`study-${item.courseMatrix?.id}`)}
-                                      className="w-full px-2 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                       className="w-full rounded border border-border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
                                       placeholder="输入学法"
                                     />
                                   )
@@ -270,7 +276,7 @@ export function ProjectMatrixTable({
                                   <TooltipProvider>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <span className="text-xs line-clamp-1 cursor-help">
+                                         <span className="line-clamp-1 cursor-help text-sm">
                                           {item.courseMatrix?.study || "-"}
                                         </span>
                                       </TooltipTrigger>
@@ -283,15 +289,15 @@ export function ProjectMatrixTable({
                                   </TooltipProvider>
                                 )}
                               </td>
-                              <td className="p-2 text-center border-r border-border text-foreground w-[220px] overflow-hidden">
+                              <td className="w-[264px] overflow-hidden border-r border-border p-2.5 text-center text-foreground">
                                 {isEditingProjectMatrix ? (
                                   focusedCell === `teach-${item.courseMatrix?.id}` ? (
                                     <textarea
                                       autoFocus
                                       value={item.courseMatrix?.teach || ""}
-                                      onChange={() => {}}
+                                      onChange={(e) => onUpdateCourseMatrixField(item.courseMatrix?.id, "teach", e.target.value)}
                                       onBlur={() => onFocusCell(null)}
-                                      className="w-full px-2 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"
+                                       className="w-full resize-none rounded border border-border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
                                       placeholder="输入教法"
                                       rows={4}
                                     />
@@ -299,9 +305,9 @@ export function ProjectMatrixTable({
                                     <input
                                       type="text"
                                       value={item.courseMatrix?.teach || ""}
-                                      onChange={() => {}}
+                                      onChange={(e) => onUpdateCourseMatrixField(item.courseMatrix?.id, "teach", e.target.value)}
                                       onFocus={() => onFocusCell(`teach-${item.courseMatrix?.id}`)}
-                                      className="w-full px-2 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                       className="w-full rounded border border-border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
                                       placeholder="输入教法"
                                     />
                                   )
@@ -309,7 +315,7 @@ export function ProjectMatrixTable({
                                   <TooltipProvider>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <span className="text-xs line-clamp-1 cursor-help">
+                                         <span className="line-clamp-1 cursor-help text-sm">
                                           {item.courseMatrix?.teach || "-"}
                                         </span>
                                       </TooltipTrigger>
@@ -322,15 +328,15 @@ export function ProjectMatrixTable({
                                   </TooltipProvider>
                                 )}
                               </td>
-                              <td className="p-2 text-center border-r border-border text-foreground w-[280px] overflow-hidden">
+                              <td className="w-[336px] overflow-hidden border-r border-border p-2.5 text-center text-foreground">
                                 {isEditingProjectMatrix ? (
                                   focusedCell === `product-${item.courseMatrix?.id}` ? (
                                     <textarea
                                       autoFocus
                                       value={item.courseMatrix?.product || ""}
-                                      onChange={() => {}}
+                                      onChange={(e) => onUpdateCourseMatrixField(item.courseMatrix?.id, "product", e.target.value)}
                                       onBlur={() => onFocusCell(null)}
-                                      className="w-full px-2 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"
+                                       className="w-full resize-none rounded border border-border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
                                       placeholder="输入学习产出"
                                       rows={6}
                                     />
@@ -338,9 +344,9 @@ export function ProjectMatrixTable({
                                     <input
                                       type="text"
                                       value={item.courseMatrix?.product || ""}
-                                      onChange={() => {}}
+                                      onChange={(e) => onUpdateCourseMatrixField(item.courseMatrix?.id, "product", e.target.value)}
                                       onFocus={() => onFocusCell(`product-${item.courseMatrix?.id}`)}
-                                      className="w-full px-2 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                       className="w-full rounded border border-border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
                                       placeholder="输入学习产出"
                                     />
                                   )
@@ -348,7 +354,7 @@ export function ProjectMatrixTable({
                                   <TooltipProvider>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <span className="text-xs line-clamp-1 cursor-help">
+                                         <span className="line-clamp-1 cursor-help text-sm">
                                           {item.courseMatrix?.product || "-"}
                                         </span>
                                       </TooltipTrigger>
@@ -362,54 +368,67 @@ export function ProjectMatrixTable({
                                 )}
                               </td>
                               {/* 教学安排 - 开课周数 */}
-                              <td className="p-1 text-center border-r border-border text-foreground w-[70px]">
+                              <td className="w-[84px] border-r border-border p-1.5 text-center text-foreground">
                                 {isEditingProjectMatrix ? (
                                   <input
                                     type="text"
                                     value={item.courseMatrix?.week || ""}
-                                    onChange={() => {}}
-                                    className="w-full px-0.5 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                    onChange={(e) => onUpdateCourseMatrixField(item.courseMatrix?.id, "week", e.target.value)}
+                                     className="w-full rounded border border-border bg-background px-1 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
                                     placeholder="周数"
                                   />
                                 ) : (
-                                  <span className="text-xs">{item.courseMatrix?.week || "-"}</span>
+                                   <span className="text-sm">{item.courseMatrix?.week || "-"}</span>
                                 )}
                               </td>
                               {/* 教学安排 - 理论学时 */}
-                              <td className="p-1 text-center text-foreground w-[70px] border-r border-border">
+                              <td className="w-[84px] border-r border-border p-1.5 text-center text-foreground">
                                 {isEditingProjectMatrix ? (
                                   <input
                                     type="text"
                                     value={item.courseMatrix?.theoryPeriod || ""}
-                                    onChange={() => {}}
-                                    className="w-full px-0.5 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                    onChange={(e) => onUpdateCourseMatrixField(item.courseMatrix?.id, "theoryPeriod", e.target.value)}
+                                     className="w-full rounded border border-border bg-background px-1 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
                                     placeholder="理论"
                                   />
                                 ) : (
-                                  <span className="text-xs">{item.courseMatrix?.theoryPeriod || "-"}</span>
+                                   <span className="text-sm">{item.courseMatrix?.theoryPeriod || "-"}</span>
                                 )}
                               </td>
                               {/* 教学安排 - 实践学时 */}
-                              <td className="p-1 text-center text-foreground w-[70px]">
+                              <td className="w-[84px] p-1.5 text-center text-foreground">
                                 {isEditingProjectMatrix ? (
                                   <input
                                     type="text"
                                     value={item.courseMatrix?.practicePeriod || ""}
-                                    onChange={() => {}}
-                                    className="w-full px-0.5 py-1 text-xs border border-border rounded bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                    onChange={(e) => onUpdateCourseMatrixField(item.courseMatrix?.id, "practicePeriod", e.target.value)}
+                                     className="w-full rounded border border-border bg-background px-1 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
                                     placeholder="实践"
                                   />
                                 ) : (
-                                  <span className="text-xs">{item.courseMatrix?.practicePeriod || "-"}</span>
+                                   <span className="text-sm">{item.courseMatrix?.practicePeriod || "-"}</span>
                                 )}
                               </td>
                             </tr>
                           ))}
-                        {/* 最后一行 - 教学目标的学习产出及测量评价标准 */}
-                        <tr className="bg-secondary/30 border-b border-border font-medium">
-                          <td colSpan={goals.length + 7} className="p-3 text-left text-foreground">
+                        <tr className="border-b border-border bg-secondary/30 font-medium">
+                          <td className="border-r border-border p-4 text-left align-top text-base text-foreground">
                             教学目标的学习产出及测量评价标准
                           </td>
+                          {goals.map((goal: ProjectMatrixGoal, goalIdx: number) => (
+                            <td
+                              key={`goal-product-${goal.id || goalIdx}`}
+                              className="border-r border-border p-4 text-left align-top text-sm text-foreground"
+                            >
+                              {goal.product?.trim() ? goal.product : <span className="text-muted-foreground">-</span>}
+                            </td>
+                          ))}
+                          <td className="border-r border-border p-4" />
+                          <td className="border-r border-border p-4" />
+                          <td className="border-r border-border p-4" />
+                          <td className="border-r border-border p-4" />
+                          <td className="border-r border-border p-4" />
+                          <td className="p-4" />
                         </tr>
                       </tbody>
                     </table>

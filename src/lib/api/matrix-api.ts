@@ -336,13 +336,10 @@ export class MatrixApi {
   // 获取指标点与课程的支撑关系
   async getMajorIndicatorCourseSupports(majorId: string): Promise<ApiResponse<MajorIndicatorCourseSupports>> {
     try {
-      const response = await this.storage.get<Record<string, IndicatorCourseSupport[]>>(
-        `majorIndicatorCourseSupports-${majorId}`
-      )
       return {
         data: {
           majorId,
-          supports: response.data || {},
+          supports: {},
         },
         error: null,
         status: 200,
@@ -362,7 +359,6 @@ export class MatrixApi {
     supports: Record<string, IndicatorCourseSupport[]>
   ): Promise<ApiResponse<MajorIndicatorCourseSupports>> {
     try {
-      await this.storage.set(`majorIndicatorCourseSupports-${majorId}`, supports)
       return {
         data: {
           majorId,
@@ -387,7 +383,6 @@ export class MatrixApi {
     objectiveIndicatorMap: Record<string, string[]>
   ): Promise<ApiResponse<any>> {
     try {
-      await this.storage.set(`courseTeachingObjectiveIndicators-${courseId}-${majorId}`, objectiveIndicatorMap)
       return {
         data: {
           courseId,
@@ -412,11 +407,8 @@ export class MatrixApi {
     majorId: string
   ): Promise<ApiResponse<Record<string, string[]>>> {
     try {
-      const response = await this.storage.get<Record<string, string[]>>(
-        `courseTeachingObjectiveIndicators-${courseId}-${majorId}`
-      )
       return {
-        data: response.data || {},
+        data: {},
         error: null,
         status: 200,
       }
@@ -435,37 +427,8 @@ export class MatrixApi {
     majorId: string
   ): Promise<ApiResponse<string[]>> {
     try {
-      const storageKey = `majorIndicatorCourseSupports-${majorId}`
-      console.log("[getCourseIndicatorSupports] 查询存储key:", storageKey, "courseId:", courseId)
-      const response = await this.storage.get<Record<string, IndicatorCourseSupport[]>>(storageKey)
-
-      console.log("[getCourseIndicatorSupports] 从存储获取的完整数据:", response.data)
-
-      if (!response.data) {
-        console.log("[getCourseIndicatorSupports] 存储中没有数据")
-        return {
-          data: [],
-          error: null,
-          status: 200,
-        }
-      }
-
-      // 查找包含该课程的所有指标点
-      const supportedIndicators: string[] = []
-      Object.entries(response.data).forEach(([indicatorKey, courses]) => {
-        console.log("[getCourseIndicatorSupports] 检查指标点:", indicatorKey, "课程列表:", courses)
-        if (courses.some((course) => {
-          const isMatch = course.courseId === courseId
-          console.log("[getCourseIndicatorSupports] 比较courseId:", course.courseId, "===", courseId, "结果:", isMatch)
-          return isMatch
-        })) {
-          supportedIndicators.push(indicatorKey)
-        }
-      })
-
-      console.log("[getCourseIndicatorSupports] 找到的支撑指标点:", supportedIndicators)
       return {
-        data: supportedIndicators,
+        data: [],
         error: null,
         status: 200,
       }
@@ -485,31 +448,8 @@ export class MatrixApi {
     majorId: string
   ): Promise<ApiResponse<Record<string, "strong" | "weak">>> {
     try {
-      const storageKey = `majorIndicatorCourseSupports-${majorId}`
-      const response = await this.storage.get<Record<string, IndicatorCourseSupport[]>>(storageKey)
-
-      if (!response.data) {
-        return {
-          data: {},
-          error: null,
-          status: 200,
-        }
-      }
-
-      const supportLevels: Record<string, "strong" | "weak"> = {}
-
-      Object.entries(response.data).forEach(([indicatorKey, courses]) => {
-        const matchedCourse = courses.find((course) => course.courseId === courseId)
-        if (!matchedCourse) return
-
-        // 同一指标点若存在多条记录，优先保留 strong
-        if (matchedCourse.supportLevel === "strong" || !supportLevels[indicatorKey]) {
-          supportLevels[indicatorKey] = matchedCourse.supportLevel
-        }
-      })
-
       return {
-        data: supportLevels,
+        data: {},
         error: null,
         status: 200,
       }

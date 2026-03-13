@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { BookMarked, Plus, Search, FileText, User, X } from "lucide-react"
 import { LoadingState } from "@/shared/components/ui/loading-state"
-import { cn, extractNumericId } from "@/shared/utils/utils"
+import { cn } from "@/shared/utils/utils"
 import { usePermission } from "@/shared/hooks/use-permission"
 import type { PermissionAction } from "@/shared/permissions/types"
 import type { TreeNode } from "@/types"
@@ -27,28 +27,6 @@ interface CourseItem {
   btnMenus: any[]
   coverMenus: any[]
   props: any
-}
-
-interface MajorNodeMetadata {
-  source?: string
-  prefetchedCourses?: CourseItem[]
-}
-
-const isCourseLevelPayload = (items: CourseItem[], datatype: unknown) => {
-  if (typeof datatype === "number" && datatype === 3) {
-    return true
-  }
-
-  return items.some((item) => {
-    if (!Array.isArray(item.btnMenus)) {
-      return false
-    }
-
-    return item.btnMenus.some((menu) => {
-      const menuValue = (menu as { value?: unknown }).value
-      return menuValue === "courseedit" || menuValue === "coursedel"
-    })
-  })
 }
 
 interface MajorCoursesProps {
@@ -87,18 +65,6 @@ export function MajorCourses(props: MajorCoursesProps) {
 
   // 当节点变化时，直接调用接口获取课程列表（不通过 api.tree，避免影响左侧树）
   useEffect(() => {
-    const metadata = (node.metadata as MajorNodeMetadata | undefined)
-    const isVirtualMajorFromSwitchDpt = metadata?.source === 'course-level-switchDpt'
-    const prefetchedCourses = Array.isArray(metadata?.prefetchedCourses) ? metadata.prefetchedCourses : null
-
-    if (isVirtualMajorFromSwitchDpt) {
-      const safeCourses = prefetchedCourses || []
-      setCourses(safeCourses)
-      setCourseCacheFromItems(safeCourses)
-      setIsLoading(false)
-      return
-    }
-
     const fetchCourses = async () => {
       if (!node?.id) {
         setCourses([])
@@ -108,7 +74,6 @@ export function MajorCourses(props: MajorCoursesProps) {
 
       setIsLoading(true)
       try {
-        const url = buildApiUrl(`/api/v4/webpage/majorindex/courses?majorId=${node.id}&lang=80101`)
         const headers: Record<string, string> = {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -118,30 +83,7 @@ export function MajorCourses(props: MajorCoursesProps) {
           headers['authToken'] = authToken
         }
 
-        const departmentId = node.parentId ? extractNumericId(node.parentId) : ""
-        if (departmentId) {
-          const switchDptUrl = buildApiUrl(`/api/v4/webpage/home/switchDpt?dptId=${departmentId}&lang=80101`)
-          const switchDptResponse = await fetch(switchDptUrl, {
-            method: 'GET',
-            headers,
-          })
-
-          if (switchDptResponse.ok) {
-            const switchDptResult = await switchDptResponse.json()
-            if (switchDptResult.code === '0' && Array.isArray(switchDptResult.data?.data)) {
-              const switchDptItems = switchDptResult.data.data as CourseItem[]
-              const shouldUseAggregatedCourses = isCourseLevelPayload(switchDptItems, switchDptResult.data?.datatype)
-
-              if (shouldUseAggregatedCourses) {
-                const majorId = String(node.id)
-                const aggregatedCourses = switchDptItems.filter((course) => course.parent?.value === majorId)
-                setCourses(aggregatedCourses)
-                setCourseCacheFromItems(aggregatedCourses)
-                return
-              }
-            }
-          }
-        }
+        const url = buildApiUrl(`/api/v5/tree/majors/${node.id}/courses?lang=80101`)
 
         const response = await fetch(url, {
           method: 'GET',
@@ -169,7 +111,7 @@ export function MajorCourses(props: MajorCoursesProps) {
     }
 
     fetchCourses()
-  }, [node?.id, node?.metadata, node?.name, node?.nodeName, node?.parentId, refreshKey, setCourseCacheFromItems])
+  }, [node?.id, refreshKey, setCourseCacheFromItems])
 
   // 获取课程ID
   const getCourseId = (course: any) => course.self?.value || course.id || ''

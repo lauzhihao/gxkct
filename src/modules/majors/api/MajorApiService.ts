@@ -39,6 +39,12 @@ export interface CreateMajorRequest {
   }>
 }
 
+export interface QuickCreateMajorRequest {
+  departmentId: number
+  name: string
+  managerIds: number[]
+}
+
 class MajorApiService {
   private static instance: MajorApiService
   private httpAdapter: HttpAdapter
@@ -67,6 +73,22 @@ class MajorApiService {
    */
   async createMajor(data: CreateMajorRequest): Promise<ApiResponse<any>> {
     return this.httpAdapter.post('/api/major/v2.0/v3/updatedetail', data)
+  }
+
+  /**
+   * 快速开设专业
+   * POST /api/v5/tree/major
+   */
+  async quickCreateMajor(data: QuickCreateMajorRequest): Promise<ApiResponse<any>> {
+    return this.httpAdapter.post('/api/v5/tree/major', data)
+  }
+
+  /**
+   * 删除专业
+   * GET /api/v4/webpage/home/delmajor?majorId=*
+   */
+  async deleteMajor(majorId: string): Promise<ApiResponse<number | null>> {
+    return this.httpAdapter.get(`/api/v4/webpage/home/delmajor?majorId=${majorId}`)
   }
 }
 

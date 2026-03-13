@@ -19,6 +19,23 @@ interface ReportTextProps {
   onChange?: (name: string, value: string) => void
 }
 
+function formatLabel(title: string, subtitle: string): string {
+  if (!title) {
+    return ""
+  }
+
+  if (subtitle) {
+    const normalizedTitle = title.endsWith(":") || title.endsWith("：") ? title.slice(0, -1) : title
+    return `${normalizedTitle}:${subtitle}`
+  }
+
+  if (title.endsWith(":") || title.endsWith("：")) {
+    return title
+  }
+
+  return `${title}:`
+}
+
 function formatCustomData(value: ReportTextProps["data"], textformat: string): string {
   if (textformat && Array.isArray(value)) {
     if (Array.isArray(value[0])) {
@@ -61,16 +78,25 @@ export function ReportText({
     return String(data ?? "")
   }, [data, textformat, type])
 
+  const labelText = useMemo(() => formatLabel(title, subtitle), [subtitle, title])
+
   useEffect(() => {
     setInputValue(displayValue)
   }, [displayValue])
 
+  const labelClassName = textwrap
+    ? "inline-block align-top text-[12pt] leading-[22pt]"
+    : "inline-block align-top text-[12pt] leading-[22pt]"
+
+  const valueClassName = textwrap
+    ? "inline-block align-top text-[12pt] leading-[22pt] whitespace-pre-wrap"
+    : "inline-block align-top text-[12pt] leading-[22pt]"
+
   return (
     <div className={nowrap ? "inline-block align-top mr-8" : "block"}>
       {!hideTitle && (
-        <div className={textwrap ? "block text-[12pt] leading-[22pt]" : "inline-block align-top text-[12pt] leading-[22pt]"}>
-          {title}
-          {subtitle ? `:${subtitle}` : ":"}
+        <div className={labelClassName}>
+          {labelText}
         </div>
       )}
 
@@ -95,7 +121,7 @@ export function ReportText({
             />
           )
         ) : (
-          <div className={textwrap ? "inline-block align-top text-[12pt] leading-[22pt] whitespace-pre-wrap" : "inline-block align-top text-[12pt] leading-[22pt]"}>
+          <div className={valueClassName}>
             {displayValue}
           </div>
         )}

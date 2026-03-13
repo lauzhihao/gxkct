@@ -20,18 +20,59 @@ export const createCoursePointMap = (coursePoints: ApiCoursePoint[]) => {
   return map
 }
 
+export const extractCoursePointSequence = (title: string | undefined): number | null => {
+  if (typeof title !== "string") {
+    return null
+  }
+
+  const matchedDigits = title.match(/(\d+)/)
+  if (!matchedDigits || matchedDigits[1] === undefined) {
+    return null
+  }
+
+  const parsedValue = Number.parseInt(matchedDigits[1], 10)
+  if (!Number.isInteger(parsedValue) || parsedValue <= 0) {
+    return null
+  }
+
+  return parsedValue
+}
+
+export const buildCoursePointTitle = (sequence: number) => `课点${sequence}`
+
+export const getNextCoursePointSequence = (coursePoints: ApiCoursePoint[]) => {
+  const maxSequence = coursePoints.reduce((currentMax, coursePoint) => {
+    const sequence = extractCoursePointSequence(coursePoint.title)
+    if (sequence === null) {
+      return currentMax
+    }
+
+    return Math.max(currentMax, sequence)
+  }, 0)
+
+  return maxSequence + 1
+}
+
 export const sortCoursePointsByTitle = (coursePoints: ApiCoursePoint[]) => {
   const sorted = [...coursePoints]
 
   sorted.sort((a, b) => {
-    const aLength = a.title?.length ?? 0
-    const bLength = b.title?.length ?? 0
+    const aSequence = extractCoursePointSequence(a.title)
+    const bSequence = extractCoursePointSequence(b.title)
 
-    if (aLength !== bLength) {
-      return aLength - bLength
+    if (aSequence !== null && bSequence !== null && aSequence !== bSequence) {
+      return aSequence - bSequence
     }
 
-    return (a.title || "").localeCompare(b.title || "")
+    if (aSequence !== null && bSequence === null) {
+      return -1
+    }
+
+    if (aSequence === null && bSequence !== null) {
+      return 1
+    }
+
+    return (a.title || "").localeCompare(b.title || "", "zh-CN-u-kn-true")
   })
 
   return sorted

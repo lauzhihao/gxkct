@@ -218,6 +218,7 @@ export const CanvasDrawers = memo(function CanvasDrawers({
                   courseType: courseInfoData.metadata?.courseType || "必修",
                   courseNatureId: courseInfoData.metadata?.courseNatureId || 0,
                   introduction: courseInfoData.metadata?.introduction || "",
+                  openingDate: courseInfoData.metadata?.openingDate || "",
                   theoryPeriod: courseInfoData.metadata?.theoryPeriod || 0,
                   practicePeriod: courseInfoData.metadata?.practicePeriod || 0,
                   teachingClass: courseInfoData.metadata?.teachingClass || "",

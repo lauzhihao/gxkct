@@ -17,7 +17,6 @@ export const CoursePointSelectionDialog = () => {
     handleConfirmCoursePointSelection,
     setSelectedMatrixCell,
     setSelectedCoursePoints,
-    setIsAutoSavePaused,
   } = useCourseMatrixContext()
 
   const filteredCoursePoints = useMemo(
@@ -30,9 +29,6 @@ export const CoursePointSelectionDialog = () => {
       open={isAddCoursePointDialogOpen}
       onOpenChange={(open) => {
         setIsAddCoursePointDialogOpen(open)
-        if (!open) {
-          setIsAutoSavePaused(false)
-        }
       }}
     >
       <DialogContent className="!max-w-2xl max-h-[80vh] flex flex-col p-0 gap-0">
@@ -112,7 +108,6 @@ export const CoursePointSelectionDialog = () => {
               setIsAddCoursePointDialogOpen(false)
               setSelectedMatrixCell(null)
               setSelectedCoursePoints({})
-              setIsAutoSavePaused(false)
             }}
           >
             取消
@@ -120,7 +115,6 @@ export const CoursePointSelectionDialog = () => {
           <Button
             onClick={() => {
               handleConfirmCoursePointSelection()
-              setIsAutoSavePaused(false)
             }}
             disabled={Object.keys(selectedCoursePoints).length === 0}
           >

@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import type { DetailPanelProps } from "@/components/detail-panel/types"
 import { convertCourseToCanvasComplete } from "@/lib/utils/course-to-canvas"
 import { BookOpen, Calendar, Pencil, User } from "lucide-react"
@@ -19,10 +19,12 @@ import { CourseGoals } from "@/modules/courses/components/course/course-goals"
 import { CoursePoints } from "@/modules/courses/components/course/course-points"
 import { CourseKsa } from "@/modules/courses/components/course/course-ksa"
 import { CourseChapters } from "@/modules/courses/components/course/course-chapters"
+import { CourseSyllabusPreview } from "@/modules/courses/components/course/course-syllabus-preview"
 import { CourseResources } from "@/modules/courses/components/course/resources/course-resources"
 import { CourseSupervision } from "@/modules/courses/components/course/supervision/course-supervision"
 import { CourseThreeLevelMatrix } from "@/modules/courses/components/course/matrix/course-three-level-matrix"
 import { TeachingObjectivesEditor } from "@/modules/courses/components/shared/teaching-objectives-editor"
+import type { TeachingObjectiveFilterData } from "@/modules/courses/model/course-matrix"
 import { getCourseCache } from "@/shared/utils/course-cache"
 import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
 import { useAiCanvasStore } from "@/shared/stores/ai-canvas-store"
@@ -249,13 +251,21 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
   const courseEditable = useCourseEditPermission(courseNode)
   const courseNodeId = courseNode?.id
   const [isEditingCourse, setIsEditingCourse] = useState(false)
+  const [contentView, setContentView] = useState<"detail" | "syllabus">("detail")
   const [isEditingTeachingObjectives, setIsEditingTeachingObjectives] = useState(false)
   const [courseDetailData, setCourseDetailData] = useState<CombinedCourseDetail | null>(null)
   const [courseGoals, setCourseGoals] = useState<CourseGoal[]>([])
+  const [hasLoadedCourseGoals, setHasLoadedCourseGoals] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("info")
   const [activeMatrixTab, setActiveMatrixTab] = useState("courseMatrix")
   const [matrixRefreshToken, setMatrixRefreshToken] = useState(0)
+  const [teachingObjectiveFilterData, setTeachingObjectiveFilterData] = useState<TeachingObjectiveFilterData>({
+    majorIndicators: [],
+    isLoadingMajorIndicators: false,
+    teachingObjectiveIndicatorMap: {},
+    isLoadingTeachingObjectiveIndicators: false,
+  })
   const [selectedSemester, setSelectedSemester] = useState("2024-spring")
   const [semesters] = useState([
     { value: "2024-spring", label: "2024年春季学期" },
@@ -270,11 +280,27 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
     prefetchCanvasData,
     clearPreparedCanvasData,
   } = useAiCanvasStore()
+  const prefetchedCanvasCourseIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!courseNode) return
     setActivePage(DEFAULT_COURSE_TAB, COURSE_TABS[DEFAULT_COURSE_TAB])
   }, [courseNodeId, courseNode, setActivePage])
+
+  useEffect(() => {
+    prefetchedCanvasCourseIdRef.current = null
+    setHasLoadedCourseGoals(false)
+    clearPreparedCanvasData()
+  }, [clearPreparedCanvasData, courseNodeId])
+
+  useEffect(() => {
+    setTeachingObjectiveFilterData({
+      majorIndicators: [],
+      isLoadingMajorIndicators: false,
+      teachingObjectiveIndicatorMap: {},
+      isLoadingTeachingObjectiveIndicators: false,
+    })
+  }, [courseNode?.nodeId])
 
   const handleTabChange = (value: string) => {
     setActiveTab(value)
@@ -286,6 +312,7 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
   // 当节点改变时，退出编辑模式
   useEffect(() => {
     setIsEditingCourse(false)
+    setContentView("detail")
   }, [courseNode?.nodeId])
 
   useEffect(() => {
@@ -341,6 +368,7 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
 
       if (!courseId || !majorId) {
         console.warn("[CourseDetail] 无法获取课程ID或专业ID")
+        setHasLoadedCourseGoals(false)
         return false
       }
 
@@ -349,15 +377,18 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
       if (response.data) {
         console.log(`[CourseDetail] 教学目标加载成功:`, response.data.length)
         setCourseGoals(response.data)
+        setHasLoadedCourseGoals(true)
         if (options?.refreshMatrix) {
           setMatrixRefreshToken((prev) => prev + 1)
         }
         return true
       }
 
+      setHasLoadedCourseGoals(false)
       return false
     } catch (error) {
       console.error("[CourseDetail] 加载教学目标失败:", error)
+      setHasLoadedCourseGoals(false)
       return false
     }
   }, [courseNodeId, courseDetailData])
@@ -472,6 +503,13 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
           return [...upsertItems, ...deletedItems]
         })()
         : (sourceCourseMatrix)
+      const summarizedPeriods = courseMatrixVOS.reduce(
+        (totals, chapter) => ({
+          theoryPeriod: totals.theoryPeriod + Number(normalizeChapterPeriod(chapter.theoryPeriod)),
+          practicePeriod: totals.practicePeriod + Number(normalizeChapterPeriod(chapter.practicePeriod)),
+        }),
+        { theoryPeriod: 0, practicePeriod: 0 },
+      )
 
       const saveRequest: SaveCourseUnitRequest = {
         course: {
@@ -482,8 +520,8 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
           name: courseData.name || "",
           introduction: courseData.metadata?.introduction || null,
           criterion: null,
-          theoryPeriod: courseData.metadata?.theoryPeriod || 0,
-          practicePeriod: courseData.metadata?.practicePeriod || 0,
+          theoryPeriod: summarizedPeriods.theoryPeriod,
+          practicePeriod: summarizedPeriods.practicePeriod,
           courseMatrixVOS,
           position: null,
           // 扩展字段
@@ -550,6 +588,15 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
     }
 
     setIsEditingCourse(true)
+  }
+
+  const handleOpenCourseSyllabus = () => {
+    if (!courseEditable) {
+      console.warn("[CourseDetail] open course syllabus blocked by permission or ownership")
+      return
+    }
+
+    setContentView("syllabus")
   }
 
   // 注册画布数据准备回调到全局 store，供 Header AI 按钮调用
@@ -802,17 +849,20 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
       return canvasData
     }
 
-    clearPreparedCanvasData()
     registerPrepareCanvasData(prepareCanvasData, String(courseNodeId))
-    // 在课程详情页数据已就绪后预热一次，点击 AI 时可直接复用结果
-    prefetchCanvasData()
+
+    if (hasLoadedCourseGoals && prefetchedCanvasCourseIdRef.current !== String(courseNodeId)) {
+      prefetchedCanvasCourseIdRef.current = String(courseNodeId)
+      // 在课程详情页数据完整就绪后仅预热一次，避免重复请求矩阵相关接口
+      prefetchCanvasData()
+    }
 
     return () => unregisterPrepareCanvasData()
   }, [
-    clearPreparedCanvasData,
     courseEditable,
     courseDetailData,
     courseGoals,
+    hasLoadedCourseGoals,
     courseNodeId,
     courseNode,
     prefetchCanvasData,
@@ -867,17 +917,42 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
   const collegeId = courseNameData.college.id
   const createTime = courseDetailInfo.course.createTime
   const majorId = courseDetailInfo.course.majorId
+  const courseCache = getCourseCache(courseNode.id || '')
+  const instructorNames = courseCache?.instructors && courseCache.instructors.length > 0 ? courseCache.instructors : ["未设置"]
+  const organizationFromSelectedPath = resolveCourseOrganizationFromSelectedPath({
+    selectedNodePath,
+    courseNode,
+    majorIdFromDetail: majorId,
+    majorNameFallback: courseCache?.majorName || courseNameData.major || "",
+  })
+  const organizationInfo = organizationFromSelectedPath || resolveCourseOrganizationFromTree({
+    treeRoot: treeData,
+    courseNode,
+    majorIdFromDetail: majorId,
+    majorNameFallback: courseCache?.majorName || courseNameData.major || "",
+  })
+
+  if (contentView === "syllabus") {
+    return (
+      <div className="flex h-[calc(100vh-10rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card/30 shadow-2xl backdrop-blur-md">
+        <CourseSyllabusPreview
+          courseId={Number(courseNode.id)}
+          courseName={courseNameData.name}
+          instructorNames={instructorNames}
+          departmentName={organizationInfo.departmentName || courseNameData.department?.name || courseNameData.college?.name || ""}
+          courseDetail={courseDetailInfo.course}
+          onBack={() => setContentView("detail")}
+        />
+      </div>
+    )
+  }
 
   // 从课程详情中获取专业名称，优先从缓存获取
-  const courseCache = getCourseCache(courseNode.id || '')
   const majorName = courseCache?.majorName || courseNameData.major || "未设置"
 
   // 获取讲师数组 - 从缓存中读取
   const getInstructors = () => {
-    if (courseCache?.instructors && courseCache.instructors.length > 0) {
-      return courseCache.instructors
-    }
-    return ["未设置"]
+    return instructorNames
   }
 
   // 判断讲师是否已设置
@@ -898,10 +973,10 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
         courseGoals={courseGoals}
         node={courseNode}
         majorId={majorId}
-        majorIndicators={[]}
-        teachingObjectiveIndicatorMap={{}}
-        isLoadingMajorIndicators={false}
-        isLoadingTeachingObjectiveIndicators={false}
+        majorIndicators={teachingObjectiveFilterData.majorIndicators}
+        teachingObjectiveIndicatorMap={teachingObjectiveFilterData.teachingObjectiveIndicatorMap}
+        isLoadingMajorIndicators={teachingObjectiveFilterData.isLoadingMajorIndicators}
+        isLoadingTeachingObjectiveIndicators={teachingObjectiveFilterData.isLoadingTeachingObjectiveIndicators}
       />
     )
   }
@@ -1007,6 +1082,8 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
                 courseDetail={courseDetailInfo.course}
                 courseNameData={courseNameData}
                 createTime={createTime}
+                courseEditable={courseEditable}
+                onOpenCourseSyllabus={handleOpenCourseSyllabus}
               />
 
               <Accordion type="multiple" className="space-y-4 pb-4">
@@ -1033,7 +1110,20 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
             </TabsContent>
 
             <TabsContent value="matrix" className="space-y-4 mt-2 px-6">
-              <CourseThreeLevelMatrix node={courseNode} onUpdateNode={onUpdateNode} treeData={treeData} majorId={majorId} refreshToken={matrixRefreshToken} courseEditable={courseEditable} onEditTeachingObjectives={() => setIsEditingTeachingObjectives(true)} activeMatrixTab={activeMatrixTab} onActiveMatrixTabChange={setActiveMatrixTab} />
+              <CourseThreeLevelMatrix
+                node={courseNode}
+                onUpdateNode={onUpdateNode}
+                treeData={treeData}
+                majorId={majorId}
+                refreshToken={matrixRefreshToken}
+                courseEditable={courseEditable}
+                onEditTeachingObjectives={(filterData) => {
+                  setTeachingObjectiveFilterData(filterData)
+                  setIsEditingTeachingObjectives(true)
+                }}
+                activeMatrixTab={activeMatrixTab}
+                onActiveMatrixTabChange={setActiveMatrixTab}
+              />
             </TabsContent>
 
             <TabsContent value="supervision" className="space-y-4 mt-4 px-6">
@@ -1042,7 +1132,6 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
           </Tabs>
         </div>
       </div>
-
     </>
   )
 }

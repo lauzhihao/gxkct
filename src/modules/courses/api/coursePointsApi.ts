@@ -1,5 +1,4 @@
 import { api, type CoursePoint } from "@/lib/api"
-import type { DownloadTemplateData, ResolvedCoursePoint } from "@/lib/api/course-points-api"
 import type { ApiResponse } from "@/lib/api/types"
 
 export const coursePointsApi = {
@@ -27,15 +26,5 @@ export const coursePointsApi = {
   },
   deleteCoursePoint(majorId: number, courseId: number, coursePointId: number): Promise<ApiResponse<void | null>> {
     return api.coursePoints.deleteCoursePoint(majorId, courseId, coursePointId)
-  },
-  downloadPointTemplate(lang: string | number): Promise<ApiResponse<DownloadTemplateData | null>> {
-    return api.coursePoints.downloadPointTemplate(lang)
-  },
-  resolveCoursePoints(
-    majorId: number,
-    courseId: number,
-    file: File
-  ): Promise<ApiResponse<ResolvedCoursePoint[] | null>> {
-    return api.coursePoints.resolveCoursePoints(majorId, courseId, file)
   },
 }

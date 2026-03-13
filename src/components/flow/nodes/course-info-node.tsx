@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 import { BaseFlowNode } from "./base-flow-node"
 import type { CourseInfoData } from "@/components/canvas-elements/types"
+import { SafeRichTextContent } from "@/shared/components/ui/safe-rich-text-content"
 
 /**
  * 扩展的课程信息数据类型，包含注入的回调
@@ -172,9 +173,13 @@ export const CourseInfoNode = memo(function CourseInfoNode({
         {/* 课程简介 */}
         {metadata?.introduction && (
           <div className="border-t border-gray-100 pt-2">
-            <p className="text-gray-500 text-xs line-clamp-3">
-              {metadata.introduction}
-            </p>
+            <div className="max-h-28 overflow-hidden text-xs text-gray-500">
+              <SafeRichTextContent
+                content={metadata.introduction}
+                className="[&_ol]:pl-4 [&_p]:text-xs [&_p]:text-gray-500 [&_p]:leading-relaxed [&_p+*]:mt-1 [&_table]:text-xs [&_td]:px-2 [&_td]:py-1 [&_th]:px-2 [&_th]:py-1 [&_ul]:pl-4"
+                plainTextClassName="text-xs text-gray-500 leading-relaxed whitespace-pre-wrap"
+              />
+            </div>
           </div>
         )}
       </div>

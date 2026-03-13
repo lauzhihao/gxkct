@@ -22,6 +22,18 @@ interface ReportRadioProps {
   onChange?: (name: string, value: string | number) => void
 }
 
+function formatLabel(title: string): string {
+  if (!title) {
+    return ""
+  }
+
+  if (title.endsWith(":") || title.endsWith("：")) {
+    return title
+  }
+
+  return `${title}:`
+}
+
 export function ReportRadio({
   data,
   options,
@@ -42,11 +54,13 @@ export function ReportRadio({
     return mapped?.text ?? ""
   }, [localStatus, options.maps])
 
+  const labelText = useMemo(() => formatLabel(title), [title])
+
   return (
     <div>
       {editing ? (
         <div className="inline-flex items-center gap-3 text-[12pt] leading-[22pt]">
-          <span>{title}</span>
+          <span>{labelText}</span>
           <RadioGroup value={localStatus} onValueChange={setLocalStatus} className="flex items-center gap-4">
             {options.labels.map((value, index) => (
               <label key={`${value}-${index}`} className="inline-flex items-center gap-2 text-sm">
@@ -57,7 +71,7 @@ export function ReportRadio({
           </RadioGroup>
         </div>
       ) : (
-        <div className="inline-block text-[12pt] leading-[22pt]">{title}{localText}</div>
+        <div className="inline-block text-[12pt] leading-[22pt]">{labelText}{localText}</div>
       )}
 
       {revisable && (

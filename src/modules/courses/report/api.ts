@@ -27,7 +27,17 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}`)
   }
-  return (await response.json()) as T
+  const payload = await response.json() as unknown
+
+  if (payload && typeof payload === "object" && "code" in payload) {
+    const wrappedPayload = payload as { code?: string | number; data?: unknown; message?: string }
+    if (String(wrappedPayload.code) !== "0") {
+      throw new Error(wrappedPayload.message || "API request failed")
+    }
+    return wrappedPayload.data as T
+  }
+
+  return payload as T
 }
 
 function withQuery(endpoint: string, params: Record<string, string | number | boolean>): string {
@@ -43,7 +53,7 @@ function withQuery(endpoint: string, params: Record<string, string | number | bo
 }
 
 export async function getCourseIntro(courseId: number): Promise<string> {
-  const url = withQuery("/college/api/beginreport/getcourseintro", { courseid: courseId })
+  const url = withQuery("/api/beginreport/getcourseintro", { courseid: courseId })
   return requestJson<string>(url, {
     method: "GET",
     headers: createHeaders(),
@@ -51,7 +61,7 @@ export async function getCourseIntro(courseId: number): Promise<string> {
 }
 
 export async function getAdditionalInfo(courseId: number): Promise<AdditionalInfoResponse> {
-  const url = withQuery("/college/api/beginreport/getadditionalinfo", { courseid: courseId })
+  const url = withQuery("/api/beginreport/getadditionalinfo", { courseid: courseId })
   return requestJson<AdditionalInfoResponse>(url, {
     method: "GET",
     headers: createHeaders(),
@@ -59,7 +69,7 @@ export async function getAdditionalInfo(courseId: number): Promise<AdditionalInf
 }
 
 export async function getGraduateRequires(courseId: number): Promise<GraduateRequireNode[]> {
-  const url = withQuery("/college/api/beginreport/getrequires", { courseid: courseId })
+  const url = withQuery("/api/beginreport/getrequires", { courseid: courseId })
   return requestJson<GraduateRequireNode[]>(url, {
     method: "GET",
     headers: createHeaders(),
@@ -67,7 +77,7 @@ export async function getGraduateRequires(courseId: number): Promise<GraduateReq
 }
 
 export async function getMajorMatrix(courseId: number): Promise<MajorMatrixItem[]> {
-  const url = withQuery("/college/api/beginreport/getmajormatrix", { courseid: courseId })
+  const url = withQuery("/api/beginreport/getmajormatrix", { courseid: courseId })
   return requestJson<MajorMatrixItem[]>(url, {
     method: "GET",
     headers: createHeaders(),
@@ -75,7 +85,7 @@ export async function getMajorMatrix(courseId: number): Promise<MajorMatrixItem[
 }
 
 export async function getProjectList(courseId: number): Promise<ProjectListItem[]> {
-  const url = withQuery("/college/api/beginreport/projects", { courseid: courseId })
+  const url = withQuery("/api/beginreport/projects", { courseid: courseId })
   return requestJson<ProjectListItem[]>(url, {
     method: "GET",
     headers: createHeaders(),
@@ -83,7 +93,7 @@ export async function getProjectList(courseId: number): Promise<ProjectListItem[
 }
 
 export async function getProjectMatrix(courseId: number): Promise<ProjectMatrixItem[]> {
-  const url = withQuery("/college/api/beginreport/getprojectmatrix", { courseid: courseId })
+  const url = withQuery("/api/beginreport/getprojectmatrix", { courseid: courseId })
   return requestJson<ProjectMatrixItem[]>(url, {
     method: "GET",
     headers: createHeaders(),
@@ -91,7 +101,7 @@ export async function getProjectMatrix(courseId: number): Promise<ProjectMatrixI
 }
 
 export async function getPointMatrix(courseId: number): Promise<PointMatrixItem[]> {
-  const url = withQuery("/college/api/beginreport/getpointmatrix", { courseid: courseId })
+  const url = withQuery("/api/beginreport/getpointmatrix", { courseid: courseId })
   return requestJson<PointMatrixItem[]>(url, {
     method: "GET",
     headers: createHeaders(),
@@ -99,7 +109,7 @@ export async function getPointMatrix(courseId: number): Promise<PointMatrixItem[
 }
 
 export async function getTaskGoal(courseId: number): Promise<TaskGoalGroup[]> {
-  const url = withQuery("/college/api/beginreport/gettaskgoal", { courseid: courseId })
+  const url = withQuery("/api/beginreport/gettaskgoal", { courseid: courseId })
   return requestJson<TaskGoalGroup[]>(url, {
     method: "GET",
     headers: createHeaders(),
@@ -136,18 +146,15 @@ export interface SaveAdditionalInfoPayload {
 }
 
 export async function saveAdditionalInfo(payload: SaveAdditionalInfoPayload): Promise<unknown> {
-  return requestJson<unknown>(buildApiUrl("/college/api/beginreport/saveadditionalinfo"), {
+  return requestJson<unknown>(buildApiUrl("/api/beginreport/saveadditionalinfo"), {
     method: "POST",
     headers: createHeaders(),
     body: JSON.stringify(payload),
   })
 }
 
-export async function exportReport(courseId: number, editable: 0 | 1): Promise<Response> {
-  const url = withQuery("/college/api/beginreport/exportreport", {
-    courseid: courseId,
-    editable,
-  })
+export async function exportReport(courseId: number): Promise<Response> {
+  const url = withQuery(`/api/v5/courses/${courseId}/syllabus/export-docx`, {})
   const response = await fetch(url, {
     method: "GET",
     headers: createHeaders(),

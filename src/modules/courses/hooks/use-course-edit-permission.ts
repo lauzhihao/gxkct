@@ -19,52 +19,67 @@ interface CourseNodeMetadataWithManagers {
   managers?: CourseManagerLike[]
 }
 
+function buildCurrentUserIdentitySet(): Set<string> {
+  const authUser = getStoredAuthUser()
+  const identities = [authUser?.email, authUser?.userName, authUser?.id]
+    .map((value) => String(value ?? "").trim().toLowerCase())
+    .filter(Boolean)
+
+  return new Set(identities)
+}
+
+function resolveCourseManagers(courseNode?: TreeNode | null): CourseManagerLike[] {
+  const directManagers = courseNode?.manager ?? []
+  const metadataManagers = ((courseNode?.metadata as CourseNodeMetadataWithManagers | undefined)?.managers ?? [])
+  const courseId = String(courseNode?.id || "")
+  const cacheManagers = getCourseCache(courseId)?.instructors?.map((name) => ({
+    value: name,
+    label: name,
+  })) ?? []
+
+  const mergedManagers = [...directManagers, ...metadataManagers, ...cacheManagers]
+  const uniqueManagers = new Map<string, CourseManagerLike>()
+
+  mergedManagers.forEach((manager) => {
+    const managerValue = String(manager?.value ?? "").trim()
+    const managerLabel = String(manager?.label ?? "").trim()
+    const key = `${managerValue}-${managerLabel}`
+    if (managerValue || managerLabel) {
+      uniqueManagers.set(key, manager)
+    }
+  })
+
+  return Array.from(uniqueManagers.values())
+}
+
+export function isCurrentUserCourseOwner(courseNode?: TreeNode | null): boolean {
+  const currentUserIdentitySet = buildCurrentUserIdentitySet()
+  const courseManagers = resolveCourseManagers(courseNode)
+
+  if (currentUserIdentitySet.size === 0 || courseManagers.length === 0) {
+    return false
+  }
+
+  return courseManagers.some((manager) => {
+    const managerValue = String(manager?.value ?? "").trim().toLowerCase()
+    const managerLabel = String(manager?.label ?? "").trim().toLowerCase()
+    return currentUserIdentitySet.has(managerValue) || currentUserIdentitySet.has(managerLabel)
+  })
+}
+
+export function hasCourseEditPermission(canEditCourseDetail: boolean, courseNode?: TreeNode | null): boolean {
+  if (!canEditCourseDetail) {
+    return false
+  }
+
+  return isCurrentUserCourseOwner(courseNode)
+}
+
 export function useCourseEditPermission(courseNode?: TreeNode | null): boolean {
   const { can } = usePermission()
 
-  const currentUserIdentitySet = useMemo(() => {
-    const authUser = getStoredAuthUser()
-    const identities = [authUser?.email, authUser?.userName, authUser?.id]
-      .map((value) => String(value ?? "").trim().toLowerCase())
-      .filter(Boolean)
-    return new Set(identities)
-  }, [])
-
-  const courseManagers = useMemo(() => {
-    const directManagers = courseNode?.manager ?? []
-    const metadataManagers = ((courseNode?.metadata as CourseNodeMetadataWithManagers | undefined)?.managers ?? [])
-    const courseId = String(courseNode?.id || "")
-    const cacheManagers = getCourseCache(courseId)?.instructors?.map((name) => ({
-      value: name,
-      label: name,
-    })) ?? []
-
-    const mergedManagers = [...directManagers, ...metadataManagers, ...cacheManagers]
-    const uniqueManagers = new Map<string, CourseManagerLike>()
-
-    mergedManagers.forEach((manager) => {
-      const managerValue = String(manager?.value ?? "").trim()
-      const managerLabel = String(manager?.label ?? "").trim()
-      const key = `${managerValue}-${managerLabel}`
-      if (managerValue || managerLabel) {
-        uniqueManagers.set(key, manager)
-      }
-    })
-
-    return Array.from(uniqueManagers.values())
-  }, [courseNode?.id, courseNode?.manager, courseNode?.metadata])
-
-  const isCourseOwner = useMemo(() => {
-    if (currentUserIdentitySet.size === 0 || courseManagers.length === 0) {
-      return false
-    }
-
-    return courseManagers.some((manager) => {
-      const managerValue = String(manager?.value ?? "").trim().toLowerCase()
-      const managerLabel = String(manager?.label ?? "").trim().toLowerCase()
-      return currentUserIdentitySet.has(managerValue) || currentUserIdentitySet.has(managerLabel)
-    })
-  }, [courseManagers, currentUserIdentitySet])
-
-  return can(COURSE_EDIT_ACTION, COURSE_EDIT_CONTEXT) && isCourseOwner
+  return useMemo(() => {
+    const canEditCourseDetail = can(COURSE_EDIT_ACTION, COURSE_EDIT_CONTEXT)
+    return hasCourseEditPermission(canEditCourseDetail, courseNode)
+  }, [can, courseNode])
 }

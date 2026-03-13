@@ -288,7 +288,7 @@ export function convertCourseToCanvas(
   const pointksa = courseDetail.courseDetailData.pointksa
 
   // 1. 生成 course_info 元素
-  const courseInfoElement = createCourseInfoElement(courseDetail)
+  const courseInfoElement = createCourseInfoElement(courseDetail, courseGoals)
   elements.push(courseInfoElement)
 
   // 2. 生成 graduation_support 面板和 objective_panel 元素
@@ -372,9 +372,16 @@ export function convertCourseToCanvas(
 /**
  * 创建课程信息元素
  */
-function createCourseInfoElement(courseDetail: CombinedCourseDetail): CanvasElementData {
+function createCourseInfoElement(
+  courseDetail: CombinedCourseDetail,
+  courseGoals?: CourseGoalWithChildren[]
+): CanvasElementData {
   const course = courseDetail.courseDetailData.course
   const courseNameData = courseDetail.courseNameData
+  const pointksa = courseDetail.courseDetailData.pointksa
+  const teachingObjectives = (courseGoals || []).flatMap((goal) => goal.children || [])
+  const chapters = Array.isArray(course.courseMatrixVOS) ? course.courseMatrixVOS : []
+  const coursePoints = Array.isArray(pointksa?.points) ? pointksa.points : []
 
   const courseInfoData: CourseInfoData = {
     name: courseNameData.name,
@@ -395,6 +402,32 @@ function createCourseInfoElement(courseDetail: CombinedCourseDetail): CanvasElem
       credits: course.credits,
       mainTextbook: course.mainTextbook,
       referenceResources: course.referenceResources,
+      attendancePolicy: course.attendancePolicy,
+      assignmentPolicy: course.assignmentPolicy,
+      conductRequirements: course.conductRequirements,
+      practiceRequirements: course.practiceRequirements,
+      teamworkRequirements: course.teamworkRequirements,
+      bonusRequirements: course.bonusRequirements,
+      otherSuggestions: course.otherSuggestions,
+      assessmentMethod: course.assessmentMethod,
+      assessmentForm: course.assessmentForm,
+      scoreType: course.scoreType,
+      scoreTable: course.scoreTable,
+      assessmentDescription: course.assessmentDescription,
+      teachingObjectives: teachingObjectives.map((objective, index) => ({
+        id: String(objective.id ?? `objective_${index + 1}`),
+        content: objective.description || objective.content || "",
+      })),
+      coursePoints: coursePoints.map((point, index) => ({
+        id: String(point.id ?? `course_point_${index + 1}`),
+        content: point.title || point.name || point.description || "",
+      })),
+      chapters: chapters.map((chapter, index) => ({
+        id: String(chapter.id ?? index + 1),
+        name: chapter.name || chapter.title || "",
+        theoryHours: Number(chapter.theoryPeriod ?? chapter.theoryHours ?? 0),
+        practiceHours: Number(chapter.practicePeriod ?? chapter.practiceHours ?? 0),
+      })),
     },
   }
 
@@ -1110,7 +1143,7 @@ export function convertCourseToCanvasComplete(
   const pointksa = courseDetail.courseDetailData.pointksa
 
   // 1. 创建 course_info 元素
-  const courseInfoElement = createCourseInfoElement(courseDetail)
+  const courseInfoElement = createCourseInfoElement(courseDetail, courseGoals)
   elements.push(courseInfoElement)
 
   // 2. 创建 graduation_support 面板（第1列首位）
