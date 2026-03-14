@@ -373,7 +373,7 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
       }
 
       console.log(`[CourseDetail] 开始加载教学目标，courseId: ${courseId}, majorId: ${majorId}`)
-      const response = await courseGoalsApi.getCourseGoals(String(courseId), String(majorId))
+      const response = await courseGoalsApi.getCourseMatrixHeaderGoals(String(courseId))
       if (response.data) {
         console.log(`[CourseDetail] 教学目标加载成功:`, response.data.length)
         setCourseGoals(response.data)
@@ -628,8 +628,8 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
       // 并行获取课程矩阵、项目矩阵和专业指标点信息
       let matrixData: MatrixDataForCanvas | undefined
       try {
-        const [courseMatrixRes, projectMatrixRes, majorMatrixRes, majorDetailRes, indicatorSupportLevelsRes] = await Promise.all([
-          api.matrices.getCourseMatrix(String(courseId)),
+        const [courseMatrixSeedRes, projectMatrixRes, majorMatrixRes, majorDetailRes, indicatorSupportLevelsRes] = await Promise.all([
+          api.matrices.getFilteredCourseMatrix(String(courseId)),
           api.matrices.getProjectMatrixData(String(courseId)),
           api.matrices.getMajorMatrix(String(courseId)),
           majorId
@@ -639,6 +639,10 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
             ? api.matrices.getCourseIndicatorSupportLevels(String(courseId), String(majorId))
             : Promise.resolve({ data: {}, error: null, status: 200 }),
         ])
+
+        const courseMatrixRes = courseMatrixSeedRes.status === 404
+          ? await api.matrices.getCourseMatrix(String(courseId))
+          : courseMatrixSeedRes
 
         const courseMatrixItems = courseMatrixRes.data && Array.isArray(courseMatrixRes.data)
           ? courseMatrixRes.data

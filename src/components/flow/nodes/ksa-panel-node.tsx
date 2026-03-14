@@ -9,6 +9,7 @@ interface KsaPanelNodeProps {
   id: string
   data: PanelData & {
     isDeleting?: boolean
+    isLoading?: boolean
     isRefreshing?: boolean
     onDelete?: (nodeId: string) => void
     onRefresh?: (nodeId: string) => void
@@ -94,6 +95,7 @@ export const KsaPanelNode = memo(function KsaPanelNode({
       id={id}
       selected={selected}
       isDeleting={data.isDeleting}
+      isLoading={data.isLoading}
       isRefreshing={data.isRefreshing}
       icon={<Layers className="h-4 w-4" />}
       title="KSA"

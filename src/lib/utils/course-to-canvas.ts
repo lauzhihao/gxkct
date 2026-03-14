@@ -25,6 +25,7 @@ import {
   type ProjectMatrixObjectiveSupport,
   type ProjectMatrixKsaItem,
   type GraduationSupportData,
+  type CourseReportCardData,
   type ObjectiveSupportLabel,
 } from "@/components/canvas-elements/types"
 import { generateEdgeId } from "@/components/flow/utils/layout"
@@ -68,11 +69,38 @@ const ELEMENT_SIZES: Record<CanvasComponentType, { width: number; height: number
   [CanvasComponentType.COURSE_REPORT]: { width: 480, height: 180 },
 }
 
+function dedupeCourseMatrixCoursePoints(
+  coursePoints: CourseMatrixCoursePoint[]
+): CourseMatrixCoursePoint[] {
+  const pointMap = new Map<string, CourseMatrixCoursePoint>()
+
+  coursePoints.forEach((coursePoint, index) => {
+    const normalizedId = coursePoint.id.trim()
+    const fallbackKey = normalizedId || `__index_${index}`
+    const existing = pointMap.get(fallbackKey)
+
+    if (!existing) {
+      pointMap.set(fallbackKey, coursePoint)
+      return
+    }
+
+    pointMap.set(fallbackKey, {
+      ...existing,
+      ...coursePoint,
+      id: normalizedId || existing.id,
+      level: existing.level === "strong" || coursePoint.level === "strong" ? "strong" : "weak",
+      description: existing.description || coursePoint.description,
+    })
+  })
+
+  return Array.from(pointMap.values())
+}
+
 // Panel 网格布局列数配置
 const PANEL_GRID_COLUMNS: Partial<Record<CanvasComponentType, number>> = {
-  [CanvasComponentType.OBJECTIVE_PANEL]: 5,
+  [CanvasComponentType.OBJECTIVE_PANEL]: 3,
   [CanvasComponentType.COURSE_POINT_PANEL]: 5,
-  [CanvasComponentType.CHAPTER_PANEL]: 5,
+  [CanvasComponentType.CHAPTER_PANEL]: 3,
   [CanvasComponentType.KSA_PANEL]: 5,
 }
 
@@ -863,7 +891,7 @@ function convertCourseMatrixToCanvasData(
       supports: objectives.map((obj) => ({
         objective_id: obj.id,
         objective_index: obj.index,
-        course_points: objectiveGroups.get(obj.id) || [],
+        course_points: dedupeCourseMatrixCoursePoints(objectiveGroups.get(obj.id) || []),
         originalGraduateRequireId: canvasIdToGradReqId.get(obj.id),
       })),
     }
@@ -1214,9 +1242,10 @@ export function convertCourseToCanvasComplete(
       children.forEach((child) => {
         const objectiveKey = buildObjectiveKey(child)
         const currentSupports = objectiveSupportsMap.get(objectiveKey) || []
-        const exists = currentSupports.some((item) => item.title === labelTitle)
+        const exists = currentSupports.some((item) => item.indicatorId === indicatorId)
         if (!exists) {
           currentSupports.push({
+            indicatorId: typeof indicatorId === "number" ? indicatorId : undefined,
             title: labelTitle,
             desc: labelDesc,
             type: labelType,
@@ -1534,6 +1563,7 @@ export function convertCourseToCanvasComplete(
         matrixData.projectMatrixApiData,
         chapters,
       )
+      const projectMatrixElements: CanvasElementData[] = []
 
       let projectMatrixY = START_Y
       projectMatrixDataList.forEach((pmData, idx) => {
@@ -1550,6 +1580,7 @@ export function convertCourseToCanvasComplete(
           data: pmData,
         }
         elements.push(pmElement)
+        projectMatrixElements.push(pmElement)
 
         // KSA 面板 → 项目矩阵 连线
         if (ksaPanelEl) {
@@ -1558,6 +1589,41 @@ export function convertCourseToCanvasComplete(
 
         projectMatrixY += (ELEMENT_SIZES[CanvasComponentType.PROJECT_MATRIX].height || DEFAULT_SIZES.PANEL_HEIGHT) + ROW_GAP
       })
+
+      if (projectMatrixElements.length > 0) {
+        const reportSize = ELEMENT_SIZES[CanvasComponentType.COURSE_REPORT]
+        const rightmostProjectMatrix = projectMatrixElements.reduce((rightmost, current) => {
+          const rightmostRight = rightmost.position.x + (rightmost.size?.width || 0)
+          const currentRight = current.position.x + (current.size?.width || 0)
+          return currentRight > rightmostRight ? current : rightmost
+        })
+        const minY = Math.min(...projectMatrixElements.map((element) => element.position.y))
+        const maxY = Math.max(
+          ...projectMatrixElements.map(
+            (element) => element.position.y + (element.size?.height || DEFAULT_SIZES.PANEL_HEIGHT)
+          )
+        )
+        const courseReportData: CourseReportCardData = {
+          id: "course_report_loaded",
+          name: "开课报告",
+        }
+        const courseReportElement: CanvasElementData = {
+          id: courseReportData.id,
+          type: CanvasComponentType.COURSE_REPORT,
+          position: {
+            x: rightmostProjectMatrix.position.x + (rightmostProjectMatrix.size?.width || 0) + 100,
+            y: (minY + maxY) / 2 - reportSize.height / 2,
+          },
+          size: reportSize,
+          selected: false,
+          data: courseReportData,
+        }
+
+        elements.push(courseReportElement)
+        projectMatrixElements.forEach((projectMatrixElement) => {
+          edges.push(createSupportEdge(projectMatrixElement.id, courseReportElement.id))
+        })
+      }
     }
   }
 

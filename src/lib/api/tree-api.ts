@@ -27,6 +27,14 @@ interface BackendResponse<T> {
   data: T
 }
 
+interface PageInfo<T> {
+  list?: T[]
+}
+
+interface CourseUnitPageData {
+  pageInfo?: PageInfo<TreeNode>
+}
+
 function buildAuthHeaders(): Headers {
   const headers = new Headers()
   const authToken = getStoredAuthToken()
@@ -434,24 +442,44 @@ export class TreeApi {
    * @returns 课程节点数组
    */
   async getMajorCourses(majorId: string): Promise<ApiResponse<TreeNode[] | null>> {
-    console.log(`[TreeApi] getMajorCourses(${majorId}) 开始加载课程列表`)
+    const resolvedMajorId = extractNumericIdFromNodeId(majorId)
+    const numericMajorId = Number.parseInt(resolvedMajorId, 10)
+
+    if (!Number.isFinite(numericMajorId)) {
+      const errorMessage = `无效的专业ID: ${majorId}`
+      console.warn(`[TreeApi] ${errorMessage}`)
+      return { data: null, error: errorMessage, status: 400 }
+    }
+
+    console.log(`[TreeApi] getMajorCourses(${numericMajorId}) 开始加载课程列表`)
 
     try {
-      // 使用 POST 方法发送请求，majorId 在 body 中
-      const response = await this.storage.postToApi<TreeNode[]>(
+      // [MOD] courseunitlist 后端要求分页结构，且 majorId 必须为数字
+      const response = await this.storage.postToApi<CourseUnitPageData>(
         `/api/major/v2.0/courseunitlist`,
-        { majorId }
+        {
+          majorId: numericMajorId,
+          pageNum: 1,
+          pageSize: 40,
+        }
       )
 
       if (response.error || !response.data) {
-        console.warn(`[TreeApi] 获取专业 ${majorId} 的课程列表失败:`, response.error)
+        console.warn(`[TreeApi] 获取专业 ${numericMajorId} 的课程列表失败:`, response.error)
         return { data: null, error: response.error, status: response.status }
       }
 
-      // 为所有课程节点添加兼容属性（id, name, type）
-      const enhancedCourses = response.data.map(addCompatibilityProps)
+      const courseList = response.data.pageInfo?.list
+      if (!Array.isArray(courseList)) {
+        const errorMessage = "课程列表响应缺少 pageInfo.list"
+        console.warn(`[TreeApi] ${errorMessage}:`, response.data)
+        return { data: null, error: errorMessage, status: 500 }
+      }
 
-      console.log(`[TreeApi] getMajorCourses(${majorId}) 加载成功，共 ${enhancedCourses.length} 门课程`)
+      // 为所有课程节点添加兼容属性（id, name, type）
+      const enhancedCourses = courseList.map(addCompatibilityProps)
+
+      console.log(`[TreeApi] getMajorCourses(${numericMajorId}) 加载成功，共 ${enhancedCourses.length} 门课程`)
       return { data: enhancedCourses, error: null, status: 200 }
     } catch (error) {
       console.error(`[TreeApi] 获取课程列表异常:`, error)

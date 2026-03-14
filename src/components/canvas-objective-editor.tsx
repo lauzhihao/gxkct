@@ -26,6 +26,8 @@ interface CanvasObjectiveEditorProps {
 interface ObjectiveItem {
   id: string
   content: string
+  originalId?: number
+  supports?: ObjectiveCardData["supports"]
 }
 
 // 将 ObjectiveCardData 转换为内部格式
@@ -33,6 +35,8 @@ function toObjectiveItem(objective: ObjectiveCardData): ObjectiveItem {
   return {
     id: objective.id,
     content: objective.content,
+    originalId: objective.originalId,
+    supports: objective.supports,
   }
 }
 
@@ -42,6 +46,8 @@ function toObjectiveCardData(item: ObjectiveItem, index: number): ObjectiveCardD
     id: item.id,
     index: index + 1,
     content: item.content,
+    originalId: item.originalId,
+    supports: item.supports,
   }
 }
 

@@ -33,6 +33,7 @@ import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
 import { usePermission } from "@/shared/hooks/use-permission"
 import type { PermissionAction } from "@/shared/permissions/types"
 import { extractNumericId } from "@/shared/utils/utils"
+import { getMajorCache } from "@/shared/utils/major-cache"
 
 const MAJOR_TABS = {
   courses: "课程管理",
@@ -260,8 +261,24 @@ export function MajorDetail(props: MajorDetailProps) {
   const [pendingSemesterValue, setPendingSemesterValue] = useState<string | null>(null)
   const { setActivePage } = useActivePageTracker()
   const { can } = usePermission()
+  const currentMajorId = useMemo(() => {
+    if (typeof node.id === "string" && node.id) {
+      return node.id
+    }
 
-  const isVirtualMajorFromSwitchDpt = (node.metadata as NodeMetadataWithManagers | undefined)?.source === "course-level-switchDpt"
+    if (typeof node.nodeId === "string" && node.nodeId) {
+      return extractNumericId(node.nodeId).toString()
+    }
+
+    return ""
+  }, [node.id, node.nodeId])
+  const cachedMajor = useMemo(() => getMajorCache(currentMajorId), [currentMajorId])
+
+  const metadataSource = (node.metadata as NodeMetadataWithManagers | undefined)?.source
+  const resolvedSource = typeof metadataSource === "string" && metadataSource
+    ? metadataSource
+    : cachedMajor?.source
+  const isVirtualMajorFromSwitchDpt = resolvedSource === "course-level-switchDpt"
 
   const resolvedBtnMenus = useMemo(() => {
     if (Array.isArray(node.btnMenus)) {
@@ -269,8 +286,12 @@ export function MajorDetail(props: MajorDetailProps) {
     }
 
     const metadataBtnMenus = (node.metadata as NodeMetadataWithManagers | undefined)?.btnMenus
-    return Array.isArray(metadataBtnMenus) ? metadataBtnMenus : []
-  }, [node.btnMenus, node.metadata])
+    if (Array.isArray(metadataBtnMenus)) {
+      return metadataBtnMenus
+    }
+
+    return cachedMajor?.btnMenus ?? []
+  }, [cachedMajor?.btnMenus, node.btnMenus, node.metadata])
   const canEditMajor = !isVirtualMajorFromSwitchDpt && hasMenuPermission(resolvedBtnMenus, "majoredit")
   const canDeleteMajor = !isVirtualMajorFromSwitchDpt && hasMenuPermission(resolvedBtnMenus, "majordel")
   const canManageMajorCourse = can(MANAGE_MAJOR_COURSE_ACTION, { scope: "major" })
@@ -549,6 +570,7 @@ export function MajorDetail(props: MajorDetailProps) {
                 majorCourses={majorCourses}
                 departmentId={departmentId}
                 refreshKey={coursesRefreshKey}
+                canManageCourse={canEditMajor}
               />
             </TabsContent>
 

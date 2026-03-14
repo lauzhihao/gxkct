@@ -290,7 +290,7 @@ function UserMessage({
     <div className="flex items-start justify-end text-right w-full min-w-0 overflow-hidden">
       <div className="space-y-2 max-w-[80%] min-w-0">
         <div className="text-xs text-muted-foreground">
-          {userName}老师 · {formatRelativeTime(message.timestamp)}
+          {userName} · {formatRelativeTime(message.timestamp)}
         </div>
 
         {/* 文件附件卡片 - [MOD] 点击选中画布元素，移除下载功能 */}

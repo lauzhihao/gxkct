@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Check, X as CloseIcon, Info, Plus } from "lucide-react"
+import { Check, Info, Plus, X as CloseIcon } from "lucide-react"
 import { Spinner } from "@/shared/components/ui/spinner"
 import { Button } from "@/shared/components/ui/button"
 import { Card } from "@/shared/components/ui/card"
@@ -13,6 +13,7 @@ import type { EvaluationLevel, Long } from "@/types"
 import { courseTeachingTasksApi, type CourseEvaluationDetailResponse, type EvaluationItemDetail, type CourseEvaluationSubmitDTO, type EvaluationTypeSubmit } from "@/modules/courses/api/courseTeachingTasksApi"
 import { formatDate } from "@/shared/utils/date-utils"
 import { CourseResourcePickerDialog, type PickedResource } from "@/modules/courses/components/dialogs/course-resource-picker-dialog"
+import { showError } from "@/shared/utils/toast-utils"
 
 interface EvaluationDetailProps {
   taskId: Long
@@ -55,9 +56,10 @@ export function EvaluationDetail({ taskId, courseId, onBack, breadcrumb }: Evalu
 
   // 获取当前视图类型的 scores 和 materialSelections
   const scores = scoresByType[activeViewType]
-  const materialSelections = materialsByType[activeViewType]
+  const materialSelections = materialsByType.self
 
   const courseResourceNodeId = courseId ? String(courseId) : null
+  const canEditMaterials = activeViewType === "self" && evaluationDetail?.canSelfEvaluate === true
 
   // 判断当前是否可以编辑
   const canEdit = (activeViewType === "self" && evaluationDetail?.canSelfEvaluate) ||
@@ -124,7 +126,9 @@ export function EvaluationDetail({ taskId, courseId, onBack, breadcrumb }: Evalu
         materials[itemId] = evaluation.materials.map((m) => ({
           id: m.id,
           name: m.name,
-          path: m.url || ""
+          path: m.url || "",
+          url: m.url || "",
+          type: m.type || undefined,
         }))
       }
     })
@@ -148,7 +152,7 @@ export function EvaluationDetail({ taskId, courseId, onBack, breadcrumb }: Evalu
           setEvaluationDetail(response.data)
           const { canSelfEvaluate, canDeptEvaluate, canSchoolEvaluate } = response.data
 
-          // 为三种视图类型分别加载数据
+          // 评分数据按各自视图读取；支撑材料统一展示自评上传内容
           const selfData = extractEvaluationData(response.data.items, "self")
           const deptData = extractEvaluationData(response.data.items, "dept")
           const schoolData = extractEvaluationData(response.data.items, "school")
@@ -160,8 +164,8 @@ export function EvaluationDetail({ taskId, courseId, onBack, breadcrumb }: Evalu
           })
           setMaterialsByType({
             self: selfData.materials,
-            dept: deptData.materials,
-            school: schoolData.materials
+            dept: {},
+            school: {}
           })
 
           // 根据权限设置默认激活的视图类型
@@ -326,6 +330,21 @@ export function EvaluationDetail({ taskId, courseId, onBack, breadcrumb }: Evalu
     })
   }
 
+  const handlePreviewMaterial = (resource: PickedResource) => {
+    const previewUrl = typeof resource.url === "string" && resource.url.trim().length > 0
+      ? resource.url.trim()
+      : typeof resource.path === "string" && resource.path.trim().length > 0
+        ? resource.path.trim()
+        : ""
+
+    if (previewUrl.length === 0 || !/^https?:\/\//.test(previewUrl)) {
+      showError("当前支撑材料缺少可预览地址")
+      return
+    }
+
+    window.open(previewUrl, "_blank", "noopener,noreferrer")
+  }
+
   // 计算单项得分
   const calculateItemScore = (itemId: string, fullScore: number) => {
     const scoreItem = scores[itemId]
@@ -346,6 +365,14 @@ export function EvaluationDetail({ taskId, courseId, onBack, breadcrumb }: Evalu
       return false
     }
 
+    const parseMaterialId = (value: string): Long => {
+      const numericId = Number(value)
+      if (!Number.isFinite(numericId)) {
+        throw new Error(`无效的支撑材料ID: ${value}`)
+      }
+      return numericId
+    }
+
     // 构建单个评价类型的 items 数据
     const buildItems = (viewType: EvaluationViewType) => {
       const typeScores = scoresByType[viewType]
@@ -360,7 +387,7 @@ export function EvaluationDetail({ taskId, courseId, onBack, breadcrumb }: Evalu
           criterionId: item.criterion.id,
           level: (scoreItem?.level || null) as "A" | "B" | "C" | "D" | null,
           comment: scoreItem?.comment || "",
-          materialIds: materials.map((m) => m.id)
+          materialIds: materials.map((m) => parseMaterialId(m.id))
         }
       }) || []
     }
@@ -763,43 +790,45 @@ export function EvaluationDetail({ taskId, courseId, onBack, breadcrumb }: Evalu
                             <div className="space-y-2">
                               <Label className="text-sm font-semibold text-foreground">支撑材料</Label>
                               <div className="rounded-lg border border-dashed border-border bg-background/60 px-3 py-2 min-h-[48px] flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap flex-1">
+                                <div className="flex flex-wrap items-center gap-2 overflow-x-auto flex-1">
                                   {materialSelections[itemId]?.length ? (
                                     <>
-                                      <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                                        <span className="max-w-[180px] truncate">{materialSelections[itemId][0].name}</span>
-                                        {activeViewType === "self" && evaluationDetail?.canSelfEvaluate && (
+                                      {materialSelections[itemId].map((material) => (
+                                        <span key={material.id} className="inline-flex items-center gap-2 border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
                                           <button
                                             type="button"
-                                            onClick={() => handleRemoveSingleMaterial(itemId, materialSelections[itemId][0].id)}
-                                            className="text-primary/70 hover:text-primary"
+                                            onClick={() => handlePreviewMaterial(material)}
+                                            className="max-w-[220px] truncate text-left underline-offset-4 hover:underline"
                                           >
-                                            <CloseIcon className="h-3 w-3" />
+                                            {material.name}
                                           </button>
-                                        )}
-                                      </span>
-                                      {materialSelections[itemId].length > 1 && (
-                                        <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                                          等{materialSelections[itemId].length - 1}个
-                                          {activeViewType === "self" && evaluationDetail?.canSelfEvaluate && (
+                                          {canEditMaterials && (
                                             <button
                                               type="button"
-                                              onClick={() => handleClearMaterials(itemId)}
+                                              onClick={() => handleRemoveSingleMaterial(itemId, material.id)}
                                               className="text-primary/70 hover:text-primary"
                                             >
                                               <CloseIcon className="h-3 w-3" />
                                             </button>
                                           )}
                                         </span>
-                                      )}
+                                      ))}
+                                      {canEditMaterials && materialSelections[itemId].length > 1 ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleClearMaterials(itemId)}
+                                          className="inline-flex items-center gap-1 border border-border px-2 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                                        >
+                                          清空
+                                          <CloseIcon className="h-3 w-3" />
+                                        </button>
+                                      ) : null}
                                     </>
                                   ) : (
-                                    <p className="text-sm text-muted-foreground">
-                                      {activeViewType === "self" && evaluationDetail?.canSelfEvaluate ? "可附加课程资源作为评分依据" : "暂无支撑材料"}
-                                    </p>
-                                  )}
-                                </div>
-                                {activeViewType === "self" && evaluationDetail?.canSelfEvaluate && (
+                                      <p className="text-sm text-muted-foreground">{canEditMaterials ? "可附加课程资源作为评分依据" : "暂无支撑材料"}</p>
+                                    )}
+                                  </div>
+                                {canEditMaterials && (
                                   <Button
                                     type="button"
                                     variant="ghost"
@@ -848,6 +877,7 @@ export function EvaluationDetail({ taskId, courseId, onBack, breadcrumb }: Evalu
           onConfirm={handlePickerConfirm}
           onNavigateToResources={() => window.dispatchEvent(new CustomEvent("open-course-resources-tab"))}
         />
+
       </div>
   )
 }

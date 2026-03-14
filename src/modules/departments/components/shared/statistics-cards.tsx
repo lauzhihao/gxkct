@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { Badge } from "@/shared/components/ui/badge"
 import { Checkbox } from "@/shared/components/ui/checkbox"
@@ -13,6 +13,7 @@ import cn from "classnames"
 import { useDepartmentMajorsPreferences } from "@/modules/departments/hooks/use-department-majors-preferences"
 import { buildApiUrl } from "@/lib/api/config"
 import { getStoredAuthToken } from "@/lib/api/auth-config"
+import { setMajorCacheBatch, type MajorCacheItem } from "@/shared/utils/major-cache"
 
 // 接口返回的专业数据结构
 interface MajorItem {
@@ -52,6 +53,32 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
   // 院系详情独立获取的专业列表数据
   const [majors, setMajors] = useState<MajorItem[]>([])
   const [isLoadingMajors, setIsLoadingMajors] = useState(false)
+
+  const setMajorCacheFromItems = useCallback((majorItems: MajorItem[]) => {
+    const cacheItems = majorItems
+      .map((major): MajorCacheItem | null => {
+        const majorId = getMajorId(major)
+        if (!majorId) {
+          return null
+        }
+
+        const source = typeof major.props?.source === "string" ? major.props.source : undefined
+
+        return {
+          majorId,
+          majorName: getMajorName(major),
+          btnMenus: Array.isArray(major.btnMenus) ? major.btnMenus : [],
+          coverMenus: Array.isArray(major.coverMenus) ? major.coverMenus : [],
+          managers: Array.isArray(major.manager) ? major.manager : [],
+          source,
+        }
+      })
+      .filter((item): item is MajorCacheItem => item !== null)
+
+    if (cacheItems.length > 0) {
+      setMajorCacheBatch(cacheItems)
+    }
+  }, [])
 
   // 使用 hook 管理"我的专业"偏好设置，仅在部门节点时使用
   const { showMyMajors, setShowMyMajors } = useDepartmentMajorsPreferences()
@@ -97,6 +124,7 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
           if (result.code === '0' && Array.isArray(result.data)) {
             const responseItems = result.data as MajorItem[]
             setMajors(responseItems)
+            setMajorCacheFromItems(responseItems)
           } else {
             setMajors([])
           }
@@ -112,7 +140,7 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
     }
 
     fetchMajors()
-  }, [isDepartment, node.id, refreshKey])
+  }, [isDepartment, node.id, refreshKey, setMajorCacheFromItems])
 
   // 获取专业ID
   const getMajorId = (major: MajorItem) => major.self?.value || ''
@@ -348,13 +376,14 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
                   const isVirtualMajor = (major.props as { source?: string } | null)?.source === "course-level-switchDpt"
                   const prefetchedCourses = (major.props as { prefetchedCourses?: MajorItem[] } | null)?.prefetchedCourses || []
 
-                  return (
-                    <button
-                      key={majorId}
-                      onClick={() => {
-                        // 构造节点对象，硬编码 nodeType 为 major
-                        onNodeSelect?.({
-                          id: majorId,
+                   return (
+                     <button
+                       key={majorId}
+                       onClick={() => {
+                         setMajorCacheFromItems([major])
+                         // 构造节点对象，硬编码 nodeType 为 major
+                         onNodeSelect?.({
+                           id: majorId,
                           nodeId: `major_${majorId}`,
                           name: majorName,
                           nodeName: majorName,

@@ -4,44 +4,34 @@ import * as React from 'react'
 import { Upload, X, File, Download } from 'lucide-react'
 import { cn } from '@/shared/utils/utils'
 import { Button } from '@/shared/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog'
 import { toast } from '@/shared/hooks/use-toast'
 
-// 内部上传文件接口
 interface UploadFile {
   file: File
   id: string
 }
 
-// 文件验证错误接口
 interface FileValidationError {
   type: 'size' | 'count' | 'type'
   message: string
 }
 
-// 组件Props接口
+interface UploadControl {
+  setCancelHandler: (handler: (() => void) | null) => void
+}
+
 export interface FileUploadProps {
-  // 按钮文字，默认"上传"
   buttonText?: string
-  // 上传文件类型描述，默认"任意文件"
   fileType?: string
-  // 最大文件大小，单位字节，默认10MB
   maxFileSize?: number
-  // 最大文件个数，默认1
   maxFileCount?: number
-  // 上传模板文件URL，可选
   templateUrl?: string
-  // 自定义模板下载逻辑，可选
   onDownloadTemplate?: () => Promise<void>
-  // 上传完成回调，返回上传后的文件地址数组
-  onUpload: (files: File[], onProgress?: (progress: number) => void) => Promise<string[]>
-  // HTML accept属性，用于文件类型过滤
+  onUpload: (files: File[], onProgress?: (progress: number) => void, control?: UploadControl) => Promise<string[]>
   accept?: string
-  // 自定义按钮样式
   buttonClassName?: string
-  // 是否禁用上传按钮
   disabled?: boolean
-  // 容器额外类，用于控制布局宽度
   containerClassName?: string
 }
 
@@ -50,7 +40,7 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
     {
       buttonText = '上传',
       fileType = '任意文件',
-      maxFileSize = 10 * 1024 * 1024, // 10MB
+      maxFileSize = 10 * 1024 * 1024,
       maxFileCount = 1,
       templateUrl,
       onDownloadTemplate,
@@ -61,27 +51,30 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
       containerClassName,
     },
     ref,
-    ) => {
-      const [isDialogOpen, setIsDialogOpen] = React.useState(false)
-      const [uploadFiles, setUploadFiles] = React.useState<UploadFile[]>([])
+  ) => {
+    const [isDialogOpen, setIsDialogOpen] = React.useState(false)
+    const [uploadFiles, setUploadFiles] = React.useState<UploadFile[]>([])
     const [isDragging, setIsDragging] = React.useState(false)
     const [isUploading, setIsUploading] = React.useState(false)
     const [isDownloadingTemplate, setIsDownloadingTemplate] = React.useState(false)
-      const [uploadProgress, setUploadProgress] = React.useState(0)
-      const fileInputRef = React.useRef<HTMLInputElement>(null)
+    const [uploadProgress, setUploadProgress] = React.useState(0)
+    const fileInputRef = React.useRef<HTMLInputElement>(null)
+    const cancelUploadRef = React.useRef<(() => void) | null>(null)
 
-      const resetUploadState = React.useCallback(() => {
-        setUploadFiles([])
-        setIsDragging(false)
-        setIsUploading(false)
-        setIsDownloadingTemplate(false)
-        setUploadProgress(0)
-        if (fileInputRef.current) {
-          fileInputRef.current.value = ''
-        }
-      }, [])
+    const resetUploadState = React.useCallback(() => {
+      setUploadFiles([])
+      setIsDragging(false)
+      setIsUploading(false)
+      setIsDownloadingTemplate(false)
+      setUploadProgress(0)
+      cancelUploadRef.current = null
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }, [])
 
-      const handleDialogOpenChange = React.useCallback((open: boolean) => {
+    const handleDialogOpenChange = React.useCallback(
+      (open: boolean) => {
         if (open) {
           resetUploadState()
           setIsDialogOpen(true)
@@ -90,13 +83,13 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
 
         resetUploadState()
         setIsDialogOpen(false)
-      }, [resetUploadState])
+      },
+      [resetUploadState],
+    )
 
-    // 验证文件
     const validateFiles = (files: File[]): FileValidationError[] => {
       const errors: FileValidationError[] = []
 
-      // 检查文件个数
       if (uploadFiles.length + files.length > maxFileCount) {
         errors.push({
           type: 'count',
@@ -105,7 +98,6 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
         return errors
       }
 
-      // 检查每个文件
       for (const file of files) {
         if (file.size > maxFileSize) {
           errors.push({
@@ -118,7 +110,6 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
       return errors
     }
 
-    // 处理文件选择
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files
       if (files) {
@@ -144,13 +135,11 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
         setUploadFiles((prev) => [...prev, ...newFiles])
       }
 
-      // 重置input
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
     }
 
-    // 处理拖拽
     const handleDrop = (e: React.DragEvent) => {
       e.preventDefault()
       setIsDragging(false)
@@ -189,28 +178,35 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
       setIsDragging(false)
     }
 
-    // 移除文件
     const removeFile = (id: string) => {
       setUploadFiles((prev) => prev.filter((f) => f.id !== id))
     }
 
-    // 处理上传
+    const handleCancelUpload = React.useCallback(() => {
+      cancelUploadRef.current?.()
+    }, [])
+
     const handleUpload = async () => {
       if (uploadFiles.length === 0) return
 
       setIsUploading(true)
       setUploadProgress(0)
+
       try {
         const files = uploadFiles.map((uf) => uf.file)
-
-        // 调用上传回调
-        await onUpload(files, (progress) => {
-          setUploadProgress(Math.max(0, Math.min(100, progress)))
-        })
+        await onUpload(
+          files,
+          (progress) => {
+            setUploadProgress(Math.max(0, Math.min(100, progress)))
+          },
+          {
+            setCancelHandler: (handler) => {
+              cancelUploadRef.current = handler
+            },
+          },
+        )
 
         setUploadProgress(100)
-
-        // 延迟关闭以显示100%进度
         await new Promise((resolve) => setTimeout(resolve, 500))
 
         setUploadFiles([])
@@ -223,13 +219,16 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
         })
       } catch (error) {
         setUploadProgress(0)
+        cancelUploadRef.current = null
+        const isCanceled = error instanceof Error && error.name === 'UploadCanceledError'
         toast({
-          variant: 'destructive',
-          title: '上传失败',
+          variant: isCanceled ? 'default' : 'destructive',
+          title: isCanceled ? '已取消上传' : '上传失败',
           description: error instanceof Error ? error.message : '上传过程中出错',
-          duration: 5000,
+          duration: isCanceled ? 3000 : 5000,
         })
       } finally {
+        cancelUploadRef.current = null
         setIsUploading(false)
       }
     }
@@ -255,7 +254,7 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
     }
 
     return (
-      <div ref={ref} className={cn("w-full", containerClassName)}>
+      <div ref={ref} className={cn('w-full', containerClassName)}>
         <Button
           size="sm"
           variant="outline"
@@ -277,16 +276,11 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
             </DialogHeader>
 
             <div className="space-y-4">
-              {/* 模板下载链接 */}
               {(templateUrl || onDownloadTemplate) && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
-                  <Download className="w-4 h-4 text-primary" />
+                <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                  <Download className="h-4 w-4 text-primary" />
                   {templateUrl ? (
-                    <a
-                      href={templateUrl}
-                      download
-                      className="text-sm text-primary hover:text-primary/80 underline"
-                    >
+                    <a href={templateUrl} download className="text-sm text-primary underline hover:text-primary/80">
                       点击此处获取文件模板
                     </a>
                   ) : (
@@ -296,7 +290,7 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
                         void handleDownloadTemplate()
                       }}
                       disabled={isDownloadingTemplate}
-                      className="text-sm text-primary hover:text-primary/80 underline disabled:cursor-not-allowed disabled:opacity-60"
+                      className="text-sm text-primary underline hover:text-primary/80 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {isDownloadingTemplate ? '正在下载模板...' : '点击此处获取文件模板'}
                     </button>
@@ -304,22 +298,40 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
                 </div>
               )}
 
-              {/* 拖拽上传区域 */}
               <div
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 className={cn(
-                  'border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer',
+                  'group cursor-pointer rounded-lg border-2 border-dashed p-8 text-center transition-colors',
                   isDragging
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:border-primary/50 hover:bg-accent/50',
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border hover:border-primary hover:bg-primary/90 hover:text-primary-foreground',
                 )}
                 onClick={() => fileInputRef.current?.click()}
               >
-                <Upload className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-                <p className="text-sm text-foreground mb-1">拖拽文件到此处或点击选择</p>
-                <p className="text-xs text-muted-foreground">支持{fileType}</p>
+                <Upload
+                  className={cn(
+                    'mx-auto mb-3 h-12 w-12 transition-colors',
+                    isDragging ? 'text-white' : 'text-muted-foreground group-hover:text-white',
+                  )}
+                />
+                <p
+                  className={cn(
+                    'mb-1 text-sm transition-colors',
+                    isDragging ? 'text-white' : 'text-foreground group-hover:text-white',
+                  )}
+                >
+                  拖拽文件到此处或点击选择
+                </p>
+                <p
+                  className={cn(
+                    'text-xs transition-colors',
+                    isDragging ? 'text-white/80' : 'text-muted-foreground group-hover:text-white/80',
+                  )}
+                >
+                  支持{fileType}
+                </p>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -330,23 +342,20 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
                 />
               </div>
 
-              {/* 文件列表 */}
               {uploadFiles.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-sm font-medium">已选择文件（{uploadFiles.length}/{maxFileCount}）</p>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                  <div className="max-h-48 space-y-2 overflow-y-auto">
                     {uploadFiles.map((uf) => (
                       <div
                         key={uf.id}
-                        className="flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/20"
+                        className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 p-3"
                       >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <File className="w-4 h-4 text-primary flex-shrink-0" />
+                        <div className="flex min-w-0 items-center gap-2">
+                          <File className="h-4 w-4 flex-shrink-0 text-primary" />
                           <div className="min-w-0">
-                            <p className="text-sm font-medium truncate text-primary">{uf.file.name}</p>
-                            <p className="text-xs text-primary/60">
-                              {(uf.file.size / 1024).toFixed(1)}KB
-                            </p>
+                            <p className="truncate text-sm font-medium text-primary">{uf.file.name}</p>
+                            <p className="text-xs text-primary/60">{(uf.file.size / 1024).toFixed(1)}KB</p>
                           </div>
                         </div>
                         <Button
@@ -354,9 +363,9 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
                           variant="ghost"
                           onClick={() => removeFile(uf.id)}
                           disabled={isUploading}
-                          className="gap-2 text-red-500 hover:text-red-600 flex-shrink-0"
+                          className="gap-2 text-red-500 hover:text-red-600"
                         >
-                          <X className="w-4 h-4" />
+                          <X className="h-4 w-4" />
                         </Button>
                       </div>
                     ))}
@@ -364,12 +373,10 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
                 </div>
               )}
 
-              {/* 上传进度指示器 */}
               {isUploading && (
                 <div className="flex flex-col items-center justify-center py-8">
-                  <div className="relative w-24 h-24 flex items-center justify-center">
-                    {/* 圆形进度条背景 */}
-                    <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 100 100">
+                  <div className="relative flex h-24 w-24 items-center justify-center">
+                    <svg className="h-24 w-24 -rotate-90 transform" viewBox="0 0 100 100">
                       <circle
                         cx="50"
                         cy="50"
@@ -379,7 +386,6 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
                         strokeWidth="2"
                         className="text-border"
                       />
-                      {/* 进度条 */}
                       <circle
                         cx="50"
                         cy="50"
@@ -393,11 +399,8 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
                         strokeLinecap="round"
                       />
                     </svg>
-                    {/* 中间的百分比文字 */}
                     <div className="absolute flex flex-col items-center justify-center">
-                      <span className="text-2xl font-bold text-primary">
-                        {Math.round(uploadProgress)}%
-                      </span>
+                      <span className="text-2xl font-bold text-primary">{Math.round(uploadProgress)}%</span>
                     </div>
                   </div>
                   <p className="mt-4 text-sm text-muted-foreground">上传中...</p>
@@ -406,17 +409,10 @@ export const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
             </div>
 
             <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => handleDialogOpenChange(false)}
-                disabled={isUploading}
-              >
-                取消
+              <Button variant="outline" onClick={isUploading ? handleCancelUpload : () => handleDialogOpenChange(false)}>
+                {isUploading ? '取消上传' : '取消'}
               </Button>
-              <Button
-                onClick={handleUpload}
-                disabled={uploadFiles.length === 0 || isUploading}
-              >
+              <Button onClick={handleUpload} disabled={uploadFiles.length === 0 || isUploading}>
                 {isUploading ? '上传中...' : '开始上传'}
               </Button>
             </DialogFooter>

@@ -143,6 +143,14 @@ export const ProjectMatrixNodeComponent = memo(function ProjectMatrixNodeCompone
   const baseWidth = 900
   const extraWidth = Math.max(0, taskObjectives.length - 1) * 120
   const tableWidth = baseWidth + extraWidth
+  const projectMatrixTitle = (
+    <div className="flex items-center gap-2 min-w-0">
+      <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-slate-700 px-2 text-xs font-semibold leading-none text-white">
+        {String(data.chapter_index)}
+      </span>
+      <span className="truncate">{data.chapter_name}</span>
+    </div>
+  )
 
   return (
     <BaseFlowNode
@@ -153,7 +161,7 @@ export const ProjectMatrixNodeComponent = memo(function ProjectMatrixNodeCompone
       isRefreshing={data.isRefreshing}
       progressMessage={data.progressMessage}
       icon={<LayoutGrid className="h-4 w-4" />}
-      title={`第${data.chapter_index}章 ${data.chapter_name}`}
+      title={projectMatrixTitle}
       headerColorClass="bg-slate-100"
       borderColorClass="border-slate-300"
       textColorClass="text-slate-700"

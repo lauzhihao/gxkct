@@ -5,7 +5,7 @@
  * 用于在画布中编辑课程矩阵的支撑关系
  */
 
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo, useEffect } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { Loader2, Plus, X } from "lucide-react"
 import type { CourseMatrixData, CourseMatrixCoursePoint } from "./canvas-elements/types"
@@ -30,6 +30,38 @@ interface CanvasCourseMatrixEditorProps {
   /** 是否正在保存 */
   isSaving?: boolean
 }
+
+const dedupeCoursePoints = (coursePoints: CourseMatrixCoursePoint[]): CourseMatrixCoursePoint[] => {
+  const pointMap = new Map<string, CourseMatrixCoursePoint>()
+
+  coursePoints.forEach((coursePoint) => {
+    const existing = pointMap.get(coursePoint.id)
+    if (!existing) {
+      pointMap.set(coursePoint.id, coursePoint)
+      return
+    }
+
+    pointMap.set(coursePoint.id, {
+      ...existing,
+      ...coursePoint,
+      level: existing.level === "strong" || coursePoint.level === "strong" ? "strong" : "weak",
+      description: existing.description || coursePoint.description,
+    })
+  })
+
+  return Array.from(pointMap.values())
+}
+
+const normalizeMatrixData = (matrixData: CourseMatrixData): CourseMatrixData => ({
+  ...matrixData,
+  rows: matrixData.rows.map((row) => ({
+    ...row,
+    supports: row.supports.map((support) => ({
+      ...support,
+      course_points: dedupeCoursePoints(support.course_points),
+    })),
+  })),
+})
 
 /**
  * 课点支撑标签组件（编辑模式）
@@ -212,7 +244,11 @@ export function CanvasCourseMatrixEditor({
   isSaving = false,
 }: CanvasCourseMatrixEditorProps) {
   // 本地编辑状态
-  const [localMatrixData, setLocalMatrixData] = useState<CourseMatrixData>(matrixData)
+  const [localMatrixData, setLocalMatrixData] = useState<CourseMatrixData>(() => normalizeMatrixData(matrixData))
+
+  useEffect(() => {
+    setLocalMatrixData(normalizeMatrixData(matrixData))
+  }, [matrixData])
 
   // 课点选择弹窗状态
   const [selectionDialog, setSelectionDialog] = useState<{
@@ -338,7 +374,7 @@ export function CanvasCourseMatrixEditor({
 
   // 保存
   const handleSave = useCallback(() => {
-    onSave(localMatrixData)
+    onSave(normalizeMatrixData(localMatrixData))
   }, [localMatrixData, onSave])
 
   // 计算当前单元格已选中的课点ID

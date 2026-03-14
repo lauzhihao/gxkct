@@ -58,7 +58,13 @@ interface CanvasCourseReportPreviewProps {
   /** 保存成功回调 */
   onSaveSuccess?: (majorId: string, courseId: string) => void
   /** 更新课程信息回调（用于保存后更新画布中的 courseId） */
-  onUpdateCourseInfo?: (updates: { courseId?: number; majorId?: number }) => void
+  onUpdateCourseInfo?: (updates: {
+    courseId?: number
+    majorId?: number
+    objectives?: ObjectiveCardData[]
+    coursePoints?: CoursePointCardData[]
+    ksaItems?: KsaItemData[]
+  }) => void
 }
 
 /**
@@ -244,7 +250,13 @@ export function CanvasCourseReportPreview({
   const [isExportingWord, setIsExportingWord] = useState(false)
 
   // 包装 onUpdateCourseInfo：同时更新本地 courseInfo 状态和外部画布数据
-  const handleUpdateCourseInfo = useCallback((updates: { courseId?: number; majorId?: number }) => {
+  const handleUpdateCourseInfo = useCallback((updates: {
+    courseId?: number
+    majorId?: number
+    objectives?: ObjectiveCardData[]
+    coursePoints?: CoursePointCardData[]
+    ksaItems?: KsaItemData[]
+  }) => {
     setCourseInfo(prev => {
       if (!prev) return prev
       return {
@@ -759,10 +771,10 @@ export function CanvasCourseReportPreview({
             onClick={() => setIsSaveWizardOpen(true)}
             className="gap-2"
             disabled={!courseInfo}
-            title={courseInfo ? "保存课程到专业" : "暂无课程信息"}
+            title={courseInfo ? "更新当前课程" : "暂无课程信息"}
           >
             <Save className="h-4 w-4" />
-            保存课程
+            更新课程
           </Button>
         </div>
       </div>

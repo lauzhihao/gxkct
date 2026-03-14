@@ -1,9 +1,19 @@
 import type { ResourceFolder } from "@/lib/api"
 import type { ResourceBreadcrumbNode, ResourceObject } from "@/modules/courses/hooks/use-course-resources"
-import type { FileUploadProps } from "@/shared/components/ui/file-upload"
 
 export type FolderData = ResourceFolder
 export type ResourceObjectItem = ResourceObject
+
+export interface TemporaryUploadItem {
+  id: string
+  file: File
+  name: string
+  size: number
+  mimeType: string
+  progress: number
+  status: "queued" | "uploading" | "error"
+  errorMessage: string | null
+}
 
 export interface ResourceBreadcrumbProps {
   path: ResourceBreadcrumbNode[]
@@ -18,7 +28,8 @@ export interface ResourceSearchBarProps {
   onViewModeChange?: (mode: "grid" | "list") => void
   viewMode?: "grid" | "list"
   className?: string
-  uploadProps?: FileUploadProps
+  onSelectFiles?: () => void
+  disableUpload?: boolean
   onCreateFolderClick?: () => void
   disableCreateFolder?: boolean
 }
@@ -32,6 +43,10 @@ export type ResourceEntry =
       type: "object"
       object: ResourceObjectItem
     }
+  | {
+      type: "upload"
+      upload: TemporaryUploadItem
+    }
 
 export interface ResourceObjectListProps {
   entries: ResourceEntry[]
@@ -39,6 +54,8 @@ export interface ResourceObjectListProps {
   selectedIds: Set<string>
   onToggleSelect: (objectId: string) => void
   onFolderClick: (folder: FolderData) => void
+  onCancelUpload?: (uploadId: string) => void
+  onRetryUpload?: (uploadId: string) => void
   isRootLevel?: boolean
 }
 

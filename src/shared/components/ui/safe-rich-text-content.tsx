@@ -50,15 +50,9 @@ export function SafeRichTextContent({ content, className, plainTextClassName }: 
   const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null)
   const [hoveredImage, setHoveredImage] = useState<{ top: number; left: number } | null>(null)
 
-  if (!content) {
-    return null
-  }
-
-  if (!looksLikeHtml(content)) {
-    return <div className={cn("whitespace-pre-wrap", plainTextClassName, className)}>{content}</div>
-  }
-
-  const sanitizedHtml = sanitizeRichTextHtml(content)
+  const hasContent = typeof content === "string" && content.length > 0
+  const isHtmlContent = hasContent && looksLikeHtml(content)
+  const sanitizedHtml = isHtmlContent ? sanitizeRichTextHtml(content) : ""
 
   const contentClassName = useMemo(() => cn(
     "[&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_img]:block [&_img]:h-auto [&_img]:max-h-[50vh] [&_img]:max-w-[90%] [&_img]:object-contain [&_img]:rounded-md [&_img]:border [&_img]:border-border [&_img]:shadow-sm [&_img]:my-3 [&_img]:cursor-zoom-in [&_li]:list-item [&_li]:marker:text-foreground [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:list-outside [&_p]:leading-relaxed [&_p]:min-h-5 [&_p+*]:mt-2 [&_table]:w-full [&_table]:border-collapse [&_table]:border [&_table]:border-border [&_table]:rounded-none [&_table]:text-sm [&_tbody]:align-top [&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-2 [&_td]:align-top [&_th]:border [&_th]:border-border [&_th]:bg-secondary/40 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_tr]:align-top [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:list-outside",
@@ -127,6 +121,14 @@ export function SafeRichTextContent({ content, className, plainTextClassName }: 
   const handleClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
     openPreviewFromTarget(event.target)
   }, [openPreviewFromTarget])
+
+  if (!hasContent) {
+    return null
+  }
+
+  if (!isHtmlContent) {
+    return <div className={cn("whitespace-pre-wrap", plainTextClassName, className)}>{content}</div>
+  }
 
   return (
     <>

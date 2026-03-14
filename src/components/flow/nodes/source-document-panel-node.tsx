@@ -12,6 +12,7 @@ import type { PanelData } from "@/components/canvas-elements/types"
 interface SourceDocumentPanelNodeData extends PanelData {
   highlighted?: boolean
   isDeleting?: boolean
+  isLoading?: boolean
   isRefreshing?: boolean
   childCount?: number
   onEdit?: (nodeId: string) => void
@@ -60,6 +61,7 @@ export const SourceDocumentPanelNode = memo(function SourceDocumentPanelNode({
       id={id}
       selected={selected}
       isDeleting={nodeData.isDeleting}
+      isLoading={nodeData.isLoading}
       isRefreshing={nodeData.isRefreshing}
       icon={<FileStack className="h-4 w-4" />}
       title="源文档"

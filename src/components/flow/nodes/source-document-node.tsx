@@ -5,6 +5,7 @@ import { type NodeProps } from "@xyflow/react"
 import { FileText, Calendar, User } from "lucide-react"
 import { BaseFlowNode } from "./base-flow-node"
 import type { SourceDocumentCardData } from "@/components/canvas-elements/types"
+import { getDisplaySourceDocumentFilename } from "@/shared/utils/source-document-filename"
 
 /**
  * 文件类型图标映射
@@ -107,6 +108,8 @@ export const SourceDocumentNode = memo(function SourceDocumentNode(
     return FILE_TYPE_COLORS[type] || "bg-gray-100 text-gray-600 border-gray-200"
   }, [data.fileType])
 
+  const displayFilename = useMemo(() => getDisplaySourceDocumentFilename(data.filename), [data.filename])
+
   return (
     <BaseFlowNode
       id={id}
@@ -115,7 +118,7 @@ export const SourceDocumentNode = memo(function SourceDocumentNode(
       isDeleting={data.isDeleting}
       isRefreshing={data.isRefreshing}
       icon={<FileText className="h-4 w-4" />}
-      title="您输入的文件"
+      title="您提供的参考文件"
       headerColorClass="bg-orange-100"
       borderColorClass="border-orange-200"
       textColorClass="text-orange-700"
@@ -131,16 +134,8 @@ export const SourceDocumentNode = memo(function SourceDocumentNode(
       <div className="space-y-2 text-xs">
         {/* 文件名 */}
         <div className="text-sm font-medium text-gray-800 truncate">
-          {data.filename || "未命名文件"}
+          {displayFilename}
         </div>
-
-        {/* 创建时间 */}
-        {data.createdAt && (
-          <div className="flex items-center gap-1.5 text-gray-500">
-            <Calendar className="w-3 h-3 flex-shrink-0" />
-            <span>{formatDate(data.createdAt)}</span>
-          </div>
-        )}
 
         {/* 创建人 */}
         {data.createdBy && (
@@ -150,9 +145,17 @@ export const SourceDocumentNode = memo(function SourceDocumentNode(
           </div>
         )}
 
-        {/* 文件类型标签 - 右下角 */}
-        <div className="flex justify-end">
-          <span className={`px-2 py-0.5 rounded border text-xs font-medium ${fileTypeColorClass}`}>
+        {/* 底部信息：左侧时间，右侧类型 */}
+        <div className="flex items-end justify-between gap-2">
+          <div className="min-w-0 text-gray-500">
+            {data.createdAt && (
+              <div className="flex items-center gap-1.5 truncate">
+                <Calendar className="w-3 h-3 flex-shrink-0" />
+                <span className="truncate">{formatDate(data.createdAt)}</span>
+              </div>
+            )}
+          </div>
+          <span className={`shrink-0 px-2 py-0.5 rounded border text-xs font-medium ${fileTypeColorClass}`}>
             {fileTypeLabel}
           </span>
         </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { Folder, Image, FileSpreadsheet, Presentation, FileText, FileCode2, File } from "lucide-react"
+import { Folder, Image, FileSpreadsheet, Presentation, FileText, FileCode2, File, X, Upload } from "lucide-react"
 import { cn } from "@/shared/utils/utils"
 import type { ResourceObjectListProps } from "./types"
 
@@ -33,6 +33,8 @@ export function ResourceObjectList({
   selectedIds,
   onToggleSelect,
   onFolderClick,
+  onCancelUpload,
+  onRetryUpload,
   isRootLevel,
 }: ResourceObjectListProps) {
   const handleFolderTileClick = (onClick: () => void) => {
@@ -65,6 +67,69 @@ export function ResourceObjectList({
     )
   }
 
+  const renderUploadTile = (
+    uploadId: string,
+    name: string,
+    mimeType: string,
+    progress: number,
+    status: "queued" | "uploading" | "error",
+  ) => {
+    const Icon = getObjectIcon(mimeType, name)
+    const progressValue = Math.max(0, Math.min(100, progress))
+
+    return (
+      <div
+        key={uploadId}
+        className={cn(baseTileClass, "group items-start text-left border-primary/40 bg-primary/5 px-4 py-4")}
+      >
+        <button
+          type="button"
+          className="absolute right-2 top-2 rounded-full p-1 text-red-500 transition-colors hover:bg-red-500/10 hover:text-red-600"
+          onClick={() => onCancelUpload?.(uploadId)}
+          aria-label="取消上传"
+        >
+          <X className="h-4 w-4" />
+        </button>
+        <div className="flex w-full items-center gap-3 pt-2">
+          <div className="rounded-lg bg-primary/10 p-2">
+            <Icon className="h-8 w-8 text-primary" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-foreground" title={name}>
+              {name}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {status === "error" ? "上传失败" : status === "queued" ? "准备上传" : `上传中 ${Math.round(progressValue)}%`}
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 w-full">
+          {status === "error" ? (
+            <div className="text-xs text-destructive">
+              上传失败，
+              <button
+                type="button"
+                className="font-medium text-primary underline underline-offset-2"
+                onClick={() => onRetryUpload?.(uploadId)}
+              >
+                请重试
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-primary/15">
+                <div
+                  className="h-full rounded-full bg-primary transition-[width] duration-200"
+                  style={{ width: `${progressValue}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   if (isRootLevel) {
     const folders = entries.filter((entry) => entry.type === "folder")
     if (!folders.length) {
@@ -85,8 +150,12 @@ export function ResourceObjectList({
 
   if (!entries.length) {
     return (
-      <div className="flex min-h-[200px] items-center justify-center rounded-lg border border-dashed border-border/60 text-sm text-muted-foreground">
-        该目录暂无内容，可上传或复制其他目录的文件
+      <div className="flex min-h-[220px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 px-6 text-center transition-colors hover:border-primary/60 hover:bg-primary/10">
+        <div className="mb-4 rounded-full bg-primary/10 p-4">
+          <Upload className="h-8 w-8 text-primary" />
+        </div>
+        <p className="text-sm font-medium text-foreground">请拖拽文件到此处完成上传</p>
+        <p className="mt-2 text-xs text-muted-foreground">也可以点击上方“上传文件”选择本地文件</p>
       </div>
     )
   }
@@ -96,6 +165,9 @@ export function ResourceObjectList({
       {entries.map((entry) => {
         if (entry.type === "folder") {
           return renderFolderTile(entry.folder.id, entry.folder.name, () => onFolderClick(entry.folder), entry.folder.filesCount, false)
+        }
+        if (entry.type === "upload") {
+          return renderUploadTile(entry.upload.id, entry.upload.name, entry.upload.mimeType, entry.upload.progress, entry.upload.status)
         }
         const checked = selectedIds.has(entry.object.id)
         const Icon = getObjectIcon(entry.object.mimeType, entry.object.name)

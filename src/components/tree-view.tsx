@@ -33,6 +33,7 @@ import { useTreeSearch } from "@/shared/hooks/use-tree-search"
 import { useDepartmentMajors } from "@/modules/departments/hooks/use-department-majors"
 import { PermissionGate } from "@/shared/components/permission-gate"
 import { getCourseCache } from "@/shared/utils/course-cache"
+import { getMajorCache, setMajorCacheBatch } from "@/shared/utils/major-cache"
 import { WorkshopCreateDialog } from "@/components/workshop-create-dialog"
 import { buildApiUrl } from "@/lib/api/config"
 import { getStoredAuthToken } from "@/lib/api/auth-config"
@@ -93,6 +94,7 @@ interface TreeNodeProps {
   pathNodeIds?: Set<string>
   isFirstMatch?: boolean
   departmentMajors?: Map<string, TreeNode[]>
+  treeData?: TreeNode | null
 }
 
 function TreeNodeComponent({
@@ -114,6 +116,7 @@ function TreeNodeComponent({
   pathNodeIds,
   isFirstMatch = false,
   departmentMajors,
+  treeData,
 }: TreeNodeProps): ReactElement {
   // 如果是department节点，合并动态加载的专业数据
   let actualChildren = node.children || []
@@ -185,9 +188,56 @@ function TreeNodeComponent({
         return
       }
 
-      const departmentId = node.parentId ? extractNumericId(node.parentId) : ""
+      // [MOD] 尝试从 parentId 获取 departmentId，如果为空则从 treeData 中查找
+      let departmentId = node.parentId ? extractNumericId(node.parentId) : ""
       const majorId = String(node.id || extractNumericId(node.nodeId || ""))
-      if (!departmentId || !majorId) {
+
+      // 如果 departmentId 为空，尝试从 treeData 中向上查找
+      if (!departmentId && treeData && majorId) {
+        const findDepartmentIdByMajorId = (currentNode: TreeNode, targetMajorId: string): string => {
+          if (currentNode.nodeType === "department") {
+            const children = currentNode.children ?? []
+            const hasMajor = children.some((child) => {
+              const childId = String(child.id || extractNumericId(child.nodeId || ""))
+              return childId === targetMajorId
+            })
+            if (hasMajor) {
+              return String(currentNode.id || extractNumericId(currentNode.nodeId || ""))
+            }
+          }
+          for (const child of currentNode.children ?? []) {
+            const result = findDepartmentIdByMajorId(child, targetMajorId)
+            if (result) return result
+          }
+          return ""
+        }
+        departmentId = findDepartmentIdByMajorId(treeData, majorId)
+      }
+
+      if (!majorId) {
+        onSelect(node)
+        return
+      }
+
+      const cachedMajor = getMajorCache(majorId)
+      if (cachedMajor) {
+        onSelect({
+          ...node,
+          btnMenus: cachedMajor.btnMenus,
+          coverMenus: cachedMajor.coverMenus,
+          manager: cachedMajor.managers,
+          metadata: {
+            ...(node.metadata || {}),
+            btnMenus: cachedMajor.btnMenus,
+            coverMenus: cachedMajor.coverMenus,
+            managers: cachedMajor.managers,
+            source: cachedMajor.source,
+          },
+        })
+        return
+      }
+
+      if (!departmentId) {
         onSelect(node)
         return
       }
@@ -230,6 +280,15 @@ function TreeNodeComponent({
           onSelect(node)
           return
         }
+
+        setMajorCacheBatch([{
+          majorId,
+          majorName: matchedMajor.self?.label ?? node.nodeName,
+          btnMenus: Array.isArray(matchedMajor.btnMenus) ? matchedMajor.btnMenus : [],
+          coverMenus: Array.isArray(matchedMajor.coverMenus) ? matchedMajor.coverMenus : [],
+          managers: Array.isArray(matchedMajor.manager) ? matchedMajor.manager.filter((manager): manager is { value: string; label: string } => Boolean(manager?.value || manager?.label)) : [],
+          source: typeof matchedMajor.props?.source === "string" ? matchedMajor.props.source : undefined,
+        }])
 
         onSelect({
           ...node,
@@ -436,6 +495,7 @@ function TreeNodeComponent({
                   pathNodeIds={pathNodeIds}
                   isFirstMatch={isFirstMatch && index === 0 && matchingNodeIds?.has(child.nodeId)}
                   departmentMajors={departmentMajors}
+                  treeData={treeData}
                 />
               ))
             ) : isSearching && (node.nodeType === "department" || node.nodeType === "major") ? (
@@ -1017,6 +1077,7 @@ export const TreeView = React.forwardRef<
               pathNodeIds={pathNodeIds}
               isFirstMatch={child.nodeId === firstMatchId}
               departmentMajors={departmentMajors}
+              treeData={treeData}
             />
           ))}
         </div>

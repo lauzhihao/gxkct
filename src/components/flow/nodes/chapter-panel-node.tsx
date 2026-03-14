@@ -9,6 +9,7 @@ interface ChapterPanelNodeProps {
   id: string
   data: PanelData & {
     isDeleting?: boolean
+    isLoading?: boolean
     isRefreshing?: boolean
     onDelete?: (nodeId: string) => void
     onRefresh?: (nodeId: string) => void
@@ -54,6 +55,7 @@ export const ChapterPanelNode = memo(function ChapterPanelNode({
       id={id}
       selected={selected}
       isDeleting={data.isDeleting}
+      isLoading={data.isLoading}
       isRefreshing={data.isRefreshing}
       icon={<FileText className="h-4 w-4" />}
       title="章节 / 项目"

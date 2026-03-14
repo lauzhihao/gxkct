@@ -6,6 +6,8 @@ import { BasePanelNode } from "./base-panel-node"
 import { SupportLabel } from "@/shared/components/support-label"
 import type { GraduationSupportData } from "@/components/canvas-elements/types"
 
+const EMPTY_STATE_DESCRIPTION = "根据“四真三化FT”课程开发规范的要求，本课程需要先设置毕业要求支撑关系。"
+
 interface GraduationSupportPanelNodeProps {
   id: string
   data: GraduationSupportData & {
@@ -80,16 +82,17 @@ export const GraduationSupportPanelNode = memo(function GraduationSupportPanelNo
       isLoading={data.isLoading}
       isRefreshing={data.isRefreshing}
       icon={<Shield className="h-4 w-4" />}
-      title="毕业要求指标点"
-      headerColorClass="bg-emerald-100/90"
-      borderColorClass="border-emerald-300"
-      bgColorClass="bg-emerald-50/60 backdrop-blur-sm"
-      textColorClass="text-emerald-700"
-      handleColorClass="!bg-emerald-500"
+      title="专业支撑关系"
+      headerColorClass="bg-teal-100/70"
+      borderColorClass="border-teal-400/70"
+      bgColorClass="bg-teal-50/40 backdrop-blur-sm"
+      textColorClass="text-teal-900"
+      handleColorClass="!bg-teal-700"
       showLeftHandle={true}
       showRightHandle={true}
       childCount={hasData ? supportedIndicators.length : 0}
       onAdd={handleEdit}
+      emptyStateDescription={EMPTY_STATE_DESCRIPTION}
       onDelete={handleDelete}
       onEdit={handleEdit}
     >

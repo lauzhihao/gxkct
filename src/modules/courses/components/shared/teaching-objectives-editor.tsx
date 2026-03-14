@@ -158,7 +158,7 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
 
     setIsSyncingObjectives(true)
     try {
-      const response = await courseGoalsApi.getCourseGoals(String(courseId), String(majorId))
+      const response = await courseGoalsApi.getCourseMatrixHeaderGoals(String(courseId))
       if (response.data) {
         const state = toEditingState(response.data)
         setEditingGoalObjectives(state)

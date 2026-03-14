@@ -17,7 +17,7 @@ export function createWelcomeMessage(): ChatMessage {
   return {
     id: WELCOME_MESSAGE_ID,
     role: "assistant",
-    content: "你好，我是高校课程通的 AI 助手，可以帮助你快速分析课程结构、生成教学方案，或总结当前页面的信息。",
+    content: "你好，我是高校课程通的 AI 助手，可以帮助你快速分析课程结构、生成教学方案，或总结当前页面的信息。\n\n您可以拖拽一个文件到聊天区域内，我将以它为参考帮您完成课程设计。\n\n您也可以直接向我描述您的想法。",
     timestamp: Date.now(),
   }
 }

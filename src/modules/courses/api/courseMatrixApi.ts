@@ -18,6 +18,9 @@ export const courseMatrixApi = {
   getCourseMatrix(courseId: string): Promise<ApiResponse<CourseMatrixItem[] | null>> {
     return api.matrices.getCourseMatrix(courseId)
   },
+  getFilteredCourseMatrix(courseId: string): Promise<ApiResponse<CourseMatrixItem[] | null>> {
+    return api.matrices.getFilteredCourseMatrix(courseId)
+  },
   getMajorMatrix(courseId: string): Promise<ApiResponse<MajorMatrixItemResponse[] | null>> {
     return api.matrices.getMajorMatrix(courseId)
   },

@@ -59,7 +59,7 @@ export interface EvaluationItemSubmit {
   criterionId: Long
   level: "A" | "B" | "C" | "D" | null
   comment: string
-  materialIds: string[]
+  materialIds: Long[]
 }
 
 // 单个评价类型的提交数据

@@ -9,6 +9,7 @@ interface CoursePointPanelNodeProps {
   id: string
   data: PanelData & {
     isDeleting?: boolean
+    isLoading?: boolean
     isRefreshing?: boolean
     onDelete?: (nodeId: string) => void
     onRefresh?: (nodeId: string) => void
@@ -75,6 +76,7 @@ export const CoursePointPanelNode = memo(function CoursePointPanelNode({
       id={id}
       selected={selected}
       isDeleting={data.isDeleting}
+      isLoading={data.isLoading}
       isRefreshing={data.isRefreshing}
       icon={<BookOpen className="h-4 w-4" />}
       title="课点信息"

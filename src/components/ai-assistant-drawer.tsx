@@ -2192,6 +2192,24 @@ export function AiAssistantDrawer({
                         })
                         console.log("[AI助手] 更新课程信息, courseId:", updates.courseId, "majorId:", updates.majorId)
                       }
+
+                      if (updates.objectives) {
+                        updates.objectives.forEach((objective) => {
+                          updateCanvasElementData(objective.id, objective)
+                        })
+                      }
+
+                      if (updates.coursePoints) {
+                        updates.coursePoints.forEach((coursePoint) => {
+                          updateCanvasElementData(coursePoint.id, coursePoint)
+                        })
+                      }
+
+                      if (updates.ksaItems) {
+                        updates.ksaItems.forEach((ksaItem) => {
+                          updateCanvasElementData(ksaItem.id, ksaItem)
+                        })
+                      }
                     }}
                     isUploading={isCanvasUploading}
                     layoutMode={layoutMode}

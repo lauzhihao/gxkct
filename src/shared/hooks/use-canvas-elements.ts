@@ -59,6 +59,8 @@ const KSA_PANEL_FIXED_SIZE = {
   height: DEFAULT_ELEMENT_SIZES[CanvasComponentType.KSA_PANEL].height,
 }
 
+const SOURCE_DOCUMENT_TO_COURSE_INFO_OFFSET_Y = HORIZONTAL_LAYOUT_GRID_SIZE * 5
+
 // 项目矩阵高度计算配置
 const PROJECT_MATRIX_HEIGHT_CONFIG = {
   BASE_HEIGHT: 110,      // 基础高度：头部(37) + 内容区padding(24) + 表格头部(49)
@@ -101,6 +103,25 @@ function calculateProjectMatrixHeight(data: unknown): number {
     Math.max(calculatedHeight, PROJECT_MATRIX_HEIGHT_CONFIG.MIN_HEIGHT),
     PROJECT_MATRIX_HEIGHT_CONFIG.MAX_HEIGHT
   )
+}
+
+// 项目矩阵宽度配置（与 project-matrix-node.tsx 中的逻辑保持一致）
+const PROJECT_MATRIX_WIDTH_CONFIG = {
+  BASE_WIDTH: 900,            // 基础宽度
+  EXTRA_WIDTH_PER_OBJECTIVE: 120, // 每增加一个任务目标列的宽度
+}
+
+/**
+ * 根据项目矩阵数据计算实际宽度
+ * @param data 项目矩阵数据
+ * @returns 计算后的宽度
+ */
+function calculateProjectMatrixWidth(data: unknown): number {
+  const matrixData = data as { task_objectives?: Array<unknown> }
+  const objectiveCount = matrixData?.task_objectives?.length || 0
+
+  return PROJECT_MATRIX_WIDTH_CONFIG.BASE_WIDTH +
+    Math.max(0, objectiveCount - 1) * PROJECT_MATRIX_WIDTH_CONFIG.EXTRA_WIDTH_PER_OBJECTIVE
 }
 
 // 专业矩阵动态尺寸计算配置
@@ -368,9 +389,9 @@ const CARD_GAP_Y = 10 // 垂直间距
 
 // Panel 网格布局配置（每种 Panel 的列数）
 const PANEL_GRID_COLUMNS: Partial<Record<CanvasComponentType, number>> = {
-  [CanvasComponentType.OBJECTIVE_PANEL]: 5,
+  [CanvasComponentType.OBJECTIVE_PANEL]: 3,
   [CanvasComponentType.COURSE_POINT_PANEL]: 5,
-  [CanvasComponentType.CHAPTER_PANEL]: 5,
+  [CanvasComponentType.CHAPTER_PANEL]: 3,
   [CanvasComponentType.KSA_PANEL]: 5,
 }
 
@@ -461,7 +482,7 @@ function getElementWidthByType(
   }
 
   if (componentType === CanvasComponentType.PROJECT_MATRIX || componentType === CanvasComponentType.PROJECT_MATRIX_PANEL) {
-    return size?.width || DEFAULT_ELEMENT_SIZES[CanvasComponentType.PROJECT_MATRIX].width
+    return size?.width || calculateProjectMatrixWidth(data)
   }
 
   return size?.width || DEFAULT_ELEMENT_SIZES[componentType]?.width || 320
@@ -622,34 +643,53 @@ function recalculateAllPanelPositionsVertical(elements: CanvasElementData[]): Ca
 
     if (isProjectMatrixGroup && indicesInGroup.length > 0) {
       const rowY = currentY
-      let currentX = anchor.x
       let maxHeight = 0
 
-      for (let i = 0; i < indicesInGroup.length; i++) {
-        const index = indicesInGroup[i]
+      // 第一轮：计算每个元素的尺寸和组总宽度
+      const groupSizes: { index: number; width: number; height: number; correctedSize: typeof updatedElements[0]["size"] }[] = []
+      let totalGroupWidth = 0
+      for (const index of indicesInGroup) {
         const el = updatedElements[index]
-
         let correctedSize = el.size
         if (isProjectMatrixType(el.type)) {
           const matrixHeight = getElementHeightByType(el.type, el.data, el.size)
+          const matrixWidth = calculateProjectMatrixWidth(el.data)
           correctedSize = {
-            width: el.size?.width || DEFAULT_ELEMENT_SIZES[CanvasComponentType.PROJECT_MATRIX].width,
+            width: matrixWidth,
             height: matrixHeight,
           }
         }
-
         const elementWidth = getElementWidthByType(el.type, el.data, correctedSize)
         const elementHeight = getElementHeightByType(el.type, el.data, correctedSize)
         maxHeight = Math.max(maxHeight, elementHeight)
+        groupSizes.push({ index, width: elementWidth, height: elementHeight, correctedSize })
+        totalGroupWidth += elementWidth
+      }
+      // 加上元素之间的间距
+      if (groupSizes.length > 1) {
+        totalGroupWidth += (groupSizes.length - 1) * HORIZONTAL_ITEM_GAP
+      }
 
+      // 根据 KSA_PANEL 底部 Handle 中心确定组起始 X
+      let startX = anchor.x
+      const ksaEl = updatedElements.find(el => el.type === CanvasComponentType.KSA_PANEL)
+      if (ksaEl) {
+        const ksaHandleCenterX = ksaEl.position.x + KSA_PANEL_FIXED_SIZE.width / 2
+        startX = ksaHandleCenterX - totalGroupWidth / 2
+      }
+
+      // 第二轮：按居中后的起始 X 放置元素
+      let currentX = startX
+      for (let i = 0; i < groupSizes.length; i++) {
+        const { index, width, correctedSize } = groupSizes[i]
+        const el = updatedElements[index]
         updatedElements[index] = {
           ...el,
           size: correctedSize,
           position: { x: currentX, y: rowY },
         }
-
-        currentX = currentX + elementWidth
-        if (i < indicesInGroup.length - 1) {
+        currentX = currentX + width
+        if (i < groupSizes.length - 1) {
           currentX = currentX + HORIZONTAL_ITEM_GAP
         }
       }
@@ -666,8 +706,9 @@ function recalculateAllPanelPositionsVertical(elements: CanvasElementData[]): Ca
         correctedSize = calculateGraduationSupportSize(el.data)
       } else if (isProjectMatrixType(el.type)) {
         const matrixHeight = getElementHeightByType(el.type, el.data, el.size)
+        const matrixWidth = calculateProjectMatrixWidth(el.data)
         correctedSize = {
-          width: el.size?.width || DEFAULT_ELEMENT_SIZES[CanvasComponentType.PROJECT_MATRIX].width,
+          width: matrixWidth,
           height: matrixHeight,
         }
       }
@@ -803,12 +844,13 @@ function recalculateAllPanelPositions(elements: CanvasElementData[]): CanvasElem
 
     if (isProjectMatrixGroup) {
       const columnX = currentX
-      let currentY = baselineY
       let maxWidth = 0
 
+      // 第一轮：计算每个元素的尺寸和组总高度
+      const groupSizes: { index: number; width: number; height: number; correctedSize: typeof updatedElements[0]["size"] }[] = []
+      let totalGroupHeight = 0
       for (const index of indicesInGroup) {
         const el = updatedElements[index]
-
         let correctedSize = el.size
         if (isProjectMatrixType(el.type)) {
           const matrixHeight = getElementHeightByType(el.type, el.data, el.size)
@@ -817,18 +859,35 @@ function recalculateAllPanelPositions(elements: CanvasElementData[]): CanvasElem
             height: matrixHeight,
           }
         }
-
         const elementWidth = getElementWidthByType(el.type, el.data, correctedSize)
         const elementHeight = getElementHeightByType(el.type, el.data, correctedSize)
         maxWidth = Math.max(maxWidth, elementWidth)
+        groupSizes.push({ index, width: elementWidth, height: elementHeight, correctedSize })
+        totalGroupHeight += elementHeight
+      }
+      // 加上元素之间的间距
+      if (groupSizes.length > 1) {
+        totalGroupHeight += (groupSizes.length - 1) * HORIZONTAL_ITEM_GAP
+      }
 
+      // 根据 KSA_PANEL 右侧 Handle 中心确定组起始 Y
+      let startY = baselineY
+      const ksaEl = updatedElements.find(el => el.type === CanvasComponentType.KSA_PANEL)
+      if (ksaEl) {
+        const ksaHandleCenterY = ksaEl.position.y + KSA_PANEL_FIXED_SIZE.height / 2
+        startY = ksaHandleCenterY - totalGroupHeight / 2
+      }
+
+      // 第二轮：按居中后的起始 Y 放置元素
+      let currentY = startY
+      for (const { index, height, correctedSize } of groupSizes) {
+        const el = updatedElements[index]
         updatedElements[index] = {
           ...el,
           size: correctedSize,
           position: { x: columnX, y: currentY },
         }
-
-        currentY = currentY + elementHeight + HORIZONTAL_ITEM_GAP
+        currentY = currentY + height + HORIZONTAL_ITEM_GAP
       }
 
       let gapAfterGroup = HORIZONTAL_GROUP_GAP
@@ -2087,7 +2146,11 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
             // ---------- 课程信息处理 ----------
             if (component === CanvasComponentType.COURSE_INFO) {
               const elementSize = DEFAULT_ELEMENT_SIZES[component] || { width: 480, height: 300 }
-              const position = calculatePositionByLayout(component, prev)
+              const basePosition = calculatePositionByLayout(component, prev)
+              const sourceDocCards = prev.filter(el => el.type === CanvasComponentType.SOURCE_DOCUMENT_CARD)
+              const position = sourceDocCards.length > 0
+                ? { x: basePosition.x, y: basePosition.y + SOURCE_DOCUMENT_TO_COURSE_INFO_OFFSET_Y }
+                : basePosition
 
               const newElement: CanvasElementData = {
                 id: elementId,
@@ -2099,15 +2162,13 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
               }
 
               // 查找已存在的源文档卡片，建立连线
-              const sourceDocCards = prev.filter(el => el.type === CanvasComponentType.SOURCE_DOCUMENT_CARD)
               if (sourceDocCards.length > 0) {
-                // 调整源文档卡片的位置（使其在课程信息卡片上方水平排列居中）
+                // 调整源文档卡片的水平位置，并保留当前纵向位置
                 const courseInfoWidth = elementSize.width
                 const cardSize = DEFAULT_ELEMENT_SIZES[CanvasComponentType.SOURCE_DOCUMENT_CARD]
                 const cardGap = 20
                 const totalCardsWidth = sourceDocCards.length * cardSize.width + (sourceDocCards.length - 1) * cardGap
                 const startX = position.x + (courseInfoWidth - totalCardsWidth) / 2
-                const cardY = position.y - cardSize.height - 60
 
                 // 创建连线
                 setTimeout(() => {
@@ -2127,7 +2188,7 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
                   if (el.type === CanvasComponentType.SOURCE_DOCUMENT_CARD) {
                     const updatedPosition = {
                       x: startX + cardIndex * (cardSize.width + cardGap),
-                      y: cardY,
+                      y: el.position.y,
                     }
                     cardIndex++
                     return { ...el, position: updatedPosition }

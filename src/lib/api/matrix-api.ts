@@ -225,6 +225,40 @@ export class MatrixApi {
     }
   }
 
+  async getFilteredCourseMatrix(courseId: string): Promise<ApiResponse<CourseMatrixItem[] | null>> {
+    try {
+      const endpoint = `/api/v5/matrix/course-matrix/${courseId}`
+      console.log("[getFilteredCourseMatrix] 调用接口:", endpoint)
+
+      const response = await this.http.get<CourseMatrixItem[]>(endpoint)
+
+      if (response.error) {
+        console.error("[getFilteredCourseMatrix] 接口调用失败:", response.error)
+        return {
+          data: null,
+          error: response.error,
+          status: response.status ?? 500,
+        }
+      }
+
+      const courseMatrixData = Array.isArray(response.data) ? response.data : []
+      console.log("[getFilteredCourseMatrix] 接口调用成功，获取课程矩阵数据:", courseMatrixData.length, "条")
+
+      return {
+        data: courseMatrixData,
+        error: null,
+        status: 200,
+      }
+    } catch (error) {
+      console.error("[getFilteredCourseMatrix] 异常:", error)
+      return {
+        data: null,
+        error: `获取过滤后的课程矩阵失败: ${error instanceof Error ? error.message : String(error)}`,
+        status: 500,
+      }
+    }
+  }
+
   async updateCourseMatrix(courseId: string, matrix: CourseMatrixSavePayload[]): Promise<ApiResponse<any>> {
     try {
       const endpoint = `/api/matrix/updatecoursematrix`
@@ -403,10 +437,12 @@ export class MatrixApi {
 
   // 获取课程教学目标与指标点的关系
   async getCourseTeachingObjectiveIndicators(
-    courseId: string,
-    majorId: string
+    _courseId: string,
+    _majorId: string
   ): Promise<ApiResponse<Record<string, string[]>>> {
     try {
+      void _courseId
+      void _majorId
       return {
         data: {},
         error: null,
@@ -423,10 +459,12 @@ export class MatrixApi {
 
   // 根据课程id获取它支撑的指标点
   async getCourseIndicatorSupports(
-    courseId: string,
-    majorId: string
+    _courseId: string,
+    _majorId: string
   ): Promise<ApiResponse<string[]>> {
     try {
+      void _courseId
+      void _majorId
       return {
         data: [],
         error: null,
@@ -444,10 +482,12 @@ export class MatrixApi {
 
   // 根据课程id获取它支撑的指标点及强弱关系
   async getCourseIndicatorSupportLevels(
-    courseId: string,
-    majorId: string
+    _courseId: string,
+    _majorId: string
   ): Promise<ApiResponse<Record<string, "strong" | "weak">>> {
     try {
+      void _courseId
+      void _majorId
       return {
         data: {},
         error: null,

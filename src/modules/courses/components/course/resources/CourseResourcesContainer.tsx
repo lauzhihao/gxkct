@@ -1,7 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { RefreshCw, FolderPlus, Copy, Scissors, Trash2, Search as SearchIcon } from "lucide-react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { RefreshCw, FolderPlus, Copy, Scissors, Trash2, Search as SearchIcon, Upload } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Empty, EmptyDescription, EmptyTitle } from "@/shared/components/ui/empty"
 import { Input } from "@/shared/components/ui/input"
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ResourceBreadcrumb } from "./ResourceBreadcrumb"
 import { ResourceSearchBar } from "./ResourceSearchBar"
 import { ResourceObjectList } from "./ResourceObjectList"
-import type { ResourceEntry } from "./types"
+import type { ResourceEntry, TemporaryUploadItem } from "./types"
 import { useCourseResources } from "@/modules/courses/hooks/use-course-resources"
 import { courseResourcesApi } from "@/modules/courses/api/courseResourcesApi"
 import { showError, showSuccess } from "@/shared/utils/toast-utils"
@@ -23,6 +23,15 @@ interface CourseResourcesContainerProps {
 
 const MAX_RESOURCE_UPLOAD_SIZE = 1024 * 1024 * 1024
 const FALLBACK_RESOURCE_MIME_TYPE = "application/octet-stream"
+
+class UploadCanceledError extends Error {
+  constructor(message = "已取消上传") {
+    super(message)
+    this.name = "UploadCanceledError"
+  }
+}
+
+const MAX_RESOURCE_UPLOAD_COUNT = 20
 
 const resolveUploadMimeType = (file: File): string => {
   if (typeof file.type !== "string") {
@@ -88,6 +97,11 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
   const [folderNameError, setFolderNameError] = useState<string | null>(null)
   const [rootFolderSearch, setRootFolderSearch] = useState("")
   const [isCreatingFolder, setIsCreatingFolder] = useState(false)
+  const [temporaryUploads, setTemporaryUploads] = useState<TemporaryUploadItem[]>([])
+  const [isDropActive, setIsDropActive] = useState(false)
+  const uploadInputRef = useRef<HTMLInputElement | null>(null)
+  const uploadXhrMapRef = useRef(new Map<string, XMLHttpRequest>())
+  const canceledUploadIdsRef = useRef(new Set<string>())
 
   useEffect(() => {
     setSelectedIds(new Set())
@@ -110,6 +124,18 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
       setRootFolderSearch("")
     }
   }, [isRootLevel])
+
+  useEffect(() => {
+    setTemporaryUploads((prev) => {
+      canceledUploadIdsRef.current = new Set(prev.map((item) => item.id))
+      return []
+    })
+    uploadXhrMapRef.current.forEach((xhr) => {
+      xhr.abort()
+    })
+    uploadXhrMapRef.current.clear()
+    setIsDropActive(false)
+  }, [currentParentId, nodeId])
 
   const toggleSelect = useCallback((objectId: string) => {
     setSelectedIds((prev) => {
@@ -155,46 +181,87 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
     return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("")
   }, [])
 
-  const handleUploadFiles = useCallback(
-    async (files: File[], onProgress?: (progress: number) => void) => {
+  const updateTemporaryUpload = useCallback((uploadId: string, updater: (item: TemporaryUploadItem) => TemporaryUploadItem) => {
+    setTemporaryUploads((prev) => prev.map((item) => (item.id === uploadId ? updater(item) : item)))
+  }, [])
+
+  const removeTemporaryUpload = useCallback((uploadId: string) => {
+    setTemporaryUploads((prev) => prev.filter((item) => item.id !== uploadId))
+    uploadXhrMapRef.current.delete(uploadId)
+    canceledUploadIdsRef.current.delete(uploadId)
+  }, [])
+
+  const uploadSingleFile = useCallback(
+    async (uploadId: string, file: File) => {
       if (!courseEditable) {
-        return []
+        return
       }
       if (!nodeId || !currentParentId) {
-        showError("请先进入具体目录再上传文件")
-        return []
+        throw new Error("请先进入具体目录再上传文件")
       }
 
-      const totalBytes = files.reduce((sum, file) => sum + file.size, 0)
-      let uploadedBytes = 0
+      const throwIfCanceled = () => {
+        if (canceledUploadIdsRef.current.has(uploadId)) {
+          throw new UploadCanceledError(`已取消上传 ${file.name}`)
+        }
+      }
 
-      const uploadFileWithProgress = async (
-        uploadUrl: string,
-        uploadMethod: string,
-        uploadHeaders: HeadersInit,
-        file: File,
-      ) =>
-        new Promise<void>((resolve, reject) => {
+      const resolvedMimeType = resolveUploadMimeType(file)
+      updateTemporaryUpload(uploadId, (item) => ({
+        ...item,
+        mimeType: resolvedMimeType,
+        progress: 0,
+        status: "uploading",
+        errorMessage: null,
+      }))
+
+      try {
+        throwIfCanceled()
+
+        const signatureResponse = await courseResourcesApi.getUploadSignature(nodeId, currentParentId, {
+          fileName: file.name,
+          mimeType: resolvedMimeType,
+          size: file.size,
+        })
+        if (signatureResponse.error || !signatureResponse.data) {
+          const message = signatureResponse.error ?? "获取上传签名失败"
+          throw new Error(message)
+        }
+
+        throwIfCanceled()
+
+        const { uploadUrl, uploadHeaders, uploadMethod, uploadPath } = signatureResponse.data
+        if (!uploadUrl || !uploadPath) {
+          throw new Error("上传签名响应缺少必要信息")
+        }
+
+        await new Promise<void>((resolve, reject) => {
           const xhr = new XMLHttpRequest()
-          xhr.open(uploadMethod, uploadUrl)
+          uploadXhrMapRef.current.set(uploadId, xhr)
+          xhr.open(uploadMethod ?? "PUT", uploadUrl)
 
-          Object.entries(uploadHeaders).forEach(([key, value]) => {
+          Object.entries(createUploadHeaders(uploadHeaders, resolvedMimeType)).forEach(([key, value]) => {
             xhr.setRequestHeader(key, value)
           })
 
           xhr.upload.onprogress = (event) => {
-            if (!onProgress || !event.lengthComputable || totalBytes <= 0) {
+            if (!event.lengthComputable) {
               return
             }
 
-            const overallLoaded = uploadedBytes + event.loaded
-            onProgress((overallLoaded / totalBytes) * 100)
+            updateTemporaryUpload(uploadId, (item) => ({
+              ...item,
+              progress: (event.loaded / event.total) * 100,
+            }))
           }
 
           xhr.onload = () => {
+            uploadXhrMapRef.current.delete(uploadId)
+            if (canceledUploadIdsRef.current.has(uploadId)) {
+              reject(new UploadCanceledError(`已取消上传 ${file.name}`))
+              return
+            }
             if (xhr.status >= 200 && xhr.status < 300) {
-              uploadedBytes += file.size
-              onProgress?.((uploadedBytes / totalBytes) * 100)
               resolve()
               return
             }
@@ -203,38 +270,27 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
           }
 
           xhr.onerror = () => {
-            reject(new Error(`上传文件 ${file.name} 失败`))
+            uploadXhrMapRef.current.delete(uploadId)
+            if (canceledUploadIdsRef.current.has(uploadId)) {
+              reject(new UploadCanceledError(`已取消上传 ${file.name}`))
+              return
+            }
+            reject(new Error(`上传文件 ${file.name} 失败，网络连接已中断`))
+          }
+
+          xhr.onabort = () => {
+            uploadXhrMapRef.current.delete(uploadId)
+            reject(new UploadCanceledError(`已取消上传 ${file.name}`))
           }
 
           xhr.send(file)
         })
 
-      const uploadedPaths: string[] = []
-      for (const file of files) {
-        const resolvedMimeType = resolveUploadMimeType(file)
-        const signatureResponse = await courseResourcesApi.getUploadSignature(nodeId, currentParentId, {
-          fileName: file.name,
-          mimeType: resolvedMimeType,
-          size: file.size,
-        })
-        if (signatureResponse.error || !signatureResponse.data) {
-          const message = signatureResponse.error ?? "获取上传签名失败"
-          showError(message)
-          throw new Error(message)
-        }
-        const { uploadUrl, uploadHeaders, uploadMethod, uploadPath } = signatureResponse.data
-        if (!uploadUrl || !uploadPath) {
-          const message = "上传签名响应缺少必要信息"
-          showError(message)
-          throw new Error(message)
-        }
-        await uploadFileWithProgress(
-          uploadUrl,
-          uploadMethod ?? "PUT",
-          createUploadHeaders(uploadHeaders, resolvedMimeType),
-          file,
-        )
+        throwIfCanceled()
+
         const checksum = await calculateChecksum(file)
+        throwIfCanceled()
+
         const confirmResponse = await courseResourcesApi.confirmUpload(nodeId, currentParentId, {
           fileName: file.name,
           uploadPath,
@@ -243,17 +299,151 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
           checksum,
         })
         if (confirmResponse.error) {
-          showError(confirmResponse.error)
           throw new Error(confirmResponse.error)
         }
-        uploadedPaths.push(uploadPath)
+
+        removeTemporaryUpload(uploadId)
+        showSuccess(`文件 ${file.name} 上传成功`)
+        refreshCurrentLevel()
+      } catch (error) {
+        uploadXhrMapRef.current.delete(uploadId)
+        if (error instanceof UploadCanceledError) {
+          removeTemporaryUpload(uploadId)
+          return
+        }
+
+        const message = error instanceof Error ? error.message : "上传过程中出错"
+        updateTemporaryUpload(uploadId, (item) => ({
+          ...item,
+          status: "error",
+          progress: 0,
+          errorMessage: message,
+        }))
       }
-      onProgress?.(100)
-      showSuccess("文件上传成功")
-      refreshCurrentLevel()
-      return uploadedPaths
     },
-    [calculateChecksum, courseEditable, currentParentId, nodeId, refreshCurrentLevel],
+    [calculateChecksum, courseEditable, currentParentId, nodeId, refreshCurrentLevel, removeTemporaryUpload, updateTemporaryUpload],
+  )
+
+  const enqueueUploads = useCallback(
+    (files: File[]) => {
+      if (!courseEditable) {
+        return
+      }
+      if (!nodeId || !currentParentId) {
+        showError("请先进入具体目录再上传文件")
+        return
+      }
+      if (files.length === 0) {
+        return
+      }
+
+      const currentCount = temporaryUploads.length
+      if (currentCount + files.length > MAX_RESOURCE_UPLOAD_COUNT) {
+        showError(`单次最多处理 ${MAX_RESOURCE_UPLOAD_COUNT} 个文件`)
+        return
+      }
+
+      const validFiles = files.filter((file) => {
+        if (file.size > MAX_RESOURCE_UPLOAD_SIZE) {
+          showError(`文件 ${file.name} 超过大小限制`)
+          return false
+        }
+
+        return true
+      })
+      if (validFiles.length === 0) {
+        return
+      }
+
+      const nextUploads = validFiles.map<TemporaryUploadItem>((file) => ({
+        id: `temp-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        file,
+        name: file.name,
+        size: file.size,
+        mimeType: file.type.trim().length > 0 ? file.type : FALLBACK_RESOURCE_MIME_TYPE,
+        progress: 0,
+        status: "queued",
+        errorMessage: null,
+      }))
+
+      setTemporaryUploads((prev) => [...nextUploads, ...prev])
+      nextUploads.forEach((upload) => {
+        void uploadSingleFile(upload.id, upload.file)
+      })
+    },
+    [courseEditable, currentParentId, nodeId, temporaryUploads.length, uploadSingleFile],
+  )
+
+  const handleRetryUpload = useCallback(
+    (uploadId: string) => {
+      const upload = temporaryUploads.find((item) => item.id === uploadId)
+      if (!upload) {
+        return
+      }
+
+      canceledUploadIdsRef.current.delete(uploadId)
+      void uploadSingleFile(uploadId, upload.file)
+    },
+    [temporaryUploads, uploadSingleFile],
+  )
+
+  const handleCancelUpload = useCallback(
+    (uploadId: string) => {
+      canceledUploadIdsRef.current.add(uploadId)
+      const activeXhr = uploadXhrMapRef.current.get(uploadId)
+      if (activeXhr) {
+        activeXhr.abort()
+      }
+      removeTemporaryUpload(uploadId)
+    },
+    [removeTemporaryUpload],
+  )
+
+  const handleOpenFileSelector = useCallback(() => {
+    if (!courseEditable) {
+      return
+    }
+
+    uploadInputRef.current?.click()
+  }, [courseEditable])
+
+  const handleFileInputChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const files = event.target.files
+      if (files) {
+        enqueueUploads(Array.from(files))
+      }
+
+      event.target.value = ""
+    },
+    [enqueueUploads],
+  )
+
+  const handleDropZoneDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    if (!courseEditable || isRootLevel) {
+      return
+    }
+
+    event.preventDefault()
+    setIsDropActive(true)
+  }, [courseEditable, isRootLevel])
+
+  const handleDropZoneDragLeave = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    setIsDropActive(false)
+  }, [])
+
+  const handleDropZoneDrop = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      if (!courseEditable || isRootLevel) {
+        return
+      }
+
+      event.preventDefault()
+      setIsDropActive(false)
+      enqueueUploads(Array.from(event.dataTransfer.files))
+    },
+    [courseEditable, enqueueUploads, isRootLevel],
   )
 
   const resetFolderForm = useCallback(() => {
@@ -349,6 +539,10 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
   }, [directories, isRootLevel, rootFolderSearch])
 
   const resourceEntries = useMemo<ResourceEntry[]>(() => {
+    const uploadEntries: ResourceEntry[] = temporaryUploads.map((upload) => ({
+      type: "upload",
+      upload,
+    }))
     const folderEntries: ResourceEntry[] = filteredDirectories.map((folder) => ({
       type: "folder",
       folder,
@@ -357,8 +551,8 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
       type: "object",
       object,
     }))
-    return [...folderEntries, ...objectEntries]
-  }, [filteredDirectories, objects])
+    return [...uploadEntries, ...folderEntries, ...objectEntries]
+  }, [filteredDirectories, objects, temporaryUploads])
 
   const hasSelectableObjects = resourceEntries.some((entry) => entry.type === "object")
   const showActions = !needInitialization && !isRootLevel
@@ -389,15 +583,8 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
               placeholder="搜索当前目录下的文件"
               viewMode={viewMode}
               onViewModeChange={setViewMode}
-              uploadProps={{
-                onUpload: handleUploadFiles,
-                buttonText: "上传",
-                fileType: "任意文件",
-                maxFileSize: MAX_RESOURCE_UPLOAD_SIZE,
-                maxFileCount: 20,
-                disabled: isLoading,
-                buttonClassName: "text-muted-foreground",
-              }}
+              onSelectFiles={handleOpenFileSelector}
+              disableUpload={isLoading || isRootLevel}
               onCreateFolderClick={handleOpenCreateFolder}
               disableCreateFolder={isCreateFolderDisabled}
             />
@@ -486,13 +673,39 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
               </div>
             </div>
           )}
-          <div className="relative pb-[15px]">
+          <div
+            className={
+              isDropActive
+                ? "relative rounded-xl border-2 border-dashed border-primary bg-primary/5 p-3 pb-[15px] transition-colors"
+                : "relative pb-[15px]"
+            }
+            onDragOver={handleDropZoneDragOver}
+            onDragLeave={handleDropZoneDragLeave}
+            onDrop={handleDropZoneDrop}
+          >
+            {!isRootLevel && canManageCourseResource && (
+              <input
+                ref={uploadInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={handleFileInputChange}
+              />
+            )}
+            {isDropActive && (
+              <div className="pointer-events-none mb-3 flex items-center justify-center gap-2 rounded-lg border border-primary/30 bg-background/80 px-4 py-3 text-sm text-primary">
+                <Upload className="h-4 w-4" />
+                松开鼠标后开始上传文件
+              </div>
+            )}
             <ResourceObjectList
               entries={resourceEntries}
               viewMode={viewMode}
               selectedIds={selectedIds}
               onToggleSelect={toggleSelect}
               onFolderClick={enterFolder}
+              onCancelUpload={handleCancelUpload}
+              onRetryUpload={handleRetryUpload}
               isRootLevel={isRootLevel}
             />
           </div>

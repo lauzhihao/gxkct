@@ -26,7 +26,7 @@ export interface BaseFlowNodeProps {
   // 头部图标
   icon?: ReactNode
   // 头部标题
-  title: string
+  title: ReactNode
   // 头部右侧操作按钮
   headerActions?: ReactNode
   // 头部颜色类
@@ -174,7 +174,7 @@ export const BaseFlowNode = memo(function BaseFlowNode({
         `}
       >
         {icon && <span className={textColorClass}>{icon}</span>}
-        <span className={`text-sm font-medium ${textColorClass} truncate flex-1`}>
+        <span className={`text-sm font-medium ${textColorClass} flex-1 min-w-0`}>
           {title}
         </span>
         {/* 操作按钮区域 - 带滑入动画 */}

@@ -15,6 +15,7 @@ import remarkGfm from "remark-gfm"
 import type { SourceDocumentCardData } from "./canvas-elements/types"
 import { canvasApi } from "@/lib/api/canvas-api"
 import { toast } from "sonner"
+import { getDisplaySourceDocumentFilename } from "@/shared/utils/source-document-filename"
 
 interface CanvasSourceDocumentEditorProps {
   // 文档数据
@@ -39,6 +40,8 @@ export function CanvasSourceDocumentEditor({
   isSaving = false,
   isRegenerating = false,
 }: CanvasSourceDocumentEditorProps) {
+  const displayFilename = getDisplaySourceDocumentFilename(document.filename)
+
   // 编辑内容
   const [content, setContent] = useState("")
   // 加载状态
@@ -145,7 +148,7 @@ export function CanvasSourceDocumentEditor({
       <div className="px-6 py-4 border-b border-border">
         <div className="flex items-center gap-3">
           <div className="flex-1">
-            <h3 className="text-base font-semibold text-foreground">{document.filename}</h3>
+            <h3 className="text-base font-semibold text-foreground">{displayFilename}</h3>
             <p className="text-sm text-muted-foreground mt-1">
               编辑解析后的文档内容（Markdown 格式）
             </p>

@@ -113,7 +113,13 @@ export interface CanvasDrawersProps {
   canvasOssKey?: string | null
   treeData?: TreeNode | null
   onSaveSuccess?: (majorId: string, courseId: string) => void
-  onUpdateCourseInfo?: (updates: { courseId?: number; majorId?: number }) => void
+  onUpdateCourseInfo?: (updates: {
+    courseId?: number
+    majorId?: number
+    objectives?: ObjectiveCardData[]
+    coursePoints?: CoursePointCardData[]
+    ksaItems?: KsaItemData[]
+  }) => void
   lockGraduationSupportOrganization?: boolean
 }
 
@@ -219,8 +225,8 @@ export const CanvasDrawers = memo(function CanvasDrawers({
                   courseNatureId: courseInfoData.metadata?.courseNatureId || 0,
                   introduction: courseInfoData.metadata?.introduction || "",
                   openingDate: courseInfoData.metadata?.openingDate || "",
-                  theoryPeriod: courseInfoData.metadata?.theoryPeriod || 0,
-                  practicePeriod: courseInfoData.metadata?.practicePeriod || 0,
+                  theoryPeriod: courseInfoData.metadata?.theoryPeriod ?? 0,
+                  practicePeriod: courseInfoData.metadata?.practicePeriod ?? 0,
                   teachingClass: courseInfoData.metadata?.teachingClass || "",
                   teachingLocation: courseInfoData.metadata?.teachingLocation || "",
                   teachingTime: courseInfoData.metadata?.teachingTime || "",

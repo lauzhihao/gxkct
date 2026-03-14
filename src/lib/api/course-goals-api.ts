@@ -110,6 +110,38 @@ export class CourseGoalsApi {
     }
   }
 
+  async getCourseMatrixHeaderGoals(courseId: string): Promise<ApiResponse<CourseGoal[] | null>> {
+    try {
+      console.log(`[CourseGoalsApi] 获取课程矩阵表头目标，courseId: ${courseId}`)
+
+      const response = await this.storage.getFromApi<CourseGoal[]>(`/api/v5/matrix/course-goals/${courseId}`)
+
+      if (response.error || !response.data) {
+        console.error("[CourseGoalsApi] 获取课程矩阵表头目标API失败:", response.error)
+        return {
+          data: null,
+          error: response.error || "获取课程矩阵表头目标失败",
+          status: response.status,
+        }
+      }
+
+      console.log("[CourseGoalsApi] 课程矩阵表头目标数据加载成功", response.data.length)
+
+      return {
+        data: response.data,
+        error: null,
+        status: 200,
+      }
+    } catch (error) {
+      console.error("[CourseGoalsApi] 获取课程矩阵表头目标失败:", error)
+      return {
+        data: null,
+        error: String(error),
+        status: 500,
+      }
+    }
+  }
+
   /**
    * 更新课程目标数据
    * @param courseId 课程ID

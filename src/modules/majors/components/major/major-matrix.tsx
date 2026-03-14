@@ -6,19 +6,27 @@ import { BookMarked, Pencil, X, Check, Search } from "lucide-react"
 import { LoadingState } from "@/shared/components/ui/loading-state"
 import { Spinner } from "@/shared/components/ui/spinner"
 import { cn } from "@/shared/utils/utils"
-import type { TreeNode } from "@/types"
+import type { TreeNode, TreeNodeMenuItem } from "@/types"
 import { TreeApi } from "@/lib/api/tree-api"
 import { api } from "@/lib/api"
 import type { MajorMatrixItemResponse } from "@/lib/api/matrix-api"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip"
-import { usePermission } from "@/shared/hooks/use-permission"
-import type { PermissionAction } from "@/shared/permissions/types"
 import { buildApiUrl } from "@/lib/api/config"
 import { getStoredAuthToken } from "@/lib/api/auth-config"
+import { extractNumericId } from "@/shared/utils/utils"
+import { getMajorCache } from "@/shared/utils/major-cache"
 
 const treeApiInstance = new TreeApi()
-const MATRIX_MANAGE_ACTION: PermissionAction = "major.course.create"
-const MATRIX_MANAGE_CONTEXT = { scope: "major" } as const
+
+// [MOD] 与专业详情编辑按钮使用相同的权限控制方式
+interface NodeMetadataWithMenus {
+  source?: string
+  btnMenus?: TreeNodeMenuItem[]
+}
+
+function hasMenuPermission(menus: TreeNodeMenuItem[] | null | undefined, target: string): boolean {
+  return Array.isArray(menus) && menus.some((menu) => menu.value === target)
+}
 
 // 课程项（从接口提取的精简结构）
 interface CourseInfo {
@@ -30,6 +38,12 @@ interface CourseItem {
   self: { value: string; label: string } | null
 }
 
+interface CourseMatrixRelationDiff {
+  addedIndicatorIds: number[]
+  removedIndicatorIds: number[]
+  updatedIndicatorIds: number[]
+}
+
 interface MajorMatrixProps {
   node: TreeNode
   onUpdateNode?: (nodeId: string, updates: any) => void
@@ -37,8 +51,38 @@ interface MajorMatrixProps {
 
 export function MajorMatrix(props: MajorMatrixProps) {
   const { node } = props
-  const { can } = usePermission()
-  const canManageMatrix = can(MATRIX_MANAGE_ACTION, MATRIX_MANAGE_CONTEXT)
+
+  // [MOD] 与专业详情删除按钮保持一致：补齐 source 与 btnMenus 的缓存回退链路
+  const currentMajorId = useMemo(() => {
+    if (typeof node.id === "string" && node.id) {
+      return node.id
+    }
+
+    if (typeof node.nodeId === "string" && node.nodeId) {
+      return extractNumericId(node.nodeId).toString()
+    }
+
+    return ""
+  }, [node.id, node.nodeId])
+  const cachedMajor = useMemo(() => getMajorCache(currentMajorId), [currentMajorId])
+  const metadataSource = (node.metadata as NodeMetadataWithMenus | undefined)?.source
+  const resolvedSource = typeof metadataSource === "string" && metadataSource
+    ? metadataSource
+    : cachedMajor?.source
+  const isVirtualMajorFromSwitchDpt = resolvedSource === "course-level-switchDpt"
+  const resolvedBtnMenus = useMemo(() => {
+    if (Array.isArray(node.btnMenus)) {
+      return node.btnMenus
+    }
+
+    const metadataBtnMenus = (node.metadata as NodeMetadataWithMenus | undefined)?.btnMenus
+    if (Array.isArray(metadataBtnMenus)) {
+      return metadataBtnMenus
+    }
+
+    return cachedMajor?.btnMenus ?? []
+  }, [cachedMajor?.btnMenus, node.btnMenus, node.metadata])
+  const canManageMatrix = !isVirtualMajorFromSwitchDpt && hasMenuPermission(resolvedBtnMenus, "majoredit")
   const [isEditingMatrix, setIsEditingMatrix] = useState(false)
   const [matrixSupportLevels, setMatrixSupportLevels] = useState<Record<string, string>>({})
   const [isSavingMatrix, setIsSavingMatrix] = useState(false)
@@ -309,11 +353,18 @@ export function MajorMatrix(props: MajorMatrixProps) {
     if (!canManageMatrix) return
 
     const key = `${courseId}-${reqId}-${indicatorIdx}`
+    // [MOD] 获取当前实际显示的支撑级别（本地修改优先，否则使用服务器数据）
+    const currentDisplayLevel = matrixSupportLevels[key] !== undefined
+      ? matrixSupportLevels[key]
+      : getSupportLevel(courseId, reqId, indicatorIdx)
+
     setMatrixSupportLevels((prev) => {
-      if (prev[key] === value) {
-        const next = { ...prev }
-        delete next[key]
-        return next
+      // [MOD] 如果点击的是当前显示的值，设为空字符串表示显式取消
+      if (currentDisplayLevel === value) {
+        return {
+          ...prev,
+          [key]: "",
+        }
       }
 
       return {
@@ -322,6 +373,78 @@ export function MajorMatrix(props: MajorMatrixProps) {
       }
     })
   }
+
+  const getChangedCourses = useCallback((): CourseInfo[] => {
+    const affectedCourseIds = new Set<string>()
+    for (const key of Object.keys(matrixSupportLevels)) {
+      const course = courses.find((item) => key.startsWith(`${item.courseId}-`))
+      if (course) {
+        affectedCourseIds.add(course.courseId)
+      }
+    }
+
+    return Array.from(affectedCourseIds)
+      .map((courseId) => courses.find((course) => course.courseId === courseId))
+      .filter((course): course is CourseInfo => Boolean(course))
+  }, [courses, matrixSupportLevels])
+
+  const buildCourseRelationDiff = useCallback((courseId: string): CourseMatrixRelationDiff => {
+    const existingItems = courseMatrixMap[courseId] || []
+    const existingRelateByIndicatorId = new Map<number, number>()
+    existingItems.forEach((item) => {
+      existingRelateByIndicatorId.set(item.graduateRequireId, item.relate)
+    })
+
+    const draftRelateByIndicatorId = new Map<number, number>(existingRelateByIndicatorId)
+    requiresVOS.forEach((req: any) => {
+      const children = req.children || []
+      children.forEach((child: any, indicatorIdx: number) => {
+        const key = `${courseId}-${req.id}-${indicatorIdx}`
+        if (!(key in matrixSupportLevels)) {
+          return
+        }
+
+        const value = matrixSupportLevels[key]
+        const graduateRequireId = Number(child?.id)
+        if (!Number.isFinite(graduateRequireId) || graduateRequireId <= 0) {
+          return
+        }
+
+        // [MOD] 空字符串表示显式取消，从 map 中删除
+        if (value === "") {
+          draftRelateByIndicatorId.delete(graduateRequireId)
+          return
+        }
+
+        const relate = value === "强支撑" ? 0 : 1
+        draftRelateByIndicatorId.set(graduateRequireId, relate)
+      })
+    })
+
+    const addedIndicatorIds: number[] = []
+    const removedIndicatorIds: number[] = []
+    const updatedIndicatorIds: number[] = []
+
+    draftRelateByIndicatorId.forEach((nextRelate, indicatorId) => {
+      const previousRelate = existingRelateByIndicatorId.get(indicatorId)
+      if (previousRelate === undefined) {
+        addedIndicatorIds.push(indicatorId)
+        return
+      }
+
+      if (previousRelate !== nextRelate) {
+        updatedIndicatorIds.push(indicatorId)
+      }
+    })
+
+    existingRelateByIndicatorId.forEach((_previousRelate, indicatorId) => {
+      if (!draftRelateByIndicatorId.has(indicatorId)) {
+        removedIndicatorIds.push(indicatorId)
+      }
+    })
+
+    return { addedIndicatorIds, removedIndicatorIds, updatedIndicatorIds }
+  }, [courseMatrixMap, matrixSupportLevels, requiresVOS])
 
   const handleSaveMatrix = useCallback(async (isAutoSave = false) => {
     if (!canManageMatrix) return
@@ -335,17 +458,21 @@ export function MajorMatrix(props: MajorMatrixProps) {
     setIsSavingMatrix(true)
 
     try {
-      // 收集受影响的课程ID
-      const affectedCourseIds = new Set<string>()
-      for (const key of Object.keys(matrixSupportLevels)) {
-        const course = courses.find((c) => key.startsWith(`${c.courseId}-`))
-        if (course) {
-          affectedCourseIds.add(course.courseId)
-        }
-      }
+      const affectedCourses = getChangedCourses()
+      const affectedCourseIds = affectedCourses.map((course) => course.courseId)
 
       // 逐课程构建完整矩阵数据并调用保存接口
-      for (const courseId of Array.from(affectedCourseIds)) {
+      for (const course of affectedCourses) {
+        const courseId = course.courseId
+        const relationDiff = buildCourseRelationDiff(courseId)
+        console.log("[MajorMatrix] 课程指标点支撑关系 diff:", {
+          courseId,
+          courseName: course.courseName,
+          addedIndicatorIds: relationDiff.addedIndicatorIds,
+          removedIndicatorIds: relationDiff.removedIndicatorIds,
+          updatedIndicatorIds: relationDiff.updatedIndicatorIds,
+        })
+
         const existingItems = [...(courseMatrixMap[courseId] || [])]
 
         // 将该课程下的所有变更合并到已有矩阵数据中
@@ -357,17 +484,25 @@ export function MajorMatrix(props: MajorMatrixProps) {
 
             const value = matrixSupportLevels[key]
             const graduateRequireId = children[indicatorIdx].id
-            const relate = value === "\u5F3A\u652F\u6491" ? 0 : 1
+
+            // [MOD] 空字符串表示显式取消，设置 relate = -1（后端约定 -1 表示无关/已删除）
+            // 强支撑 = 0，弱支撑 = 1，无关/取消 = -1
+            const relate = value === "" ? -1 : (value === "\u5F3A\u652F\u6491" ? 0 : 1)
 
             const existingIndex = existingItems.findIndex(
               (item) => item.graduateRequireId === graduateRequireId
             )
+
             if (existingIndex >= 0) {
               existingItems[existingIndex] = {
                 ...existingItems[existingIndex],
                 relate,
               }
             } else {
+              // 只有新增支撑关系时才需要 push，取消选择时如果不存在则跳过
+              if (value === "") {
+                continue
+              }
               const courseName = courses.find((c) => c.courseId === courseId)?.courseName
               if (!courseName) {
                 throw new Error(`[MajorMatrix] courseId=${courseId} courseName missing`)
@@ -403,7 +538,7 @@ export function MajorMatrix(props: MajorMatrixProps) {
       // 全部保存成功：清空变更记录，异步重新加载受影响课程的矩阵数据
       setMatrixSupportLevels({})
       const generation = matrixRequestGenerationRef.current
-      for (const courseId of Array.from(affectedCourseIds)) {
+      for (const courseId of affectedCourseIds) {
         loadSingleCourseMatrix(courseId, generation)
       }
     } catch (error) {
@@ -414,7 +549,7 @@ export function MajorMatrix(props: MajorMatrixProps) {
         setIsEditingMatrix(false)
       }
     }
-  }, [canManageMatrix, matrixSupportLevels, courseMatrixMap, requiresVOS, courses, node.id, loadSingleCourseMatrix])
+  }, [canManageMatrix, matrixSupportLevels, courseMatrixMap, requiresVOS, courses, node.id, loadSingleCourseMatrix, getChangedCourses, buildCourseRelationDiff])
 
   const handleCancelMatrix = () => {
     if (!canManageMatrix) return
@@ -699,7 +834,10 @@ export function MajorMatrix(props: MajorMatrixProps) {
                           const isCourseLoading = courseLoadingMap[course.courseId] === true
                           const courseError = courseErrorMap[course.courseId]
                           const hasCourseError = typeof courseError === "string" && courseError.trim() !== ""
-                          const supportLevel = matrixSupportLevels[key] || getSupportLevel(course.courseId, req.id, indicatorIdx)
+                          // [MOD] 使用 !== undefined 判断，以正确处理空字符串（显式取消）的情况
+                          const supportLevel = matrixSupportLevels[key] !== undefined
+                            ? matrixSupportLevels[key]
+                            : getSupportLevel(course.courseId, req.id, indicatorIdx)
 
                           return (
                             <td key={key} className="p-3 text-center border-r border-border">

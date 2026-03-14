@@ -1,8 +1,7 @@
 "use client"
 
-import { Search, X, LayoutGrid, Rows, Download, Plus } from "lucide-react"
+import { Search, X, LayoutGrid, Rows, Download, Plus, Upload } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
-import { FileUpload } from "@/shared/components/ui/file-upload"
 import { cn } from "@/shared/utils/utils"
 import type { ResourceSearchBarProps } from "./types"
 
@@ -14,7 +13,8 @@ export function ResourceSearchBar({
   viewMode = "grid",
   onViewModeChange,
   className,
-  uploadProps,
+  onSelectFiles,
+  disableUpload,
   onCreateFolderClick,
   disableCreateFolder,
 }: ResourceSearchBarProps) {
@@ -26,14 +26,9 @@ export function ResourceSearchBar({
     onCreateFolderClick?.()
   }
 
-  const handleUploadFiles = async (files: File[]) => {
-    if (!courseEditable) {
-      return []
-    }
-    if (!uploadProps) {
-      return []
-    }
-    return uploadProps.onUpload(files)
+  const handleSelectFiles = () => {
+    if (!courseEditable) return
+    onSelectFiles?.()
   }
 
   return (
@@ -92,14 +87,16 @@ export function ResourceSearchBar({
           批量下载
         </Button>
       )}
-      {canManageCourseResource && uploadProps && (
-        <FileUpload
-          {...uploadProps}
-          onUpload={handleUploadFiles}
-          containerClassName={cn("w-auto flex-shrink-0", uploadProps.containerClassName)}
-          buttonClassName={cn("gap-2", buttonHoverClass, uploadProps.buttonClassName)}
-          buttonText={uploadProps.buttonText ?? "上传"}
-        />
+      {canManageCourseResource && (
+        <Button
+          size="sm"
+          className={cn("gap-2", buttonHoverClass)}
+          onClick={handleSelectFiles}
+          disabled={disableUpload || !onSelectFiles}
+        >
+          <Upload className="h-4 w-4" />
+          上传文件
+        </Button>
       )}
     </div>
   )

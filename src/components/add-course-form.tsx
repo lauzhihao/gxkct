@@ -352,10 +352,27 @@ function AddCourseForm({
     )
   }, [chapters])
 
+  const hasMeaningfulChapterData = useMemo(() => {
+    return chapters.some((chapter) => {
+      const hasName = chapter.name.trim().length > 0
+      const theoryHours = Number(chapter.theoryHours)
+      const practiceHours = Number(chapter.practiceHours)
+      const hasTheoryHours = Number.isFinite(theoryHours) && theoryHours > 0
+      const hasPracticeHours = Number.isFinite(practiceHours) && practiceHours > 0
+      const hasCourseUnitId = typeof chapter.courseUnitId === "number" && Number.isFinite(chapter.courseUnitId)
+
+      return hasName || hasTheoryHours || hasPracticeHours || hasCourseUnitId
+    })
+  }, [chapters])
+
   useEffect(() => {
+    if (!hasMeaningfulChapterData) {
+      return
+    }
+
     setTheoryPeriod((current: number) => (current === summarizedPeriods.theoryPeriod ? current : summarizedPeriods.theoryPeriod))
     setPracticePeriod((current: number) => (current === summarizedPeriods.practicePeriod ? current : summarizedPeriods.practicePeriod))
-  }, [summarizedPeriods.practicePeriod, summarizedPeriods.theoryPeriod])
+  }, [hasMeaningfulChapterData, summarizedPeriods.practicePeriod, summarizedPeriods.theoryPeriod])
 
   // 在编辑模式下，使用传入的 courseDetailData 初始化表单字段
   useEffect(() => {

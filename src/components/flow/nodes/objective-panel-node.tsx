@@ -9,6 +9,7 @@ interface ObjectivePanelNodeProps {
   id: string
   data: PanelData & {
     isDeleting?: boolean
+    isLoading?: boolean
     isRefreshing?: boolean
     onDelete?: (nodeId: string) => void
     onRefresh?: (nodeId: string) => void
@@ -53,6 +54,7 @@ export const ObjectivePanelNode = memo(function ObjectivePanelNode({
       id={id}
       selected={selected}
       isDeleting={data.isDeleting}
+      isLoading={data.isLoading}
       isRefreshing={data.isRefreshing}
       icon={<Target className="h-4 w-4" />}
       title="教学目标"

@@ -57,6 +57,8 @@ export interface BasePanelNodeProps {
   childCount?: number
   // 添加子节点回调（用于空状态点击）
   onAdd?: () => void
+  // 空状态提示文案
+  emptyStateDescription?: string
   // 编辑回调
   onEdit?: (id: string) => void
   // 刷新回调
@@ -98,6 +100,7 @@ export const BasePanelNode = memo(function BasePanelNode({
   rightExpandColorClass,
   childCount,
   onAdd,
+  emptyStateDescription,
   onEdit,
   onRefresh,
   onDelete,
@@ -154,7 +157,7 @@ export const BasePanelNode = memo(function BasePanelNode({
   return (
     <div
       className={`
-        relative rounded-lg border-2
+        relative isolate rounded-lg border-2
         canvas-node-base
         ${selected ? "border-solid" : "border-dashed"}
         ${borderColorClass} ${bgColorClass}
@@ -282,30 +285,35 @@ export const BasePanelNode = memo(function BasePanelNode({
 
       {/* 空状态显示 - 当没有子节点时显示添加按钮，带弹性动画；loading 时隐藏 */}
       {childCount === 0 && onAdd && !isDeleting && (
-        <div className="absolute inset-0 top-[41px] flex items-center justify-center pointer-events-none">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onAdd()
-                }}
-                className={`
-                  w-12 h-12 rounded-full border-2 border-dashed
-                  ${borderColorClass} ${textColorClass}
-                  flex items-center justify-center
-                  hover:bg-white/50 hover:border-solid hover:shadow-md
-                  hover:scale-110 active:scale-95
-                  transition-all duration-200 cursor-pointer
-                  pointer-events-auto nopan nodrag
-                `}
-              >
-                <Plus className="h-6 w-6" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>点击添加</TooltipContent>
-          </Tooltip>
+        <div className="absolute inset-0 top-[41px] flex items-center justify-center pointer-events-none px-4">
+          <div className="flex max-w-[220px] flex-col items-center gap-3 text-center">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onAdd()
+                  }}
+                  className={`
+                    w-12 h-12 rounded-full border-2 border-dashed
+                    ${borderColorClass} ${textColorClass}
+                    flex items-center justify-center
+                    hover:bg-white/50 hover:border-solid hover:shadow-md
+                    hover:scale-110 active:scale-95
+                    transition-all duration-200 cursor-pointer
+                    pointer-events-auto nopan nodrag
+                  `}
+                >
+                  <Plus className="h-6 w-6" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>点击添加</TooltipContent>
+            </Tooltip>
+            {emptyStateDescription ? (
+              <p className="text-xs leading-5 text-gray-500">{emptyStateDescription}</p>
+            ) : null}
+          </div>
         </div>
       )}
 

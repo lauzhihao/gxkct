@@ -181,7 +181,13 @@ export interface AiCanvasPanelProps {
   // 保存成功回调
   onSaveSuccess?: (majorId: string, courseId: string) => void
   // 更新课程信息回调（用于保存后更新画布中的 courseId）
-  onUpdateCourseInfo?: (updates: { courseId?: number; majorId?: number }) => void
+  onUpdateCourseInfo?: (updates: {
+    courseId?: number
+    majorId?: number
+    objectives?: ObjectiveCardData[]
+    coursePoints?: CoursePointCardData[]
+    ksaItems?: KsaItemData[]
+  }) => void
   // 是否正在上传画布数据到OSS
   isUploading?: boolean
   // 布局模式
@@ -737,6 +743,7 @@ function AiCanvasPanelInner({
         // 获取容器的位置
         const containerRect = containerRef.current?.getBoundingClientRect()
         if (containerRect) {
+          ignoreNextConnectionMenuCloseRef.current = true
           setConnectionMenu({
             visible: true,
             x: mouseEvent.clientX - containerRect.left,
@@ -744,6 +751,9 @@ function AiCanvasPanelInner({
             sourceNodeId: connectionState.fromNode?.id || null,
             sourceHandle: connectionState.fromHandle?.id || null,
           })
+          window.setTimeout(() => {
+            ignoreNextConnectionMenuCloseRef.current = false
+          }, 0)
         }
       }
     },
@@ -775,6 +785,7 @@ function AiCanvasPanelInner({
 
   // 用 ref 跟踪菜单可见状态，避免 effect 依赖 connectionMenu.visible 导致频繁 attach/detach
   const connectionMenuVisibleRef = useRef(connectionMenu.visible)
+  const ignoreNextConnectionMenuCloseRef = useRef(false)
 
   useEffect(() => {
     connectionMenuVisibleRef.current = connectionMenu.visible
@@ -783,6 +794,10 @@ function AiCanvasPanelInner({
   // 点击画布其他区域关闭菜单（监听器只注册一次）
   useEffect(() => {
     const handleClickOutside = () => {
+      if (ignoreNextConnectionMenuCloseRef.current) {
+        return
+      }
+
       if (connectionMenuVisibleRef.current) {
         closeMenu()
       }

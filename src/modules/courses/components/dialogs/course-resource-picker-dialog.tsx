@@ -25,6 +25,8 @@ export interface PickedResource {
   id: string
   name: string
   path: string
+  url?: string
+  type?: string
 }
 
 interface CourseResourcePickerDialogProps {
@@ -92,6 +94,8 @@ export function CourseResourcePickerDialog({
           id: target.id,
           name: objectDisplayName,
           path: breadcrumbPath(breadcrumbs, objectDisplayName),
+          url: target.downloadUrl,
+          type: target.mimeType,
         }
         if (selectionMode === "single") {
           return new Map([[target.id, item]])

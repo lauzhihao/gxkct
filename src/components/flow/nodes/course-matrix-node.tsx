@@ -9,6 +9,38 @@ import { SupportLabel } from "@/shared/components/support-label"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip"
 import { buildSupportLabelDisplay } from "@/shared/utils/support-label-display"
 
+type MatrixNodeCoursePoint = {
+  id?: string
+  name: string
+  description?: string
+  level: "strong" | "weak"
+}
+
+const dedupeCoursePoints = (coursePoints: MatrixNodeCoursePoint[]): MatrixNodeCoursePoint[] => {
+  const pointMap = new Map<string, MatrixNodeCoursePoint>()
+
+  coursePoints.forEach((coursePoint, index) => {
+    const normalizedId = typeof coursePoint.id === "string" ? coursePoint.id.trim() : ""
+    const fallbackKey = normalizedId || `__index_${index}`
+    const existing = pointMap.get(fallbackKey)
+
+    if (!existing) {
+      pointMap.set(fallbackKey, coursePoint)
+      return
+    }
+
+    pointMap.set(fallbackKey, {
+      ...existing,
+      ...coursePoint,
+      id: normalizedId || existing.id,
+      level: existing.level === "strong" || coursePoint.level === "strong" ? "strong" : "weak",
+      description: existing.description || coursePoint.description,
+    })
+  })
+
+  return Array.from(pointMap.values())
+}
+
 /**
  * 扩展的课程矩阵数据类型
  */
@@ -100,7 +132,7 @@ export const CourseMatrixNode = memo(function CourseMatrixNode({
                 </tr>
               </thead>
               <tbody>
-                {nodeData.rows.slice(0, 5).map((row: { chapter_id: string; chapter_name: string; supports?: Array<{ objective_id: string; course_points?: Array<{ id?: string; name: string; description?: string; level: "strong" | "weak" }> }> }) => (
+                {nodeData.rows.slice(0, 5).map((row: { chapter_id: string; chapter_name: string; supports?: Array<{ objective_id: string; course_points?: MatrixNodeCoursePoint[] }> }) => (
                   <tr key={row.chapter_id} className="border-t border-indigo-50">
                     <td className="px-4 py-3 text-gray-600 truncate w-[220px] min-w-[220px] max-w-[220px]">
                       {row.chapter_name}
@@ -112,10 +144,10 @@ export const CourseMatrixNode = memo(function CourseMatrixNode({
                           {support?.course_points && support.course_points.length > 0 ? (
                             <div className="flex flex-wrap gap-1 justify-center">
                               {/* 每个课点显示为小标签，使用统一的 SupportLabel 组件 */}
-                              {support?.course_points.map((cp: { id?: string; name: string; description?: string; level: "strong" | "weak" }, idx: number) => {
-                                const cpId = typeof cp.id === "string" ? cp.id.trim() : ""
-                                const cpMeta = cpId ? nodeData.coursePointMetaMap?.[cpId] : undefined
-                                const display = buildSupportLabelDisplay({
+                              {dedupeCoursePoints(support.course_points).map((cp, idx: number) => {
+                                 const cpId = typeof cp.id === "string" ? cp.id.trim() : ""
+                                 const cpMeta = cpId ? nodeData.coursePointMetaMap?.[cpId] : undefined
+                                 const display = buildSupportLabelDisplay({
                                   title: cp.name,
                                   fallbackTitle: cpMeta?.name,
                                   description: cp.description || cpMeta?.description,
@@ -123,7 +155,7 @@ export const CourseMatrixNode = memo(function CourseMatrixNode({
 
                                 return (
                                   <SupportLabel
-                                    key={cp.id || idx}
+                                    key={cpId || idx}
                                     title={display.title}
                                     desc={display.desc}
                                     type={cp.level}

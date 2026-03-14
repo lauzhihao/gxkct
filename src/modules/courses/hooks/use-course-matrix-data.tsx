@@ -173,10 +173,12 @@ export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMa
           setIsLoadingMajorIndicators(true)
           setIsLoadingTeachingObjectiveIndicators(true)
 
+          const courseGoalsRequest = parentMajorId
+            ? courseGoalsApi.getCourseMatrixHeaderGoals(String(courseId))
+            : Promise.resolve({ data: null, error: null, status: 200 })
+
           const [courseGoalsResponse, coursePointsResponse, majorMatrixResponse, majorDetailResponse, teachingObjectiveIndicatorsResponse, projectTeachGoalResponse] = await Promise.all([
-            parentMajorId
-              ? courseGoalsApi.getCourseGoals(String(courseId), String(parentMajorId))
-              : Promise.resolve({ data: null, error: null, status: 200 }),
+            courseGoalsRequest,
             (() => {
               const numericMajorId = parsePositiveNumericId(majorId)
               const numericCourseId = parsePositiveNumericId(courseId)
@@ -314,11 +316,12 @@ export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMa
             return
           }
 
-          const response = await courseMatrixApi.getCourseMatrix(courseId)
-          if (response.data && Array.isArray(response.data)) {
+          const response = await courseMatrixApi.getFilteredCourseMatrix(courseId)
+          const matrixResponse = response.status === 404 ? await courseMatrixApi.getCourseMatrix(courseId) : response
+          if (matrixResponse.data && Array.isArray(matrixResponse.data)) {
             const transformedData: CourseMatrixRecord = {}
 
-            response.data.forEach((item: CourseMatrixItem) => {
+            matrixResponse.data.forEach((item: CourseMatrixItem) => {
               const key = buildMatrixDisplayKey(item.projectId, item.graduateRequireId)
 
               if (!transformedData[key]) {
@@ -372,10 +375,14 @@ export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMa
   }, [])
 
   const refreshLatestCourseMatrixData = useCallback(async (courseId: string) => {
-    const [projectTeachGoalResponse, courseMatrixResponse] = await Promise.all([
-      projectTeachGoalApi.getProjectTeachGoal(courseId),
-      courseMatrixApi.getCourseMatrix(courseId),
-    ])
+      const [projectTeachGoalResponse, courseMatrixSeedResponse] = await Promise.all([
+        projectTeachGoalApi.getProjectTeachGoal(courseId),
+        courseMatrixApi.getFilteredCourseMatrix(courseId),
+      ])
+
+      const courseMatrixResponse = courseMatrixSeedResponse.status === 404
+        ? await courseMatrixApi.getCourseMatrix(courseId)
+        : courseMatrixSeedResponse
 
     if (projectTeachGoalResponse.data) {
       setProjectTeachGoalData(projectTeachGoalResponse.data)

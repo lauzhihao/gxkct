@@ -170,6 +170,7 @@ export interface ObjectiveCardData {
  * 教学目标卡片中的指标点支撑标签
  */
 export interface ObjectiveSupportLabel {
+  indicatorId?: number
   title: string
   desc?: string
   type?: "strong" | "weak"

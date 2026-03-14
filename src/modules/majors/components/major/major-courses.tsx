@@ -37,14 +37,17 @@ interface MajorCoursesProps {
   majorCourses?: Map<string, TreeNode[]>
   departmentId?: string
   refreshKey?: number
+  // [MOD] 从父组件传入权限控制，与编辑专业按钮保持一致
+  canManageCourse?: boolean
 }
 
 export function MajorCourses(props: MajorCoursesProps) {
-  const { node, currentUser, onNodeSelect, onAddCourse, refreshKey } = props
+  const { node, currentUser, onNodeSelect, onAddCourse, refreshKey, canManageCourse } = props
   const [courseSearchTerm, setCourseSearchTerm] = useState("")
   const { showMyCourses, setShowMyCourses } = useMajorCoursePreferences()
+  // [MOD] 优先使用从父组件传入的权限，保持与编辑专业按钮一致
   const { can } = usePermission()
-  const canManageMajorCourse = can(MANAGE_MAJOR_COURSE_ACTION, MANAGE_MAJOR_COURSE_CONTEXT)
+  const canManageMajorCourse = canManageCourse ?? can(MANAGE_MAJOR_COURSE_ACTION, MANAGE_MAJOR_COURSE_CONTEXT)
 
   // 右侧组件内部独立获取课程数据，与左侧树完全隔离
   const [courses, setCourses] = useState<CourseItem[]>([])

@@ -50,7 +50,7 @@ export const ObjectiveNode = memo(function ObjectiveNode({
             .filter((item) => typeof item?.title === "string" && item.title.trim().length > 0)
             .map((item, index) => (
               <SupportLabel
-                key={`${item.title}-${index}`}
+                key={`${item.indicatorId ?? item.title}-${index}`}
                 title={item.title}
                 desc={item.desc}
                 type={item.type === "strong" ? "strong" : "weak"}
