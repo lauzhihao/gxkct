@@ -3,10 +3,14 @@
  * 负责显示和管理KSA支撑关系
  */
 
+import { useState } from "react"
 import { Plus, Check, X, Edit, Trash2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/shared/components/ui/dialog"
 import { Button } from "@/shared/components/ui/button"
+import { Textarea } from "@/shared/components/ui/textarea"
+import { Spinner } from "@/shared/components/ui/spinner"
 import { cn } from "@/shared/utils/utils"
+import { showError } from "@/shared/utils/toast-utils"
 import type { KsaItem } from "@/modules/courses/hooks/use-project-matrix"
 import type { KsaCellData } from "@/modules/courses/hooks/use-ksa-management"
 import { projectMatrixApi } from "@/modules/courses/api/projectMatrixApi"
@@ -101,6 +105,83 @@ export function KsaDialog({
     )
     .sort((a: any, b: any) => (a.level || 0) - (b.level || 0))
 
+  // 批量新增状态
+  const [batchAddType, setBatchAddType] = useState<string | null>(null)
+  const [batchAddInput, setBatchAddInput] = useState("")
+  const [isBatchAdding, setIsBatchAdding] = useState(false)
+  const [batchSummary, setBatchSummary] = useState<Record<string, { total: number; added: number; duplicate: number }>>({})
+  const [deletingKsaId, setDeletingKsaId] = useState<number | null>(null)
+  const KSA_TYPE_LABEL: Record<string, string> = { K: "K点", S: "S点", A: "A点" }
+
+  // 批量新增 KSA
+  const handleBatchAddKsa = async (ksaType: string) => {
+    const normalizedItems = batchAddInput
+      .split(/[\n;]+/)
+      .map((item) => item.trim())
+      .filter((item) => item !== "")
+
+    if (normalizedItems.length === 0) {
+      setBatchSummary((prev) => ({ ...prev, [ksaType]: { total: 0, added: 0, duplicate: 0 } }))
+      return
+    }
+
+    // 获取该类型已有项的 description 集合，用于去重
+    const existingDescriptions = new Set(
+      ksaListData
+        .filter((k) => k.title?.toUpperCase() === ksaType)
+        .map((k) => k.description?.trim())
+        .filter((d) => d !== "")
+    )
+
+    const seenDescriptions = new Set<string>()
+    const uniqueNewDescriptions: string[] = []
+    for (const desc of normalizedItems) {
+      if (seenDescriptions.has(desc) || existingDescriptions.has(desc)) continue
+      seenDescriptions.add(desc)
+      uniqueNewDescriptions.push(desc)
+    }
+
+    const total = normalizedItems.length
+    const added = uniqueNewDescriptions.length
+    const duplicate = total - added
+
+    if (added === 0) {
+      setBatchSummary((prev) => ({ ...prev, [ksaType]: { total, added, duplicate } }))
+      setBatchAddInput("")
+      setBatchAddType(null)
+      return
+    }
+
+    // 计算该类型最大 level
+    const typePoints = ksaListData.filter((k) => k.title?.toUpperCase() === ksaType)
+    const maxLevel = typePoints.reduce((max, p) => Math.max(max, p.level || 0), 0)
+
+    // 构建 payload
+    const payload = [
+      ...ksaListData.map((k) => ({ id: k.id, title: k.title, description: k.description, level: k.level })),
+      ...uniqueNewDescriptions.map((desc, index) => ({
+        id: 0,
+        title: ksaType,
+        description: desc,
+        level: maxLevel + 1 + index,
+      })),
+    ]
+
+    setIsBatchAdding(true)
+    try {
+      const error = await saveAndReload(payload)
+      if (error) {
+        setBatchSummary((prev) => ({ ...prev, [ksaType]: { total, added: 0, duplicate: 0 } }))
+      } else {
+        setBatchSummary((prev) => ({ ...prev, [ksaType]: { total, added, duplicate } }))
+        setBatchAddInput("")
+        setBatchAddType(null)
+      }
+    } finally {
+      setIsBatchAdding(false)
+    }
+  }
+
   // 保存完整 KSA 列表到后端并重新加载
   const saveAndReload = async (ksas: Array<{ id: number; title: string; description: string; level: number }>) => {
     const majorIdNum = parseInt(String(majorId) || "0")
@@ -127,35 +208,9 @@ export function KsaDialog({
     return null
   }
 
-  const handleAddKsa = async (ksaType: string, filteredPoints: KsaItem[]) => {
-    if (!newRowDescription) {
-      alert("请填写描述")
-      return
-    }
-
-    // 计算该分类的最大level
-    const maxLevel = filteredPoints.reduce((max: number, point: any) => {
-      return Math.max(max, point.level || 1)
-    }, 0)
-
-    // 构建完整列表: 已有项 + 新增项(id=0)
-    const payload = [
-      ...ksaListData.map((k) => ({ id: k.id, title: k.title, description: k.description, level: k.level })),
-      { id: 0, title: ksaType, description: newRowDescription, level: maxLevel + 1 },
-    ]
-
-    const error = await saveAndReload(payload)
-    if (error) {
-      alert("新增失败: " + error)
-    } else {
-      setNewRowKsaType(null)
-      setNewRowDescription("")
-    }
-  }
-
   const handleUpdateKsa = async (ksaId: number) => {
     if (!editingDescription) {
-      alert("请填写描述")
+      showError("请填写描述")
       return
     }
 
@@ -169,7 +224,7 @@ export function KsaDialog({
 
     const error = await saveAndReload(payload)
     if (error) {
-      alert("更新失败: " + error)
+      showError("更新失败: " + error)
     } else {
       setEditingKsaId(null)
       setEditingDescription("")
@@ -177,8 +232,6 @@ export function KsaDialog({
   }
 
   const handleDeleteKsa = async (ksaId: number) => {
-    if (!confirm("确定删除此KSA吗？")) return
-
     // 构建完整列表: 将被删除项的 id 取负值
     const payload = ksaListData.map((k) => ({
       id: k.id === ksaId ? -Math.abs(k.id) : k.id,
@@ -188,9 +241,7 @@ export function KsaDialog({
     }))
 
     const error = await saveAndReload(payload)
-    if (error) {
-      alert("删除失败: " + error)
-    }
+    setDeletingKsaId(null)
   }
 
   const renderInfoPointList = (
@@ -219,59 +270,58 @@ export function KsaDialog({
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder={`搜索${title.split("（")[0]}...`}
-          disabled={editingKsaId !== null}
+          disabled={editingKsaId !== null || batchAddType === ksaType}
           className="flex-1 px-2 py-1.5 text-xs border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
         />
         <button
-          onClick={() => setNewRowKsaType(ksaType)}
-          disabled={editingKsaId !== null}
-          className="flex-shrink-0 p-1.5 rounded-md hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          title="新增"
+          onClick={() => {
+            setBatchAddType(batchAddType === ksaType ? null : ksaType)
+            setBatchAddInput("")
+          }}
+          disabled={editingKsaId !== null || isBatchAdding}
+          className={`flex-shrink-0 p-1.5 rounded-md ${bgClass} hover:opacity-80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+          title="批量新增"
         >
-          <Plus className="w-4 h-4 text-gray-600" />
+          <Plus className={`w-4 h-4 ${colorClass}`} />
         </button>
       </div>
 
-      {/* List - Scrollable */}
+      {/* Batch Add Area */}
+      {batchAddType === ksaType ? (
+        <div className="flex-1 flex flex-col min-h-0 px-3 pb-3 gap-2">
+          <Textarea
+            value={batchAddInput}
+            onChange={(e) => setBatchAddInput(e.target.value)}
+            placeholder={`请输入${title.split("（")[0]}描述，每行一个；支持换行符或英文分号分隔。`}
+            className="flex-1 resize-none text-xs border-0 shadow-none focus-visible:ring-0 p-0"
+            disabled={isBatchAdding}
+          />
+          <div className="flex items-center justify-end gap-2 flex-shrink-0">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setBatchAddInput("")
+                setBatchAddType(null)
+              }}
+              disabled={isBatchAdding}
+            >
+              返回列表
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => handleBatchAddKsa(ksaType)}
+              disabled={isBatchAdding || !batchAddInput.trim()}
+              >
+                {isBatchAdding ? <Spinner className="w-4 h-4" /> : null}
+                解析并新增
+              </Button>
+            </div>
+        </div>
+      ) : (
+      /* List - Scrollable */
       <div className="flex-1 overflow-y-auto min-h-0 bg-background">
         <div className="p-3 space-y-2">
-          {/* New Row */}
-          {newRowKsaType === ksaType && (
-            <div className="p-2 rounded-lg border border-blue-300 bg-blue-50">
-              <div className="flex items-start gap-2">
-                <textarea
-                  value={newRowDescription}
-                  onChange={(e) => setNewRowDescription(e.target.value)}
-                  placeholder="输入描述"
-                  className="flex-1 px-2 py-1 text-xs border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-                  rows={2}
-                  disabled={editingKsaId !== null}
-                />
-                <div className="flex flex-col gap-1 flex-shrink-0">
-                  <button
-                    onClick={() => handleAddKsa(ksaType, filteredPoints)}
-                    disabled={editingKsaId !== null}
-                    className="p-1 rounded hover:bg-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="保存"
-                  >
-                    <Check className="w-4 h-4 text-green-600" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setNewRowKsaType(null)
-                      setNewRowDescription("")
-                    }}
-                    disabled={editingKsaId !== null}
-                    className="p-1 rounded hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="取消"
-                  >
-                    <X className="w-4 h-4 text-gray-600" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* KSA points */}
           {filteredPoints.length > 0 ? (
             filteredPoints.map((point: any) => {
@@ -341,14 +391,36 @@ export function KsaDialog({
                             >
                               <Edit className="w-4 h-4 text-blue-600" />
                             </button>
-                            <button
-                              onClick={() => handleDeleteKsa(point.id)}
-                              disabled={editingKsaId !== null || newRowKsaType !== null}
-                              className="p-1 rounded hover:bg-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                              title="删除"
-                            >
-                              <Trash2 className="w-4 h-4 text-red-600" />
-                            </button>
+                            <div className="relative">
+                              <button
+                                onClick={() => setDeletingKsaId(point.id)}
+                                disabled={editingKsaId !== null || newRowKsaType !== null || deletingKsaId !== null}
+                                className="p-1 rounded hover:bg-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="删除"
+                              >
+                                <Trash2 className="w-4 h-4 text-red-600" />
+                              </button>
+                              {deletingKsaId === point.id && (
+                                <>
+                                  <div className="fixed inset-0 z-[9]" onClick={() => setDeletingKsaId(null)} />
+                                  <div className="absolute right-full top-1/2 -translate-y-1/2 mr-1 flex items-center gap-1 bg-white border border-border rounded-md shadow-md px-2 py-1 whitespace-nowrap z-10">
+                                  <span className="text-xs text-muted-foreground mr-1">确认删除{point.title}{point.level}?</span>
+                                  <button
+                                    onClick={() => handleDeleteKsa(point.id)}
+                                    className="p-0.5 rounded hover:bg-red-100 transition-colors"
+                                  >
+                                    <Check className="w-3.5 h-3.5 text-red-600" />
+                                  </button>
+                                  <button
+                                    onClick={() => setDeletingKsaId(null)}
+                                    className="p-0.5 rounded hover:bg-gray-100 transition-colors"
+                                  >
+                                    <X className="w-3.5 h-3.5 text-gray-500" />
+                                  </button>
+                                </div>
+                                </>
+                              )}
+                            </div>
                           </>
                         )
                       ) : (
@@ -359,8 +431,8 @@ export function KsaDialog({
                             className={cn(
                               "px-2 py-0.5 text-xs rounded border transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed",
                               support === "strong"
-                                ? `${borderClass} ${bgClass} ${colorClass} font-medium`
-                                : "border-gray-200 bg-white text-gray-400 hover:border-blue-200 hover:text-blue-500"
+                                ? "border-orange-300 bg-orange-100 text-orange-700 font-medium"
+                                : "border-gray-200 bg-gray-50 text-gray-400 hover:bg-gray-100"
                             )}
                           >
                             强支撑
@@ -371,8 +443,8 @@ export function KsaDialog({
                             className={cn(
                               "px-2 py-0.5 text-xs rounded border transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed",
                               support === "weak"
-                                ? `border-dashed ${borderClass} ${bgClass} ${colorClass} font-medium`
-                                : "border-gray-200 bg-white text-gray-400 hover:border-orange-200 hover:text-orange-500"
+                                ? "border-green-300 bg-green-100 text-green-700 font-medium"
+                                : "border-gray-200 bg-gray-50 text-gray-400 hover:bg-gray-100"
                             )}
                           >
                             弱支撑
@@ -391,6 +463,14 @@ export function KsaDialog({
           )}
         </div>
       </div>
+      )}
+      {/* Batch summary */}
+      {batchSummary[ksaType] && (
+        <div className={`px-3 py-2 text-xs flex-shrink-0 border-t ${batchSummary[ksaType].added > 0 ? "text-green-600" : "text-muted-foreground"}`}>
+          已解析{batchSummary[ksaType].added}个有效{KSA_TYPE_LABEL[ksaType] || "项"}
+          {batchSummary[ksaType].duplicate > 0 && `，${batchSummary[ksaType].duplicate}个重复已跳过`}
+        </div>
+      )}
     </div>
   )
 

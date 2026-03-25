@@ -855,8 +855,8 @@ export function MajorMatrix(props: MajorMatrixProps) {
                                       "px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer",
                                       "border hover:shadow-sm",
                                       supportLevel === "强支撑"
-                                        ? "bg-orange-500 text-white border-orange-500 shadow-sm"
-                                        : "bg-orange-50 text-orange-700 border-orange-200 hover:border-orange-400 hover:bg-orange-100",
+                                        ? "bg-orange-100 text-orange-700 border-orange-300"
+                                        : "bg-gray-50 text-gray-400 border-gray-200 hover:bg-gray-100",
                                     )}
                                   >
                                     强支撑
@@ -867,8 +867,8 @@ export function MajorMatrix(props: MajorMatrixProps) {
                                       "px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer",
                                       "border hover:shadow-sm",
                                       supportLevel === "弱支撑"
-                                        ? "bg-green-500 text-white border-green-500 shadow-sm"
-                                        : "bg-green-50 text-green-700 border-green-200 hover:border-green-400 hover:bg-green-100",
+                                        ? "bg-green-100 text-green-700 border-green-300"
+                                        : "bg-gray-50 text-gray-400 border-gray-200 hover:bg-gray-100",
                                     )}
                                   >
                                     弱支撑

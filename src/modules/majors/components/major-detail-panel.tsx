@@ -249,7 +249,7 @@ export function MajorDetail(props: MajorDetailProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isQuickCreateCourseOpen, setIsQuickCreateCourseOpen] = useState(false)
   const [isDeletingMajor, setIsDeletingMajor] = useState(false)
-  const [coursesRefreshKey] = useState(0)
+  const [coursesRefreshKey, setCoursesRefreshKey] = useState(0)
   const [selectedSemester, setSelectedSemester] = useState("2024-spring")
   const [semesters, setSemesters] = useState([
     { value: "2024-spring", label: "2024年春季学期" },
@@ -444,6 +444,8 @@ export function MajorDetail(props: MajorDetailProps) {
 
   // 课程创建成功后的回调，刷新课程列表
   const handleQuickCreateCourseSuccess = () => {
+    // 新增课程成功后，先局部刷新当前专业课程列表，确保右侧列表立即可见新课程
+    setCoursesRefreshKey((prev) => prev + 1)
     void onTreeRefresh?.()
   }
 

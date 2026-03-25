@@ -8,7 +8,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/shared/components/ui/tooltip"
 import { Button } from "@/shared/components/ui/button"
 import { SupportLabel } from "@/shared/components/support-label"
-import { LoadingState } from "@/shared/components/ui/loading-state"
+import { Empty, EmptyDescription, EmptyTitle } from "@/shared/components/ui/empty"
 import type {
   ProjectMatrixData,
   ProjectMatrixGoal,
@@ -56,11 +56,10 @@ export function ProjectMatrixTable({
 
   if (!projectMatrixData?.projects || projectMatrixData.projects.length === 0) {
     return (
-      <LoadingState
-        title="暂无项目数据"
-        description="项目矩阵数据加载中或暂无项目信息"
-        variant="card"
-      />
+      <Empty className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl min-h-[500px]">
+        <EmptyTitle>暂无项目数据</EmptyTitle>
+        <EmptyDescription>当前课程还没有项目矩阵内容，请先补充项目章节或任务目标。</EmptyDescription>
+      </Empty>
     )
   }
 

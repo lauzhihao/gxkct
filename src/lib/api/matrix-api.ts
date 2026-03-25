@@ -186,6 +186,11 @@ export interface KsaListResponse {
   }>
 }
 
+export interface ClearCourseMatrixResult {
+  deletedCourseMatrices: number
+  deletedPointMatrices: number
+}
+
 export class MatrixApi {
   private storage = new StorageAdapter()
   private http = new HttpAdapter()
@@ -287,6 +292,38 @@ export class MatrixApi {
       return {
         data: null,
         error: `保存课程矩阵失败: ${error instanceof Error ? error.message : String(error)}`,
+        status: 500,
+      }
+    }
+  }
+
+  async clearCourseMatrix(courseId: string): Promise<ApiResponse<ClearCourseMatrixResult | null>> {
+    try {
+      const endpoint = `/api/v5/matrix/course-matrix/${courseId}`
+      console.log("[clearCourseMatrix] 调用接口:", endpoint)
+
+      const response = await this.http.delete<ClearCourseMatrixResult>(endpoint)
+
+      if (response.error) {
+        console.error("[clearCourseMatrix] 接口调用失败:", response.error)
+        return {
+          data: null,
+          error: response.error,
+          status: response.status ?? 500,
+        }
+      }
+
+      console.log("[clearCourseMatrix] 接口调用成功")
+      return {
+        data: response.data === undefined ? null : response.data,
+        error: null,
+        status: 200,
+      }
+    } catch (error) {
+      console.error("[clearCourseMatrix] 异常:", error)
+      return {
+        data: null,
+        error: `清空课程矩阵失败: ${error instanceof Error ? error.message : String(error)}`,
         status: 500,
       }
     }

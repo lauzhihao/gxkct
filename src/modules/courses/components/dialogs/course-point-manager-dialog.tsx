@@ -184,7 +184,7 @@ export const CoursePointManagerDialog = () => {
               disabled={editingCoursePointId !== null || isDeletingCoursePoints || isSmartParsingCoursePoints || deletingCoursePointId !== null}
             >
               <Sparkles className="w-4 h-4" />
-              智能解析
+              批量新增
             </Button>
           </div>
         </div>

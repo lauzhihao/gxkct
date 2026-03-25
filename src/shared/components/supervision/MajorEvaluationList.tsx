@@ -19,9 +19,10 @@ interface MajorEvaluationListProps {
   deptName?: string
   onBack: () => void
   parentBreadcrumb?: ParentBreadcrumb
+  onSaveSuccess?: () => void
 }
 
-export function MajorEvaluationList({ task, deptId, deptName, onBack, parentBreadcrumb }: MajorEvaluationListProps) {
+export function MajorEvaluationList({ task, deptId, deptName, onBack, parentBreadcrumb, onSaveSuccess }: MajorEvaluationListProps) {
   const [majors, setMajors] = useState<DeptMajorEvaluationItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedMajor, setSelectedMajor] = useState<DeptMajorEvaluationItem | null>(null)
@@ -148,6 +149,7 @@ export function MajorEvaluationList({ task, deptId, deptName, onBack, parentBrea
         majorName={selectedMajor.majorName}
         onBack={handleBackFromCourseList}
         parentBreadcrumb={{ taskTitle: task.title, collegeName: parentBreadcrumb?.collegeName, deptName }}
+        onSaveSuccess={onSaveSuccess}
       />
     )
   }

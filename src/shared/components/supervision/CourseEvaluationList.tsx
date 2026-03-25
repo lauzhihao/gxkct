@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { BookOpen, ChevronRight } from "lucide-react"
 import { LoadingState } from "@/shared/components/ui/loading-state"
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/shared/components/ui/breadcrumb"
@@ -20,9 +20,10 @@ interface CourseEvaluationListProps {
   majorName?: string
   onBack: () => void
   parentBreadcrumb?: ParentBreadcrumb
+  onSaveSuccess?: () => void
 }
 
-export function CourseEvaluationList({ task, majorId, majorName, onBack, parentBreadcrumb }: CourseEvaluationListProps) {
+export function CourseEvaluationList({ task, majorId, majorName, onBack, parentBreadcrumb, onSaveSuccess }: CourseEvaluationListProps) {
   const [courses, setCourses] = useState<MajorCourseEvaluationItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedCourse, setSelectedCourse] = useState<MajorCourseEvaluationItem | null>(null)
@@ -30,42 +31,29 @@ export function CourseEvaluationList({ task, majorId, majorName, onBack, parentB
   const taskId = (task.taskId ?? task.id) as Long
 
   // 加载课程列表
-  useEffect(() => {
-    if (!taskId || !majorId) {
-      setIsLoading(false)
-      return
-    }
-
+  const loadCourses = useCallback(async () => {
+    if (!taskId || !majorId) return
     setIsLoading(true)
-    let cancelled = false
-
-    const loadCourses = async () => {
-      try {
-        const response = await courseTeachingTasksApi.getCoursesByTaskAndMajor(taskId, majorId)
-        if (!cancelled && response.data) {
-          setCourses(response.data)
-        }
-      } catch (error) {
-        if (!cancelled) {
-          console.error("加载课程列表失败:", error)
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false)
-        }
+    try {
+      const response = await courseTeachingTasksApi.getCoursesByTaskAndMajor(taskId, majorId)
+      if (response.data) {
+        setCourses(response.data)
       }
-    }
-
-    loadCourses()
-
-    return () => {
-      cancelled = true
+    } catch (error) {
+      console.error("加载课程列表失败:", error)
+    } finally {
+      setIsLoading(false)
     }
   }, [taskId, majorId])
 
-  // 处理返回
+  useEffect(() => {
+    loadCourses()
+  }, [loadCourses])
+
+  // 处理返回 — 退出评分详情并刷新列表
   const handleBackFromDetail = () => {
     setSelectedCourse(null)
+    loadCourses()
   }
 
   // 渲染面包屑导航
@@ -169,6 +157,7 @@ export function CourseEvaluationList({ task, majorId, majorName, onBack, parentB
         courseName={selectedCourse.courseName}
         onBack={handleBackFromDetail}
         breadcrumb={renderBreadcrumb()}
+        onSaveSuccess={onSaveSuccess}
       />
     )
   }

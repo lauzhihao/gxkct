@@ -670,6 +670,13 @@ function recalculateAllPanelPositionsVertical(elements: CanvasElementData[]): Ca
         totalGroupWidth += (groupSizes.length - 1) * HORIZONTAL_ITEM_GAP
       }
 
+      // 按 chapter_index 升序排列，确保不受后端并行返回顺序影响
+      groupSizes.sort((a, b) => {
+        const aIdx = (updatedElements[a.index].data as { chapter_index?: number }).chapter_index ?? 0
+        const bIdx = (updatedElements[b.index].data as { chapter_index?: number }).chapter_index ?? 0
+        return aIdx - bIdx
+      })
+
       // 根据 KSA_PANEL 底部 Handle 中心确定组起始 X
       let startX = anchor.x
       const ksaEl = updatedElements.find(el => el.type === CanvasComponentType.KSA_PANEL)
@@ -870,6 +877,13 @@ function recalculateAllPanelPositions(elements: CanvasElementData[]): CanvasElem
         totalGroupHeight += (groupSizes.length - 1) * HORIZONTAL_ITEM_GAP
       }
 
+      // 按 chapter_index 升序排列，确保不受后端并行返回顺序影响
+      groupSizes.sort((a, b) => {
+        const aIdx = (updatedElements[a.index].data as { chapter_index?: number }).chapter_index ?? 0
+        const bIdx = (updatedElements[b.index].data as { chapter_index?: number }).chapter_index ?? 0
+        return aIdx - bIdx
+      })
+
       // 根据 KSA_PANEL 右侧 Handle 中心确定组起始 Y
       let startY = baselineY
       const ksaEl = updatedElements.find(el => el.type === CanvasComponentType.KSA_PANEL)
@@ -998,6 +1012,11 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
       ? recalculateAllPanelPositionsVertical(currentElements)
       : recalculateAllPanelPositions(currentElements)
   }, [layoutMode])
+
+  // 触发全量重定位（供 SSE 结束后统一重排项目矩阵等场景）
+  const relayoutElements = useCallback(() => {
+    setElements(prev => recalculateAllByLayout(prev))
+  }, [recalculateAllByLayout])
 
   useEffect(() => {
     setElements(prev => recalculateAllByLayout(prev))
@@ -2015,20 +2034,29 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
                 height: dynamicHeight,
               }
 
-              // 基于最新状态计算位置（需要考虑新的动态高度）
-              const position = calculatePositionByLayout(component, prev, elementSize.height)
+              // SSE 流式阶段不做居中定位，堆叠在 KSA 面板正下方
+              // 等全部项目矩阵生成结束后，由外部调用 recalculateAllByLayout 统一重定位
+              const ksaPanel = prev.find(el => el.type === CanvasComponentType.KSA_PANEL)
+              let stackPosition: ElementPosition
+              if (ksaPanel) {
+                stackPosition = {
+                  x: ksaPanel.position.x,
+                  y: ksaPanel.position.y + (ksaPanel.size?.height || KSA_PANEL_FIXED_SIZE.height) + VERTICAL_STACK_GAP,
+                }
+              } else {
+                stackPosition = calculatePositionByLayout(component, prev, elementSize.height)
+              }
 
               const newElement: CanvasElementData = {
                 id: elementId,
                 type: component,
-                position,
+                position: stackPosition,
                 size: elementSize,
                 selected: false,
                 data: data as CanvasComponentData,
               }
 
               // 创建与 KSA 面板的连线
-              const ksaPanel = prev.find(el => el.type === CanvasComponentType.KSA_PANEL)
               if (ksaPanel) {
                 setTimeout(() => {
                   addEdge({
@@ -2549,5 +2577,7 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
     toFlowEdges,
     // 事件处理
     handleCanvasEvent,
+    // 布局重算（供 SSE 结束后统一重定位）
+    relayoutElements,
   }
 }

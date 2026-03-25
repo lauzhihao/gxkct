@@ -60,10 +60,47 @@ export function getCourseType(classId: number | null | undefined): string {
   return mapEnum(classId, COURSE_TYPE_MAP)
 }
 
+export function getCourseTypeId(courseType: string | null | undefined): number | undefined {
+  if (courseType === null || courseType === undefined) {
+    return undefined
+  }
+
+  const normalizedCourseType = courseType.trim()
+  if (normalizedCourseType.length === 0) {
+    return undefined
+  }
+
+  const matchedEntry = Object.entries(COURSE_TYPE_MAP).find(([, label]) => label === normalizedCourseType)
+  if (!matchedEntry) {
+    return undefined
+  }
+
+  return Number(matchedEntry[0])
+}
+
 /**
- * 课程性质映射
- * 注意：此映射需要从 course-types.json 动态加载
- * 这里提供一个工厂函数来创建映射
+ * 课程性质映射（typeId -> 课程性质名称）
+ */
+export const COURSE_NATURE_MAP: Record<number, string> = {
+  1: '通识教育课',
+  2: '学科基础课',
+  3: '专业课',
+  4: '集中实践教学环节',
+  5: '综合教育',
+}
+
+/**
+ * 获取课程性质文本
+ * @param typeId - 课程性质ID
+ * @returns 课程性质文本
+ */
+export function getCourseNature(typeId: number | null | undefined): string {
+  return mapEnum(typeId, COURSE_NATURE_MAP)
+}
+
+/**
+ * 课程性质映射（动态版本）
+ * 当需要从外部数据源加载映射时使用
  */
 export function createCourseNameMapper(courseTypesData: Array<{ id: number; name: string }>) {
   const mapping: Record<number, string> = {}

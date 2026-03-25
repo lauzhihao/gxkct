@@ -443,7 +443,7 @@ function KsaSelectionDialog({
                         className={`px-2 py-0.5 text-xs rounded border transition-all whitespace-nowrap ${
                           support === "strong"
                             ? "border-orange-300 bg-orange-100 text-orange-700 font-medium"
-                            : "border-gray-300 bg-white text-gray-500 hover:bg-gray-50"
+                            : "border-gray-200 bg-gray-50 text-gray-400 hover:bg-gray-100"
                         }`}
                         title="强支撑"
                       >
@@ -453,8 +453,8 @@ function KsaSelectionDialog({
                         onClick={() => handleToggleSupport(ksa.id, "weak")}
                         className={`px-2 py-0.5 text-xs rounded border transition-all whitespace-nowrap ${
                           support === "weak"
-                            ? "border-dashed border-green-300 bg-green-100 text-green-700 font-medium"
-                            : "border-gray-300 bg-white text-gray-500 hover:bg-gray-50"
+                            ? "border-green-300 bg-green-100 text-green-700 font-medium"
+                            : "border-gray-200 bg-gray-50 text-gray-400 hover:bg-gray-100"
                         }`}
                         title="弱支撑"
                       >

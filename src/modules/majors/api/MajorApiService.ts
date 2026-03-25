@@ -33,7 +33,7 @@ export interface CreateMajorRequest {
   upload: boolean
   professionsVOS: Array<{
     id: number
-    majorId: number
+    code: string
     task: string
     lang: number
   }>

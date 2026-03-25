@@ -211,6 +211,44 @@ export class WorkshopApi {
     }
   }
 
+  async deleteWorkshop(id: number): Promise<ApiResponse<null>> {
+    try {
+      const headers = buildAuthHeaders()
+      headers.set("Content-Type", "application/json")
+
+      const response = await fetch(buildApiUrl("/api/v3/manage/updateCollege"), {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ id, del: 1 }),
+      })
+
+      if (!response.ok) {
+        return {
+          data: null,
+          error: `HTTP ${response.status}: ${response.statusText}`,
+          status: response.status,
+        }
+      }
+
+      const backend = await parseBackendJson<null>(response)
+      if (!isSuccessCode(backend.code)) {
+        return {
+          data: null,
+          error: backend.message,
+          status: response.status,
+        }
+      }
+
+      return { data: null, error: null, status: response.status }
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : "删除工作坊失败",
+        status: 500,
+      }
+    }
+  }
+
   async createWorkshop(payload: CreateWorkshopPayload): Promise<ApiResponse<CreateWorkshopDownload | null>> {
     try {
       const headers = buildAuthHeaders()

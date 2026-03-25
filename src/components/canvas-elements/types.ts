@@ -230,6 +230,7 @@ export interface CourseMatrixCoursePoint {
   name: string
   level: "strong" | "weak"
   description?: string
+  originalMatrixId?: number
 }
 
 /**

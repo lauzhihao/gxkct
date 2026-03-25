@@ -93,7 +93,7 @@ export async function getProjectList(courseId: number): Promise<ProjectListItem[
 }
 
 export async function getProjectMatrix(courseId: number): Promise<ProjectMatrixItem[]> {
-  const url = withQuery("/api/beginreport/getprojectmatrix", { courseid: courseId })
+  const url = buildApiUrl(`/api/v5/matrix/project-matrix/${courseId}`)
   return requestJson<ProjectMatrixItem[]>(url, {
     method: "GET",
     headers: createHeaders(),

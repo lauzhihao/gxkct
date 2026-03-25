@@ -17,8 +17,16 @@ interface ProfessionPathItem {
 
 interface ProfessionVO {
   id: string | number
+  level?: string
   profession?: ProfessionPathItem[]
+  direction?: {
+    category1?: string
+    category2?: string
+    category3?: string
+    category4?: string
+  }
   task?: string
+  tasks?: string
 }
 
 interface RequirementIndicator {
@@ -113,6 +121,66 @@ export function MajorBasicInfo({ node }: MajorBasicInfoProps) {
     position: detailData?.position || "",
     requiresVOS: detailData?.requiresVOS || [],
   }
+
+  const hasCareerInfo = Boolean(metadata.careerLevel) || metadata.professionsVOS.length > 0
+  const hasCareerTrainingInfo = Boolean(metadata.demandType) || Boolean(metadata.demandArea) || Boolean(metadata.position)
+  const hasDetailContent =
+    Boolean(metadata.majorClass) ||
+    Boolean(metadata.feature) ||
+    hasCareerInfo ||
+    hasCareerTrainingInfo ||
+    metadata.requiresVOS.length > 0
+
+  const getProfessionPath = (professionVO: ProfessionVO) => {
+    const professionPathItems = Array.isArray(professionVO.profession)
+      ? professionVO.profession
+          .map((item) => item.name)
+          .filter((name): name is string => typeof name === "string" && name.trim() !== "")
+      : []
+
+    if (professionPathItems.length > 0) {
+      return professionPathItems.join(" / ")
+    }
+
+    const directionPathItems = [
+      professionVO.direction?.category1,
+      professionVO.direction?.category2,
+      professionVO.direction?.category3,
+      professionVO.direction?.category4,
+    ].filter((name): name is string => typeof name === "string" && name.trim() !== "")
+
+    if (directionPathItems.length > 0) {
+      return directionPathItems.join(" / ")
+    }
+
+    return "未设置"
+  }
+
+  const getProfessionCode = (professionVO: ProfessionVO) => {
+    if (!Array.isArray(professionVO.profession) || professionVO.profession.length === 0) {
+      return ""
+    }
+
+    const lastProfession = professionVO.profession[professionVO.profession.length - 1]
+    if (typeof lastProfession?.code !== "string") {
+      return ""
+    }
+
+    return lastProfession.code
+  }
+
+  const getProfessionTask = (professionVO: ProfessionVO) => {
+    if (typeof professionVO.task === "string" && professionVO.task.trim() !== "") {
+      return professionVO.task
+    }
+
+    if (typeof professionVO.tasks === "string" && professionVO.tasks.trim() !== "") {
+      return professionVO.tasks
+    }
+
+    return ""
+  }
+
   if (isLoading) {
     return <LoadingState title="加载中..." variant="card" />
   }
@@ -164,30 +232,95 @@ export function MajorBasicInfo({ node }: MajorBasicInfoProps) {
       </div>
 
       {/* Career Information Section */}
-      {metadata?.professionsVOS && metadata.professionsVOS.length > 0 && (
+      {hasCareerInfo && (
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
             <Briefcase className="w-5 h-5 text-primary" />
             职业信息
           </h3>
 
-          {/* 职业层次和需求信息 */}
-          {(metadata?.careerLevel || metadata?.demandType || metadata?.demandArea) && (
-            <div className="grid grid-cols-3 gap-4">
-              {metadata?.careerLevel && (
-                <div className="rounded-lg border border-border bg-card/50 p-4">
-                  <div className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
-                    职业层次
-                  </div>
-                  <div className="text-base font-semibold text-foreground">{metadata.careerLevel}</div>
+          {metadata?.careerLevel && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="rounded-lg border border-border bg-card/50 p-4">
+                <div className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                  职业层次
                 </div>
-              )}
+                <div className="text-base font-semibold text-foreground">{metadata.careerLevel}</div>
+              </div>
+            </div>
+          )}
+
+          {metadata.professionsVOS.length > 0 && (
+            <div className="space-y-3">
+              {metadata.professionsVOS.map((professionVO: ProfessionVO, index: number) => {
+                const professionPath = getProfessionPath(professionVO)
+                const professionCode = getProfessionCode(professionVO)
+                const professionTask = getProfessionTask(professionVO)
+
+                return (
+                  <div key={professionVO.id} className="rounded-lg border border-border bg-card/50 p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-foreground">职业方向 {index + 1}</span>
+                      {professionCode ? (
+                        <span className="px-3 py-1 rounded-full bg-accent/20 border border-accent/30 text-xs font-medium text-primary">
+                          {professionCode}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <div className="space-y-2">
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-1 flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                          职业方向
+                        </div>
+                        <div className="text-sm text-foreground font-medium">{professionPath}</div>
+                      </div>
+
+                      {typeof professionVO.level === "string" && professionVO.level.trim() !== "" ? (
+                        <div>
+                          <div className="text-xs text-muted-foreground mb-1 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                            职业级别
+                          </div>
+                          <div className="text-sm text-foreground leading-relaxed">{professionVO.level}</div>
+                        </div>
+                      ) : null}
+
+                      {professionTask ? (
+                        <div>
+                          <div className="text-xs text-muted-foreground mb-1 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                            工作任务
+                          </div>
+                          <div className="text-sm text-foreground leading-relaxed whitespace-pre-line">{professionTask}</div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Career Training Information Section */}
+      {hasCareerTrainingInfo && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+            <Award className="w-5 h-5 text-primary" />
+            职业培养信息
+          </h3>
+
+          {(metadata?.demandType || metadata?.demandArea) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {metadata?.demandType && (
                 <div className="rounded-lg border border-border bg-card/50 p-4">
                   <div className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
-                    需求类型
+                    需求状况
                   </div>
                   <div className="text-base font-semibold text-foreground">{metadata.demandType}</div>
                 </div>
@@ -204,65 +337,15 @@ export function MajorBasicInfo({ node }: MajorBasicInfoProps) {
             </div>
           )}
 
-          {/* 职业方向列表 */}
-          <div className="space-y-3">
-            {metadata.professionsVOS.map((professionVO: ProfessionVO, index: number) => {
-              const professionPath = professionVO.profession
-                ?.map((p: ProfessionPathItem) => p.name)
-                .join(" / ") || "未设置"
-
-              return (
-                <div key={professionVO.id} className="rounded-lg border border-border bg-card/50 p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-foreground">职业方向 {index + 1}</span>
-                    {professionVO.profession && professionVO.profession.length > 0 && (
-                      <span className="px-3 py-1 rounded-full bg-accent/20 border border-accent/30 text-xs font-medium text-primary">
-                        {professionVO.profession[professionVO.profession.length - 1]?.code || ""}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-1 flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
-                        职业方向
-                      </div>
-                      <div className="text-sm text-foreground font-medium">{professionPath}</div>
-                    </div>
-
-                    {professionVO.task && (
-                      <div>
-                        <div className="text-xs text-muted-foreground mb-1 flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
-                          工作任务
-                        </div>
-                        <div className="text-sm text-foreground leading-relaxed whitespace-pre-line">{professionVO.task}</div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Training Information Section */}
-      {metadata?.position && (
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-            <Award className="w-5 h-5 text-primary" />
-            培养信息
-          </h3>
-
-          <div className="rounded-lg border border-border bg-card/50 p-4">
-            <div className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
-              培养定位
+          {metadata?.position && (
+            <div className="rounded-lg border border-border bg-card/50 p-4">
+              <div className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                培养定位
+              </div>
+              <div className="text-sm text-foreground leading-relaxed whitespace-pre-line">{metadata.position}</div>
             </div>
-            <div className="text-sm text-foreground leading-relaxed">{metadata.position}</div>
-          </div>
+          )}
         </div>
       )}
 
@@ -309,11 +392,7 @@ export function MajorBasicInfo({ node }: MajorBasicInfoProps) {
       )}
 
       {/* Show message if no detailed data */}
-      {!metadata?.majorClass &&
-        !metadata?.feature &&
-        (!metadata?.professionsVOS || metadata.professionsVOS.length === 0) &&
-        !metadata?.position &&
-        (!metadata?.requiresVOS || metadata.requiresVOS.length === 0) && (
+      {!hasDetailContent && (
           <div className="text-center py-12 text-muted-foreground">
             <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
             <p className="text-sm mb-2">暂无详细信息</p>

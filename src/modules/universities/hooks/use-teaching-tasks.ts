@@ -8,6 +8,7 @@ type TeachingTaskInput = Omit<TeachingSupervisoryTask, "id" | "createdAt" | "upd
 interface UseTeachingTasksResult {
   tasks: TeachingSupervisoryTask[]
   isLoading: boolean
+  refetch: () => Promise<void>
   createTask: (taskData: TeachingTaskInput) => Promise<TeachingSupervisoryTask | null>
   updateTask: (task: TeachingSupervisoryTask) => Promise<TeachingSupervisoryTask | null>
   autoSaveTask: (task: TeachingSupervisoryTask) => Promise<void>
@@ -19,23 +20,23 @@ export function useTeachingTasks(universityId: Long): UseTeachingTasksResult {
   const [tasks, setTasks] = useState<TeachingSupervisoryTask[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        setIsLoading(true)
-        const response = await api.teachingTasks.getTasks(universityId, {
-          includeCriteria: true,
-        })
-        if (response.data) {
-          setTasks(response.data)
-        }
-      } finally {
-        setIsLoading(false)
+  const fetchTasks = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      const response = await api.teachingTasks.getTasks(universityId, {
+        includeCriteria: true,
+      })
+      if (response.data) {
+        setTasks(response.data)
       }
+    } finally {
+      setIsLoading(false)
     }
-
-    fetchTasks()
   }, [universityId])
+
+  useEffect(() => {
+    fetchTasks()
+  }, [fetchTasks])
 
   const updateTaskState = useCallback((updated: TeachingSupervisoryTask) => {
     setTasks((prev) => prev.map((task) => (task.id === updated.id ? updated : task)))
@@ -108,6 +109,7 @@ export function useTeachingTasks(universityId: Long): UseTeachingTasksResult {
   return {
     tasks,
     isLoading,
+    refetch: fetchTasks,
     createTask,
     updateTask,
     autoSaveTask,

@@ -10,7 +10,6 @@ import { AiCanvasPanel } from "./ai-canvas-panel"
 import {
   CanvasAction,
   CanvasComponentType,
-  ProgressEventMessage,
   ProcessingEventMessage,
   StatusEventMessage,
   ObjectiveCardData,
@@ -308,6 +307,7 @@ export function AiAssistantDrawer({
     clearSpecialComponents,
     loadCanvasData,
     handleCanvasEvent,
+    relayoutElements,
     flowNodes,
     toFlowEdges,
   } = useCanvasElements(layoutMode)
@@ -770,7 +770,8 @@ export function AiAssistantDrawer({
     payload: Partial<Omit<AIRequestPayload, 'sessionId' | 'messages' | 'canvasOssKey'>>
     onBeforeRequest?: () => Promise<void> | void
     onComplete?: () => void
-    onProgress?: (progress: ProgressEventMessage) => void
+    /** 指定当前请求对应的面板类型，processing 事件将直接路由到该面板 */
+    fillProgressType?: FillProgressType
     skipInitCheck?: boolean
   }
 
@@ -997,27 +998,15 @@ export function AiAssistantDrawer({
           const progressLine = `[${progress.current}/${progress.total}] ${progress.message}`
           thinkingState.latest = progressLine
           setStreamingThinking(progressLine)
-          updateStreamingIndicator("processing", progress.message)
-          // 调用自定义进度回调
-          config.onProgress?.(progress)
         },
         onProcessingEvent: (event) => {
           thinkingState.mode = "latest"
           thinkingState.latest = event.message
           setStreamingThinking(event.message)
           updateStreamingIndicator("processing", formatProcessingIndicator(event))
-          // 处理 processing 事件（加载进度文案）
-          if (event.stage === 'generating' && event.message) {
-            // 根据 message 内容判断更新哪个面板的 fillProgress
-            if (event.message.includes('课点')) {
-              updateFillProgress('coursePoints', event.message)
-            } else if (event.message.includes('KSA') || event.message.includes('知识') || event.message.includes('技能') || event.message.includes('态度')) {
-              updateFillProgress('ksa', event.message)
-            } else if (event.message.includes('矩阵')) {
-              updateFillProgress('matrix', event.message)
-            } else if (event.message.includes('项目')) {
-              updateFillProgress('projectMatrix', event.message)
-            }
+          // 直接将 processing 消息路由到指定面板，保持与聊天区文字同步
+          if (event.stage === 'generating' && event.message && config.fillProgressType) {
+            updateFillProgress(config.fillProgressType, event.message)
           }
         },
         onModeEvent: (modeEvent) => {
@@ -1052,6 +1041,9 @@ export function AiAssistantDrawer({
 
       // [MOD] 清除本次 SSE 创建的元素 loading 状态
       clearLinkedElementLoading()
+
+      // SSE 结束后统一重定位画布元素（项目矩阵在流式阶段不做居中，此处统一重排）
+      relayoutElements()
 
       // 执行完成回调
       config.onComplete?.()
@@ -1090,7 +1082,7 @@ export function AiAssistantDrawer({
 
       console.error(`[${config.logPrefix}] 失败:`, error)
     }
-  }, [isRegenerating, streamingMessageId, isInitialized, sessionId, handleCanvasEvent, processStream, resetSSEController, forceCanvasUpload, waitForCanvasStateFlush, updateCanvasData, updateFillProgress, updateStreamingIndicator, markStreamingContentStarted])
+  }, [isRegenerating, streamingMessageId, isInitialized, sessionId, handleCanvasEvent, processStream, resetSSEController, forceCanvasUpload, waitForCanvasStateFlush, updateCanvasData, updateFillProgress, updateStreamingIndicator, markStreamingContentStarted, relayoutElements])
 
   // 处理章节项目面板自动填充请求
   // [MOD] 增加 userPrompt 参数，支持重做时传入用户提示词
@@ -1119,6 +1111,9 @@ export function AiAssistantDrawer({
         ...(targetPanelId && { target_panel_id: targetPanelId }),
       },
       onBeforeRequest: () => {
+        if (targetPanelId) {
+          selectCanvasElement(targetPanelId)
+        }
         // 清空章节面板子节点（填充前必须清空，否则原有内容会传到后台）
         if (chapterPanel) {
           console.log("[填充章节项目] 清空章节面板:", chapterPanel.id)
@@ -1161,6 +1156,9 @@ export function AiAssistantDrawer({
         ...(targetPanelId && { target_panel_id: targetPanelId }),
       },
       onBeforeRequest: () => {
+        if (targetPanelId) {
+          selectCanvasElement(targetPanelId)
+        }
         // 清空教学目标面板子节点（填充前必须清空，否则原有内容会传到后台）
         if (objectivePanel) {
           console.log("[填充教学目标] 清空教学目标面板:", objectivePanel.id)
@@ -1194,9 +1192,12 @@ export function AiAssistantDrawer({
       color_config: colorConfig,
     })
 
+    // 选中重做目标组件
+    selectCanvasElement(nodeId)
+
     // 聚焦输入框
     textareaRef.current?.focus()
-  }, [])
+  }, [selectCanvasElement])
 
   // 处理课程矩阵自动填充请求
   // [MOD] 添加可选参数 targetMatrixId，支持重做时指定目标矩阵
@@ -1222,7 +1223,11 @@ export function AiAssistantDrawer({
         fill_course_matrix: true,
         ...(targetMatrixId && { target_matrix_id: targetMatrixId }),
       },
+      fillProgressType: 'matrix',
       onBeforeRequest: () => {
+        if (targetMatrixId) {
+          selectCanvasElement(targetMatrixId)
+        }
         // 清空课程矩阵数据（填充前必须清空，否则原有内容会传到后台）
         if (courseMatrix) {
           console.log("[填充课程矩阵] 清空课程矩阵:", courseMatrix.id)
@@ -1234,9 +1239,6 @@ export function AiAssistantDrawer({
           console.log("[填充课程矩阵] 重生成模式，清空 specialComponents")
           clearSpecialComponents()
         }
-      },
-      onProgress: (progress) => {
-        updateFillProgress('matrix', progress.message)
       },
       onComplete: () => {
         updateFillProgress('matrix', null)
@@ -1274,15 +1276,16 @@ export function AiAssistantDrawer({
         fill_project_matrix: true,
         ...(targetMatrixId && { target_matrix_id: targetMatrixId }),
       },
+      fillProgressType: 'projectMatrix',
       onBeforeRequest: () => {
+        if (targetMatrixId) {
+          selectCanvasElement(targetMatrixId)
+        }
         // 清空项目矩阵数据（填充前必须清空，否则原有内容会传到后台）
         if (projectMatrix) {
           console.log("[填充项目矩阵] 清空项目矩阵:", projectMatrix.id)
           updateCanvasElementData(projectMatrix.id, { rows: [] })
         }
-      },
-      onProgress: (progress) => {
-        updateFillProgress('projectMatrix', progress.message)
       },
       onComplete: () => {
         updateFillProgress('projectMatrix', null)
@@ -1322,6 +1325,9 @@ export function AiAssistantDrawer({
         target_course_info_id: courseInfoId,
       },
       skipInitCheck: true,
+      onBeforeRequest: () => {
+        selectCanvasElement(courseInfoId)
+      },
       onComplete: () => {
         // 选中课程信息卡片
         selectCanvasElement(courseInfoId)
@@ -1355,15 +1361,16 @@ export function AiAssistantDrawer({
         fill_course_point_panel: true,
         ...(targetPanelId && { target_panel_id: targetPanelId }),
       },
+      fillProgressType: 'coursePoints',
       onBeforeRequest: () => {
+        if (targetPanelId) {
+          selectCanvasElement(targetPanelId)
+        }
         // 清空课点面板子节点（填充前必须清空，否则原有内容会传到后台）
         if (coursePointPanel) {
           console.log("[填充课点信息] 清空课点面板:", coursePointPanel.id)
           updateCanvasPanelChildren(coursePointPanel.id, CanvasComponentType.COURSE_POINT_PANEL, CanvasComponentType.COURSE_POINT_CARD, [])
         }
-      },
-      onProgress: (progress) => {
-        updateFillProgress('coursePoints', progress.message)
       },
       onComplete: () => {
         updateFillProgress('coursePoints', null)
@@ -1402,15 +1409,16 @@ export function AiAssistantDrawer({
         fill_ksa_panel: true,
         ...(targetPanelId && { target_panel_id: targetPanelId }),
       },
+      fillProgressType: 'ksa',
       onBeforeRequest: () => {
+        if (targetPanelId) {
+          selectCanvasElement(targetPanelId)
+        }
         // 清空KSA面板子节点（填充前必须清空，否则原有内容会传到后台）
         if (ksaPanel) {
           console.log("[填充KSA] 清空KSA面板:", ksaPanel.id)
           updateCanvasPanelChildren(ksaPanel.id, CanvasComponentType.KSA_PANEL, CanvasComponentType.KSA_ITEM, [])
         }
-      },
-      onProgress: (progress) => {
-        updateFillProgress('ksa', progress.message)
       },
       onComplete: () => {
         updateFillProgress('ksa', null)
@@ -1494,6 +1502,8 @@ export function AiAssistantDrawer({
       const displayRegeneratePrompt = userPrompt || regenerateInstruction
       const targetId = regenerateTag.component_id
       const componentType = regenerateTag.component_type
+
+      selectCanvasElement(targetId)
 
       // 清空标签和输入框
       setRegenerateTag(null)
@@ -1765,24 +1775,23 @@ export function AiAssistantDrawer({
           const progressLine = `[${progress.current}/${progress.total}] ${progress.message}`
           thinkingState.latest = progressLine
           setStreamingThinking(progressLine)
-          updateStreamingIndicator("processing", progress.message)
         },
         onProcessingEvent: (event) => {
           thinkingState.mode = "latest"
           thinkingState.latest = event.message
           setStreamingThinking(event.message)
           updateStreamingIndicator("processing", formatProcessingIndicator(event))
-          // 处理 processing 事件（加载进度文案）
+          // 根据 detail.action 前缀路由到对应面板，保持与聊天区文字同步
           if (event.stage === 'generating' && event.message) {
-            // 根据 message 内容判断更新哪个面板的 fillProgress
-            if (event.message.includes('课点')) {
+            const action = event.detail?.action || ''
+            if (action.startsWith('course_points_')) {
               updateFillProgress('coursePoints', event.message)
-            } else if (event.message.includes('KSA') || event.message.includes('知识') || event.message.includes('技能') || event.message.includes('态度')) {
+            } else if (action.startsWith('ksa_')) {
               updateFillProgress('ksa', event.message)
-            } else if (event.message.includes('矩阵')) {
-              updateFillProgress('matrix', event.message)
-            } else if (event.message.includes('项目')) {
+            } else if (action.startsWith('project_matrix_')) {
               updateFillProgress('projectMatrix', event.message)
+            } else if (action.startsWith('course_matrix_') || action.startsWith('matrix_')) {
+              updateFillProgress('matrix', event.message)
             }
           }
         },
@@ -1836,6 +1845,8 @@ export function AiAssistantDrawer({
       setStreamingText('')
       // [MOD] 清除本次 SSE 创建的元素 loading 状态
       clearLinkedElementLoading()
+      // SSE 结束后统一重定位画布元素（项目矩阵在流式阶段不做居中，此处统一重排）
+      relayoutElements()
       // 不清空思考内容，保留显示"思考完毕"状态
     } catch (error) {
       // AbortError 已在 processStream 内部处理并抛出，这里需要捕获
@@ -1864,7 +1875,7 @@ export function AiAssistantDrawer({
       // [MOD] 错误时也清除 loading 状态
       clearLinkedElementLoading()
     }
-  }, [inputMessage, isInitialized, sessionId, regenerateTag, attachedFiles, uploadFileToOss, handleCanvasEvent, processStream, resetSSEController, handleFillCoursePoints, handleFillKsa, handleFillChapterPanel, handleFillObjectivePanel, handleFillCourseMatrix, handleFillProjectMatrix, handleFillCourseInfo, clearAttachedFiles, forceCanvasUpload, waitForCanvasStateFlush, updateCanvasData, updateFillProgress, updateStreamingIndicator, markStreamingContentStarted])
+  }, [inputMessage, isInitialized, sessionId, regenerateTag, attachedFiles, uploadFileToOss, handleCanvasEvent, processStream, resetSSEController, handleFillCoursePoints, handleFillKsa, handleFillChapterPanel, handleFillObjectivePanel, handleFillCourseMatrix, handleFillProjectMatrix, handleFillCourseInfo, clearAttachedFiles, forceCanvasUpload, waitForCanvasStateFlush, updateCanvasData, updateFillProgress, updateStreamingIndicator, markStreamingContentStarted, selectCanvasElement, relayoutElements])
 
   // 连接菜单处理器
   const handleConnectionMenuSelect = useMemo(
@@ -2157,6 +2168,10 @@ export function AiAssistantDrawer({
                           data: obj as ObjectiveCardData,
                         }))
                       )
+                    }}
+                    onCourseMatrixUpdate={(nodeId, matrixData) => {
+                      // 更新课程矩阵节点数据，确保画布展示与保存数据源同步
+                      updateCanvasElementData(nodeId, matrixData)
                     }}
                     onProjectMatrixUpdate={(nodeId, matrixData) => {
                       // 更新项目矩阵节点数据

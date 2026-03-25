@@ -1,12 +1,24 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Building2 } from "lucide-react"
+import { Trash2 } from "lucide-react"
 import { workshopApi } from "@/lib/api/workshop-api"
 import type { WorkshopListItem } from "@/types/workshop"
 import { Button } from "@/shared/components/ui/button"
 import { Spinner } from "@/shared/components/ui/spinner"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/components/ui/tooltip"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/shared/components/ui/alert-dialog"
+import { useToast } from "@/shared/hooks/use-toast"
 
 interface WorkshopListViewProps {
   searchKeyword: string
@@ -35,6 +47,7 @@ function extractNumber(value: number | string | null): number {
 }
 
 export function WorkshopListView({ searchKeyword, refreshToken }: WorkshopListViewProps) {
+  const { toast } = useToast()
   const [workshops, setWorkshops] = useState<WorkshopListItem[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
@@ -59,6 +72,16 @@ export function WorkshopListView({ searchKeyword, refreshToken }: WorkshopListVi
   useEffect(() => {
     void loadWorkshops()
   }, [loadWorkshops, refreshToken])
+
+  const handleDelete = useCallback(async (id: number) => {
+    const response = await workshopApi.deleteWorkshop(id)
+    if (response.error) {
+      toast({ variant: "destructive", description: response.error })
+      return
+    }
+    setWorkshops((prev) => prev.filter((w) => w.id !== id))
+    toast({ description: "已删除工作坊" })
+  }, [toast])
 
   const filteredWorkshops = useMemo(() => {
     const keyword = searchKeyword.trim()
@@ -108,14 +131,36 @@ export function WorkshopListView({ searchKeyword, refreshToken }: WorkshopListVi
                   <div className="min-w-0">
                     <h3 className="text-base font-semibold text-foreground truncate">{workshop.name}</h3>
                   </div>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button type="button" className="inline-flex" aria-label={`查看工作坊ID ${workshop.id}`}>
-                        <Building2 className="w-5 h-5 text-primary flex-shrink-0" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">ID: {workshop.id}</TooltipContent>
-                  </Tooltip>
+                  <AlertDialog>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            type="button"
+                            className="inline-flex rounded-md p-0.5 transition-colors"
+                            aria-label={`删除工作坊 ${workshop.name}`}
+                          >
+                            <Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" />
+                          </button>
+                        </AlertDialogTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">删除</TooltipContent>
+                    </Tooltip>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>确认删除</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            确定要删除工作坊「{workshop.name}」吗？此操作不可撤销。
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>取消</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => void handleDelete(workshop.id)}>
+                            确认删除
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                  </AlertDialog>
                 </div>
 
                 <div className="mt-4 grid grid-cols-3 gap-2 text-center">

@@ -13,7 +13,7 @@ import type { EvaluationLevel, Long } from "@/types"
 import { courseTeachingTasksApi, type CourseEvaluationDetailResponse, type EvaluationItemDetail, type CourseEvaluationSubmitDTO, type EvaluationTypeSubmit } from "@/modules/courses/api/courseTeachingTasksApi"
 import { formatDate } from "@/shared/utils/date-utils"
 import { CourseResourcePickerDialog, type PickedResource } from "@/modules/courses/components/dialogs/course-resource-picker-dialog"
-import { showError } from "@/shared/utils/toast-utils"
+import { showError, showSuccess } from "@/shared/utils/toast-utils"
 
 interface EvaluationDetailProps {
   taskId: Long
@@ -21,6 +21,7 @@ interface EvaluationDetailProps {
   courseName?: string
   onBack: () => void
   breadcrumb?: React.ReactNode
+  onSaveSuccess?: () => void
 }
 
 interface ScoreItem {
@@ -31,7 +32,7 @@ interface ScoreItem {
 // 评价视图类型
 type EvaluationViewType = "self" | "dept" | "school"
 
-export function EvaluationDetail({ taskId, courseId, onBack, breadcrumb }: EvaluationDetailProps) {
+export function EvaluationDetail({ taskId, courseId, onBack, breadcrumb, onSaveSuccess }: EvaluationDetailProps) {
   const [evaluationDetail, setEvaluationDetail] = useState<CourseEvaluationDetailResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   // 按视图类型分开存储评分数据
@@ -420,32 +421,12 @@ export function EvaluationDetail({ taskId, courseId, onBack, breadcrumb }: Evalu
     try {
       const response = await courseTeachingTasksApi.submitEvaluation(taskId, courseId, submitDTO)
       if (response.data) {
-        console.log("保存成功:", response.data)
-
-        // 保存成功后重新获取最新的评价详情数据
-        const detailResponse = await courseTeachingTasksApi.getEvaluationDetail(taskId, courseId)
-        if (detailResponse.data) {
-          setEvaluationDetail(detailResponse.data)
-
-          const selfData = extractEvaluationData(detailResponse.data.items, "self")
-          const deptData = extractEvaluationData(detailResponse.data.items, "dept")
-          const schoolData = extractEvaluationData(detailResponse.data.items, "school")
-
-          setScoresByType({
-            self: selfData.scores,
-            dept: deptData.scores,
-            school: schoolData.scores
-          })
-          setMaterialsByType({
-            self: selfData.materials,
-            dept: deptData.materials,
-            school: schoolData.materials
-          })
-        }
-
+        showSuccess("评分保存成功")
+        onSaveSuccess?.()
+        onBack()
         return true
       } else if (response.error) {
-        console.error("保存失败:", response.error)
+        showError("保存失败")
         return false
       }
       return false

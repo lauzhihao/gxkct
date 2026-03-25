@@ -193,20 +193,20 @@ function CoursePointSelectionDialog({
                   <div className="flex items-center gap-2 ml-3">
                     <button
                       onClick={() => handleToggle(cp.id, "strong")}
-                      className={`px-2 py-1 text-xs rounded transition-colors ${
+                      className={`px-2 py-1 text-xs rounded border transition-colors ${
                         localSelections[cp.id] === "strong"
-                          ? "bg-orange-500 text-white"
-                          : "bg-orange-100 text-orange-700 hover:bg-orange-200"
+                          ? "bg-orange-100 text-orange-700 border-orange-300"
+                          : "bg-gray-50 text-gray-400 border-gray-200 hover:bg-gray-100"
                       }`}
                     >
                       强支撑
                     </button>
                     <button
                       onClick={() => handleToggle(cp.id, "weak")}
-                      className={`px-2 py-1 text-xs rounded transition-colors ${
+                      className={`px-2 py-1 text-xs rounded border transition-colors ${
                         localSelections[cp.id] === "weak"
-                          ? "bg-green-500 text-white"
-                          : "bg-green-100 text-green-700 hover:bg-green-200"
+                          ? "bg-green-100 text-green-700 border-green-300"
+                          : "bg-gray-50 text-gray-400 border-gray-200 hover:bg-gray-100"
                       }`}
                     >
                       弱支撑

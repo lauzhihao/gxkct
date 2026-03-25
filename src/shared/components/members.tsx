@@ -463,14 +463,16 @@ export function Members({ node }: MembersProps) {
       const isCourseTeacher = newUserRole === "任课教师"
       const requiresRelativeNode = isDepartmentAdmin || isMajorAdmin || isCourseTeacher
 
-      if (isDepartmentAdmin && !selectedDepartment) {
-        console.error("[Members] department selection is required")
-        return
-      }
+      if (nodeType === "university") {
+        if (isDepartmentAdmin && !selectedDepartment) {
+          console.error("[Members] department selection is required")
+          return
+        }
 
-      if ((isMajorAdmin || isCourseTeacher) && (!selectedDepartment || !selectedMajor)) {
-        console.error("[Members] department and major selections are required")
-        return
+        if ((isMajorAdmin || isCourseTeacher) && (!selectedDepartment || !selectedMajor)) {
+          console.error("[Members] department and major selections are required")
+          return
+        }
       }
 
       const relativeId =

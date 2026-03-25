@@ -338,26 +338,23 @@ export function useProcessedNodes({
         }
       }
 
-      if (STATIC_CARD_NODE_TYPES.has(nodeType)) {
-        return node
-      }
-
       const isHighlighted = highlightState.highlightedIds.has(node.id)
       const isNodeDeleting = deletingNodeIds.has(node.id)
       const isUpdating = updatingPanelIds.has(node.id)
       // 判断是否为子节点（有 parentId 表示是 Panel 内的子卡片）
       const isChildNode = !!node.parentId
 
-      // 计算是否显示 loading 遮罩
-      // [MOD] 子节点不显示全局重做 loading，由父 Panel 的遮罩提供视觉反馈
-      const showLoading = isChildNode
-        ? (isNodeDeleting || isUpdating)
-        : (isNodeDeleting || isUpdating || isRegenerating)
-
       // [MOD] 当父 Panel loading 时，禁用子节点的交互（pointer-events: none）
-      // 这样不需要给子节点渲染 loading 效果，避免 CPU 开销
+      // 子卡片与父 Panel 在 React Flow 中是兄弟节点，父级遮罩无法直接覆盖子卡片
+      // 因此这里需要把父 Panel 的 loading 状态透传到子卡片自身，才能实现整体遮罩
       const isParentPanelLoading = isChildNode && node.parentId &&
         (updatingPanelIds.has(node.parentId) || deletingNodeIds.has(node.parentId) || isRegenerating)
+
+      // 计算是否显示 loading 遮罩
+      const showLoading = isChildNode
+        ? (isNodeDeleting || isUpdating || isParentPanelLoading)
+        : (isNodeDeleting || isUpdating || isRegenerating)
+
       // 子节点在父 Panel loading 时禁用交互
       const childDisabledStyle = isParentPanelLoading
         ? { pointerEvents: 'none' as const, opacity: 0.6 }
@@ -377,6 +374,17 @@ export function useProcessedNodes({
           ? (nodeId: string) => onNodeRegenerate(nodeId, canvasComponentType, getNodeDisplayName(node))
           : undefined,
         isRefreshing: isRegenerating,
+      }
+
+      if (STATIC_CARD_NODE_TYPES.has(nodeType)) {
+        return {
+          ...node,
+          ...(childDisabledStyle && { style: { ...node.style, ...childDisabledStyle } }),
+          data: {
+            ...node.data,
+            ...baseInjection,
+          },
+        }
       }
 
       // 根据节点类型注入不同的属性

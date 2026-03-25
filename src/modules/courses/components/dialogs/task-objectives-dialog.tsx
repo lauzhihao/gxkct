@@ -7,6 +7,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { Plus, Check, X, Edit, Trash2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/shared/components/ui/dialog"
+import { Popover, PopoverTrigger, PopoverContent } from "@/shared/components/ui/popover"
 import { Button } from "@/shared/components/ui/button"
 import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 import { projectTeachGoalApi } from "@/modules/courses/api/projectTeachGoalApi"
@@ -54,6 +55,8 @@ export function TaskObjectivesDialog({
   const [isSaving, setIsSaving] = useState(false)
   // 编辑中的 product 字段
   const [editingProduct, setEditingProduct] = useState("")
+  // 删除确认气泡控制
+  const [deletingGoalId, setDeletingGoalId] = useState<string | null>(null)
 
   const projectId = selectedProjectForTasks ? parseInt(selectedProjectForTasks) : null
 
@@ -110,7 +113,7 @@ export function TaskObjectivesDialog({
     setIsSaving(false)
 
     if (result.error) {
-      alert("保存失败: " + result.error)
+      console.error("saveToServer failed:", result.error)
       return false
     }
     return true
@@ -179,7 +182,7 @@ export function TaskObjectivesDialog({
       product: "",
     }
 
-    const updated = [newGoal, ...localGoals]
+    const updated = [...localGoals, newGoal]
     setLocalGoals(updated)
     setEditingTaskId("0")
     setNewTaskObjective("")
@@ -217,8 +220,7 @@ export function TaskObjectivesDialog({
       return
     }
 
-    if (!confirm("确定删除此任务目标吗？")) return
-
+    setDeletingGoalId(null)
     const remaining = localGoals.filter((g) => g.id !== goal.id)
     const newDeleted = [...deletedGoals, goal]
     setLocalGoals(remaining)
@@ -267,14 +269,14 @@ export function TaskObjectivesDialog({
                 })
                 .map((goal, idx) => {
                   const goalKey = goal.id === 0 ? `new-${idx}` : String(goal.id)
-                  const isEditing = editingTaskId === String(goal.id) || (goal.id === 0 && editingTaskId === "0" && idx === 0)
+                  const isEditing = editingTaskId === String(goal.id) || (goal.id === 0 && editingTaskId === "0")
 
                   return (
                     <div
                       key={goalKey}
-                      className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-secondary/30 transition-colors"
+                      className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-secondary/30 transition-colors"
                     >
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-medium text-primary mt-0.5">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-medium text-primary">
                         {idx + 1}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -301,7 +303,7 @@ export function TaskObjectivesDialog({
                                 rows={3}
                               />
                             </div>
-                            <div className="flex gap-1">
+                            <div className="flex gap-1 justify-end">
                               <button
                                 onClick={() => handleSaveGoal(goal)}
                                 disabled={isSaving}
@@ -324,7 +326,6 @@ export function TaskObjectivesDialog({
                             <div className="text-sm text-foreground font-medium">{goal.description || "未设置"}</div>
                             {goal.product && (
                               <div className="text-xs text-muted-foreground">
-                                <span className="font-medium">测量评价标准: </span>
                                 {goal.product}
                               </div>
                             )}
@@ -341,14 +342,41 @@ export function TaskObjectivesDialog({
                           >
                             <Edit className="w-4 h-4 text-muted-foreground hover:text-foreground" />
                           </button>
-                          <button
-                            onClick={() => handleDeleteGoal(goal)}
-                            disabled={isSaving}
-                            className="p-1.5 rounded hover:bg-secondary transition-colors disabled:opacity-50"
-                            title="删除"
+                          <Popover
+                            open={deletingGoalId === goalKey}
+                            onOpenChange={(open) => setDeletingGoalId(open ? goalKey : null)}
                           >
-                            <Trash2 className="w-4 h-4 text-muted-foreground hover:text-red-600" />
-                          </button>
+                            <PopoverTrigger asChild>
+                              <button
+                                disabled={isSaving}
+                                className="p-1.5 rounded hover:bg-secondary transition-colors disabled:opacity-50"
+                                title="删除"
+                              >
+                                <Trash2 className="w-4 h-4 text-muted-foreground hover:text-red-600" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent side="top" align="end" className="w-auto p-3">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-foreground whitespace-nowrap">
+                                  确认删除{goal.description ? `「${goal.description}」` : "此目标"}？
+                                </span>
+                                <button
+                                  onClick={() => handleDeleteGoal(goal)}
+                                  className="p-1.5 rounded hover:bg-green-100 transition-colors"
+                                  title="确认删除"
+                                >
+                                  <Check className="w-4 h-4 text-green-600" />
+                                </button>
+                                <button
+                                  onClick={() => setDeletingGoalId(null)}
+                                  className="p-1.5 rounded hover:bg-red-100 transition-colors"
+                                  title="取消"
+                                >
+                                  <X className="w-4 h-4 text-red-600" />
+                                </button>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
                         </div>
                       )}
                     </div>

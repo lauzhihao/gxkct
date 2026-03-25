@@ -26,6 +26,7 @@ import { CourseThreeLevelMatrix } from "@/modules/courses/components/course/matr
 import { TeachingObjectivesEditor } from "@/modules/courses/components/shared/teaching-objectives-editor"
 import type { TeachingObjectiveFilterData } from "@/modules/courses/model/course-matrix"
 import { getCourseCache } from "@/shared/utils/course-cache"
+import { getCourseTypeId } from "@/shared/utils/data-transform"
 import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
 import { useAiCanvasStore } from "@/shared/stores/ai-canvas-store"
 import { useCourseEditPermission } from "@/modules/courses/hooks/use-course-edit-permission"
@@ -44,6 +45,7 @@ type CourseTabKey = keyof typeof COURSE_TABS
 const DEFAULT_COURSE_TAB: CourseTabKey = "info"
 
 interface CourseFormMetadata {
+  courseType?: string
   courseNatureId?: number
   introduction?: string | null
   theoryPeriod?: number
@@ -407,8 +409,9 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
       // 构建保存请求数据
       const courseId = courseNode.id ? parseInt(courseNode.id, 10) : 0
       const majorId = courseDetailData?.courseDetailData?.course?.majorId || 0
-      const classId = courseDetailData?.courseDetailData?.course?.classId || 1
-      const typeId = courseData.metadata?.courseNatureId || courseDetailData?.courseDetailData?.course?.typeId || 1
+      const submittedClassId = getCourseTypeId(courseData.metadata?.courseType)
+      const classId = submittedClassId ?? courseDetailData?.courseDetailData?.course?.classId ?? 1
+      const typeId = courseData.metadata?.courseNatureId ?? courseDetailData?.courseDetailData?.course?.typeId ?? 1
       const normalizeChapterId = (value: unknown): number | null => {
         const parsed = Number.parseInt(String(value ?? ""), 10)
         return Number.isFinite(parsed) ? parsed : null

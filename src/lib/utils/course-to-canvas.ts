@@ -30,6 +30,7 @@ import {
 } from "@/components/canvas-elements/types"
 import { generateEdgeId } from "@/components/flow/utils/layout"
 import { CANVAS_LAYOUT_POSITION_CONFIG } from "@/components/flow/utils/canvas-layout"
+import { getCourseType, getCourseNature } from "@/shared/utils/data-transform"
 
 // ============ 布局常量 ============
 
@@ -90,6 +91,7 @@ function dedupeCourseMatrixCoursePoints(
       id: normalizedId || existing.id,
       level: existing.level === "strong" || coursePoint.level === "strong" ? "strong" : "weak",
       description: existing.description || coursePoint.description,
+      originalMatrixId: existing.originalMatrixId || coursePoint.originalMatrixId,
     })
   })
 
@@ -419,8 +421,10 @@ function createCourseInfoElement(
       practicePeriod: course.practicePeriod,
       courseId: course.id,
       majorId: course.majorId,
-      // 课程性质和开课日期
+      // 课程类型（必修/选修）和课程性质
+      courseType: getCourseType(course.classId),
       courseNatureId: course.typeId,
+      courseNatureName: getCourseNature(course.typeId),
       openingDate: course.createTime,
       // 扩展字段
       teachingClass: course.teachingClass,
@@ -870,6 +874,7 @@ function convertCourseMatrixToCanvasData(
           name: item.point.title,
           level: item.relate.relate === 0 ? "strong" : "weak",
           description: item.point.description,
+          originalMatrixId: item.id,
         })
         objectiveGroups.set(objInfo.id, points)
       }
@@ -1147,6 +1152,9 @@ function convertProjectMatrixToCanvasData(
       rows,
     }
   })
+
+  // 按 chapter_index 升序排列，确保不受后端并行返回顺序影响
+  results.sort((a, b) => a.chapter_index - b.chapter_index)
 
   return results
 }

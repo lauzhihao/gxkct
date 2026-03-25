@@ -44,6 +44,7 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
   const {
     tasks,
     isLoading,
+    refetch,
     createTask,
     updateTask: updateTaskRecord,
     autoSaveTask,
@@ -243,6 +244,7 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
             setSelectedTask(null)
             setPageState("list")
           }}
+          onSaveSuccess={refetch}
         />
       </div>
     )

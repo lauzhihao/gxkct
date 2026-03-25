@@ -8,7 +8,7 @@ import {
   type UpdateCurrentDepartmentPayload,
   type UpdateCurrentDepartmentResult,
 } from "./user-api"
-import { MatrixApi, type CourseMatrix, type ProjectMatrix, type MajorMatrixData, type CourseMatrixItem, type CourseMatrixResponse, type CourseMatrixSavePayload, type CourseMatrixProject } from "./matrix-api"
+import { MatrixApi, type CourseMatrix, type ProjectMatrix, type MajorMatrixData, type CourseMatrixItem, type CourseMatrixResponse, type CourseMatrixSavePayload, type CourseMatrixProject, type ClearCourseMatrixResult } from "./matrix-api"
 import {
   ResourceApi,
   type ResourceFolder,
@@ -88,6 +88,7 @@ export type {
   CourseMatrixSavePayload,
   CourseMatrixProject,
   CourseMatrixResponse,
+  ClearCourseMatrixResult,
   ResourceFolder,
   ResourceObjectSummary,
   ResourceObjectDetail,

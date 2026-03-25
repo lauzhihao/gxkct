@@ -88,6 +88,7 @@ export const CoursePointPanelNode = memo(function CoursePointPanelNode({
       showLeftHandle={true}
       childCount={data.childCount}
       onAdd={handleAdd}
+      emptyStateDescription="您现在可以点击加号图标来完成课点设计"
       onEdit={handleEdit}
       onDelete={handleDelete}
       onRefresh={handleRefresh}

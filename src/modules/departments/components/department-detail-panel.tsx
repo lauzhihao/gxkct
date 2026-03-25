@@ -2,6 +2,8 @@
 
 import { GraduationCap, Pencil, Plus } from "lucide-react"
 import { extractNumericId } from "@/shared/utils/utils"
+import { api } from "@/lib/api"
+import { useToast } from "@/shared/hooks/use-toast"
 import { Button } from "@/shared/components/ui/button"
 import {
   Dialog,
@@ -44,12 +46,14 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
   const [newDeptDirector, setNewDeptDirector] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isQuickCreateMajorOpen, setIsQuickCreateMajorOpen] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   // 用于创建专业后自动填充搜索框
   const [majorSearchFilter, setMajorSearchFilter] = useState<string | undefined>(undefined)
   // 用于触发重新获取专业列表
   const [refreshMajorsKey, setRefreshMajorsKey] = useState(0)
   const { setActivePage } = useActivePageTracker()
   const { can } = usePermission()
+  const { toast } = useToast()
 
   useEffect(() => {
     if (!node) return
@@ -71,19 +75,41 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
     setIsDialogOpen(true)
   }
 
-  const handleSaveDepartment = () => {
+  const handleSaveDepartment = async () => {
     if (!can(EDIT_DEPARTMENT_ACTION, { scope: "college" })) return
-    if (!newDeptName.trim() || !onUpdateNode || !node) return
+    if (!newDeptName.trim() || !node) return
+    if (!node.parentId) {
+      toast({ title: "保存失败", description: "无法获取所属学校信息", variant: "destructive" })
+      return
+    }
 
-    onUpdateNode(node.nodeId, {
-      nodeName: newDeptName,
-      description: newDeptDesc || undefined,
-    })
+    setIsSaving(true)
+    try {
+      const response = await api.tree.updateDepartment(node.nodeId, node.parentId, newDeptName.trim())
 
-    setNewDeptName("")
-    setNewDeptDesc("")
-    setNewDeptDirector("")
-    setIsDialogOpen(false)
+      if (response.error) {
+        toast({ title: "保存失败", description: response.error, variant: "destructive" })
+        return
+      }
+
+      onUpdateNode?.(node.nodeId, {
+        nodeName: newDeptName,
+        description: newDeptDesc || undefined,
+      })
+
+      toast({ title: "保存成功", description: `院系"${newDeptName}"已更新` })
+
+      setNewDeptName("")
+      setNewDeptDesc("")
+      setNewDeptDirector("")
+      setIsDialogOpen(false)
+
+      await Promise.resolve(onTreeRefresh?.())
+    } catch (error) {
+      toast({ title: "保存失败", description: String(error), variant: "destructive" })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleQuickCreateMajor = (data: { name: string; directors: Array<{ name: string }> }) => {
@@ -224,9 +250,9 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit" className="gap-2" onClick={handleSaveDepartment} disabled={!newDeptName.trim()}>
+            <Button type="submit" className="gap-2" onClick={handleSaveDepartment} disabled={!newDeptName.trim() || isSaving}>
               <Pencil className="w-4 h-4" />
-              保存修改
+              {isSaving ? "保存中..." : "保存修改"}
             </Button>
           </DialogFooter>
         </DialogContent>

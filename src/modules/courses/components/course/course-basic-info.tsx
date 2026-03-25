@@ -2,7 +2,7 @@
 import { useMemo, type ReactNode } from "react"
 import { Calendar, BookOpen, FileText, Clock, Tag, Square, Check } from "lucide-react"
 import { formatDate } from "@/shared/utils/date-utils"
-import { getCourseType } from "@/shared/utils/data-transform"
+import { getCourseType, getCourseNature } from "@/shared/utils/data-transform"
 import { SectionCard, SectionHeader, Divider } from "@/shared/components/design-system"
 import { SafeRichTextContent } from "@/shared/components/ui/safe-rich-text-content"
 import { Button } from "@/shared/components/ui/button"
@@ -96,7 +96,8 @@ export function CourseBasicInfo({
   courseEditable = false,
   onOpenCourseSyllabus,
 }: CourseBasicInfoProps) {
-  const courseTypeName = useMemo(() => getCourseType(courseDetail?.typeId), [courseDetail?.typeId])
+  // typeId 是课程性质（通识教育课/学科基础课等），不是课程类型（必修/选修）
+  const courseNatureName = useMemo(() => getCourseNature(courseDetail?.typeId), [courseDetail?.typeId])
 
   return (
     <SectionCard>
@@ -134,7 +135,7 @@ export function CourseBasicInfo({
             <Tag className="w-3 h-3" />
             <span>课程性质</span>
           </div>
-          <div className="text-base font-medium text-foreground">{courseTypeName}</div>
+          <div className="text-base font-medium text-foreground">{courseNatureName}</div>
         </div>
 
         {/* 理论学时 */}

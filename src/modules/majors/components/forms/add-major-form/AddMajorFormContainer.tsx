@@ -27,12 +27,20 @@ import { AddMajorFormView } from "./AddMajorFormView"
 
 interface MajorDetailProfessionItem {
   name?: string
+  code?: string
 }
 
 interface MajorDetailProfessionVO {
   id?: number
   profession?: MajorDetailProfessionItem[]
   task?: string
+}
+
+interface ProfessionPayloadSnapshot {
+  id: number
+  code: string
+  task: string
+  lang: number
 }
 
 interface MajorDetailRequireChild {
@@ -128,6 +136,7 @@ export function AddMajorFormContainer({
   // 加载状态
   const [isLoadingDetail, setIsLoadingDetail] = useState(false)
   const [hasUploadedRequirements, setHasUploadedRequirements] = useState(false)
+  const [initialProfessionSnapshots, setInitialProfessionSnapshots] = useState<ProfessionPayloadSnapshot[]>([])
   const hasLoadedDetailRef = useRef(false)
   const {
     setMajorCode,
@@ -172,6 +181,30 @@ export function AddMajorFormContainer({
       indicators: requireVO.children?.map((child) => child.description ?? "") ?? [""],
       indicatorIds: requireVO.children?.map((child) => child.id) ?? [0],
     }))
+  }
+
+  const resolveOccupationCodeFromDirection = (careerInfoItem: { direction: {
+    category1: string
+    category2: string
+    category3: string
+    category4: string
+  } }): string | null => {
+    const { category1, category2, category3, category4 } = careerInfoItem.direction
+
+    if (!category1 || !category2 || !category3 || !category4) {
+      return null
+    }
+
+    const cat1 = worksData.find((item) => item.label === category1)
+    const cat2 = cat1?.children?.find((item) => item.label === category2)
+    const cat3 = cat2?.children?.find((item) => item.label === category3)
+    const cat4 = cat3?.children?.find((item) => item.label === category4)
+
+    if (typeof cat4?.value !== "string" || cat4.value.trim() === "") {
+      return null
+    }
+
+    return cat4.value
   }
 
   const handleDownloadGraduationTemplate = async () => {
@@ -290,6 +323,29 @@ export function AddMajorFormContainer({
 
           // 更新职业信息
           if (detailData.professionsVOS && detailData.professionsVOS.length > 0) {
+            const professionSnapshots = detailData.professionsVOS
+              .map((professionVO) => {
+                const professionCode = professionVO.profession?.[professionVO.profession.length - 1]?.code
+                if (
+                  typeof professionVO.id !== "number" ||
+                  professionVO.id <= 0 ||
+                  typeof professionCode !== "string" ||
+                  professionCode.trim() === ""
+                ) {
+                  return null
+                }
+
+                return {
+                  id: professionVO.id,
+                  code: professionCode,
+                  task: professionVO.task ?? "",
+                  lang: 0,
+                }
+              })
+              .filter((item): item is ProfessionPayloadSnapshot => item !== null)
+
+            setInitialProfessionSnapshots(professionSnapshots)
+
             const careerInfoList = detailData.professionsVOS.map((professionVO, index: number) => ({
               id: String(professionVO.id ?? index + 1),
               level: "中级",
@@ -302,6 +358,8 @@ export function AddMajorFormContainer({
               tasks: professionVO.task ?? "",
             }))
             setCareerInfoList(careerInfoList)
+          } else {
+            setInitialProfessionSnapshots([])
           }
 
           // 更新毕业要求
@@ -510,6 +568,47 @@ export function AddMajorFormContainer({
           throw new Error("院系ID无效，已阻止保存以避免写入 departmentId=0")
         }
 
+        const initialProfessionSnapshotMap = new Map(
+          initialProfessionSnapshots.map((snapshot) => [snapshot.id, snapshot] as const)
+        )
+
+        const currentProfessionsVOS = careerInfo.careerInfoList
+          .map((careerInfoItem) => {
+            const parsedCareerInfoId = toInteger(careerInfoItem.id)
+            const persistedSnapshot =
+              parsedCareerInfoId === null ? undefined : initialProfessionSnapshotMap.get(parsedCareerInfoId)
+            const resolvedCode = resolveOccupationCodeFromDirection(careerInfoItem) ?? persistedSnapshot?.code
+
+            if (!resolvedCode) {
+              return null
+            }
+
+            return {
+              id: persistedSnapshot ? persistedSnapshot.id : 0,
+              code: resolvedCode,
+              task: careerInfoItem.tasks,
+              lang: persistedSnapshot?.lang ?? 0,
+            }
+          })
+          .filter((item): item is CreateMajorRequest["professionsVOS"][number] => item !== null)
+
+        const retainedProfessionIds = new Set(
+          currentProfessionsVOS
+            .filter((profession) => profession.id > 0)
+            .map((profession) => profession.id)
+        )
+
+        const deletedProfessionsVOS = initialProfessionSnapshots
+          .filter((snapshot) => !retainedProfessionIds.has(snapshot.id))
+          .map((snapshot) => ({
+            id: -snapshot.id,
+            code: snapshot.code,
+            task: snapshot.task,
+            lang: snapshot.lang,
+          }))
+
+        const mergedProfessionsVOS = [...currentProfessionsVOS, ...deletedProfessionsVOS]
+
         const apiRequestData = {
           id: parsedMajorId,
           departmentId: parsedDepartmentId,
@@ -524,12 +623,7 @@ export function AddMajorFormContainer({
           position: formState.position,
           requiresVOS: mergedRequiresVOS,
           upload: hasUploadedRequirements,
-          professionsVOS: professionsVOS.map((p) => ({
-            id: p.id,
-            majorId: parsedMajorId,
-            task: p.task,
-            lang: 0,
-          })),
+          professionsVOS: mergedProfessionsVOS,
         }
 
         const response = await majorApiService.createMajor(apiRequestData)

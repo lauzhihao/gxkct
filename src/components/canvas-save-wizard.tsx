@@ -29,14 +29,15 @@ import type {
 } from "./canvas-elements/types"
 import { CanvasComponentType } from "./canvas-elements/types"
 import { CourseDetailApi, type SaveCourseUnitRequest } from "@/lib/api/course-detail-api"
-import { api, type CourseGoal } from "@/lib/api"
+import { api, type CourseGoal, type Project as ApiProject } from "@/lib/api"
 import type { CoursePoint as ApiCoursePoint } from "@/lib/api/course-points-api"
 import type { KsaListResponse } from "@/lib/api/matrix-api"
 import { getStoredAuthUser } from "@/lib/api/auth-config"
+import { getCourseTypeId } from "@/shared/utils/data-transform"
 
 // ============ 常量定义 ============
 const SUCCESS_DIALOG_CLOSE_DELAY_MS = 1500
-const DEFAULT_CLASS_ID = 0
+const DEFAULT_CLASS_ID = 1
 const DEFAULT_COURSE_TYPE_ID = 1
 const NEW_RECORD_ID = 0
 
@@ -181,6 +182,19 @@ function normalizeScoreTableField(value: unknown): SaveCourseUnitRequest["course
   }
 }
 
+function normalizePositiveNumber(value: string | number | null | undefined): number {
+  if (typeof value === "number") {
+    return Number.isFinite(value) && value > 0 ? value : 0
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number.parseInt(value, 10)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+  }
+
+  return 0
+}
+
 // ============ 类型定义 ============
 /** 课程列表数据结构（API 响应） */
 interface CourseItem {
@@ -242,6 +256,11 @@ interface CourseMatrixPayloadItem {
     week: string
     period: string
   }>
+}
+
+interface MatrixCoursePointResolution {
+  currentPoint: CoursePointCardData
+  latestPoint: CoursePointCardData
 }
 
 /**
@@ -1038,10 +1057,6 @@ export function CanvasSaveWizard({
   const syncCoursePointOriginalIds = useCallback((latestPoints: ApiCoursePoint[] | null | undefined): CoursePointCardData[] => {
     const availablePoints = Array.isArray(latestPoints) ? [...latestPoints] : []
     return coursePoints.map((point) => {
-      if (point.originalId != null) {
-        return point
-      }
-
       const matchedIndex = availablePoints.findIndex((item) => (
         item.title.trim() === point.name.trim() && item.description.trim() === (point.description || "").trim()
       ))
@@ -1149,6 +1164,7 @@ export function CanvasSaveWizard({
   // 保存课程单元基本信息
   const saveCourseUnit = useCallback(async (courseId: number, majorIdNum: number): Promise<void> => {
     const metadata = courseInfo?.metadata || {}
+    const resolvedClassId = getCourseTypeId(metadata.courseType)
     const normalizedIntroduction = normalizeNullableStringField("introduction", metadata.introduction)
     const normalizedTeachingClass = normalizeOptionalStringField("teachingClass", metadata.teachingClass)
     const normalizedTeachingLocation = normalizeOptionalStringField("teachingLocation", metadata.teachingLocation)
@@ -1174,8 +1190,8 @@ export function CanvasSaveWizard({
       course: {
         id: courseId,
         majorId: majorIdNum,
-        classId: DEFAULT_CLASS_ID,
-        typeId: metadata.courseNatureId || DEFAULT_COURSE_TYPE_ID,
+        classId: resolvedClassId ?? DEFAULT_CLASS_ID,
+        typeId: metadata.courseNatureId ?? DEFAULT_COURSE_TYPE_ID,
         name: courseInfo?.name || "未命名课程",
         introduction: normalizedIntroduction,
         criterion: null,
@@ -1212,40 +1228,17 @@ export function CanvasSaveWizard({
     }
   }, [courseInfo])
 
-  // 保存课点数据
-  const saveCoursePoints = useCallback(async (courseId: number, majorId: number): Promise<void> => {
-    const latestCoursePointsResponse = await api.coursePoints.getCoursePoints(majorId, courseId)
-    if (latestCoursePointsResponse.error) {
-      throw new Error(latestCoursePointsResponse.error)
-    }
+  // 保存课点数据（覆盖式重建，确保课程矩阵使用最新课点ID）
+  const saveCoursePoints = useCallback(async (courseId: number, majorId: number): Promise<CoursePointCardData[]> => {
+    const payload = coursePoints.map((point) => ({
+      id: NEW_RECORD_ID,
+      title: typeof point.name === "string" ? point.name : "",
+      description: typeof point.description === "string" ? point.description : "",
+    }))
 
-    const serverPoints = latestCoursePointsResponse.data || []
-    const currentOriginalIds = new Set(
-      coursePoints
-        .map((point) => point.originalId)
-        .filter((pointId): pointId is number => typeof pointId === "number")
-    )
-
-    const payload = [
-      ...coursePoints.map((point) => ({
-        id: point.originalId ?? NEW_RECORD_ID,
-        title: typeof point.name === "string" ? point.name : "",
-        description: typeof point.description === "string" ? point.description : "",
-      })),
-      ...serverPoints
-        .filter((point) => !currentOriginalIds.has(point.id))
-        .map((point) => ({
-          id: -Math.abs(point.id),
-          title: point.title,
-          description: point.description,
-        })),
-    ]
-
-    if (payload.length > 0) {
-      const saveResponse = await api.coursePoints.saveCoursePoints(majorId, courseId, payload)
-      if (saveResponse.error) {
-        throw new Error(saveResponse.error)
-      }
+    const saveResponse = await api.coursePoints.saveCoursePoints(majorId, courseId, payload, true)
+    if (saveResponse.error) {
+      throw new Error(saveResponse.error)
     }
 
     const refreshedCoursePointsResponse = await api.coursePoints.getCoursePoints(majorId, courseId)
@@ -1256,6 +1249,7 @@ export function CanvasSaveWizard({
     const syncedCoursePoints = syncCoursePointOriginalIds(refreshedCoursePointsResponse.data)
     onUpdateCourseInfo?.({ courseId, majorId, coursePoints: syncedCoursePoints })
     console.log("[CanvasSaveWizard] 课点保存成功, 数量:", payload.length)
+    return syncedCoursePoints
   }, [coursePoints, onUpdateCourseInfo, syncCoursePointOriginalIds])
 
   const saveKsaItems = useCallback(async (courseId: number, majorId: number): Promise<void> => {
@@ -1313,17 +1307,30 @@ export function CanvasSaveWizard({
   // [MOD] 构建课程矩阵的 project 数据
   const buildMatrixProject = useCallback((
     row: CourseMatrixData["rows"][number],
-    courseId: number
+    courseId: number,
+    serverProjects: ApiProject[]
   ) => {
     const chapterCard = chapters.find(ch => ch.id === row.chapter_id)
+    const chapterOriginalId = typeof chapterCard?.originalId === "number" ? chapterCard.originalId : undefined
+    const matchedServerProject = chapterOriginalId && chapterOriginalId > 0
+      ? serverProjects.find((project) => normalizePositiveNumber(project.id) === chapterOriginalId)
+      : serverProjects.find((project) => (
+          normalizePositiveNumber(project.indexNo) === row.chapter_index
+          && project.name === row.chapter_name
+        )) ?? serverProjects.find((project) => project.name === row.chapter_name)
+
+    const resolvedProjectId = chapterOriginalId && chapterOriginalId > 0
+      ? chapterOriginalId
+      : normalizePositiveNumber(matchedServerProject?.id)
+
     return {
-      id: chapterCard?.originalId ?? 0,
-      uniqueCode: "",
+      id: resolvedProjectId,
+      uniqueCode: matchedServerProject?.uniqueCode ?? "",
       courseUnitId: courseId,
       name: row.chapter_name,
-      product: "",
-      theoryPeriod: chapterCard?.theory_hours?.toString() || "0",
-      practicePeriod: chapterCard?.practice_hours?.toString() || "0",
+      product: matchedServerProject?.product ?? "",
+      theoryPeriod: chapterCard?.theory_hours?.toString() || matchedServerProject?.theoryPeriod || "0",
+      practicePeriod: chapterCard?.practice_hours?.toString() || matchedServerProject?.practicePeriod || "0",
       indexNo: row.chapter_index,
     }
   }, [chapters])
@@ -1331,9 +1338,10 @@ export function CanvasSaveWizard({
   // [MOD] 构建课程矩阵的 data 数组
   const buildMatrixDataItems = useCallback((
     row: CourseMatrixData["rows"][number],
-    courseId: number
+    courseId: number,
+    projectId: number,
+    resolveMatrixCoursePoint: (matrixCoursePoint: CourseMatrixData["rows"][number]["supports"][number]["course_points"][number]) => MatrixCoursePointResolution | null
   ): CourseMatrixPayloadItem["data"] => {
-    const chapterCard = chapters.find(ch => ch.id === row.chapter_id)
     const items: CourseMatrixPayloadItem["data"] = []
     row.supports.forEach((support) => {
       // 从 courseMatrixData.objectives 或 support 自身查找 originalGraduateRequireId
@@ -1343,15 +1351,32 @@ export function CanvasSaveWizard({
       const graduateRequireId = support.originalGraduateRequireId ?? objOriginalId ?? 0
 
       support.course_points.forEach((cp) => {
+        const resolvedCoursePoint = resolveMatrixCoursePoint(cp)
+        if (!resolvedCoursePoint) {
+          console.warn("[CanvasSaveWizard] skip unmapped course matrix point", {
+            pointId: cp.id,
+            pointName: cp.name,
+          })
+          return
+        }
+
+        const latestOriginalId = typeof resolvedCoursePoint.latestPoint.originalId === "number"
+          ? resolvedCoursePoint.latestPoint.originalId
+          : 0
+
+        if (latestOriginalId <= 0) {
+          throw new Error(`课点 ${resolvedCoursePoint.latestPoint.name} 缺少服务端ID，无法重建课程矩阵`)
+        }
+
         items.push({
           id: NEW_RECORD_ID,
           courseUnitId: courseId,
-          projectId: chapterCard?.originalId ?? 0,
+          projectId,
           graduateRequireId,
           point: {
-            id: parseInt(cp.id, 10) || 0,
-            title: cp.name,
-            description: cp.description || "",
+            id: latestOriginalId,
+            title: resolvedCoursePoint.latestPoint.name,
+            description: resolvedCoursePoint.latestPoint.description || "",
           },
           relate: {
             name: cp.level === "strong" ? "强支撑" : "弱支撑",
@@ -1367,20 +1392,77 @@ export function CanvasSaveWizard({
       })
     })
     return items
-  }, [chapters, courseMatrixData])
+  }, [courseMatrixData])
 
-  // 保存课程矩阵数据
-  const saveCourseMatrix = useCallback(async (courseId: number): Promise<void> => {
-    if (!courseMatrixData?.rows?.length) return
+  // 保存课程矩阵数据（先清空服务端旧矩阵，再按画布最新状态重建）
+  const saveCourseMatrix = useCallback(async (courseId: number, latestCoursePoints: CoursePointCardData[]): Promise<void> => {
+    const serverProjectResponse = await api.projectTeachGoal.getProjectTeachGoal(String(courseId))
+    if (serverProjectResponse.error || !serverProjectResponse.data) {
+      throw new Error(serverProjectResponse.error || "获取当前课程项目列表失败，无法更新课程矩阵")
+    }
 
-    const payload = courseMatrixData.rows.map((row) => ({
-      project: buildMatrixProject(row, courseId),
-      data: buildMatrixDataItems(row, courseId),
-    }))
+    const serverProjects = Array.isArray(serverProjectResponse.data.projects) ? serverProjectResponse.data.projects : []
 
-    await api.matrices.updateCourseMatrix(String(courseId), payload as CourseMatrixPayloadItem[])
-    console.log("[CanvasSaveWizard] 课程矩阵保存成功, 章节数量:", payload.length)
-  }, [courseMatrixData, buildMatrixProject, buildMatrixDataItems])
+    const currentCoursePointsByCanvasId = new Map(coursePoints.map((point) => [point.id, point] as const))
+    const currentCoursePointsByOriginalId = new Map(
+      coursePoints
+        .filter((point): point is CoursePointCardData & { originalId: number } => typeof point.originalId === "number" && point.originalId > 0)
+        .map((point) => [point.originalId, point] as const)
+    )
+    const latestCoursePointsByCanvasId = new Map(latestCoursePoints.map((point) => [point.id, point] as const))
+
+    const resolveMatrixCoursePoint = (
+      matrixCoursePoint: CourseMatrixData["rows"][number]["supports"][number]["course_points"][number]
+    ): MatrixCoursePointResolution | null => {
+      const directCurrentPoint = currentCoursePointsByCanvasId.get(matrixCoursePoint.id)
+      if (directCurrentPoint) {
+        const latestPoint = latestCoursePointsByCanvasId.get(directCurrentPoint.id) ?? directCurrentPoint
+        return { currentPoint: directCurrentPoint, latestPoint }
+      }
+
+      const matrixPointOriginalId = normalizePositiveNumber(matrixCoursePoint.id)
+      if (matrixPointOriginalId > 0) {
+        const currentPointByOriginalId = currentCoursePointsByOriginalId.get(matrixPointOriginalId)
+        if (currentPointByOriginalId) {
+          const latestPoint = latestCoursePointsByCanvasId.get(currentPointByOriginalId.id) ?? currentPointByOriginalId
+          return { currentPoint: currentPointByOriginalId, latestPoint }
+        }
+      }
+
+      const currentPointByContent = coursePoints.find((point) => (
+        point.name.trim() === matrixCoursePoint.name.trim()
+        && (point.description || "").trim() === (matrixCoursePoint.description || "").trim()
+      ))
+      if (!currentPointByContent) {
+        return null
+      }
+
+      const latestPoint = latestCoursePointsByCanvasId.get(currentPointByContent.id) ?? currentPointByContent
+      return { currentPoint: currentPointByContent, latestPoint }
+    }
+
+    const clearCourseMatrixResponse = await api.matrices.clearCourseMatrix(String(courseId))
+    if (clearCourseMatrixResponse.error) {
+      throw new Error(clearCourseMatrixResponse.error)
+    }
+
+    const matrixRows = courseMatrixData?.rows || []
+    if (matrixRows.length === 0) {
+      console.log("[CanvasSaveWizard] course matrix cleared, no rebuild needed")
+      return
+    }
+
+    const rebuildPayload = matrixRows.map((row) => {
+      const project = buildMatrixProject(row, courseId, serverProjects)
+      return {
+        project,
+        data: buildMatrixDataItems(row, courseId, project.id, resolveMatrixCoursePoint),
+      }
+    })
+
+    await api.matrices.updateCourseMatrix(String(courseId), rebuildPayload as CourseMatrixPayloadItem[])
+    console.log("[CanvasSaveWizard] course matrix rebuilt, chapter count:", rebuildPayload.length)
+  }, [buildMatrixDataItems, buildMatrixProject, courseMatrixData, coursePoints])
 
   // 保存项目矩阵数据
   const saveProjectMatrix = useCallback(async (courseId: number): Promise<void> => {
@@ -1464,7 +1546,7 @@ export function CanvasSaveWizard({
       markSaveStep("objectives", "completed", "教学目标已更新")
 
       markSaveStep("coursePoints", "in_progress", "正在更新课点")
-      await saveCoursePoints(courseId, majorIdNum)
+      const syncedCoursePoints = await saveCoursePoints(courseId, majorIdNum)
       markSaveStep("coursePoints", "completed", "课点已更新")
 
       markSaveStep("ksa", "in_progress", "正在更新 KSA")
@@ -1472,7 +1554,7 @@ export function CanvasSaveWizard({
       markSaveStep("ksa", "completed", "KSA 已更新")
 
       markSaveStep("courseMatrix", "in_progress", "正在更新课程矩阵")
-      await saveCourseMatrix(courseId)
+      await saveCourseMatrix(courseId, syncedCoursePoints)
       markSaveStep("courseMatrix", "completed", "课程矩阵已更新")
 
       markSaveStep("projectMatrix", "in_progress", "正在更新项目矩阵")

@@ -13,9 +13,10 @@ interface DeptEvaluationListProps {
   collegeId: Long
   collegeName?: string
   onBack: () => void
+  onSaveSuccess?: () => void
 }
 
-export function DeptEvaluationList({ task, collegeId, collegeName, onBack }: DeptEvaluationListProps) {
+export function DeptEvaluationList({ task, collegeId, collegeName, onBack, onSaveSuccess }: DeptEvaluationListProps) {
   const [depts, setDepts] = useState<CollegeDeptEvaluationItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedDept, setSelectedDept] = useState<CollegeDeptEvaluationItem | null>(null)
@@ -119,6 +120,7 @@ export function DeptEvaluationList({ task, collegeId, collegeName, onBack }: Dep
         deptName={selectedDept.deptName}
         onBack={handleBackFromMajorList}
         parentBreadcrumb={{ taskTitle: task.title, collegeName }}
+        onSaveSuccess={onSaveSuccess}
       />
     )
   }

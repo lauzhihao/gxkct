@@ -586,4 +586,41 @@ export class TreeApi {
       return { data: null, error: String(error), status: 500 }
     }
   }
+
+  /**
+   * 更新院系
+   * 通过 /api/v3/manage/updateDepartment 更新已有院系
+   * @param departmentId 院系ID（nodeId 格式）
+   * @param collegeId 所属学校ID（nodeId 格式）
+   * @param name 院系名称
+   * @returns 更新结果
+   */
+  async updateDepartment(departmentId: string, collegeId: string, name: string): Promise<ApiResponse<any>> {
+    const resolvedDeptId = extractNumericIdFromNodeId(departmentId)
+    const resolvedCollegeId = extractNumericIdFromNodeId(collegeId)
+    console.log(`[TreeApi] updateDepartment(${resolvedDeptId}, ${resolvedCollegeId}, ${name}) 开始更新院系`)
+
+    try {
+      const response = await this.storage.postToApi<any>(
+        `/api/v3/manage/updateDepartment`,
+        {
+          id: parseInt(resolvedDeptId, 10),
+          collegeid: parseInt(resolvedCollegeId, 10),
+          name,
+          del: 0,
+        }
+      )
+
+      if (response.error) {
+        console.warn(`[TreeApi] 更新院系失败:`, response.error)
+        return { data: null, error: response.error, status: response.status }
+      }
+
+      console.log(`[TreeApi] updateDepartment 更新成功`)
+      return { data: response.data, error: null, status: 200 }
+    } catch (error) {
+      console.error(`[TreeApi] updateDepartment 错误:`, error)
+      return { data: null, error: String(error), status: 500 }
+    }
+  }
 }

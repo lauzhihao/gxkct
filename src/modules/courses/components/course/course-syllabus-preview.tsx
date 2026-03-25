@@ -7,7 +7,7 @@ import { exportReport, getAdditionalInfo, getCourseIntro, getGraduateRequires, g
 import { ReportChapter } from "@/modules/courses/report/components/ReportChapter"
 import { ReportRevisableTable } from "@/modules/courses/report/components/ReportRevisableTable"
 import { ReportTable } from "@/modules/courses/report/components/ReportTable"
-import type { AdditionalInfoResponse, ColumnOption, GraduateRequireNode, PointMatrixItem, ProjectListItem, ProjectMatrixItem, RevisableCell, RevisableGroup, RevisableRow, TableOption, TaskGoalGroup } from "@/modules/courses/report/types"
+import type { AdditionalInfoResponse, ColumnOption, GraduateRequireNode, PointMatrixItem, ProjectListItem, ProjectMatrixItem, RevisableCell, RevisableRow, RevisableTableValue, TableOption, TaskGoalGroup } from "@/modules/courses/report/types"
 import { Button } from "@/shared/components/ui/button"
 import { SafeRichTextContent } from "@/shared/components/ui/safe-rich-text-content"
 import { showError, showSuccess } from "@/shared/utils/toast-utils"
@@ -21,6 +21,7 @@ interface CourseSyllabusPreviewProps {
     theoryPeriod?: number | null
     practicePeriod?: number | null
     credits?: number | null
+    teachingTime?: unknown
     introduction?: string | null
     teachingClass?: string | null
     teachingLocation?: string | null
@@ -133,6 +134,90 @@ function pickRichContent(primary: string | null | undefined, fallback: string | 
   }
 
   return fallback ?? ""
+}
+
+type TeachingTimeScheduleRow = Record<string, string | number | null | undefined>
+
+const TEACHING_TIME_DAY_FIELDS: Array<{ key: keyof TeachingTimeScheduleRow; label: string }> = [
+  { key: "monday", label: "周一" },
+  { key: "tuesday", label: "周二" },
+  { key: "wednesday", label: "周三" },
+  { key: "thursday", label: "周四" },
+  { key: "friday", label: "周五" },
+  { key: "saturday", label: "周六" },
+  { key: "sunday", label: "周日" },
+]
+
+function stringifyTeachingTimeCell(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return ""
+  return String(value).trim()
+}
+
+function parseTeachingTimeRows(raw: unknown): TeachingTimeScheduleRow[] {
+  if (raw === null || raw === undefined) {
+    return []
+  }
+
+  if (typeof raw === "string") {
+    const trimmed = raw.trim()
+    if (trimmed === "") {
+      return []
+    }
+
+    try {
+      const parsed = JSON.parse(trimmed) as unknown
+      return parseTeachingTimeRows(parsed)
+    } catch {
+      return []
+    }
+  }
+
+  if (Array.isArray(raw)) {
+    return raw.filter((item): item is TeachingTimeScheduleRow => item !== null && typeof item === "object")
+  }
+
+  if (typeof raw === "object") {
+    return [raw as TeachingTimeScheduleRow]
+  }
+
+  return []
+}
+
+function buildTeachingTimeFallbackSchedule(raw: unknown): RevisableTableValue {
+  const rows = parseTeachingTimeRows(raw)
+
+  return {
+    label: "课程表",
+    data: rows.map((row, index) => ({
+      label: stringifyTeachingTimeCell(row.period) || `时段${index + 1}`,
+      data: [
+        {
+          label: stringifyTeachingTimeCell(row.sessions),
+          data: TEACHING_TIME_DAY_FIELDS.map((field) => ({
+            label: stringifyTeachingTimeCell(row[field.key]),
+            data: null,
+          })),
+        },
+      ],
+    })),
+  }
+}
+
+function resolveTeachingTimeDisplay(raw: unknown): string {
+  const parsedRows = parseTeachingTimeRows(raw)
+  if (parsedRows.length > 0) {
+    return "详见下方授课时间表"
+  }
+
+  if (typeof raw === "string") {
+    return normalizeText(raw)
+  }
+
+  if (raw === null || raw === undefined) {
+    return ""
+  }
+
+  return String(raw)
 }
 
 interface MajorMatrixLeafColumn {
@@ -497,7 +582,10 @@ export function CourseSyllabusPreview({
   if (isLoading) return <div className="flex min-h-[360px] items-center justify-center text-muted-foreground"><Loader2 className="mr-2 h-5 w-5 animate-spin" />正在加载开课说明...</div>
   if (errorMessage || !additionalInfo || !majorMatrixOptions || !projectMatrixOptions) return <div className="flex min-h-[360px] items-center justify-center text-sm text-destructive">{errorMessage || "开课说明数据缺失"}</div>
 
-  const scheduleData = additionalInfo.schedule ?? { label: "课程表", data: [] as RevisableGroup[] }
+  const fallbackScheduleData = buildTeachingTimeFallbackSchedule(courseDetail?.teachingTime)
+  const scheduleData = additionalInfo.schedule?.data?.length
+    ? additionalInfo.schedule
+    : fallbackScheduleData
   const examPercentType = normalizeText(additionalInfo.exampercent?.label) || normalizeText(courseDetail?.scoreType)
   const mergedCourseIntro = pickRichContent(courseIntro, courseDetail?.introduction)
   const mergedCredits = additionalInfo.score || String(courseDetail?.credits ?? "")
@@ -505,6 +593,9 @@ export function CourseSyllabusPreview({
   const mergedDepartment = normalizeText(additionalInfo.department) || departmentName
   const mergedTeachingClass = additionalInfo.classname || normalizeText(courseDetail?.teachingClass)
   const mergedTeachingLocation = additionalInfo.classroom || normalizeText(courseDetail?.teachingLocation)
+  const mergedTeachingTime = scheduleData.data.length > 0
+    ? "详见下方授课时间表"
+    : resolveTeachingTimeDisplay(courseDetail?.teachingTime)
   const mergedStudentCount = additionalInfo.students || String(courseDetail?.studentCount ?? "")
   const mergedTextbooks = pickRichContent(additionalInfo.textbooks, courseDetail?.mainTextbook)
   const mergedReferences = pickRichContent(additionalInfo.textreferences, courseDetail?.referenceResources)
@@ -555,9 +646,7 @@ export function CourseSyllabusPreview({
                 <div className="md:col-span-1">
                   <BasicInfoField label="开课学期" value={additionalInfo.year ?? ""} />
                 </div>
-                <div className="md:col-span-1">
-                  <BasicInfoField label="学时数" value={additionalInfo.yearPeriod ?? ""} />
-                </div>
+                <div className="hidden md:block" />
                 <div className="hidden md:block" />
 
                 <div className="md:col-span-1">
@@ -583,7 +672,7 @@ export function CourseSyllabusPreview({
                   <BasicInfoField label="授课地点" value={mergedTeachingLocation} />
                 </div>
                 <div className="md:col-span-3">
-                  <BasicInfoField label="授课时间" value="" />
+                  <BasicInfoField label="授课时间" value={mergedTeachingTime} />
                 </div>
               </div>
               <div className="space-y-2">
