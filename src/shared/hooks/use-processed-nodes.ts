@@ -7,6 +7,7 @@ import { FlowNodeType } from "@/components/flow/utils/types"
 import { CanvasComponentType, type KsaItemData } from "@/components/canvas-elements/types"
 import type { HighlightState } from "./use-canvas-highlight"
 import type { FillProgress } from "@/types/ai-assistant"
+import { getKsaMatchIds } from "@/shared/utils/ksa"
 
 /**
  * FlowNodeType 到 CanvasComponentType 的映射（用于重做功能）
@@ -178,11 +179,13 @@ export function useProcessedNodes({
 }: UseProcessedNodesOptions): Node[] {
   // 单独计算 KSA 映射，只在 KSA 数据变化时更新（避免 flowNodes 其他变化触发重建）
   const ksaItemsMap = useMemo(() => {
-    const map = new Map<string, KsaItemData>()
+    const map: Record<string, KsaItemData> = {}
     for (const node of flowNodes) {
       if (node.type === FlowNodeType.KSA && node.data) {
         const ksaData = node.data as unknown as KsaItemData
-        map.set(ksaData.id, ksaData)
+        for (const matchId of getKsaMatchIds(ksaData)) {
+          map[matchId] = ksaData
+        }
       }
     }
     return map
@@ -414,6 +417,7 @@ export function useProcessedNodes({
             ...node.data,
             ...baseInjection,
             onEdit: onCourseInfoEdit,
+            progressMessage: isRegenerating ? fillProgress.courseInfo : null,
           },
         }
       }
@@ -498,9 +502,11 @@ export function useProcessedNodes({
         }
         if (node.type === FlowNodeType.CHAPTER_PANEL) {
           panelData.onEdit = onChapterPanelEdit
+          panelData.progressMessage = isRegenerating ? fillProgress.chapters : null
         }
         if (node.type === FlowNodeType.OBJECTIVE_PANEL) {
           panelData.onEdit = onObjectivePanelEdit
+          panelData.progressMessage = isRegenerating ? fillProgress.objectives : null
         }
         if (node.type === FlowNodeType.GRADUATION_SUPPORT_PANEL) {
           panelData.onEdit = onGraduationSupportPanelEdit

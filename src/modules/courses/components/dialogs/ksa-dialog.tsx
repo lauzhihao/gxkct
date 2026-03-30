@@ -15,6 +15,118 @@ import type { KsaItem } from "@/modules/courses/hooks/use-project-matrix"
 import type { KsaCellData } from "@/modules/courses/hooks/use-ksa-management"
 import { projectMatrixApi } from "@/modules/courses/api/projectMatrixApi"
 
+type KsaTitle = KsaItem["title"]
+
+interface KsaMutationItem {
+  id: number
+  title: string
+  description: string
+  level: number
+}
+
+type RawKsaListItem = Omit<KsaItem, "title"> & { title: string }
+
+interface NormalizedKsaMutationItem extends KsaMutationItem {
+  title: KsaTitle
+}
+
+const KSA_TITLES: readonly KsaTitle[] = ["K", "S", "A"]
+
+function isKsaTitle(value: string): value is KsaTitle {
+  return KSA_TITLES.includes(value as KsaTitle)
+}
+
+function buildKsaNormalizationContext<T extends KsaMutationItem>(items: readonly T[]) {
+  const indexedItems = items.map((item, originalIndex) => ({
+    ...item,
+    originalIndex,
+    normalizedTitle: item.title.trim().toUpperCase(),
+  }))
+
+  const nextLevelByIndex = new Map<number, number>()
+
+  for (const ksaTitle of KSA_TITLES) {
+    const itemsInCategory = indexedItems
+      .filter((item) => item.id >= 0 && item.normalizedTitle === ksaTitle)
+      .sort((left, right) => {
+        if (left.level !== right.level) {
+          return left.level - right.level
+        }
+
+        if (left.id !== right.id) {
+          return left.id - right.id
+        }
+
+        return left.originalIndex - right.originalIndex
+      })
+
+    itemsInCategory.forEach((item, index) => {
+      nextLevelByIndex.set(item.originalIndex, index + 1)
+    })
+  }
+
+  return {
+    indexedItems,
+    nextLevelByIndex,
+  }
+}
+
+function normalizeKsaMutationItems(items: readonly KsaMutationItem[]): NormalizedKsaMutationItem[] {
+  const { indexedItems, nextLevelByIndex } = buildKsaNormalizationContext(items)
+
+  return indexedItems.map(({ originalIndex, normalizedTitle, ...item }) => {
+    if (!isKsaTitle(normalizedTitle)) {
+      throw new Error(`Invalid KSA title: ${item.title}`)
+    }
+
+    if (item.id < 0) {
+      return {
+        ...item,
+        title: normalizedTitle,
+      }
+    }
+
+    const nextLevel = nextLevelByIndex.get(originalIndex)
+    if (nextLevel === undefined) {
+      throw new Error(`KSA level normalization failed for index ${originalIndex}`)
+    }
+
+    return {
+      ...item,
+      title: normalizedTitle,
+      level: nextLevel,
+    }
+  })
+}
+
+function normalizeKsaListItems(items: readonly RawKsaListItem[]): KsaItem[] {
+  const { indexedItems, nextLevelByIndex } = buildKsaNormalizationContext(items)
+
+  return indexedItems.map(({ originalIndex, normalizedTitle, ...item }) => {
+    if (!isKsaTitle(normalizedTitle)) {
+      throw new Error(`Invalid KSA title: ${item.title}`)
+    }
+
+    if (item.id < 0) {
+      return {
+        ...item,
+        title: normalizedTitle,
+      }
+    }
+
+    const nextLevel = nextLevelByIndex.get(originalIndex)
+    if (nextLevel === undefined) {
+      throw new Error(`KSA level normalization failed for index ${originalIndex}`)
+    }
+
+    return {
+      ...item,
+      title: normalizedTitle,
+      level: nextLevel,
+    }
+  })
+}
+
 interface KsaDialogProps {
   ksaDialogOpen: boolean
   selectedKsaCell: KsaCellData | null
@@ -52,15 +164,12 @@ export function KsaDialog({
   ksaSearchS,
   ksaSearchA,
   newRowKsaType,
-  newRowDescription,
   editingKsaId,
   editingDescription,
   setKsaDialogOpen,
   setKsaSearchK,
   setKsaSearchS,
   setKsaSearchA,
-  setNewRowKsaType,
-  setNewRowDescription,
   setEditingKsaId,
   setEditingDescription,
   setKsaListData,
@@ -72,41 +181,43 @@ export function KsaDialog({
 }: KsaDialogProps) {
   if (!selectedKsaCell) return null
 
+  const normalizedKsaListData = normalizeKsaListItems(ksaListData)
+
   // Group KSA list data by type
-  const knowledgePoints = ksaListData?.filter((ksa: any) => ksa.title?.toUpperCase() === "K") || []
-  const skillPoints = ksaListData?.filter((ksa: any) => ksa.title?.toUpperCase() === "S") || []
-  const attitudePoints = ksaListData?.filter((ksa: any) => ksa.title?.toUpperCase() === "A") || []
+  const knowledgePoints = normalizedKsaListData.filter((ksa) => ksa.title === "K")
+  const skillPoints = normalizedKsaListData.filter((ksa) => ksa.title === "S")
+  const attitudePoints = normalizedKsaListData.filter((ksa) => ksa.title === "A")
 
   // Filter by search and sort by level
   const filteredKnowledgePoints = knowledgePoints
     .filter(
-      (p: any) =>
+      (p) =>
         !ksaSearchK ||
         p.id?.toString().includes(ksaSearchK) ||
         p.description?.toLowerCase().includes(ksaSearchK.toLowerCase())
     )
-    .sort((a: any, b: any) => (a.level || 0) - (b.level || 0))
+    .sort((a, b) => a.level - b.level)
 
   const filteredSkillPoints = skillPoints
     .filter(
-      (p: any) =>
+      (p) =>
         !ksaSearchS ||
         p.id?.toString().includes(ksaSearchS) ||
         p.description?.toLowerCase().includes(ksaSearchS.toLowerCase())
     )
-    .sort((a: any, b: any) => (a.level || 0) - (b.level || 0))
+    .sort((a, b) => a.level - b.level)
 
   const filteredAttitudePoints = attitudePoints
     .filter(
-      (p: any) =>
+      (p) =>
         !ksaSearchA ||
         p.id?.toString().includes(ksaSearchA) ||
         p.description?.toLowerCase().includes(ksaSearchA.toLowerCase())
     )
-    .sort((a: any, b: any) => (a.level || 0) - (b.level || 0))
+    .sort((a, b) => a.level - b.level)
 
   // 批量新增状态
-  const [batchAddType, setBatchAddType] = useState<string | null>(null)
+  const [batchAddType, setBatchAddType] = useState<KsaTitle | null>(null)
   const [batchAddInput, setBatchAddInput] = useState("")
   const [isBatchAdding, setIsBatchAdding] = useState(false)
   const [batchSummary, setBatchSummary] = useState<Record<string, { total: number; added: number; duplicate: number }>>({})
@@ -114,7 +225,7 @@ export function KsaDialog({
   const KSA_TYPE_LABEL: Record<string, string> = { K: "K点", S: "S点", A: "A点" }
 
   // 批量新增 KSA
-  const handleBatchAddKsa = async (ksaType: string) => {
+  const handleBatchAddKsa = async (ksaType: KsaTitle) => {
     const normalizedItems = batchAddInput
       .split(/[\n;]+/)
       .map((item) => item.trim())
@@ -127,8 +238,8 @@ export function KsaDialog({
 
     // 获取该类型已有项的 description 集合，用于去重
     const existingDescriptions = new Set(
-      ksaListData
-        .filter((k) => k.title?.toUpperCase() === ksaType)
+      normalizedKsaListData
+        .filter((k) => k.title === ksaType)
         .map((k) => k.description?.trim())
         .filter((d) => d !== "")
     )
@@ -152,18 +263,14 @@ export function KsaDialog({
       return
     }
 
-    // 计算该类型最大 level
-    const typePoints = ksaListData.filter((k) => k.title?.toUpperCase() === ksaType)
-    const maxLevel = typePoints.reduce((max, p) => Math.max(max, p.level || 0), 0)
-
-    // 构建 payload
     const payload = [
-      ...ksaListData.map((k) => ({ id: k.id, title: k.title, description: k.description, level: k.level })),
+      ...normalizedKsaListData.map((k) => ({ id: k.id, title: k.title, description: k.description, level: k.level })),
       ...uniqueNewDescriptions.map((desc, index) => ({
         id: 0,
         title: ksaType,
         description: desc,
-        level: maxLevel + 1 + index,
+        // level 在 saveAndReload 中统一按类别重排，避免批量新增后出现重复编号。
+        level: index + 1,
       })),
     ]
 
@@ -171,6 +278,7 @@ export function KsaDialog({
     try {
       const error = await saveAndReload(payload)
       if (error) {
+        showError("批量新增失败: " + error)
         setBatchSummary((prev) => ({ ...prev, [ksaType]: { total, added: 0, duplicate: 0 } }))
       } else {
         setBatchSummary((prev) => ({ ...prev, [ksaType]: { total, added, duplicate } }))
@@ -183,14 +291,32 @@ export function KsaDialog({
   }
 
   // 保存完整 KSA 列表到后端并重新加载
-  const saveAndReload = async (ksas: Array<{ id: number; title: string; description: string; level: number }>) => {
-    const majorIdNum = parseInt(String(majorId) || "0")
-    const courseIdNum = parseInt(courseId || "0")
+  const saveAndReload = async (ksas: KsaMutationItem[]) => {
+    let normalizedKsas: NormalizedKsaMutationItem[]
+
+    try {
+      normalizedKsas = normalizeKsaMutationItems(ksas)
+    } catch (error) {
+      return error instanceof Error ? error.message : "KSA 编号规范化失败"
+    }
+
+    const majorIdText = String(majorId).trim()
+    const courseIdText = String(courseId).trim()
+    const majorIdNum = Number.parseInt(majorIdText, 10)
+    const courseIdNum = Number.parseInt(courseIdText, 10)
+
+    if (!Number.isInteger(majorIdNum) || majorIdNum <= 0) {
+      return "缺少有效的 majorId"
+    }
+
+    if (!Number.isInteger(courseIdNum) || courseIdNum <= 0) {
+      return "缺少有效的 courseId"
+    }
 
     const result = await projectMatrixApi.saveKsaList({
       majorId: majorIdNum,
       courseId: courseIdNum,
-      ksas,
+      ksas: normalizedKsas,
       upload: false,
     })
 
@@ -202,7 +328,7 @@ export function KsaDialog({
     const listResult = await projectMatrixApi.getKsaList(String(majorIdNum), String(courseIdNum))
     if (listResult.data) {
       const ksaArray = Array.isArray(listResult.data) ? listResult.data : []
-      setKsaListData(ksaArray)
+      setKsaListData(normalizeKsaListItems(ksaArray))
     }
 
     return null
@@ -215,7 +341,7 @@ export function KsaDialog({
     }
 
     // 构建完整列表: 更新目标项的 description
-    const payload = ksaListData.map((k) => ({
+    const payload = normalizedKsaListData.map((k) => ({
       id: k.id,
       title: k.title,
       description: k.id === ksaId ? editingDescription : k.description,
@@ -233,7 +359,7 @@ export function KsaDialog({
 
   const handleDeleteKsa = async (ksaId: number) => {
     // 构建完整列表: 将被删除项的 id 取负值
-    const payload = ksaListData.map((k) => ({
+    const payload = normalizedKsaListData.map((k) => ({
       id: k.id === ksaId ? -Math.abs(k.id) : k.id,
       title: k.title,
       description: k.description,
@@ -241,19 +367,23 @@ export function KsaDialog({
     }))
 
     const error = await saveAndReload(payload)
+    if (error) {
+      showError("删除失败: " + error)
+    }
+
     setDeletingKsaId(null)
   }
 
   const renderInfoPointList = (
     title: string,
-    points: any[],
-    filteredPoints: any[],
+    points: KsaItem[],
+    filteredPoints: KsaItem[],
     searchValue: string,
     onSearchChange: (value: string) => void,
     colorClass: string,
     bgClass: string,
     borderClass: string,
-    ksaType: string
+    ksaType: KsaTitle
   ) => (
     <div className="flex-1 flex flex-col min-h-0 border rounded-lg shadow-sm overflow-hidden">
       {/* Card Header */}
@@ -324,7 +454,7 @@ export function KsaDialog({
         <div className="p-3 space-y-2">
           {/* KSA points */}
           {filteredPoints.length > 0 ? (
-            filteredPoints.map((point: any) => {
+            filteredPoints.map((point) => {
               const support = selectedKsaSupport[point.id]
               const isEditing = editingKsaId === point.id
 

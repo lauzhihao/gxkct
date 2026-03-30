@@ -21,8 +21,8 @@ class CourseApiService {
   /**
    * 获取课程详情
    */
-  async getCourseDetail(courseId: string): Promise<ApiResponse<CombinedCourseDetail>> {
-    return api.courseDetail.getCourseDetail(courseId)
+  async getCourseDetail(courseId: string, semesterId?: number | null): Promise<ApiResponse<CombinedCourseDetail>> {
+    return api.courseDetail.getCourseDetail(courseId, semesterId)
   }
 
   /**

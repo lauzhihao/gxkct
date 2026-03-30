@@ -1,7 +1,9 @@
 import { StorageAdapter } from "./storage-adapter"
 import type { ApiResponse } from "./types"
 import { HttpAdapter } from "./http-adapter"
-import { setStoredAuthToken, setStoredAuthUser, type AuthResponse } from "./auth-config"
+import { setStoredAuthToken, setStoredAuthUser, setStoredSemesterContext, type AuthResponse } from "./auth-config"
+import { parseNullableSemesterId, parseSemesterBriefList } from "./semester-api"
+import type { SemesterBrief } from "@/types"
 
 interface CurrentDepartmentResponse {
   permissionId?: number
@@ -138,6 +140,26 @@ export interface UpdateManagedUserStatusResult {
   status: boolean
 }
 
+function resolveInitialSelectedSemesterId(
+  currentSemesterId: number | null,
+  semesterList: SemesterBrief[],
+): number | null {
+  const availableSemesterIds = new Set<number>()
+  semesterList.forEach((semester) => {
+    availableSemesterIds.add(semester.id)
+  })
+
+  if (currentSemesterId !== null && availableSemesterIds.has(currentSemesterId)) {
+    return currentSemesterId
+  }
+
+  if (semesterList.length > 0) {
+    return semesterList[0].id
+  }
+
+  return null
+}
+
 export class UserApi {
   private storage = new StorageAdapter()
   private httpAdapter = new HttpAdapter()
@@ -158,6 +180,20 @@ export class UserApi {
 
       if (response.error || !response.data) {
         return response
+      }
+
+      let currentSemesterId: number | null
+      let semesterList: SemesterBrief[]
+
+      try {
+        currentSemesterId = parseNullableSemesterId(response.data, "currentSemesterId")
+        semesterList = parseSemesterBriefList(response.data, "semesterList")
+      } catch (error) {
+        return {
+          data: null,
+          error: error instanceof Error ? error.message : "登录返回缺少学期信息",
+          status: 500,
+        }
       }
 
       // 先保存 token，确保后续接口请求携带 authToken
@@ -189,9 +225,16 @@ export class UserApi {
 
       // 保存用户信息到localStorage
       setStoredAuthUser(resolvedUser)
+      setStoredSemesterContext({
+        currentSemesterId,
+        selectedSemesterId: resolveInitialSelectedSemesterId(currentSemesterId, semesterList),
+        semesterList,
+      })
 
       response.data = {
         ...response.data,
+        currentSemesterId,
+        semesterList,
         user: resolvedUser,
       }
 

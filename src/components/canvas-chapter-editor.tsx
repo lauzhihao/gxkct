@@ -5,11 +5,14 @@
  * 复用自 AddCourseForm 中的章节编辑逻辑和样式
  */
 
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo, useEffect } from "react"
 import { Plus, Trash2, Loader2 } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
+import { SortableOrderTag } from "@/shared/components/ui/sortable-order-tag"
+import { useSortableRowReorder } from "@/shared/hooks/use-sortable-row-reorder"
+import { cn } from "@/shared/utils/utils"
 import type { ChapterCardData } from "./canvas-elements/types"
 
 interface CanvasChapterEditorProps {
@@ -29,6 +32,24 @@ interface ChapterProject {
   name: string
   theoryHours: number
   practiceHours: number
+  originalId?: number
+}
+
+function createEmptyChapterProject(id: string): ChapterProject {
+  return {
+    id,
+    name: "",
+    theoryHours: 0,
+    practiceHours: 0,
+  }
+}
+
+function createEditorItems(chapters: ChapterCardData[]): ChapterProject[] {
+  if (chapters.length > 0) {
+    return chapters.map(toChapterProject)
+  }
+
+  return [createEmptyChapterProject("1")]
 }
 
 // 将 ChapterCardData 转换为内部格式
@@ -38,6 +59,7 @@ function toChapterProject(chapter: ChapterCardData): ChapterProject {
     name: chapter.name,
     theoryHours: chapter.theory_hours || 0,
     practiceHours: chapter.practice_hours || 0,
+    originalId: chapter.originalId,
   }
 }
 
@@ -49,6 +71,7 @@ function toChapterCardData(chapter: ChapterProject, index: number): ChapterCardD
     name: chapter.name,
     theory_hours: chapter.theoryHours,
     practice_hours: chapter.practiceHours,
+    originalId: chapter.originalId,
   }
 }
 
@@ -59,17 +82,17 @@ export function CanvasChapterEditor({
   isSaving = false,
 }: CanvasChapterEditorProps) {
   // 转换为内部格式
-  const [items, setItems] = useState<ChapterProject[]>(() =>
-    chapters.length > 0
-      ? chapters.map(toChapterProject)
-      : [{ id: "1", name: "", theoryHours: 0, practiceHours: 0 }]
-  )
+  const [items, setItems] = useState<ChapterProject[]>(() => createEditorItems(chapters))
+
+  useEffect(() => {
+    setItems(createEditorItems(chapters))
+  }, [chapters])
 
   // 添加章节
   const addChapter = useCallback(() => {
     setItems(prev => [
       ...prev,
-      { id: Date.now().toString(), name: "", theoryHours: 0, practiceHours: 0 },
+      createEmptyChapterProject(`chapter_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`),
     ])
   }, [])
 
@@ -91,6 +114,21 @@ export function CanvasChapterEditor({
   // 计算合计学时
   const totalTheoryHours = useMemo(() => items.reduce((sum, ch) => sum + (ch.theoryHours || 0), 0), [items])
   const totalPracticeHours = useMemo(() => items.reduce((sum, ch) => sum + (ch.practiceHours || 0), 0), [items])
+  const canReorder = items.length > 1 && !isSaving
+  const {
+    draggedItemId,
+    dragOverIndex,
+    handleDragStart,
+    handleDragEnd,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+  } = useSortableRowReorder<ChapterProject>({
+    items,
+    setItems,
+    getItemId: (chapter) => chapter.id,
+    enabled: canReorder,
+  })
 
   // 保存
   const handleSave = useCallback(() => {
@@ -124,7 +162,7 @@ export function CanvasChapterEditor({
             <table className="w-full">
               <thead className="bg-secondary/50 sticky top-0">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-foreground border-r border-border w-16">
+                  <th className="px-4 py-3 text-center text-sm font-semibold text-foreground border-r border-border w-24">
                     序号
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-foreground border-r border-border">
@@ -136,13 +174,33 @@ export function CanvasChapterEditor({
                   <th className="px-4 py-3 text-left text-sm font-semibold text-foreground border-r border-border w-24">
                     实践学时
                   </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-foreground w-16">操作</th>
+                  <th className="px-4 py-3 text-center text-sm font-semibold text-foreground w-16">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((chapter, index) => (
-                  <tr key={chapter.id} className="border-t border-border hover:bg-secondary/30">
-                    <td className="px-4 py-3 text-sm text-foreground border-r border-border">{index + 1}</td>
+                  <tr
+                    key={chapter.id}
+                    onDragOver={(event) => handleDragOver(event, index)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(event) => handleDrop(event, index)}
+                    className={cn(
+                      "border-t border-border transition-colors hover:bg-secondary/30",
+                      dragOverIndex === index && draggedItemId !== null ? "bg-primary/10" : "",
+                    )}
+                  >
+                    <td className="px-4 py-3 text-sm text-foreground border-r border-border text-center">
+                      <div className="flex items-center justify-center">
+                        <SortableOrderTag
+                          order={index + 1}
+                          draggable={canReorder}
+                          isDragging={draggedItemId === chapter.id}
+                          onDragStart={(event) => handleDragStart(event, chapter.id)}
+                          onDragEnd={handleDragEnd}
+                          aria-label={`拖动调整第 ${index + 1} 行顺序`}
+                        />
+                      </div>
+                    </td>
                     <td className="px-4 py-3 border-r border-border">
                       <ExpandableTextarea
                         placeholder="例如：第一章 数据结构基础"
@@ -176,7 +234,7 @@ export function CanvasChapterEditor({
                         className="h-9"
                       />
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 text-center">
                       {items.length > 1 && (
                         <Button
                           size="sm"

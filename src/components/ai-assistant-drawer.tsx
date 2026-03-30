@@ -374,6 +374,21 @@ export function AiAssistantDrawer({
     })
   }, [])
 
+  const ensureLatestCanvasOssKey = useCallback(async (): Promise<string | null> => {
+    await waitForCanvasStateFlush()
+
+    const selectedIds = canvasSelectedIdRef.current ? [canvasSelectedIdRef.current] : []
+    updateCanvasData(
+      canvasElementsRef.current,
+      canvasEdgesRef.current,
+      canvasSpecialComponentsRef.current,
+      selectedIds,
+      { skipAutoUpload: true }
+    )
+
+    return forceCanvasUpload()
+  }, [forceCanvasUpload, updateCanvasData, waitForCanvasStateFlush])
+
   // 统一计算画布构建进度 ETA，避免两个加载入口出现重复逻辑
   const updateCanvasBuildProgressWithEta = useCallback((progress: { loaded: number; total: number; stage: string }) => {
     const startAt = canvasBuildStartAtRef.current
@@ -856,6 +871,18 @@ export function AiAssistantDrawer({
         { skipAutoUpload: true }
       )
 
+      const canvasElementTypeCounts = canvasElementsRef.current.reduce<Record<string, number>>((accumulator, element) => {
+        accumulator[element.type] = (accumulator[element.type] || 0) + 1
+        return accumulator
+      }, {})
+      console.log(`[${config.logPrefix}] 画布快照检查`, {
+        elementTypeCounts: canvasElementTypeCounts,
+        hasProjectMatrix: Boolean(canvasElementTypeCounts[CanvasComponentType.PROJECT_MATRIX]),
+        hasCourseReport: Boolean(canvasElementTypeCounts[CanvasComponentType.COURSE_REPORT]),
+        specialComponentKeys: Object.keys(canvasSpecialComponentsRef.current || {}),
+        selectedIds,
+      })
+
       // [MOD] 强制上传最新画布数据，确保后端获取到最新状态
       const ossKey = await forceCanvasUpload()
       if (!ossKey) {
@@ -1084,6 +1111,15 @@ export function AiAssistantDrawer({
     }
   }, [isRegenerating, streamingMessageId, isInitialized, sessionId, handleCanvasEvent, processStream, resetSSEController, forceCanvasUpload, waitForCanvasStateFlush, updateCanvasData, updateFillProgress, updateStreamingIndicator, markStreamingContentStarted, relayoutElements])
 
+  const restoreRegenerateTargetSelection = useCallback((targetId?: string | null) => {
+    if (typeof targetId !== "string" || targetId.length === 0) {
+      return
+    }
+
+    // [MOD] 重做完成后保持原目标组件为选中态
+    selectCanvasElement(targetId)
+  }, [selectCanvasElement])
+
   // 处理章节项目面板自动填充请求
   // [MOD] 增加 userPrompt 参数，支持重做时传入用户提示词
   const handleFillChapterPanel = useCallback(async (targetPanelId?: string, userPrompt?: string, displayUserContent?: string) => {
@@ -1110,10 +1146,9 @@ export function AiAssistantDrawer({
         fill_chapter_panel: true,
         ...(targetPanelId && { target_panel_id: targetPanelId }),
       },
+      fillProgressType: 'chapters',
       onBeforeRequest: () => {
-        if (targetPanelId) {
-          selectCanvasElement(targetPanelId)
-        }
+        restoreRegenerateTargetSelection(targetPanelId)
         // 清空章节面板子节点（填充前必须清空，否则原有内容会传到后台）
         if (chapterPanel) {
           console.log("[填充章节项目] 清空章节面板:", chapterPanel.id)
@@ -1121,13 +1156,12 @@ export function AiAssistantDrawer({
         }
       },
       onComplete: () => {
-        // 如果有目标面板ID，选中该面板
-        if (targetPanelId) {
-          selectCanvasElement(targetPanelId)
-        }
+        updateFillProgress('chapters', null)
+        restoreRegenerateTargetSelection(targetPanelId)
       },
     })
-  }, [executeSSERequest, canvasElements, updateCanvasPanelChildren, selectCanvasElement])
+    updateFillProgress('chapters', null)
+  }, [executeSSERequest, canvasElements, updateCanvasPanelChildren, updateFillProgress, restoreRegenerateTargetSelection])
 
   // 处理教学目标面板自动填充请求
   // [MOD] 增加 userPrompt 参数，支持重做时传入用户提示词
@@ -1155,10 +1189,9 @@ export function AiAssistantDrawer({
         fill_objective_panel: true,
         ...(targetPanelId && { target_panel_id: targetPanelId }),
       },
+      fillProgressType: 'objectives',
       onBeforeRequest: () => {
-        if (targetPanelId) {
-          selectCanvasElement(targetPanelId)
-        }
+        restoreRegenerateTargetSelection(targetPanelId)
         // 清空教学目标面板子节点（填充前必须清空，否则原有内容会传到后台）
         if (objectivePanel) {
           console.log("[填充教学目标] 清空教学目标面板:", objectivePanel.id)
@@ -1166,13 +1199,12 @@ export function AiAssistantDrawer({
         }
       },
       onComplete: () => {
-        // 如果有目标面板ID，选中该面板
-        if (targetPanelId) {
-          selectCanvasElement(targetPanelId)
-        }
+        updateFillProgress('objectives', null)
+        restoreRegenerateTargetSelection(targetPanelId)
       },
     })
-  }, [executeSSERequest, canvasElements, updateCanvasPanelChildren, selectCanvasElement])
+    updateFillProgress('objectives', null)
+  }, [executeSSERequest, canvasElements, updateCanvasPanelChildren, updateFillProgress, restoreRegenerateTargetSelection])
 
   // 处理画布组件重做请求
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1225,9 +1257,7 @@ export function AiAssistantDrawer({
       },
       fillProgressType: 'matrix',
       onBeforeRequest: () => {
-        if (targetMatrixId) {
-          selectCanvasElement(targetMatrixId)
-        }
+        restoreRegenerateTargetSelection(targetMatrixId)
         // 清空课程矩阵数据（填充前必须清空，否则原有内容会传到后台）
         if (courseMatrix) {
           console.log("[填充课程矩阵] 清空课程矩阵:", courseMatrix.id)
@@ -1242,15 +1272,12 @@ export function AiAssistantDrawer({
       },
       onComplete: () => {
         updateFillProgress('matrix', null)
-        // 如果有目标矩阵ID，选中该矩阵
-        if (targetMatrixId) {
-          selectCanvasElement(targetMatrixId)
-        }
+        restoreRegenerateTargetSelection(targetMatrixId)
       },
     })
     // 确保进度在任何情况下都被清除
     updateFillProgress('matrix', null)
-  }, [executeSSERequest, canvasElements, updateCanvasElementData, clearSpecialComponents, updateFillProgress, selectCanvasElement])
+  }, [executeSSERequest, canvasElements, updateCanvasElementData, clearSpecialComponents, updateFillProgress, restoreRegenerateTargetSelection])
 
   // 处理项目矩阵自动填充请求
   // [MOD] 添加可选参数 targetMatrixId，支持重做时指定目标矩阵
@@ -1259,8 +1286,17 @@ export function AiAssistantDrawer({
     const projectMatrix = targetMatrixId
       ? canvasElements.find(el => el.id === targetMatrixId)
       : canvasElements.find(el => el.type === CanvasComponentType.PROJECT_MATRIX)
-    const matrixData = projectMatrix?.data as { rows?: unknown[] } | undefined
+    const matrixData = projectMatrix?.data as { rows?: unknown[]; chapter_id?: string } | undefined
     const hasContent = matrixData?.rows && matrixData.rows.length > 0
+    const targetChapterId = matrixData?.chapter_id
+    if (targetMatrixId && !targetChapterId) {
+      console.warn("[填充项目矩阵] 缺少目标章节ID，已取消重做:", {
+        targetMatrixId,
+        projectMatrix,
+      })
+      toast.error("未找到当前项目矩阵对应的章节标识，无法单独重做。")
+      return
+    }
     const promptPrefix = hasContent ? "请帮我重新完善" : "请帮我完善"
     const finalPrompt = userPrompt || `${promptPrefix}${ELEMENT_TYPE_TITLES[CanvasComponentType.PROJECT_MATRIX]}的内容`
 
@@ -1268,19 +1304,17 @@ export function AiAssistantDrawer({
       userContent: finalPrompt,
       displayUserContent,
       messageSuffix: "fill-project-matrix",
-      logPrefix: `填充项目矩阵${targetMatrixId ? ` 目标矩阵: ${targetMatrixId}` : ""}`,
+      logPrefix: `填充项目矩阵${targetChapterId ? ` 目标章节: ${targetChapterId}` : targetMatrixId ? ` 目标矩阵: ${targetMatrixId}` : ""}`,
       defaultCompleteMessage: "项目矩阵已自动填充任务目标和支撑关系",
       cancelMessage: "已取消填充操作。",
       errorMessage: "项目矩阵填充失败，请稍后再试。",
       payload: {
         fill_project_matrix: true,
-        ...(targetMatrixId && { target_matrix_id: targetMatrixId }),
+        ...(targetChapterId && { target_chapter_id: targetChapterId }),
       },
       fillProgressType: 'projectMatrix',
       onBeforeRequest: () => {
-        if (targetMatrixId) {
-          selectCanvasElement(targetMatrixId)
-        }
+        restoreRegenerateTargetSelection(targetMatrixId)
         // 清空项目矩阵数据（填充前必须清空，否则原有内容会传到后台）
         if (projectMatrix) {
           console.log("[填充项目矩阵] 清空项目矩阵:", projectMatrix.id)
@@ -1289,14 +1323,11 @@ export function AiAssistantDrawer({
       },
       onComplete: () => {
         updateFillProgress('projectMatrix', null)
-        // 如果有目标矩阵ID，选中该矩阵
-        if (targetMatrixId) {
-          selectCanvasElement(targetMatrixId)
-        }
+        restoreRegenerateTargetSelection(targetMatrixId)
       },
     })
     updateFillProgress('projectMatrix', null)
-  }, [executeSSERequest, canvasElements, updateCanvasElementData, updateFillProgress, selectCanvasElement])
+  }, [executeSSERequest, canvasElements, updateCanvasElementData, updateFillProgress, restoreRegenerateTargetSelection])
 
   // 处理课程信息自动填充请求（从源文档生成课程基本信息）
   const handleFillCourseInfo = useCallback(async (courseInfoId: string, userPrompt?: string, displayUserContent?: string) => {
@@ -1324,16 +1355,18 @@ export function AiAssistantDrawer({
         fill_course_info: true,
         target_course_info_id: courseInfoId,
       },
+      fillProgressType: 'courseInfo',
       skipInitCheck: true,
       onBeforeRequest: () => {
-        selectCanvasElement(courseInfoId)
+        restoreRegenerateTargetSelection(courseInfoId)
       },
       onComplete: () => {
-        // 选中课程信息卡片
-        selectCanvasElement(courseInfoId)
+        updateFillProgress('courseInfo', null)
+        restoreRegenerateTargetSelection(courseInfoId)
       },
     })
-  }, [sessionId, canvasElements, executeSSERequest, selectCanvasElement])
+    updateFillProgress('courseInfo', null)
+  }, [sessionId, canvasElements, executeSSERequest, updateFillProgress, restoreRegenerateTargetSelection])
 
   // 处理课点信息自动填充请求
   // [MOD] 增加 userPrompt 参数，支持重做时传入用户提示词
@@ -1363,9 +1396,7 @@ export function AiAssistantDrawer({
       },
       fillProgressType: 'coursePoints',
       onBeforeRequest: () => {
-        if (targetPanelId) {
-          selectCanvasElement(targetPanelId)
-        }
+        restoreRegenerateTargetSelection(targetPanelId)
         // 清空课点面板子节点（填充前必须清空，否则原有内容会传到后台）
         if (coursePointPanel) {
           console.log("[填充课点信息] 清空课点面板:", coursePointPanel.id)
@@ -1374,14 +1405,11 @@ export function AiAssistantDrawer({
       },
       onComplete: () => {
         updateFillProgress('coursePoints', null)
-        // 如果有目标面板ID，选中该面板
-        if (targetPanelId) {
-          selectCanvasElement(targetPanelId)
-        }
+        restoreRegenerateTargetSelection(targetPanelId)
       },
     })
     updateFillProgress('coursePoints', null)
-  }, [executeSSERequest, canvasElements, updateCanvasPanelChildren, updateFillProgress, selectCanvasElement])
+  }, [executeSSERequest, canvasElements, updateCanvasPanelChildren, updateFillProgress, restoreRegenerateTargetSelection])
 
   // 处理 KSA 面板自动填充请求
   // [MOD] 增加 userPrompt 参数，支持重做时传入用户提示词
@@ -1411,9 +1439,7 @@ export function AiAssistantDrawer({
       },
       fillProgressType: 'ksa',
       onBeforeRequest: () => {
-        if (targetPanelId) {
-          selectCanvasElement(targetPanelId)
-        }
+        restoreRegenerateTargetSelection(targetPanelId)
         // 清空KSA面板子节点（填充前必须清空，否则原有内容会传到后台）
         if (ksaPanel) {
           console.log("[填充KSA] 清空KSA面板:", ksaPanel.id)
@@ -1422,15 +1448,12 @@ export function AiAssistantDrawer({
       },
       onComplete: () => {
         updateFillProgress('ksa', null)
-        // 如果有目标面板ID，选中该面板
-        if (targetPanelId) {
-          selectCanvasElement(targetPanelId)
-        }
+        restoreRegenerateTargetSelection(targetPanelId)
       },
     })
     // 确保进度被清除（包括错误情况）
     updateFillProgress('ksa', null)
-  }, [executeSSERequest, canvasElements, updateCanvasPanelChildren, updateFillProgress, selectCanvasElement])
+  }, [executeSSERequest, canvasElements, updateCanvasPanelChildren, updateFillProgress, restoreRegenerateTargetSelection])
 
   // 停止生成处理函数
   const handleStopGeneration = useCallback(async () => {
@@ -1788,6 +1811,12 @@ export function AiAssistantDrawer({
               updateFillProgress('coursePoints', event.message)
             } else if (action.startsWith('ksa_')) {
               updateFillProgress('ksa', event.message)
+            } else if (action.startsWith('chapter_')) {
+              updateFillProgress('chapters', event.message)
+            } else if (action.startsWith('objective_')) {
+              updateFillProgress('objectives', event.message)
+            } else if (action.startsWith('course_info_')) {
+              updateFillProgress('courseInfo', event.message)
             } else if (action.startsWith('project_matrix_')) {
               updateFillProgress('projectMatrix', event.message)
             } else if (action.startsWith('course_matrix_') || action.startsWith('matrix_')) {
@@ -2189,7 +2218,8 @@ export function AiAssistantDrawer({
                     onSaveSuccess={(majorId, courseId) => {
                       console.log("[AI助手] 课程保存成功, majorId:", majorId, "courseId:", courseId)
                     }}
-                    onUpdateCourseInfo={(updates) => {
+                    onEnsureLatestCanvasOssKey={ensureLatestCanvasOssKey}
+	                    onUpdateCourseInfo={(updates) => {
                       // 查找课程信息节点并更新其 metadata 中的 courseId 和 majorId
                       const courseInfoElement = canvasElements.find(
                         el => el.type === CanvasComponentType.COURSE_INFO
@@ -2214,15 +2244,21 @@ export function AiAssistantDrawer({
                         })
                       }
 
-                      if (updates.coursePoints) {
-                        updates.coursePoints.forEach((coursePoint) => {
-                          updateCanvasElementData(coursePoint.id, coursePoint)
-                        })
-                      }
+	                      if (updates.coursePoints) {
+	                        updates.coursePoints.forEach((coursePoint) => {
+	                          updateCanvasElementData(coursePoint.id, coursePoint)
+	                        })
+	                      }
 
-                      if (updates.ksaItems) {
-                        updates.ksaItems.forEach((ksaItem) => {
-                          updateCanvasElementData(ksaItem.id, ksaItem)
+	                      if (updates.chapters) {
+	                        updates.chapters.forEach((chapter) => {
+	                          updateCanvasElementData(chapter.id, chapter)
+	                        })
+	                      }
+
+	                      if (updates.ksaItems) {
+	                        updates.ksaItems.forEach((ksaItem) => {
+	                          updateCanvasElementData(ksaItem.id, ksaItem)
                         })
                       }
                     }}

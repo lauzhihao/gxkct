@@ -18,12 +18,13 @@ interface CourseEvaluationListProps {
   task: TeachingSupervisoryTask
   majorId: Long
   majorName?: string
+  semesterId?: number | null
   onBack: () => void
   parentBreadcrumb?: ParentBreadcrumb
   onSaveSuccess?: () => void
 }
 
-export function CourseEvaluationList({ task, majorId, majorName, onBack, parentBreadcrumb, onSaveSuccess }: CourseEvaluationListProps) {
+export function CourseEvaluationList({ task, majorId, majorName, semesterId, onBack, parentBreadcrumb, onSaveSuccess }: CourseEvaluationListProps) {
   const [courses, setCourses] = useState<MajorCourseEvaluationItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedCourse, setSelectedCourse] = useState<MajorCourseEvaluationItem | null>(null)
@@ -35,16 +36,19 @@ export function CourseEvaluationList({ task, majorId, majorName, onBack, parentB
     if (!taskId || !majorId) return
     setIsLoading(true)
     try {
-      const response = await courseTeachingTasksApi.getCoursesByTaskAndMajor(taskId, majorId)
+      const response = await courseTeachingTasksApi.getCoursesByTaskAndMajor(taskId, majorId, semesterId)
       if (response.data) {
         setCourses(response.data)
+      } else {
+        setCourses([])
       }
     } catch (error) {
       console.error("加载课程列表失败:", error)
+      setCourses([])
     } finally {
       setIsLoading(false)
     }
-  }, [taskId, majorId])
+  }, [majorId, semesterId, taskId])
 
   useEffect(() => {
     loadCourses()
@@ -151,13 +155,14 @@ export function CourseEvaluationList({ task, majorId, majorName, onBack, parentB
   // 如果选中了课程，显示评分详情
   if (selectedCourse) {
     return (
-      <EvaluationDetail
-        taskId={taskId}
-        courseId={selectedCourse.courseId}
-        courseName={selectedCourse.courseName}
-        onBack={handleBackFromDetail}
-        breadcrumb={renderBreadcrumb()}
-        onSaveSuccess={onSaveSuccess}
+        <EvaluationDetail
+          taskId={taskId}
+          courseId={selectedCourse.courseId}
+          courseName={selectedCourse.courseName}
+          semesterId={semesterId}
+          onBack={handleBackFromDetail}
+          breadcrumb={renderBreadcrumb()}
+          onSaveSuccess={onSaveSuccess}
       />
     )
   }
@@ -171,7 +176,7 @@ export function CourseEvaluationList({ task, majorId, majorName, onBack, parentB
         {isLoading ? (
           <LoadingState variant="card" />
         ) : courses.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">该专业下暂无课程数据</div>
+          <div className="text-center py-12 text-muted-foreground">{semesterId === null ? "该专业下暂无课程数据" : "该学期暂无课程数据"}</div>
         ) : (
           <div className="grid grid-cols-3 gap-4">
             {courses.map((course) => (

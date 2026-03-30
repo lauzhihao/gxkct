@@ -11,6 +11,7 @@ type ListTaskParams = {
   status?: TeachingStatus
   includeArchived?: boolean
   includeCriteria?: boolean
+  semesterId?: number | null
 }
 
 export class TeachingTaskApi {
@@ -31,6 +32,9 @@ export class TeachingTaskApi {
     }
     if (typeof params.includeCriteria === "boolean") {
       query.set("includeCriteria", String(params.includeCriteria))
+    }
+    if (typeof params.semesterId === "number" && Number.isFinite(params.semesterId)) {
+      query.set("semesterId", String(params.semesterId))
     }
     const queryString = query.toString()
     return queryString ? `${path}?${queryString}` : path
@@ -109,6 +113,22 @@ export class TeachingTaskApi {
   // 获取专业下的任务列表
   async getTasksByMajor(majorId: Long): Promise<ApiResponse<TeachingSupervisoryTask[] | null>> {
     const endpoint = `/api/v5/task-evaluation/majors/${majorId}/tasks`
+    return this.http.get<TeachingSupervisoryTask[]>(endpoint)
+  }
+
+  async getTasksByMajorInSemester(
+    majorId: Long,
+    semesterId?: number | null,
+  ): Promise<ApiResponse<TeachingSupervisoryTask[] | null>> {
+    const query = new URLSearchParams()
+    if (typeof semesterId === "number" && Number.isFinite(semesterId)) {
+      query.set("semesterId", String(semesterId))
+    }
+
+    const queryString = query.toString()
+    const endpoint = queryString
+      ? `/api/v5/task-evaluation/majors/${majorId}/tasks?${queryString}`
+      : `/api/v5/task-evaluation/majors/${majorId}/tasks`
     return this.http.get<TeachingSupervisoryTask[]>(endpoint)
   }
 }

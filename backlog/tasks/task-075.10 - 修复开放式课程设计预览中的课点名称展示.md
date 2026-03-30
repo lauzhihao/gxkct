@@ -1,7 +1,7 @@
 ---
 id: task-075.10
 title: 修复开放式课程设计预览中的课点名称展示
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-25 18:38'
 labels:
@@ -36,4 +36,3 @@ priority: medium
 - [ ] #3 不影响导出 JSON 的现有结构
 - [ ] #4 不影响后续 KSA 与课点的关联展示
 <!-- AC:END -->
-

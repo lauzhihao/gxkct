@@ -1,7 +1,7 @@
 ---
 id: task-075.07
 title: 修复 KSA 批量创建重复编号
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-25 18:38'
 labels:
@@ -34,4 +34,3 @@ priority: medium
 - [ ] #3 编辑、删除、批量新增后都能维持 `K/S/A` 类别内连续编号
 - [ ] #4 不影响 KSA 选择弹窗已有的强弱支撑选择逻辑
 <!-- AC:END -->
-

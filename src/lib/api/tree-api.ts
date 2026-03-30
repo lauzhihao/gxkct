@@ -27,12 +27,18 @@ interface BackendResponse<T> {
   data: T
 }
 
-interface PageInfo<T> {
-  list?: T[]
+interface TreeListIdentity {
+  value?: string
+  label?: string
 }
 
-interface CourseUnitPageData {
-  pageInfo?: PageInfo<TreeNode>
+interface TreeListNodeItem {
+  parent?: TreeListIdentity | null
+  self?: TreeListIdentity | null
+  manager?: Array<{ value?: string; label?: string }> | null
+  btnMenus?: Array<{ label?: string; value?: string; path?: string; type?: string }> | null
+  coverMenus?: Array<{ label?: string; value?: string; path?: string; type?: string }> | null
+  props?: Record<string, unknown> | null
 }
 
 function buildAuthHeaders(): Headers {
@@ -66,6 +72,12 @@ function isSuccessCode(code: string | number | undefined): boolean {
   return code === "0" || code === 0
 }
 
+function appendSemesterId(queryParams: URLSearchParams, semesterId?: number | null): void {
+  if (typeof semesterId === "number" && Number.isFinite(semesterId)) {
+    queryParams.set("semesterId", String(semesterId))
+  }
+}
+
 /**
  * 从 nodeId 中提取数字 ID
  * 例如："dept_266" -> "266", "course_2334" -> "2334"
@@ -94,6 +106,52 @@ function addCompatibilityProps(node: TreeNode): TreeNode {
   return enhancedNode
 }
 
+function mapListItemToTreeNode(
+  item: TreeListNodeItem,
+  nodeType: TreeNode["nodeType"],
+  parentNodeId: string,
+): TreeNode {
+  const rawId = item.self?.value
+  const record = item as any
+  const rawName = item.self?.label || record.nodeName || record.name || record.self?.name
+
+  if (typeof rawId !== "string" || rawId.trim() === "") {
+    throw new Error(`${nodeType} 列表项缺少 self.value`)
+  }
+
+  if (typeof rawName !== "string" || rawName.trim() === "") {
+    throw new Error(`${nodeType} 列表项缺少 self.label`)
+  }
+
+  if (!item.self?.label && rawName) {
+     item.self = { ...(item.self || {}), value: rawId, label: rawName }
+  }
+
+  const nodeId = `${nodeType}_${rawId}`
+  const manager = Array.isArray(item.manager)
+    ? item.manager.filter((managerItem): managerItem is { value: string; label: string } => {
+        return typeof managerItem?.value === "string" && typeof managerItem?.label === "string"
+      })
+    : null
+  const btnMenus = Array.isArray(item.btnMenus) ? item.btnMenus : null
+  const coverMenus = Array.isArray(item.coverMenus) ? item.coverMenus : null
+
+  return {
+    nodeId,
+    id: rawId,
+    nodeName: rawName,
+    name: rawName,
+    nodeType,
+    type: nodeType,
+    parentId: parentNodeId,
+    children: [],
+    manager,
+    btnMenus,
+    coverMenus,
+    metadata: item.props ? { ...item.props } : {},
+  }
+}
+
 interface DepartmentMember extends TaskMember {
   relative?: number
 }
@@ -114,7 +172,7 @@ export class TreeApi {
   private storage = new StorageAdapter()
   private treeKey = "tree-data"
 
-  async getTree(keywords?: string): Promise<ApiResponse<TreeNode>> {
+  async getTree(keywords?: string, semesterId?: number | null): Promise<ApiResponse<TreeNode>> {
     try {
       const queryParams = new URLSearchParams()
 
@@ -126,6 +184,8 @@ export class TreeApi {
       if (typeof authUser?.collegeId === "number") {
         queryParams.set("rid", String(authUser.collegeId))
       }
+
+      appendSemesterId(queryParams, semesterId)
 
       const query = queryParams.toString() ? `?${queryParams.toString()}` : ""
       const response = await this.storage.getFromApi<TreeNode[]>(`/api/v5/tree${query}`)
@@ -397,11 +457,14 @@ export class TreeApi {
    * 搜索树中的节点
    * 返回匹配的节点及其完整路径
    */
-  async searchTree(keyword: string): Promise<ApiResponse<Array<{ node: TreeNode; path: TreeNode[] }>>> {
+  async searchTree(
+    keyword: string,
+    semesterId?: number | null,
+  ): Promise<ApiResponse<Array<{ node: TreeNode; path: TreeNode[] }>>> {
     console.log(`[v0] TreeApi.searchTree(${keyword}) 开始远程搜索`)
 
     // 使用远程搜索：将关键字传递给后端
-    const treeResponse = await this.getTree(keyword)
+    const treeResponse = await this.getTree(keyword, semesterId)
     if (treeResponse.error || !treeResponse.data) {
       return { data: null, error: treeResponse.error, status: treeResponse.status }
     }
@@ -441,7 +504,7 @@ export class TreeApi {
    * @param majorId 专业ID
    * @returns 课程节点数组
    */
-  async getMajorCourses(majorId: string): Promise<ApiResponse<TreeNode[] | null>> {
+  async getMajorCourses(majorId: string, semesterId?: number | null): Promise<ApiResponse<TreeNode[] | null>> {
     const resolvedMajorId = extractNumericIdFromNodeId(majorId)
     const numericMajorId = Number.parseInt(resolvedMajorId, 10)
 
@@ -454,14 +517,12 @@ export class TreeApi {
     console.log(`[TreeApi] getMajorCourses(${numericMajorId}) 开始加载课程列表`)
 
     try {
-      // [MOD] courseunitlist 后端要求分页结构，且 majorId 必须为数字
-      const response = await this.storage.postToApi<CourseUnitPageData>(
-        `/api/major/v2.0/courseunitlist`,
-        {
-          majorId: numericMajorId,
-          pageNum: 1,
-          pageSize: 40,
-        }
+      const queryParams = new URLSearchParams()
+      queryParams.set("lang", "80101")
+      appendSemesterId(queryParams, semesterId)
+
+      const response = await this.storage.getFromApi<TreeListNodeItem[]>(
+        `/api/v5/tree/majors/${numericMajorId}/courses?${queryParams.toString()}`
       )
 
       if (response.error || !response.data) {
@@ -469,20 +530,55 @@ export class TreeApi {
         return { data: null, error: response.error, status: response.status }
       }
 
-      const courseList = response.data.pageInfo?.list
-      if (!Array.isArray(courseList)) {
-        const errorMessage = "课程列表响应缺少 pageInfo.list"
+      if (!Array.isArray(response.data)) {
+        const errorMessage = "课程列表响应不是数组"
         console.warn(`[TreeApi] ${errorMessage}:`, response.data)
         return { data: null, error: errorMessage, status: 500 }
       }
 
-      // 为所有课程节点添加兼容属性（id, name, type）
-      const enhancedCourses = courseList.map(addCompatibilityProps)
+      const enhancedCourses = response.data.map((item) => mapListItemToTreeNode(item, "course", `major_${numericMajorId}`))
 
       console.log(`[TreeApi] getMajorCourses(${numericMajorId}) 加载成功，共 ${enhancedCourses.length} 门课程`)
       return { data: enhancedCourses, error: null, status: 200 }
     } catch (error) {
       console.error(`[TreeApi] 获取课程列表异常:`, error)
+      return { data: null, error: String(error), status: 500 }
+    }
+  }
+
+  async getDepartmentMajors(departmentId: string, semesterId?: number | null): Promise<ApiResponse<TreeNode[] | null>> {
+    const resolvedDepartmentId = extractNumericIdFromNodeId(departmentId)
+    const numericDepartmentId = Number.parseInt(resolvedDepartmentId, 10)
+
+    if (!Number.isFinite(numericDepartmentId)) {
+      const errorMessage = `无效的院系ID: ${departmentId}`
+      console.warn(`[TreeApi] ${errorMessage}`)
+      return { data: null, error: errorMessage, status: 400 }
+    }
+
+    try {
+      const queryParams = new URLSearchParams()
+      queryParams.set("lang", "80101")
+      appendSemesterId(queryParams, semesterId)
+
+      const response = await this.storage.getFromApi<TreeListNodeItem[]>(
+        `/api/v5/tree/departments/${numericDepartmentId}/majors?${queryParams.toString()}`
+      )
+
+      if (response.error || !response.data) {
+        return { data: null, error: response.error, status: response.status }
+      }
+
+      if (!Array.isArray(response.data)) {
+        return { data: null, error: "专业列表响应不是数组", status: 500 }
+      }
+
+      return {
+        data: response.data.map((item) => mapListItemToTreeNode(item, "major", `department_${numericDepartmentId}`)),
+        error: null,
+        status: response.status,
+      }
+    } catch (error) {
       return { data: null, error: String(error), status: 500 }
     }
   }
@@ -493,13 +589,20 @@ export class TreeApi {
    * @param universityId 学校ID（可带有前缀的字符串）
    * @returns 成员数组
    */
-  async getUniversityUsers(universityId: string): Promise<ApiResponse<UniversityMember[] | null>> {
+  async getUniversityUsers(
+    universityId: string,
+    semesterId?: number | null,
+  ): Promise<ApiResponse<UniversityMember[] | null>> {
     const resolvedUniversityId = extractNumericIdFromNodeId(universityId)
     console.log(`[TreeApi] getUniversityUsers(${resolvedUniversityId}) 开始加载成员数据`)
 
     try {
+      const queryParams = new URLSearchParams()
+      queryParams.set("collegeId", resolvedUniversityId)
+      appendSemesterId(queryParams, semesterId)
+
       const response = await this.storage.getFromApi<UniversityMember[]>(
-        `/api/v5/manage/users?collegeId=${resolvedUniversityId}`
+        `/api/v5/manage/users?${queryParams.toString()}`
       )
 
       if (response.error || !response.data) {
@@ -521,7 +624,10 @@ export class TreeApi {
    * @param departmentId 院系ID（可带有前缀的字符串）
    * @returns 成员数组
    */
-  async getDepartmentUsers(departmentId: string): Promise<ApiResponse<DepartmentMember[] | null>> {
+  async getDepartmentUsers(
+    departmentId: string,
+    semesterId?: number | null,
+  ): Promise<ApiResponse<DepartmentMember[] | null>> {
     const resolvedDepartmentId = extractNumericIdFromNodeId(departmentId)
     console.log(`[TreeApi] getDepartmentUsers(${resolvedDepartmentId}) 开始加载成员数据`)
 
@@ -532,8 +638,13 @@ export class TreeApi {
         return { data: null, error: "Missing collegeId for department users request", status: 400 }
       }
 
+      const queryParams = new URLSearchParams()
+      queryParams.set("collegeId", String(authUser.collegeId))
+      queryParams.set("departmentId", resolvedDepartmentId)
+      appendSemesterId(queryParams, semesterId)
+
       const response = await this.storage.getFromApi<DepartmentMember[]>(
-        `/api/v5/manage/users?collegeId=${authUser.collegeId}&departmentId=${resolvedDepartmentId}`
+        `/api/v5/manage/users?${queryParams.toString()}`
       )
 
       if (response.error || !response.data) {
@@ -554,18 +665,26 @@ export class TreeApi {
 
   /**
    * 创建院系
-   * 通过 /api/v3/manage/updateDepartment 创建新院系
+   * 通过 /api/v5/tree/department 在当前学期创建新院系
    * @param collegeId 学校ID
    * @param name 院系名称
+   * @param semesterId 当前学期ID
    * @returns 创建结果
    */
-  async createDepartment(collegeId: string, name: string): Promise<ApiResponse<any>> {
+  async createDepartment(collegeId: string, name: string, semesterId?: number | null): Promise<ApiResponse<any>> {
     const resolvedCollegeId = extractNumericIdFromNodeId(collegeId)
     console.log(`[TreeApi] createDepartment(${resolvedCollegeId}, ${name}) 开始创建院系`)
 
     try {
+      const queryParams = new URLSearchParams()
+      if (typeof semesterId === "number" && Number.isFinite(semesterId)) {
+        queryParams.set("semesterId", String(semesterId))
+      } else {
+        return { data: null, error: "缺少当前学期，无法创建院系", status: 400 }
+      }
+
       const response = await this.storage.postToApi<any>(
-        `/api/v3/manage/updateDepartment`,
+        `/api/v5/tree/department?${queryParams.toString()}`,
         {
           id: 0,
           collegeid: parseInt(resolvedCollegeId, 10),

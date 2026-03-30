@@ -18,11 +18,18 @@ import {
   DialogTitle,
 } from "@/shared/components/ui/dialog"
 
+interface CoursePointOption {
+  id: string
+  name: string
+  description?: string
+  originalId?: number
+}
+
 interface CanvasCourseMatrixEditorProps {
   /** 课程矩阵数据 */
   matrixData: CourseMatrixData
   /** 可用的课点列表（用于选择） */
-  availableCoursePoints?: Array<{ id: string; name: string; description?: string }>
+  availableCoursePoints?: Array<{ id: string; name: string; description?: string; originalId?: number }>
   /** 保存回调 */
   onSave: (matrixData: CourseMatrixData) => void
   /** 关闭回调 */
@@ -62,6 +69,44 @@ const normalizeMatrixData = (matrixData: CourseMatrixData): CourseMatrixData => 
     })),
   })),
 })
+
+function normalizeCoursePointId(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return ""
+  }
+  return String(value).trim()
+}
+
+function findCoursePointOptionByReference(
+  availableCoursePoints: CoursePointOption[],
+  coursePoint: Pick<CourseMatrixCoursePoint, "id" | "name" | "description">
+): CoursePointOption | undefined {
+  const normalizedReferenceId = normalizeCoursePointId(coursePoint.id)
+  if (normalizedReferenceId) {
+    const matchedById = availableCoursePoints.find((item) => {
+      if (item.id === normalizedReferenceId) {
+        return true
+      }
+      return typeof item.originalId === "number"
+        && item.originalId > 0
+        && String(item.originalId) === normalizedReferenceId
+    })
+    if (matchedById) {
+      return matchedById
+    }
+  }
+
+  const normalizedName = coursePoint.name.trim()
+  if (!normalizedName) {
+    return undefined
+  }
+
+  const normalizedDescription = (coursePoint.description || "").trim()
+  return availableCoursePoints.find((item) => (
+    item.name.trim() === normalizedName
+    && (item.description || "").trim() === normalizedDescription
+  ))
+}
 
 /**
  * 课点支撑标签组件（编辑模式）
@@ -118,23 +163,68 @@ function CoursePointSelectionDialog({
   open,
   onOpenChange,
   availableCoursePoints,
-  selectedIds,
+  currentCellCoursePoints,
   onConfirm,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  availableCoursePoints: Array<{ id: string; name: string; description?: string }>
-  selectedIds: Set<string>
+  availableCoursePoints: CoursePointOption[]
+  currentCellCoursePoints: CourseMatrixCoursePoint[]
   onConfirm: (selections: Array<{ id: string; name: string; level: "strong" | "weak"; description?: string }>) => void
 }) {
   const [localSelections, setLocalSelections] = useState<Record<string, "strong" | "weak">>({})
 
-  // 初始化已选中的课点
-  const handleOpenChange = useCallback((isOpen: boolean) => {
-    if (isOpen) {
-      // 打开时重置选择状态
-      setLocalSelections({})
+  const mergedCoursePoints = useMemo(() => {
+    const coursePointMap = new Map<string, CoursePointOption>()
+
+    availableCoursePoints.forEach((coursePoint) => {
+      coursePointMap.set(coursePoint.id, {
+        id: coursePoint.id,
+        name: coursePoint.name,
+        description: coursePoint.description,
+        originalId: coursePoint.originalId,
+      })
+    })
+
+    currentCellCoursePoints.forEach((coursePoint) => {
+      // [MOD] 课程矩阵中的已选课点可能使用服务端原始ID，弹窗列表使用画布ID
+      // 这里先归一到全量课点的规范ID，避免同一个课点在不同单元格中被重复渲染为两条记录
+      const matchedCoursePoint = findCoursePointOptionByReference(availableCoursePoints, coursePoint)
+      if (matchedCoursePoint) {
+        return
+      }
+
+      const fallbackId = normalizeCoursePointId(coursePoint.id)
+      if (!fallbackId) {
+        throw new Error(`Course point ${coursePoint.name} is missing an identifier in selection dialog.`)
+      }
+
+      coursePointMap.set(fallbackId, {
+        id: fallbackId,
+        name: coursePoint.name,
+        description: coursePoint.description,
+      })
+    })
+
+    return Array.from(coursePointMap.values())
+  }, [availableCoursePoints, currentCellCoursePoints])
+
+  useEffect(() => {
+    if (open) {
+      const initialSelections: Record<string, "strong" | "weak"> = {}
+      currentCellCoursePoints.forEach((coursePoint) => {
+        const matchedCoursePoint = findCoursePointOptionByReference(availableCoursePoints, coursePoint)
+        const selectionId = matchedCoursePoint?.id || normalizeCoursePointId(coursePoint.id)
+        if (!selectionId) {
+          throw new Error(`Course point ${coursePoint.name} is missing an identifier in selection state.`)
+        }
+        initialSelections[selectionId] = coursePoint.level
+      })
+      setLocalSelections(initialSelections)
     }
+  }, [open, currentCellCoursePoints, availableCoursePoints])
+
+  const handleOpenChange = useCallback((isOpen: boolean) => {
     onOpenChange(isOpen)
   }, [onOpenChange])
 
@@ -152,17 +242,20 @@ function CoursePointSelectionDialog({
 
   const handleConfirm = useCallback(() => {
     const selections = Object.entries(localSelections).map(([id, level]) => {
-      const cp = availableCoursePoints.find((p) => p.id === id)
-      return { id, name: cp?.name || id, level, description: cp?.description }
+      const coursePoint = mergedCoursePoints.find((item) => item.id === id)
+      if (!coursePoint) {
+        throw new Error(`Course point ${id} not found in selection dialog options.`)
+      }
+      return {
+        id,
+        name: coursePoint.name,
+        level,
+        description: coursePoint.description,
+      }
     })
     onConfirm(selections)
     onOpenChange(false)
-  }, [localSelections, availableCoursePoints, onConfirm, onOpenChange])
-
-  // 过滤掉已选中的课点
-  const filteredCoursePoints = useMemo(() => {
-    return availableCoursePoints.filter((cp) => !selectedIds.has(cp.id))
-  }, [availableCoursePoints, selectedIds])
+  }, [localSelections, mergedCoursePoints, onConfirm, onOpenChange])
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -171,13 +264,13 @@ function CoursePointSelectionDialog({
           <DialogTitle>选择课点</DialogTitle>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto py-4">
-          {filteredCoursePoints.length === 0 ? (
+          {mergedCoursePoints.length === 0 ? (
             <div className="text-center text-muted-foreground py-8">
               暂无可选课点
             </div>
           ) : (
             <div className="space-y-2">
-              {filteredCoursePoints.map((cp) => (
+              {mergedCoursePoints.map((cp) => (
                 <div
                   key={cp.id}
                   className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-secondary/20 transition-colors"
@@ -192,6 +285,7 @@ function CoursePointSelectionDialog({
                   </div>
                   <div className="flex items-center gap-2 ml-3">
                     <button
+                      type="button"
                       onClick={() => handleToggle(cp.id, "strong")}
                       className={`px-2 py-1 text-xs rounded border transition-colors ${
                         localSelections[cp.id] === "strong"
@@ -202,6 +296,7 @@ function CoursePointSelectionDialog({
                       强支撑
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleToggle(cp.id, "weak")}
                       className={`px-2 py-1 text-xs rounded border transition-colors ${
                         localSelections[cp.id] === "weak"
@@ -221,12 +316,7 @@ function CoursePointSelectionDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             取消
           </Button>
-          <Button
-            onClick={handleConfirm}
-            disabled={Object.keys(localSelections).length === 0}
-          >
-            确认添加
-          </Button>
+          <Button onClick={handleConfirm}>确认</Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -281,40 +371,54 @@ export function CanvasCourseMatrixEditor({
     })
   }, [])
 
-  // 添加课点到单元格
-  const handleAddCoursePoints = useCallback(
+  // 设置当前单元格的课点，使用整格替换而非追加
+  const handleSetCoursePoints = useCallback(
     (selections: Array<{ id: string; name: string; level: "strong" | "weak"; description?: string }>) => {
       const { chapterId, objectiveId } = selectionDialog
       setLocalMatrixData((prev) => {
         const newRows = prev.rows.map((row) => {
           if (row.chapter_id !== chapterId) return row
 
-          const newSupports = row.supports.map((support) => {
-            if (support.objective_id !== objectiveId) return support
+          const supportIndex = row.supports.findIndex((support) => support.objective_id === objectiveId)
+          const nextCoursePoints = selections.map((selection) => ({
+            id: selection.id,
+            name: selection.name,
+            level: selection.level,
+            description: selection.description,
+          }))
 
-            const existingIds = new Set(support.course_points.map((cp) => cp.id))
-            const newCoursePoints = selections
-              .filter((s) => !existingIds.has(s.id))
-              .map((s) => ({ id: s.id, name: s.name, level: s.level, description: s.description }))
-
-            return {
-              ...support,
-              course_points: [...support.course_points, ...newCoursePoints],
+          if (supportIndex >= 0) {
+            const nextSupports = [...row.supports]
+            nextSupports[supportIndex] = {
+              ...nextSupports[supportIndex],
+              course_points: nextCoursePoints,
             }
-          })
-
-          // 如果目标不存在，创建新的支撑
-          const hasObjective = row.supports.some((s) => s.objective_id === objectiveId)
-          if (!hasObjective) {
-            const objective = prev.objectives.find((o) => o.id === objectiveId)
-            newSupports.push({
-              objective_id: objectiveId,
-              objective_index: objective?.index || 0,
-              course_points: selections.map((s) => ({ id: s.id, name: s.name, level: s.level, description: s.description })),
-            })
+            return {
+              ...row,
+              supports: nextSupports,
+            }
           }
 
-          return { ...row, supports: newSupports }
+          if (selections.length === 0) {
+            return row
+          }
+
+          const objective = prev.objectives.find((item) => item.id === objectiveId)
+          if (!objective) {
+            throw new Error(`Objective ${objectiveId} not found in course matrix data.`)
+          }
+
+          return {
+            ...row,
+            supports: [
+              ...row.supports,
+              {
+                objective_id: objectiveId,
+                objective_index: objective.index,
+                course_points: nextCoursePoints,
+              },
+            ],
+          }
         })
 
         return { ...prev, rows: newRows }
@@ -377,12 +481,17 @@ export function CanvasCourseMatrixEditor({
     onSave(normalizeMatrixData(localMatrixData))
   }, [localMatrixData, onSave])
 
-  // 计算当前单元格已选中的课点ID
-  const selectedCoursePointIds = useMemo(() => {
+  const currentCellCoursePoints = useMemo(() => {
     const { chapterId, objectiveId } = selectionDialog
-    const coursePoints = getCellCoursePoints(chapterId, objectiveId)
-    return new Set(coursePoints.map((cp) => cp.id))
+    return getCellCoursePoints(chapterId, objectiveId)
   }, [selectionDialog, getCellCoursePoints])
+
+  const selectionDialogCellKey = useMemo(() => {
+    const { chapterId, objectiveId } = selectionDialog
+    return chapterId && objectiveId
+      ? `${chapterId}:${objectiveId}`
+      : "course-matrix-selection-dialog"
+  }, [selectionDialog])
 
   const availableCoursePointMap = useMemo(() => {
     const map = new Map<string, { name: string; description?: string }>()
@@ -495,11 +604,12 @@ export function CanvasCourseMatrixEditor({
 
       {/* 课点选择弹窗 */}
       <CoursePointSelectionDialog
+        key={selectionDialogCellKey}
         open={selectionDialog.open}
         onOpenChange={(open) => setSelectionDialog((prev) => ({ ...prev, open }))}
         availableCoursePoints={availableCoursePoints}
-        selectedIds={selectedCoursePointIds}
-        onConfirm={handleAddCoursePoints}
+        currentCellCoursePoints={currentCellCoursePoints}
+        onConfirm={handleSetCoursePoints}
       />
     </div>
   )

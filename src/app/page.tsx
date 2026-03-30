@@ -8,10 +8,11 @@ import { Header } from "@/components/header"
 import { LoadingState } from "@/shared/components/ui/loading-state"
 import { useTreeData } from "@/shared/hooks/use-tree-data"
 import { useLocalStorage } from "@/shared/hooks/use-local-storage"
-import { api, getStoredAuthUser, getStoredAuthToken } from "@/lib/api"
+import { api, getStoredAuthUser, getStoredAuthToken, getStoredSemesterContext } from "@/lib/api"
 import { findStarredNode, getFirstNode } from "@/shared/utils/tree-operations"
 import { cn, extractNumericId } from "@/shared/utils/utils"
 import type { TreeNode } from "@/types"
+import { useSemesterStore } from "@/shared/stores/semester-store"
 
 const CURRENT_SCHOOL_STORAGE_KEY = "education-current-school"
 const TREE_COLLAPSED_STORAGE_KEY = "education-tree-collapsed"
@@ -57,30 +58,85 @@ export default function Page() {
   const treeViewRef = useRef<{ toggleExpand: (nodeId: string) => void }>(null)
   // 添加ref来引用右侧详情面板容器，用于滚动控制
   const detailPanelContainerRef = useRef<HTMLDivElement>(null)
-  const treeDataHook = useTreeData(initialData)
-  const hasInitialized = useRef(false)
-  const hasLoadedTree = useRef(false)
+  const treeRequestIdRef = useRef(0)
+  const selectedNodePathRef = useRef<TreeNode[]>([])
+  const {
+    treeData,
+    findNodeById,
+    addDepartment,
+    addMajor,
+    addCourse,
+    updateNode,
+    deleteNode,
+    resetData: resetTreeData,
+  } = useTreeData(initialData)
   const router = useRouter()
   const pathname = usePathname()
+  const selectedSemesterId = useSemesterStore((state) => state.selectedSemesterId)
+  const initializeFromStoredContext = useSemesterStore((state) => state.initializeFromStoredContext)
+
+  const resolveNextSelectedNode = useCallback((latestTree: TreeNode, previousSelectedNode: TreeNode | null): TreeNode | null => {
+    const latestSelectedNodePath = selectedNodePathRef.current
+
+    if (previousSelectedNode) {
+      const selectedByNodeId = findNodeInTree(latestTree, previousSelectedNode.nodeId)
+      if (selectedByNodeId) {
+        return selectedByNodeId
+      }
+
+      if (previousSelectedNode.id) {
+        const selectedByNumericId = findNodeInTree(latestTree, previousSelectedNode.id)
+        if (selectedByNumericId) {
+          return selectedByNumericId
+        }
+      }
+
+      if (latestSelectedNodePath.length > 1) {
+        for (let index = latestSelectedNodePath.length - 2; index >= 0; index -= 1) {
+          const fallbackNode = latestSelectedNodePath[index]
+          const matchedFallbackNode = findNodeInTree(latestTree, fallbackNode.nodeId)
+          if (matchedFallbackNode) {
+            return matchedFallbackNode
+          }
+        }
+      }
+    }
+
+    const starredNode = findStarredNode(latestTree)
+    if (starredNode) {
+      return starredNode
+    }
+
+    const firstNode = getFirstNode(latestTree)
+    return firstNode || null
+  }, [])
+
+  useEffect(() => {
+    initializeFromStoredContext(getStoredSemesterContext())
+  }, [initializeFromStoredContext])
+
+  useEffect(() => {
+    selectedNodePathRef.current = selectedNodePath
+  }, [selectedNodePath])
 
   useEffect(() => {
     const loadTreeData = async () => {
-      // 防止在 StrictMode 下重复调用
-      if (hasLoadedTree.current) {
-        return
-      }
-
+      const requestId = ++treeRequestIdRef.current
       const token = getStoredAuthToken()
       if (!token) {
         router.replace("/login")
         return
       }
 
-      hasLoadedTree.current = true
+      setIsLoading(true)
 
       console.log("[v0] 开始加载树形数据")
-      const response = await api.tree.getTree()
+      const response = await api.tree.getTree(undefined, selectedSemesterId)
       console.log("[v0] API响应:", response)
+
+      if (treeRequestIdRef.current !== requestId) {
+        return
+      }
 
       if (response.status === 401) {
         router.replace("/login")
@@ -89,77 +145,36 @@ export default function Page() {
 
       if (response.data) {
         console.log("[v0] 树形数据加载成功，children数量:", response.data.children?.length || 0)
-        setInitialData(response.data)
+        const latestTree = response.data
+        setInitialData(latestTree)
+        resetTreeData(latestTree)
+        setSelectedNode((prevSelectedNode) => {
+          return resolveNextSelectedNode(latestTree, prevSelectedNode)
+        })
       } else {
         console.error("[v0] 加载树形数据失败:", response.error)
-        setInitialData({
+        const emptyTree: TreeNode = {
           nodeId: "root",
           nodeName: "根节点",
           nodeType: "root" as const,
           children: [],
-        })
+        }
+        setInitialData(emptyTree)
+        resetTreeData(emptyTree)
+        setSelectedNode(null)
       }
       setIsLoading(false)
     }
 
-    loadTreeData()
-  }, [router])
-
-  useEffect(() => {
-    if (
-      hasInitialized.current ||
-      !treeDataHook ||
-      !treeDataHook.treeData ||
-      !treeDataHook.treeData.children ||
-      treeDataHook.treeData.children.length === 0
-    ) {
-      return
-    }
-
-    try {
-      console.log("[v0] 开始初始化星标节点选择")
-      console.log("[v0] treeData children数量:", treeDataHook.treeData.children.length)
-
-      const starredNode = findStarredNode(treeDataHook.treeData)
-      console.log("[v0] 找到的星标节点:", starredNode)
-
-      if (starredNode) {
-        console.log("[v0] 选中星标节点:", starredNode.nodeName)
-        Promise.resolve().then(() => {
-          setSelectedNode(starredNode)
-          if (starredNode.nodeType === "university") {
-            setCurrentSchoolId(extractNumericId(starredNode.nodeId).toString())
-          }
-        })
-      } else {
-        console.log("[v0] 没有找到星标节点，使用第一个节点")
-        const firstNode = getFirstNode(treeDataHook.treeData)
-        console.log("[v0] 第一个节点:", firstNode)
-
-        if (firstNode) {
-          treeDataHook.updateNode(firstNode.nodeId, { isStarred: true })
-          Promise.resolve().then(() => {
-            setSelectedNode(firstNode)
-            if (firstNode.nodeType === "university") {
-              setCurrentSchoolId(extractNumericId(firstNode.nodeId).toString())
-            }
-          })
-        }
-      }
-
-      hasInitialized.current = true
-      console.log("[v0] 初始化完成")
-    } catch (error) {
-      console.error("[v0] 初始化过程中出错:", error)
-    }
-  }, [treeDataHook, setCurrentSchoolId])
+    void loadTreeData()
+  }, [resetTreeData, resolveNextSelectedNode, router, selectedSemesterId])
 
   const effectiveSelectedNode = useMemo(() => {
-    if (!selectedNode || !treeDataHook?.findNodeById || !treeDataHook.treeData) {
+    if (!selectedNode || !treeData) {
       return selectedNode
     }
 
-    const treeNode = treeDataHook.findNodeById(treeDataHook.treeData, selectedNode.nodeId)
+    const treeNode = findNodeById(treeData, selectedNode.nodeId)
     if (!treeNode) {
       return selectedNode
     }
@@ -174,11 +189,19 @@ export default function Page() {
         ...(selectedNode.metadata || {}),
       },
     }
-  }, [selectedNode, treeDataHook])
+  }, [findNodeById, selectedNode, treeData])
 
   useEffect(() => {
     console.log("[v0] selectedNode状态变化:", selectedNode)
   }, [selectedNode])
+
+  useEffect(() => {
+    if (selectedNode?.nodeType !== "university") {
+      return
+    }
+
+    setCurrentSchoolId(extractNumericId(selectedNode.nodeId).toString())
+  }, [selectedNode?.nodeId, selectedNode?.nodeType, setCurrentSchoolId])
 
   // 当选中节点变化时，滚动右侧详情面板到顶部
   useEffect(() => {
@@ -188,23 +211,23 @@ export default function Page() {
   }, [selectedNode?.nodeId])
 
   const handleAddDepartment = (universityId: string, newDepartment: Omit<TreeNode, "id" | "nodeId">) => {
-    treeDataHook?.addDepartment(universityId, newDepartment)
+    addDepartment(universityId, newDepartment)
   }
 
   const handleAddMajor = (departmentId: string, newMajor: Omit<TreeNode, "id" | "nodeId">) => {
-    treeDataHook?.addMajor(departmentId, newMajor)
+    addMajor(departmentId, newMajor)
   }
 
   const handleAddCourse = (majorId: string, newCourse: Omit<TreeNode, "id" | "nodeId">) => {
-    treeDataHook?.addCourse(majorId, newCourse)
+    addCourse(majorId, newCourse)
   }
 
   const handleUpdateNode = (nodeId: string, updates: Partial<TreeNode>) => {
-    treeDataHook?.updateNode(nodeId, updates)
+    updateNode(nodeId, updates)
   }
 
   const handleDeleteNode = (nodeId: string) => {
-    treeDataHook?.deleteNode(nodeId)
+    deleteNode(nodeId)
   }
 
   const handleSetCurrentSchool = (schoolId: string) => {
@@ -230,55 +253,36 @@ export default function Page() {
 
   const refreshTreeData = useCallback(async (): Promise<boolean> => {
     try {
-      const response = await api.tree.getTree()
+      const requestId = ++treeRequestIdRef.current
+      const response = await api.tree.getTree(undefined, selectedSemesterId)
+      if (treeRequestIdRef.current !== requestId) {
+        return false
+      }
+
       if (!response.data) {
         console.error("[Page] 刷新树形数据失败:", response.error)
+        setIsLoading(false)
         return false
       }
 
       const latestTree = response.data
       setInitialData(latestTree)
-      treeDataHook?.resetData(latestTree)
+      resetTreeData(latestTree)
 
       setSelectedNode((prevSelectedNode) => {
-        if (!prevSelectedNode) {
-          return prevSelectedNode
-        }
-
-        const selectedByNodeId = findNodeInTree(latestTree, prevSelectedNode.nodeId)
-        if (selectedByNodeId) {
-          return selectedByNodeId
-        }
-
-        if (prevSelectedNode.id) {
-          const selectedByNumericId = findNodeInTree(latestTree, prevSelectedNode.id)
-          if (selectedByNumericId) {
-            return selectedByNumericId
-          }
-        }
-
-        if (selectedNodePath.length > 1) {
-          for (let index = selectedNodePath.length - 2; index >= 0; index -= 1) {
-            const fallbackNode = selectedNodePath[index]
-            const matchedFallbackNode = findNodeInTree(latestTree, fallbackNode.nodeId)
-            if (matchedFallbackNode) {
-              return matchedFallbackNode
-            }
-          }
-        }
-
-        const firstNode = getFirstNode(latestTree)
-        return firstNode || null
+        return resolveNextSelectedNode(latestTree, prevSelectedNode)
       })
+      setIsLoading(false)
 
       return true
     } catch (error) {
       console.error("[Page] 刷新树形数据异常:", error)
+      setIsLoading(false)
       return false
     }
-  }, [selectedNodePath, treeDataHook])
+  }, [resetTreeData, resolveNextSelectedNode, selectedSemesterId])
 
-  if (isLoading || !treeDataHook || !treeDataHook.treeData) {
+  if (isLoading || !treeData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[oklch(0.97_0.005_240)] via-[oklch(0.96_0.005_240)] to-[oklch(0.95_0.008_240)]">
         <LoadingState title="加载中..." className="h-screen" />
@@ -294,7 +298,7 @@ export default function Page() {
           isTreeCollapsed={isTreeCollapsed}
           currentPath={pathname ?? undefined}
           selectedNodeName={effectiveSelectedNode?.nodeName}
-          treeData={treeDataHook.treeData}
+          treeData={treeData}
         />
 
         <div className="flex gap-3 relative w-full flex-1 min-h-0">
@@ -306,11 +310,12 @@ export default function Page() {
           >
             <TreeView
               ref={treeViewRef}
-              treeData={treeDataHook.treeData}
+              treeData={treeData}
               onNodeSelect={setSelectedNode}
               onSelectedNodePathChange={setSelectedNodePath}
               selectedNode={effectiveSelectedNode}
               onWorkshopCreated={refreshTreeData}
+              selectedSemesterId={selectedSemesterId}
               currentSchoolId={currentSchoolId}
               onSetCurrentSchool={handleSetCurrentSchool}
               onUpdateNode={handleUpdateNode}
@@ -328,7 +333,7 @@ export default function Page() {
           >
             <DetailPanel
               node={effectiveSelectedNode}
-              treeData={treeDataHook.treeData}
+              treeData={treeData}
               selectedNodePath={selectedNodePath}
               onNodeSelect={setSelectedNode}
               onTreeRefresh={refreshTreeData}

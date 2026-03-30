@@ -45,6 +45,8 @@ import { PermissionGate } from "@/shared/components/permission-gate"
 import { usePermission } from "@/shared/hooks/use-permission"
 import type { PermissionAction, PermissionContext } from "@/shared/permissions/types"
 import { getAllPermissionRoleNames, getMemberRoleConfig } from "@/shared/permissions/roles"
+import { useSemesterStore } from "@/shared/stores/semester-store"
+import { useSemesterReadonly } from "@/shared/hooks/use-semester-readonly"
 
 interface MembersProps {
   node: TreeNode
@@ -120,6 +122,8 @@ export function Members({ node }: MembersProps) {
   const toggleMemberAction = getMemberAction(memberScope, "toggle")
   const resetPasswordMemberAction = getMemberAction(memberScope, "resetPassword")
   const { can } = usePermission()
+  const selectedSemesterId = useSemesterStore((state) => state.selectedSemesterId)
+  const isSemesterReadonly = useSemesterReadonly()
   const nodeId = node.id ?? node.nodeId
   const roleConfig = getMemberRoleConfig(nodeType)
   const availableRoles = nodeType === "university" ? getAllPermissionRoleNames() : roleConfig.roles
@@ -156,11 +160,11 @@ export function Members({ node }: MembersProps) {
     return can(action, { scope: memberScope })
   }
 
-  const canCreateMember = canPerformMemberAction(createMemberAction)
-  const canEditMember = canPerformMemberAction(editMemberAction)
-  const canDeleteMember = canPerformMemberAction(deleteMemberAction)
-  const canToggleMember = canPerformMemberAction(toggleMemberAction)
-  const canResetMemberPassword = canPerformMemberAction(resetPasswordMemberAction)
+  const canCreateMember = !isSemesterReadonly && canPerformMemberAction(createMemberAction)
+  const canEditMember = !isSemesterReadonly && canPerformMemberAction(editMemberAction)
+  const canDeleteMember = !isSemesterReadonly && canPerformMemberAction(deleteMemberAction)
+  const canToggleMember = !isSemesterReadonly && canPerformMemberAction(toggleMemberAction)
+  const canResetMemberPassword = !isSemesterReadonly && canPerformMemberAction(resetPasswordMemberAction)
 
   const resetAddUserFormState = () => {
     setNewUserAccount("")
@@ -250,7 +254,7 @@ export function Members({ node }: MembersProps) {
     }
 
     const loadOrganizationOptions = async () => {
-      const treeResponse = await api.tree.getTree()
+      const treeResponse = await api.tree.getTree(undefined, selectedSemesterId)
       if (treeResponse.error || !treeResponse.data) {
         setOrganizationOptions([])
         return
@@ -267,7 +271,15 @@ export function Members({ node }: MembersProps) {
     }
 
     loadOrganizationOptions()
-  }, [isAddUserDialogOpen, node.nodeId, nodeId, nodeType])
+  }, [isAddUserDialogOpen, node.nodeId, nodeId, nodeType, selectedSemesterId])
+
+  useEffect(() => {
+    if (!isSemesterReadonly) {
+      return
+    }
+
+    resetDialogForm()
+  }, [isSemesterReadonly])
 
   useEffect(() => {
     setDepartmentSearch("")
@@ -334,7 +346,7 @@ export function Members({ node }: MembersProps) {
       setIsLoading(true)
       try {
         if (nodeType === "university") {
-          const response = await api.tree.getUniversityUsers(nodeId)
+          const response = await api.tree.getUniversityUsers(nodeId, selectedSemesterId)
           // 数据类型转换：将 API 返回的 UniversityMember[] 转换为 MemberUser[]
           const universityUsers: MemberUser[] = (response.data ?? []).map((user) => ({
             ...user,
@@ -347,7 +359,7 @@ export function Members({ node }: MembersProps) {
           }))
           setUsers(universityUsers)
         } else if (nodeType === "department") {
-          const response = await api.tree.getDepartmentUsers(nodeId)
+          const response = await api.tree.getDepartmentUsers(nodeId, selectedSemesterId)
           // 数据类型转换：将 API 返回的 DepartmentMember[] 转换为 MemberUser[]
           const deptUsers: MemberUser[] = (response.data ?? []).map((user) => ({
             id: Number(user.id),
@@ -379,10 +391,10 @@ export function Members({ node }: MembersProps) {
 
     loadUsers()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodeId, nodeType])
+  }, [nodeId, nodeType, selectedSemesterId])
 
   const refreshUniversityUsers = async (): Promise<boolean> => {
-    const refreshResponse = await api.tree.getUniversityUsers(nodeId)
+    const refreshResponse = await api.tree.getUniversityUsers(nodeId, selectedSemesterId)
     if (refreshResponse.error) {
       console.error("[Members] refresh university users failed:", refreshResponse.error)
       return false
@@ -403,7 +415,7 @@ export function Members({ node }: MembersProps) {
   }
 
   const refreshDepartmentUsers = async (): Promise<boolean> => {
-    const refreshResponse = await api.tree.getDepartmentUsers(nodeId)
+    const refreshResponse = await api.tree.getDepartmentUsers(nodeId, selectedSemesterId)
     if (refreshResponse.error) {
       console.error("[Members] refresh department users failed:", refreshResponse.error)
       return false
@@ -921,7 +933,7 @@ export function Members({ node }: MembersProps) {
             // 空状态
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
-                <div className="text-muted-foreground mb-2">暂无成员数据</div>
+                <div className="text-muted-foreground mb-2">{selectedSemesterId === null ? "暂无成员数据" : "该学期暂无成员数据"}</div>
               </div>
             </div>
           ) : (

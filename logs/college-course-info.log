@@ -1,0 +1,19 @@
+2026-03-26 10:35:41.854 | [34mINFO [0;39m | [1;33m[0;39m | [1;34mc.c.course.CollegeCourseApplication[55][0;39m | Starting CollegeCourseApplication v1.0-SNAPSHOT on liuzhihao-dev-server with PID 806157 (/root/projects/course/college-course-starter/target/college.jar started by root in /root/projects/gxkct)
+2026-03-26 10:35:41.855 | [34mINFO [0;39m | [1;33m[0;39m | [1;34mc.c.course.CollegeCourseApplication[655][0;39m | The following profiles are active: dev
+2026-03-26 10:35:46.254 | [34mINFO [0;39m | [1;33m[0;39m | [1;34mc.c.c.a.c.CozeWorkflowConfiguration[50][0;39m | Coze工作流加载成功: name=project2, id=7561105797695635482, 节点数量=36, 边数量=44
+2026-03-26 10:35:46.257 | [34mINFO [0;39m | [1;33m[0;39m | [1;34mc.c.c.a.c.OrganizationTreeViewBootstrap[78][0;39m | Tree view bootstrap disabled by config
+2026-03-26 10:35:46.261 | [34mINFO [0;39m | [1;33m[0;39m | [1;34mc.c.c.application.model.CourseCache[78][0;39m | CollegeCache CACHE创建成功
+2026-03-26 10:35:46.267 | [34mINFO [0;39m | [1;33m[0;39m | [1;34mc.c.c.application.model.CourseCache[78][0;39m | CodePathCache CACHE创建成功
+2026-03-26 10:35:46.271 | [34mINFO [0;39m | [1;33m[0;39m | [1;34mc.c.c.application.model.CourseCache[78][0;39m | CODE_PATH CACHE 数据加载完成
+2026-03-26 10:35:46.272 | [34mINFO [0;39m | [1;33m[0;39m | [1;34mc.c.c.application.model.CourseCache[78][0;39m | LocalizeCache CACHE创建成功
+2026-03-26 10:35:46.367 | [34mINFO [0;39m | [1;33m[0;39m | [1;34mc.c.c.application.model.CourseCache[78][0;39m | PageLabelCache CACHE创建成功
+2026-03-26 10:35:46.377 | [34mINFO [0;39m | [1;33m[0;39m | [1;34mc.c.c.application.model.CourseCache[78][0;39m | SystemSettingCacheV4 CACHE创建成功
+2026-03-26 10:35:46.390 | [34mINFO [0;39m | [1;33m[0;39m | [1;34mc.c.c.application.model.CourseCache[78][0;39m | GroupOperationCache CACHE创建成功
+2026-03-26 10:35:46.393 | [34mINFO [0;39m | [1;33m[0;39m | [1;34mc.c.c.application.model.CourseCache[78][0;39m | UserAuthListCache CACHE创建成功
+2026-03-26 10:35:46.394 | [34mINFO [0;39m | [1;33m[0;39m | [1;34mc.c.c.application.model.CourseCache[78][0;39m | AuthGroupCache CACHE创建成功
+2026-03-26 10:35:46.394 | [34mINFO [0;39m | [1;33m[0;39m | [1;34mc.c.c.application.model.CourseCache[78][0;39m | CourseOperationCache CACHE创建成功
+2026-03-26 10:35:46.395 | [34mINFO [0;39m | [1;33m[0;39m | [1;34mc.c.c.application.model.CourseCache[78][0;39m | CollegeAuthGroupCache CACHE创建成功
+2026-03-26 10:35:46.396 | [34mINFO [0;39m | [1;33m[0;39m | [1;34mc.c.c.application.model.CourseCache[78][0;39m | UserAddInfoCache CACHE创建成功
+2026-03-26 10:35:46.398 | [34mINFO [0;39m | [1;33m[0;39m | [1;34mc.c.c.application.model.CourseCache[78][0;39m | SystemSettingCache CACHE创建成功
+2026-03-26 10:35:46.399 | [34mINFO [0;39m | [1;33m[0;39m | [1;34mc.c.c.application.model.CourseCache[78][0;39m | SYS_SETTING_CACHE注入成功
+2026-03-26 10:35:48.321 | [34mINFO [0;39m | [1;33m[0;39m | [1;34mc.c.course.CollegeCourseApplication[61][0;39m | Started CollegeCourseApplication in 6.854 seconds (JVM running for 7.161)

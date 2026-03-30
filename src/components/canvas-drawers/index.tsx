@@ -1,6 +1,6 @@
 "use client"
 
-import { memo } from "react"
+import { memo, useMemo } from "react"
 import type { Node } from "@xyflow/react"
 import { FlowNodeType } from "../flow/utils/types"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/shared/components/ui/sheet"
@@ -9,6 +9,7 @@ import { CanvasCoursePointEditor } from "../canvas-course-point-editor"
 import { CanvasKsaEditor } from "../canvas-ksa-editor"
 import { CanvasChapterEditor } from "../canvas-chapter-editor"
 import { CanvasObjectiveEditor } from "../canvas-objective-editor"
+import type { CanvasObjectiveGroup } from "../canvas-objective-editor"
 import { CanvasCourseMatrixEditor } from "../canvas-course-matrix-editor"
 import { CanvasProjectMatrixEditor } from "../canvas-project-matrix-editor"
 import { CanvasCourseReportPreview } from "../canvas-course-report-preview"
@@ -19,6 +20,7 @@ import type {
   KsaItemData,
   ChapterCardData,
   ObjectiveCardData,
+  ObjectiveSupportLabel,
   CourseMatrixData,
   ProjectMatrixData,
   CourseInfoData,
@@ -39,7 +41,238 @@ import type {
   SourceDocumentDrawerState,
   GraduationSupportDrawerState,
 } from "@/shared/hooks/use-canvas-drawers"
+import { getKsaReferenceId } from "@/shared/utils/ksa"
 import type { CourseReportPreviewData } from "../canvas-course-report-preview"
+
+type ObjectiveSupportItem = NonNullable<ObjectiveCardData["supports"]>[number]
+type ObjectiveSupportWarningMap = Record<string, string[]>
+
+interface GraduationIndicatorMeta {
+  requirementId: number
+  requirementIndex: number
+  indicatorIndex: number
+  code: string
+  description: string
+  requirementContent: string
+  supportLevel?: "strong" | "weak"
+}
+
+function normalizeTextValue(value: unknown): string {
+  if (typeof value !== "string") {
+    return ""
+  }
+
+  return value.trim()
+}
+
+function resolveObjectiveSupportType(
+  rawType: ObjectiveSupportItem["type"],
+  fallbackType: GraduationIndicatorMeta["supportLevel"]
+): ObjectiveSupportItem["type"] {
+  if (rawType === "strong" || rawType === "weak") {
+    return rawType
+  }
+
+  if (fallbackType === "strong" || fallbackType === "weak") {
+    return fallbackType
+  }
+
+  return undefined
+}
+
+function buildGraduationIndicatorMetaMap(
+  graduationSupportData: GraduationSupportData | null
+): Map<number, GraduationIndicatorMeta> {
+  const indicatorMetaById = new Map<number, GraduationIndicatorMeta>()
+
+  if (!graduationSupportData || !Array.isArray(graduationSupportData.requirements)) {
+    return indicatorMetaById
+  }
+
+  graduationSupportData.requirements.forEach((requirement, requirementIndex) => {
+    if (!Array.isArray(requirement.indicators)) {
+      return
+    }
+
+    requirement.indicators.forEach((indicator, indicatorIndex) => {
+      if (typeof indicator.id !== "number" || !Number.isFinite(indicator.id) || indicator.id <= 0) {
+        return
+      }
+
+      indicatorMetaById.set(indicator.id, {
+        requirementId: requirement.id,
+        requirementIndex,
+        indicatorIndex,
+        code: `${requirementIndex + 1}.${indicatorIndex + 1}`,
+        description: normalizeTextValue(indicator.description),
+        requirementContent: normalizeTextValue(requirement.content),
+        supportLevel: indicator.supportLevel,
+      })
+    })
+  })
+
+  return indicatorMetaById
+}
+
+function buildInitialObjectiveGroups(
+  graduationSupportData: GraduationSupportData | null
+): CanvasObjectiveGroup[] {
+  if (!graduationSupportData || !Array.isArray(graduationSupportData.requirements)) {
+    return []
+  }
+
+  return graduationSupportData.requirements.flatMap((requirement, requirementIndex) => {
+    if (!Array.isArray(requirement.indicators)) {
+      return []
+    }
+
+    return [{
+      requirementId: requirement.id,
+      requirementOrder: requirementIndex + 1,
+      requirementDescription: normalizeTextValue(requirement.content),
+      indicators: requirement.indicators
+        .filter((indicator) => (
+          typeof indicator.id === "number" && Number.isFinite(indicator.id) && indicator.id > 0
+        ))
+        .map((indicator, indicatorIndex) => ({
+          indicatorId: indicator.id,
+          indicatorCode: `${requirementIndex + 1}.${indicatorIndex + 1}`,
+          indicatorDescription: normalizeTextValue(indicator.description),
+          indicatorOrder: indicatorIndex + 1,
+          objectiveIds: [],
+        })),
+    }]
+  })
+}
+
+function buildObjectiveDrawerDisplayData(
+  objectives: ObjectiveCardData[],
+  graduationSupportData: GraduationSupportData | null
+): {
+  objectives: ObjectiveCardData[]
+  supportWarnings: ObjectiveSupportWarningMap
+  objectiveGroups: CanvasObjectiveGroup[]
+  ungroupedObjectiveIds: string[]
+} {
+  const indicatorMetaById = buildGraduationIndicatorMetaMap(graduationSupportData)
+  const supportWarnings: ObjectiveSupportWarningMap = {}
+  const requirementGroupMap = new Map<number, CanvasObjectiveGroup>(
+    buildInitialObjectiveGroups(graduationSupportData).map((group) => [group.requirementId, group])
+  )
+  const ungroupedObjectiveIds = new Set<string>()
+
+  const normalizedObjectives = objectives.map((objective) => {
+    const rawSupports = Array.isArray(objective.supports) ? objective.supports : null
+    const objectiveWarnings: string[] = []
+    let hasValidGrouping = false
+
+    if (rawSupports === null || rawSupports.length === 0) {
+      supportWarnings[objective.id] = [
+        "该教学目标缺少归属的毕业要求指标点信息，当前更新课程时会被保存校验拦截。",
+      ]
+      ungroupedObjectiveIds.add(objective.id)
+      return objective
+    }
+
+    const normalizedSupports: ObjectiveSupportLabel[] = rawSupports.map((support, supportIndex) => {
+      const indicatorId = typeof support?.indicatorId === "number"
+        && Number.isFinite(support.indicatorId)
+        && support.indicatorId > 0
+        ? support.indicatorId
+        : null
+      const rawTitle = normalizeTextValue(support?.title)
+
+      if (indicatorId === null) {
+        const warningDetail = rawTitle.length > 0
+          ? `，原始标签为“${rawTitle}”`
+          : ""
+        objectiveWarnings.push(`第 ${supportIndex + 1} 条归属信息缺少有效的指标点 ID${warningDetail}。`)
+        return support
+      }
+
+      const indicatorMeta = indicatorMetaById.get(indicatorId)
+      if (!indicatorMeta) {
+        objectiveWarnings.push(
+          `指标点 ID ${indicatorId} 未在当前毕业要求面板中找到，请检查课程所属专业或画布数据是否已同步。`
+        )
+        return support
+      }
+
+      const descParts: string[] = []
+      if (indicatorMeta.requirementContent.length > 0) {
+        descParts.push(`毕业要求：${indicatorMeta.requirementContent}`)
+      }
+      if (indicatorMeta.description.length > 0) {
+        descParts.push(`指标点：${indicatorMeta.description}`)
+      }
+
+      const normalizedSupport: ObjectiveSupportLabel = {
+        indicatorId,
+        title: `指标点 ${indicatorMeta.code}`,
+        type: resolveObjectiveSupportType(support?.type, indicatorMeta.supportLevel),
+      }
+
+      const existingRequirementGroup = requirementGroupMap.get(indicatorMeta.requirementId)
+      const nextRequirementGroup = existingRequirementGroup ?? {
+        requirementId: indicatorMeta.requirementId,
+        requirementOrder: indicatorMeta.requirementIndex + 1,
+        requirementDescription: indicatorMeta.requirementContent,
+        indicators: [],
+      }
+
+      let indicatorGroup = nextRequirementGroup.indicators.find((item) => item.indicatorId === indicatorId)
+      if (!indicatorGroup) {
+        indicatorGroup = {
+          indicatorId,
+          indicatorCode: indicatorMeta.code,
+          indicatorDescription: indicatorMeta.description,
+          indicatorOrder: indicatorMeta.indicatorIndex + 1,
+          objectiveIds: [],
+        }
+        nextRequirementGroup.indicators.push(indicatorGroup)
+      }
+
+      if (!indicatorGroup.objectiveIds.includes(objective.id)) {
+        indicatorGroup.objectiveIds.push(objective.id)
+      }
+
+      if (!existingRequirementGroup) {
+        requirementGroupMap.set(indicatorMeta.requirementId, nextRequirementGroup)
+      }
+      hasValidGrouping = true
+
+      if (descParts.length > 0) {
+        normalizedSupport.desc = descParts.join("；")
+      } else {
+        const rawDesc = normalizeTextValue(support?.desc)
+        if (rawDesc.length > 0) {
+          normalizedSupport.desc = rawDesc
+        }
+      }
+
+      return normalizedSupport
+    })
+
+    if (objectiveWarnings.length > 0) {
+      supportWarnings[objective.id] = objectiveWarnings
+    }
+    if (!hasValidGrouping) {
+      ungroupedObjectiveIds.add(objective.id)
+    }
+
+    return {
+      ...objective,
+      supports: normalizedSupports,
+    }
+  })
+
+  return {
+    objectives: normalizedObjectives,
+    supportWarnings,
+    objectiveGroups: Array.from(requirementGroupMap.values()),
+    ungroupedObjectiveIds: Array.from(ungroupedObjectiveIds),
+  }
+}
 
 /**
  * CanvasDrawers 组件属性
@@ -57,7 +290,7 @@ export interface CanvasDrawersProps {
   // 课点编辑抽屉状态和处理函数
   coursePointDrawer: CoursePointDrawerState
   isSavingCoursePoints: boolean
-  onCoursePointsSave: (coursePoints: CoursePointCardData[]) => void
+  onCoursePointsSave: (coursePoints: CoursePointCardData[]) => Promise<void> | void
   onCoursePointDrawerClose: () => void
 
   // KSA编辑抽屉状态和处理函数
@@ -118,9 +351,70 @@ export interface CanvasDrawersProps {
     majorId?: number
     objectives?: ObjectiveCardData[]
     coursePoints?: CoursePointCardData[]
+    chapters?: ChapterCardData[]
     ksaItems?: KsaItemData[]
   }) => void
+  onEnsureLatestCanvasOssKey?: () => Promise<string | null>
   lockGraduationSupportOrganization?: boolean
+}
+
+function buildCourseReportPreviewData(flowNodes: Node[]): CourseReportPreviewData {
+  const courseInfoNode = flowNodes.find((node) => node.type === FlowNodeType.COURSE_INFO)
+  const courseInfo = courseInfoNode ? (courseInfoNode.data as CourseInfoData) : null
+
+  const objectivePanelNode = flowNodes.find((node) => node.type === FlowNodeType.OBJECTIVE_PANEL)
+  const objectives = objectivePanelNode
+    ? flowNodes
+        .filter((node) => node.parentId === objectivePanelNode.id)
+        .map((node) => node.data as ObjectiveCardData)
+        .sort((left, right) => left.index - right.index)
+    : []
+
+  const chapterPanelNode = flowNodes.find((node) => node.type === FlowNodeType.CHAPTER_PANEL)
+  const chapters = chapterPanelNode
+    ? flowNodes
+        .filter((node) => node.parentId === chapterPanelNode.id)
+        .map((node) => node.data as ChapterCardData)
+        .sort((left, right) => left.index - right.index)
+    : []
+
+  const coursePointPanelNode = flowNodes.find((node) => node.type === FlowNodeType.COURSE_POINT_PANEL)
+  const coursePoints = coursePointPanelNode
+    ? flowNodes
+        .filter((node) => node.parentId === coursePointPanelNode.id)
+        .map((node) => node.data as CoursePointCardData)
+        .sort((left, right) => left.index - right.index)
+    : []
+
+  const ksaPanelNode = flowNodes.find((node) => node.type === FlowNodeType.KSA_PANEL)
+  const ksaItems = ksaPanelNode
+    ? flowNodes
+        .filter((node) => node.parentId === ksaPanelNode.id)
+        .map((node) => node.data as KsaItemData)
+        .sort((left, right) => {
+          const categoryOrder: Record<string, number> = { K: 0, S: 1, A: 2 }
+          const categoryDiff = categoryOrder[left.category] - categoryOrder[right.category]
+          return categoryDiff !== 0 ? categoryDiff : left.index - right.index
+        })
+    : []
+
+  const courseMatrixNode = flowNodes.find((node) => node.type === FlowNodeType.COURSE_MATRIX)
+  const courseMatrix = courseMatrixNode ? (courseMatrixNode.data as CourseMatrixData) : null
+
+  const projectMatrices = flowNodes
+    .filter((node) => node.type === FlowNodeType.PROJECT_MATRIX)
+    .map((node) => node.data as ProjectMatrixData)
+    .sort((left, right) => left.chapter_index - right.chapter_index)
+
+  return {
+    courseInfo,
+    objectives,
+    chapters,
+    coursePoints,
+    ksaItems,
+    courseMatrix,
+    projectMatrices,
+  }
 }
 
 /**
@@ -174,10 +468,23 @@ export const CanvasDrawers = memo(function CanvasDrawers({
   treeData = null,
   onSaveSuccess,
   onUpdateCourseInfo,
+  onEnsureLatestCanvasOssKey,
   lockGraduationSupportOrganization = false,
 }: CanvasDrawersProps) {
   // 获取课程信息数据
   const courseInfoData = editDialog.nodeData as CourseInfoData
+  const courseReportPreviewData = useMemo(() => buildCourseReportPreviewData(flowNodes), [flowNodes])
+  const graduationSupportNode = useMemo(
+    () => flowNodes.find((node) => node.type === FlowNodeType.GRADUATION_SUPPORT_PANEL),
+    [flowNodes]
+  )
+  const objectiveDrawerDisplayData = useMemo(
+    () => buildObjectiveDrawerDisplayData(
+      objectiveDrawer.objectives,
+      graduationSupportNode ? (graduationSupportNode.data as GraduationSupportData) : null
+    ),
+    [graduationSupportNode, objectiveDrawer.objectives]
+  )
 
   // 获取可用的课点列表（用于课程矩阵编辑器）
   const availableCoursePoints = flowNodes
@@ -188,19 +495,26 @@ export const CanvasDrawers = memo(function CanvasDrawers({
         id: n.id,
         name: data.name || data.content || "",
         description: typeof data.description === 'string' ? data.description : undefined,
+        originalId: data.originalId,
       }
     })
 
   // 获取可用的KSA列表（用于项目矩阵编辑器）
   const availableKsaItems = flowNodes
     .filter(n => n.type === FlowNodeType.KSA)
-    .map(n => ({
-      id: n.id,
-      name: (n.data as unknown as KsaItemData).content,
-      category: (n.data as unknown as KsaItemData).category,
-      index: (n.data as unknown as KsaItemData).index,
-      description: (n.data as unknown as KsaItemData).content,
-    }))
+    .map(n => {
+      const data = n.data as unknown as KsaItemData
+      return {
+        id: getKsaReferenceId(data) || String(data.id || n.id),
+        rawId: String(data.id || ""),
+        originalId: data.originalId,
+        name: data.content,
+        content: data.content,
+        category: data.category,
+        index: data.index,
+        description: data.content,
+      }
+    })
 
   return (
     <>
@@ -262,7 +576,7 @@ export const CanvasDrawers = memo(function CanvasDrawers({
       <Sheet
         open={coursePointDrawer.open}
         onOpenChange={(open) => {
-          if (!open) {
+          if (!open && !isSavingCoursePoints) {
             onCoursePointDrawerClose()
           }
         }}
@@ -347,7 +661,10 @@ export const CanvasDrawers = memo(function CanvasDrawers({
           </SheetHeader>
           <div className="flex-1 overflow-hidden">
             <CanvasObjectiveEditor
-              objectives={objectiveDrawer.objectives}
+              objectives={objectiveDrawerDisplayData.objectives}
+              objectiveGroups={objectiveDrawerDisplayData.objectiveGroups}
+              ungroupedObjectiveIds={objectiveDrawerDisplayData.ungroupedObjectiveIds}
+              supportWarnings={objectiveDrawerDisplayData.supportWarnings}
               onSave={onObjectivesSave}
               onClose={onObjectiveDrawerClose}
               isSaving={isSavingObjectives}
@@ -419,16 +736,18 @@ export const CanvasDrawers = memo(function CanvasDrawers({
           <SheetHeader className="px-6 pt-6 pb-4 border-b border-border flex-shrink-0">
             <SheetTitle>开课报告预览</SheetTitle>
           </SheetHeader>
-          {courseReportDrawer.data && (
+          {courseReportDrawer.open && (
             <div className="flex-1 min-h-0 flex flex-col">
               <CanvasCourseReportPreview
-                data={courseReportDrawer.data}
+                key={courseReportDrawer.nodeId || "course-report-preview"}
+                data={courseReportPreviewData}
                 onClose={onCourseReportDrawerClose}
                 canvasElements={canvasElements}
                 canvasOssKey={canvasOssKey}
                 treeData={treeData}
                 onSaveSuccess={onSaveSuccess}
                 onUpdateCourseInfo={onUpdateCourseInfo}
+                onEnsureLatestCanvasOssKey={onEnsureLatestCanvasOssKey}
               />
             </div>
           )}

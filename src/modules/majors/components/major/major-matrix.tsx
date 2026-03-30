@@ -15,6 +15,7 @@ import { buildApiUrl } from "@/lib/api/config"
 import { getStoredAuthToken } from "@/lib/api/auth-config"
 import { extractNumericId } from "@/shared/utils/utils"
 import { getMajorCache } from "@/shared/utils/major-cache"
+import { usePermission } from "@/shared/hooks/use-permission"
 
 const treeApiInstance = new TreeApi()
 
@@ -82,7 +83,8 @@ export function MajorMatrix(props: MajorMatrixProps) {
 
     return cachedMajor?.btnMenus ?? []
   }, [cachedMajor?.btnMenus, node.btnMenus, node.metadata])
-  const canManageMatrix = !isVirtualMajorFromSwitchDpt && hasMenuPermission(resolvedBtnMenus, "majoredit")
+  const { isSemesterReadonly } = usePermission()
+  const canManageMatrix = !isSemesterReadonly && !isVirtualMajorFromSwitchDpt && hasMenuPermission(resolvedBtnMenus, "majoredit")
   const [isEditingMatrix, setIsEditingMatrix] = useState(false)
   const [matrixSupportLevels, setMatrixSupportLevels] = useState<Record<string, string>>({})
   const [isSavingMatrix, setIsSavingMatrix] = useState(false)

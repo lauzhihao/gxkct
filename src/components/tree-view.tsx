@@ -35,8 +35,7 @@ import { PermissionGate } from "@/shared/components/permission-gate"
 import { getCourseCache } from "@/shared/utils/course-cache"
 import { getMajorCache, setMajorCacheBatch } from "@/shared/utils/major-cache"
 import { WorkshopCreateDialog } from "@/components/workshop-create-dialog"
-import { buildApiUrl } from "@/lib/api/config"
-import { getStoredAuthToken } from "@/lib/api/auth-config"
+import { api } from "@/lib/api"
 
 const CREATE_SCHOOL_ACTION = "root.college.create"
 const CREATE_SCHOOL_CONTEXT = { scope: "root" } as const
@@ -95,6 +94,7 @@ interface TreeNodeProps {
   isFirstMatch?: boolean
   departmentMajors?: Map<string, TreeNode[]>
   treeData?: TreeNode | null
+  selectedSemesterId?: number | null
 }
 
 function TreeNodeComponent({
@@ -117,6 +117,7 @@ function TreeNodeComponent({
   isFirstMatch = false,
   departmentMajors,
   treeData,
+  selectedSemesterId,
 }: TreeNodeProps): ReactElement {
   // 如果是department节点，合并动态加载的专业数据
   let actualChildren = node.children || []
@@ -243,39 +244,13 @@ function TreeNodeComponent({
       }
 
       try {
-        const headers: Record<string, string> = {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        }
-        const authToken = getStoredAuthToken()
-        if (authToken) {
-          headers.authToken = authToken
-        }
-
-        const url = buildApiUrl(`/api/v5/tree/departments/${departmentId}/majors?lang=80101`)
-        const response = await fetch(url, { method: "GET", headers })
-        if (!response.ok) {
+        const response = await api.tree.getDepartmentMajors(String(departmentId), selectedSemesterId)
+        if (!response.data) {
           onSelect(node)
           return
         }
 
-        const result = await response.json() as {
-          code?: string | number
-          data?: Array<{
-            self?: { value?: string; label?: string } | null
-            manager?: Array<{ value?: string; label?: string }> | null
-            btnMenus?: Array<{ label?: string; value?: string; path?: string; type?: string }>
-            coverMenus?: Array<{ label?: string; value?: string; path?: string; type?: string }>
-            props?: Record<string, unknown> | null
-          }>
-        }
-
-        if ((result.code !== "0" && result.code !== 0) || !Array.isArray(result.data)) {
-          onSelect(node)
-          return
-        }
-
-        const matchedMajor = result.data.find((major) => major.self?.value === majorId)
+        const matchedMajor = response.data.find((major) => major.id === majorId)
         if (!matchedMajor) {
           onSelect(node)
           return
@@ -283,24 +258,21 @@ function TreeNodeComponent({
 
         setMajorCacheBatch([{
           majorId,
-          majorName: matchedMajor.self?.label ?? node.nodeName,
+          majorName: matchedMajor.nodeName,
           btnMenus: Array.isArray(matchedMajor.btnMenus) ? matchedMajor.btnMenus : [],
           coverMenus: Array.isArray(matchedMajor.coverMenus) ? matchedMajor.coverMenus : [],
-          managers: Array.isArray(matchedMajor.manager) ? matchedMajor.manager.filter((manager): manager is { value: string; label: string } => Boolean(manager?.value || manager?.label)) : [],
-          source: typeof matchedMajor.props?.source === "string" ? matchedMajor.props.source : undefined,
+          managers: Array.isArray(matchedMajor.manager) ? matchedMajor.manager : [],
+          source: typeof matchedMajor.metadata?.source === "string" ? matchedMajor.metadata.source : undefined,
         }])
 
         onSelect({
           ...node,
           btnMenus: Array.isArray(matchedMajor.btnMenus) ? matchedMajor.btnMenus : node.btnMenus,
           coverMenus: Array.isArray(matchedMajor.coverMenus) ? matchedMajor.coverMenus : node.coverMenus,
-          manager: Array.isArray(matchedMajor.manager) ? matchedMajor.manager.filter((manager): manager is { value: string; label: string } => Boolean(manager?.value || manager?.label)) : node.manager,
+          manager: Array.isArray(matchedMajor.manager) ? matchedMajor.manager : node.manager,
           metadata: {
             ...(node.metadata || {}),
-            btnMenus: Array.isArray(matchedMajor.btnMenus) ? matchedMajor.btnMenus : undefined,
-            coverMenus: Array.isArray(matchedMajor.coverMenus) ? matchedMajor.coverMenus : undefined,
-            managers: Array.isArray(matchedMajor.manager) ? matchedMajor.manager : undefined,
-            ...(matchedMajor.props || {}),
+            ...(matchedMajor.metadata || {}),
           },
         })
       } catch {
@@ -496,6 +468,7 @@ function TreeNodeComponent({
                   isFirstMatch={isFirstMatch && index === 0 && matchingNodeIds?.has(child.nodeId)}
                   departmentMajors={departmentMajors}
                   treeData={treeData}
+                  selectedSemesterId={selectedSemesterId}
                 />
               ))
             ) : isSearching && (node.nodeType === "department" || node.nodeType === "major") ? (
@@ -584,6 +557,7 @@ interface TreeViewProps {
   selectedNode: TreeNode | null
   onSelectedNodePathChange?: (path: TreeNode[]) => void
   onWorkshopCreated?: () => Promise<boolean> | void
+  selectedSemesterId?: number | null
   currentSchoolId?: string | null
   onSetCurrentSchool?: (schoolId: string) => void
   onUpdateNode?: (nodeId: string, updates: Partial<TreeNode>) => void
@@ -604,6 +578,7 @@ export const TreeView = React.forwardRef<
   selectedNode,
   onSelectedNodePathChange,
   onWorkshopCreated,
+  selectedSemesterId,
   currentSchoolId,
   onSetCurrentSchool,
   onUpdateNode,
@@ -614,7 +589,7 @@ export const TreeView = React.forwardRef<
 }: TreeViewProps, ref): ReactElement {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(["root"]))
   const [visibleCourseCounts, setVisibleCourseCounts] = useState<Map<string, number>>(new Map())
-  const { searchTerm, setSearchTerm, isSearching, searchResults, clearSearch } = useTreeSearch()
+  const { searchTerm, setSearchTerm, isSearching, searchResults, clearSearch } = useTreeSearch(selectedSemesterId)
   const [isCreateWorkshopDialogOpen, setIsCreateWorkshopDialogOpen] = useState(false)
   const { departmentMajors, loadedDepartments, loadDepartmentMajors } = useDepartmentMajors(onDepartmentMajorsChange)
   // 跟踪是否正在加载数据（搜索或动态加载）
@@ -1078,6 +1053,7 @@ export const TreeView = React.forwardRef<
               isFirstMatch={child.nodeId === firstMatchId}
               departmentMajors={departmentMajors}
               treeData={treeData}
+              selectedSemesterId={selectedSemesterId}
             />
           ))}
         </div>

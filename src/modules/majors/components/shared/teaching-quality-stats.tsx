@@ -8,6 +8,7 @@ import { api } from "@/lib/api"
 import type { TeachingSupervisoryTask, TreeNode, Long } from "@/types"
 import { CourseEvaluationList, MajorEvaluationList } from "@/shared/components/supervision"
 import { courseTeachingTasksApi } from "@/modules/courses/api/courseTeachingTasksApi"
+import { useSemesterStore } from "@/shared/stores/semester-store"
 
 interface TeachingQualityStatsProps {
   node: TreeNode
@@ -19,6 +20,7 @@ export function TeachingQualityStats({ node, nodeType, treeData }: TeachingQuali
   const [tasks, setTasks] = useState<TeachingSupervisoryTask[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [selectedTask, setSelectedTask] = useState<TeachingSupervisoryTask | null>(null)
+  const selectedSemesterId = useSemesterStore((state) => state.selectedSemesterId)
 
   // 从 node.nodeId 中提取数字部分（处理 "major_123" 格式）
   const getMajorId = (): Long | null => {
@@ -47,9 +49,11 @@ export function TeachingQualityStats({ node, nodeType, treeData }: TeachingQuali
             setIsLoading(false)
             return
           }
-          const response = await api.teachingTasks.getTasksByMajor(majorId)
+          const response = await api.teachingTasks.getTasksByMajorInSemester(majorId, selectedSemesterId)
           if (response.data) {
             setTasks(response.data)
+          } else {
+            setTasks([])
           }
         } else if (nodeType === "department") {
           // 院系使用院系 API
@@ -59,7 +63,7 @@ export function TeachingQualityStats({ node, nodeType, treeData }: TeachingQuali
             setIsLoading(false)
             return
           }
-          const response = await courseTeachingTasksApi.getTasksByDept(deptId)
+          const response = await courseTeachingTasksApi.getTasksByDept(deptId, selectedSemesterId)
           if (response.data) {
             // 转换为 TeachingSupervisoryTask 格式
             const mappedTasks: TeachingSupervisoryTask[] = response.data.map((task) => ({
@@ -76,10 +80,13 @@ export function TeachingQualityStats({ node, nodeType, treeData }: TeachingQuali
               avgDeptScore: task.avgDeptScore,
             }))
             setTasks(mappedTasks)
+          } else {
+            setTasks([])
           }
         }
       } catch (error) {
         console.error("获取教学督导任务失败:", error)
+        setTasks([])
       } finally {
         setIsLoading(false)
       }
@@ -87,7 +94,7 @@ export function TeachingQualityStats({ node, nodeType, treeData }: TeachingQuali
 
     fetchTasks()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [node.id, node.nodeId, node.parentId, treeData, nodeType])
+  }, [node.id, node.nodeId, node.parentId, selectedSemesterId, treeData, nodeType])
 
   const getStatusLabel = (status: string) => {
     const statusMap: Record<string, string> = {
@@ -112,11 +119,11 @@ export function TeachingQualityStats({ node, nodeType, treeData }: TeachingQuali
   }
 
   if (tasks.length === 0) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <p className="text-muted-foreground">暂无进行中的任务</p>
-      </div>
-    )
+      return (
+        <div className="flex items-center justify-center py-12">
+          <p className="text-muted-foreground">{selectedSemesterId === null ? "暂无进行中的任务" : "该学期暂无任务数据"}</p>
+        </div>
+      )
   }
 
   // 专业级别：选中任务后显示课程列表
@@ -128,6 +135,7 @@ export function TeachingQualityStats({ node, nodeType, treeData }: TeachingQuali
           task={selectedTask}
           majorId={majorId}
           majorName={node.nodeName || node.name}
+          semesterId={selectedSemesterId}
           onBack={() => setSelectedTask(null)}
         />
       )
@@ -143,6 +151,7 @@ export function TeachingQualityStats({ node, nodeType, treeData }: TeachingQuali
           task={selectedTask}
           deptId={deptId}
           deptName={node.nodeName || node.name}
+          semesterId={selectedSemesterId}
           onBack={() => setSelectedTask(null)}
         />
       )

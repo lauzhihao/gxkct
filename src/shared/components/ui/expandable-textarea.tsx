@@ -14,6 +14,7 @@ interface ExpandableTextareaProps {
   className?: string
   autoFocus?: boolean
   expandThreshold?: number // 当内容长度超过此值时自动展开（可选）
+  autoResize?: boolean
   hideCounter?: boolean
   onExpandedChange?: (expanded: boolean) => void
 }
@@ -35,6 +36,7 @@ export const ExpandableTextarea = React.forwardRef<
       className,
       autoFocus,
       expandThreshold,
+      autoResize = false,
       hideCounter,
       onExpandedChange,
       onKeyDown,
@@ -42,13 +44,62 @@ export const ExpandableTextarea = React.forwardRef<
     ref,
   ) => {
     const [isFocused, setIsFocused] = React.useState(false)
+    const textareaRef = React.useRef<HTMLTextAreaElement | null>(null)
 
     // 根据焦点状态或内容长度决定是否展开
     const isExpanded = isFocused || (expandThreshold !== undefined && value.length > expandThreshold)
 
+    const setRefs = React.useCallback((node: HTMLTextAreaElement | null) => {
+      textareaRef.current = node
+
+      if (typeof ref === 'function') {
+        ref(node)
+        return
+      }
+
+      if (ref) {
+        ref.current = node
+      }
+    }, [ref])
+
+    const syncTextareaHeight = React.useCallback(() => {
+      if (!autoResize) {
+        return
+      }
+
+      const textareaElement = textareaRef.current
+
+      if (!textareaElement) {
+        return
+      }
+
+      textareaElement.style.height = 'auto'
+      textareaElement.style.height = `${textareaElement.scrollHeight}px`
+    }, [autoResize])
+
     React.useEffect(() => {
       onExpandedChange?.(isExpanded)
     }, [isExpanded, onExpandedChange])
+
+    React.useLayoutEffect(() => {
+      syncTextareaHeight()
+    }, [rows, syncTextareaHeight, value])
+
+    React.useEffect(() => {
+      if (!autoResize) {
+        return
+      }
+
+      const handleWindowResize = () => {
+        syncTextareaHeight()
+      }
+
+      window.addEventListener('resize', handleWindowResize)
+
+      return () => {
+        window.removeEventListener('resize', handleWindowResize)
+      }
+    }, [autoResize, syncTextareaHeight])
 
     const handleFocus = () => {
       setIsFocused(true)
@@ -79,7 +130,7 @@ export const ExpandableTextarea = React.forwardRef<
     return (
       <div className="relative w-full flex-1 min-w-0">
         <textarea
-          ref={ref}
+          ref={setRefs}
           placeholder={placeholder}
           value={value}
           onChange={handleChange}
@@ -93,10 +144,14 @@ export const ExpandableTextarea = React.forwardRef<
             className,
             isExpanded ? 'pb-8' : 'leading-6',
           )}
-          style={{
-            height: isExpanded ? expandedHeight : collapsedHeight,
-          }}
-          rows={1}
+          style={
+            autoResize
+              ? undefined
+              : {
+                  height: isExpanded ? expandedHeight : collapsedHeight,
+                }
+          }
+          rows={autoResize ? rows : 1}
           autoFocus={autoFocus}
         />
         {!hideCounter && isExpanded && (

@@ -2,70 +2,12 @@
 
 import { useMemo } from "react"
 import type { TreeNode } from "@/types"
-import { getStoredAuthUser } from "@/lib/api/auth-config"
 import { usePermission } from "@/shared/hooks/use-permission"
 import type { PermissionAction } from "@/shared/permissions/types"
-import { getCourseCache } from "@/shared/utils/course-cache"
+import { isCurrentUserCourseOwner } from "@/shared/utils/course-ownership"
 
 const COURSE_EDIT_ACTION: PermissionAction = "course.detail.edit"
 const COURSE_EDIT_CONTEXT = { scope: "course" as const }
-
-interface CourseManagerLike {
-  value?: string
-  label?: string
-}
-
-interface CourseNodeMetadataWithManagers {
-  managers?: CourseManagerLike[]
-}
-
-function buildCurrentUserIdentitySet(): Set<string> {
-  const authUser = getStoredAuthUser()
-  const identities = [authUser?.email, authUser?.userName, authUser?.id]
-    .map((value) => String(value ?? "").trim().toLowerCase())
-    .filter(Boolean)
-
-  return new Set(identities)
-}
-
-function resolveCourseManagers(courseNode?: TreeNode | null): CourseManagerLike[] {
-  const directManagers = courseNode?.manager ?? []
-  const metadataManagers = ((courseNode?.metadata as CourseNodeMetadataWithManagers | undefined)?.managers ?? [])
-  const courseId = String(courseNode?.id || "")
-  const cacheManagers = getCourseCache(courseId)?.instructors?.map((name) => ({
-    value: name,
-    label: name,
-  })) ?? []
-
-  const mergedManagers = [...directManagers, ...metadataManagers, ...cacheManagers]
-  const uniqueManagers = new Map<string, CourseManagerLike>()
-
-  mergedManagers.forEach((manager) => {
-    const managerValue = String(manager?.value ?? "").trim()
-    const managerLabel = String(manager?.label ?? "").trim()
-    const key = `${managerValue}-${managerLabel}`
-    if (managerValue || managerLabel) {
-      uniqueManagers.set(key, manager)
-    }
-  })
-
-  return Array.from(uniqueManagers.values())
-}
-
-export function isCurrentUserCourseOwner(courseNode?: TreeNode | null): boolean {
-  const currentUserIdentitySet = buildCurrentUserIdentitySet()
-  const courseManagers = resolveCourseManagers(courseNode)
-
-  if (currentUserIdentitySet.size === 0 || courseManagers.length === 0) {
-    return false
-  }
-
-  return courseManagers.some((manager) => {
-    const managerValue = String(manager?.value ?? "").trim().toLowerCase()
-    const managerLabel = String(manager?.label ?? "").trim().toLowerCase()
-    return currentUserIdentitySet.has(managerValue) || currentUserIdentitySet.has(managerLabel)
-  })
-}
 
 export function hasCourseEditPermission(canEditCourseDetail: boolean, courseNode?: TreeNode | null): boolean {
   if (!canEditCourseDetail) {

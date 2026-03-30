@@ -13,6 +13,7 @@ import { Spinner } from "@/shared/components/ui/spinner"
 import { cn } from "@/shared/utils/utils"
 import type { NodeType, TreeNode } from "@/types"
 import { api } from "@/lib/api"
+import { useSemesterStore } from "@/shared/stores/semester-store"
 
 const typeLabels: Record<NodeType, string> = {
   root: "根节点",
@@ -112,6 +113,7 @@ export function UniversalTreeSelector({
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [searchResults, setSearchResults] = useState<TreeNode | null>(null)
   const [searchMatchedIds, setSearchMatchedIds] = useState<Set<string>>(new Set())
+  const selectedSemesterId = useSemesterStore((state) => state.selectedSemesterId)
 
   useEffect(() => {
     if (treeData) {
@@ -120,12 +122,18 @@ export function UniversalTreeSelector({
   }, [treeData])
 
   useEffect(() => {
+    if (!treeData) {
+      setInternalTree(null)
+    }
+  }, [selectedSemesterId, treeData])
+
+  useEffect(() => {
     const loadTree = async () => {
       if (!open || treeData || internalTree) return
       setIsLoading(true)
       setError(null)
       try {
-        const response = await api.tree.getTree()
+        const response = await api.tree.getTree(undefined, selectedSemesterId)
         if (response.data) {
           setInternalTree(response.data)
         } else if (response.error) {
@@ -139,7 +147,7 @@ export function UniversalTreeSelector({
     }
 
     loadTree()
-  }, [open, treeData, internalTree])
+  }, [internalTree, open, selectedSemesterId, treeData])
 
   useEffect(() => {
     if (open) {

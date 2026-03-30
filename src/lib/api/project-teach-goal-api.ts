@@ -1,6 +1,7 @@
 import type { ApiResponse } from "./types"
 import { StorageAdapter } from "./storage-adapter"
 import { HttpAdapter } from "./http-adapter"
+import { CourseDetailApi, type SaveCourseUnitRequest } from "./course-detail-api"
 
 export interface ProjectTeachGoal {
   id: number
@@ -125,10 +126,18 @@ export class ProjectTeachGoalApi {
 
   /**
    * 更新项目和教学目标数据（canvas-save-wizard 使用）
-   * TODO: 对接真实后端接口
    */
-  async updateProjectTeachGoal(courseId: string, data: ProjectTeachGoalData): Promise<ApiResponse<ProjectTeachGoalData>> {
-    console.log(`[ProjectTeachGoalApi] updateProjectTeachGoal courseId: ${courseId}`, data)
-    return { data, error: null, status: 200 }
+  async updateProjectTeachGoal(data: SaveCourseUnitRequest): Promise<ApiResponse<any>> {
+    try {
+      const apiInstance = new CourseDetailApi()
+      return await apiInstance.saveCourseUnit(data)
+    } catch (error) {
+      console.error("[ProjectTeachGoalApi] 更新项目和教学目标失败:", error)
+      return {
+        data: null,
+        error: String(error),
+        status: 500,
+      }
+    }
   }
 }

@@ -25,6 +25,8 @@ import { TeachingTaskFormPage } from "./teaching-task-form-page"
 import { useTeachingTasks } from "@/modules/universities/hooks/use-teaching-tasks"
 import { DeptEvaluationList } from "@/shared/components/supervision"
 import { usePermission } from "@/shared/hooks/use-permission"
+import { useSemesterReadonly } from "@/shared/hooks/use-semester-readonly"
+import { useSemesterStore } from "@/shared/stores/semester-store"
 
 interface TeachingQualityProps {
   node: TreeNode
@@ -35,8 +37,10 @@ type TeachingTaskDraft = Omit<TeachingSupervisoryTask, "id" | "createdAt" | "upd
 
 export function TeachingQuality({ node }: TeachingQualityProps) {
   const { can } = usePermission()
-  const canCreateTeachingTask = can("college.qa.create", { scope: "college" })
-  const canManageTeachingTask = can("college.qa.manage", { scope: "college" })
+  const selectedSemesterId = useSemesterStore((state) => state.selectedSemesterId)
+  const isSemesterReadonly = useSemesterReadonly()
+  const canCreateTeachingTask = !isSemesterReadonly && can("college.qa.create", { scope: "college" })
+  const canManageTeachingTask = !isSemesterReadonly && can("college.qa.manage", { scope: "college" })
   // 从 node.id 中提取数字部分（处理 "univ_86" 格式）
   const nodeId = node.id || node.nodeId || ""
   const idMatch = nodeId.match(/\d+/)
@@ -50,10 +54,16 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
     autoSaveTask,
     updateTaskStatus,
     archiveTask,
-  } = useTeachingTasks(universityLongId)
+  } = useTeachingTasks(universityLongId, selectedSemesterId)
   const [selectedStatus, setSelectedStatus] = useState<"not_started" | "in_progress" | "completed" | null>(null)
   const [selectedTask, setSelectedTask] = useState<TeachingSupervisoryTask | null>(null)
   const [pageState, setPageState] = useState<PageState>("list")
+
+  useEffect(() => {
+    setSelectedStatus(null)
+    setSelectedTask(null)
+    setPageState("list")
+  }, [selectedSemesterId])
 
   // 计算各状态的任务数
   const notStartedCount = tasks.filter((t) => t.status === "not_started").length
@@ -240,6 +250,7 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
           task={selectedTask}
           collegeId={universityLongId}
           collegeName={node.nodeName || node.name}
+          semesterId={selectedSemesterId}
           onBack={() => {
             setSelectedTask(null)
             setPageState("list")

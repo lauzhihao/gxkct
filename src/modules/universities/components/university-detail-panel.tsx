@@ -26,6 +26,7 @@ import { TeachingQuality } from "@/modules/universities/components/shared/teachi
 import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
 import { PermissionGate } from "@/shared/components/permission-gate"
 import { usePermission } from "@/shared/hooks/use-permission"
+import { useSemesterStore } from "@/shared/stores/semester-store"
 
 const UNIVERSITY_TABS = {
   overview: "学校概览",
@@ -39,13 +40,15 @@ const CREATE_DEPARTMENT_ACTION = "college.department.create"
 const CREATE_DEPARTMENT_CONTEXT = { scope: "college" } as const
 
 export function UniversityDetail({ node, onNodeSelect, onSetCurrentSchool, currentUser, onTreeRefresh }: DetailPanelProps) {
-  const { can } = usePermission()
+  const { can, isSemesterReadonly } = usePermission()
+  const selectedSemesterId = useSemesterStore((state) => state.selectedSemesterId)
   const [newDeptName, setNewDeptName] = useState("")
   const [newDeptDesc, setNewDeptDesc] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const { setActivePage } = useActivePageTracker()
   const { toast } = useToast()
+  const universityId = node ? extractNumericId(node.nodeId) : 0
 
   useEffect(() => {
     if (!node) return
@@ -67,7 +70,7 @@ export function UniversityDetail({ node, onNodeSelect, onSetCurrentSchool, curre
     setIsCreating(true)
     try {
       const universityId = extractNumericId(node.nodeId)
-      const response = await api.tree.createDepartment(universityId.toString(), newDeptName.trim())
+      const response = await api.tree.createDepartment(universityId.toString(), newDeptName.trim(), selectedSemesterId)
 
       if (response.error) {
         toast({
@@ -116,17 +119,20 @@ export function UniversityDetail({ node, onNodeSelect, onSetCurrentSchool, curre
               {node?.description && <p className="text-muted-foreground">{node.description}</p>}
             </div>
           </div>
-          {onSetCurrentSchool && node && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => onSetCurrentSchool(extractNumericId(node.nodeId).toString())}
-              className="gap-2 hover:bg-primary/10"
-            >
-              <BookOpen className="w-4 h-4 text-primary" />
-              <span className="text-primary font-medium">设为当前学校</span>
-            </Button>
-          )}
+          <div className="flex flex-col items-end gap-2">
+            
+            {onSetCurrentSchool && node && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onSetCurrentSchool(String(universityId))}
+                className="gap-2 hover:bg-primary/10"
+              >
+                <BookOpen className="w-4 h-4 text-primary" />
+                <span className="text-primary font-medium">设为当前学校</span>
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 

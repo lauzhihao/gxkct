@@ -66,6 +66,34 @@ function extractNumbers(input: string): number[] {
   return matches ? matches.map(Number) : []
 }
 
+/** 移除课点输入中的序号和固定前缀 */
+function normalizePointItem(input: string): string {
+  let normalized = input.trim()
+  normalized = normalized.replace(/^[\d一二三四五六七八九十]+[.、)）:：]\s*/, '')
+  normalized = normalized.replace(/^(?:课点|知识点|要点)\s*\d*\s*[:：]?\s*/, '')
+  return normalized.trim()
+}
+
+/** 从自由输入中提取课点名称与描述 */
+function extractPointContent(input: string): Pick<PointData, 'title' | 'description'> {
+  const normalized = normalizePointItem(input)
+  const separatorMatch = normalized.match(/^([^:：]{2,40})\s*[:：]\s*(.+)$/)
+
+  if (separatorMatch) {
+    const title = separatorMatch[1].trim()
+    const description = separatorMatch[2].trim()
+
+    if (title && description) {
+      return { title, description }
+    }
+  }
+
+  return {
+    title: normalized,
+    description: normalized,
+  }
+}
+
 // ============================================================================
 // 解析服务实现
 // ============================================================================
@@ -178,18 +206,24 @@ export class RuleBasedMessageParser implements IMessageParserService {
     const items = input.split(/[,，;；\n、]/).filter(item => item.trim())
 
     for (let i = 0; i < items.length; i++) {
-      let item = items[i].trim()
+      const rawItem = items[i].trim()
+      let item = rawItem
       if (!item || item.length < 2) continue
 
       // 移除前缀编号
-      item = item.replace(/^[\d一二三四五六七八九十]+[.、)）:：]\s*/, '')
-      item = item.replace(/^(?:课点|知识点|要点)\s*\d*\s*[:：]?\s*/, '')
+      item = normalizePointItem(item)
 
-      if (item && !seen.has(item)) {
-        seen.add(item)
+      if (item) {
+        const point = extractPointContent(rawItem)
+        const pointKey = `${point.title}::${point.description}`
+        if (seen.has(pointKey)) {
+          continue
+        }
+
+        seen.add(pointKey)
         points.push({
-          title: `课点${i + 1}`,
-          description: item,
+          title: point.title,
+          description: point.description,
         })
       }
     }

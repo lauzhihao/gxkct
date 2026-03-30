@@ -64,6 +64,7 @@ export const PERMISSION_MATRIX: PermissionMatrix = {
     "course.detail.edit",
   ],
   1901: [
+    "department.major.create",
     "major.course.create",
     "course.detail.edit",
   ],

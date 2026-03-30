@@ -1,7 +1,7 @@
 ---
 id: task-075.03
 title: 修复课程信息抽屉课程表 Tab 焦点切换
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-25 18:38'
 labels:
@@ -35,4 +35,3 @@ priority: high
 - [ ] #3 焦点切换过程中不会因为组件切换导致丢焦
 - [ ] #4 不影响鼠标点击编辑、删除行、新增行逻辑
 <!-- AC:END -->
-

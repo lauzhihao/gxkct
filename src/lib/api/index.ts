@@ -33,6 +33,7 @@ import { OccupationApi, type OccupationBookData } from "./occupation-api"
 import { CourseGoalsApi, type CourseGoal } from "./course-goals-api"
 import { CoursePointsApi, type CoursePoint } from "./course-points-api"
 import { ProjectTeachGoalApi, type ProjectTeachGoalData, type Project, type ProjectTeachGoal, type TaskGoalItem } from "./project-teach-goal-api"
+import { SemesterApi } from "./semester-api"
 import { WorkshopApi } from "./workshop-api"
 import { initializeMockData, resetMockData } from "./data-initializer"
 import { getApiConfig, buildApiUrl, type ApiConfig } from "./config"
@@ -42,8 +43,11 @@ import {
   setStoredAuthToken,
   clearStoredAuthToken,
   getStoredAuthUser,
+  getStoredSemesterContext,
   setStoredAuthUser,
+  setStoredSemesterContext,
   clearStoredAuthUser,
+  clearStoredSemesterContext,
   isAuthenticated,
   getCurrentUserId,
   clearAllAuthData,
@@ -66,11 +70,12 @@ export const api = {
   courseGoals: new CourseGoalsApi(),
   coursePoints: new CoursePointsApi(storageAdapter),
   projectTeachGoal: new ProjectTeachGoalApi(),
+  semesters: new SemesterApi(),
   workshop: new WorkshopApi(),
 }
 
 // 导出API类
-export { TreeApi, UserApi, MatrixApi, ResourceApi, ConfigApi, PreferenceApi, TeachingTaskApi, CourseDetailApi, OccupationApi, WorkshopApi }
+export { TreeApi, UserApi, MatrixApi, ResourceApi, ConfigApi, PreferenceApi, TeachingTaskApi, CourseDetailApi, OccupationApi, SemesterApi, WorkshopApi }
 
 // 导出类型
 export type {
@@ -114,6 +119,13 @@ export type {
   ProjectTeachGoal,
   TaskGoalItem,
 }
+export type {
+  CreateSemesterPayload,
+  SemesterBrief,
+  SemesterCopyTask,
+  SemesterCopyTaskStatus,
+  StoredSemesterContext,
+} from "@/types"
 export type { ApiResponse, BackendResponse } from "./types"
 
 // 导出初始化函数
@@ -132,8 +144,11 @@ export {
   setStoredAuthToken,
   clearStoredAuthToken,
   getStoredAuthUser,
+  getStoredSemesterContext,
   setStoredAuthUser,
+  setStoredSemesterContext,
   clearStoredAuthUser,
+  clearStoredSemesterContext,
   isAuthenticated,
   getCurrentUserId,
   clearAllAuthData,

@@ -5,6 +5,15 @@ import type { TeachingSupervisoryTask, Long, EvaluationCriterion } from "@/types
 
 const http = new HttpAdapter()
 
+function withSemesterId(endpoint: string, semesterId?: number | null): string {
+  if (typeof semesterId !== "number" || !Number.isFinite(semesterId)) {
+    return endpoint
+  }
+
+  const separator = endpoint.includes("?") ? "&" : "?"
+  return `${endpoint}${separator}semesterId=${semesterId}`
+}
+
 // 单项评价数据（自评/专业评/院校评）
 export interface EvaluationRecord {
   level: "A" | "B" | "C" | "D" | null
@@ -173,8 +182,8 @@ export interface CollegeDeptEvaluationItem {
 }
 
 export const courseTeachingTasksApi = {
-  getTasksByCourse(courseId: Long): Promise<ApiResponse<CourseTeachingTaskResponse[] | null>> {
-    return http.get<CourseTeachingTaskResponse[]>(`/api/v5/task-evaluation/courses/${courseId}/tasks`)
+  getTasksByCourse(courseId: Long, semesterId?: number | null): Promise<ApiResponse<CourseTeachingTaskResponse[] | null>> {
+    return http.get<CourseTeachingTaskResponse[]>(withSemesterId(`/api/v5/task-evaluation/courses/${courseId}/tasks`, semesterId))
   },
   getTasksByStatus(
     universityId: Long,
@@ -193,9 +202,10 @@ export const courseTeachingTasksApi = {
   getEvaluationDetail(
     taskId: Long,
     courseId: Long,
+    semesterId?: number | null,
   ): Promise<ApiResponse<CourseEvaluationDetailResponse | null>> {
     return http.get<CourseEvaluationDetailResponse>(
-      `/api/v5/task-evaluation/tasks/${taskId}/courses/${courseId}/evaluation`
+      withSemesterId(`/api/v5/task-evaluation/tasks/${taskId}/courses/${courseId}/evaluation`, semesterId)
     )
   },
 
@@ -204,9 +214,10 @@ export const courseTeachingTasksApi = {
     taskId: Long,
     courseId: Long,
     submitDTO: CourseEvaluationSubmitDTO,
+    semesterId?: number | null,
   ): Promise<ApiResponse<CourseEvaluationDetailResponse | null>> {
     return http.post<CourseEvaluationDetailResponse>(
-      `/api/v5/task-evaluation/tasks/${taskId}/courses/${courseId}/evaluation`,
+      withSemesterId(`/api/v5/task-evaluation/tasks/${taskId}/courses/${courseId}/evaluation`, semesterId),
       submitDTO
     )
   },
@@ -215,16 +226,17 @@ export const courseTeachingTasksApi = {
   getCoursesByTaskAndMajor(
     taskId: Long,
     majorId: Long,
+    semesterId?: number | null,
   ): Promise<ApiResponse<MajorCourseEvaluationItem[] | null>> {
     return http.get<MajorCourseEvaluationItem[]>(
-      `/api/v5/task-evaluation/tasks/${taskId}/majors/${majorId}/courses`
+      withSemesterId(`/api/v5/task-evaluation/tasks/${taskId}/majors/${majorId}/courses`, semesterId)
     )
   },
 
   // 获取院系的任务列表
-  getTasksByDept(deptId: Long): Promise<ApiResponse<DeptTaskItem[] | null>> {
+  getTasksByDept(deptId: Long, semesterId?: number | null): Promise<ApiResponse<DeptTaskItem[] | null>> {
     return http.get<DeptTaskItem[]>(
-      `/api/v5/task-evaluation/depts/${deptId}/tasks`
+      withSemesterId(`/api/v5/task-evaluation/depts/${deptId}/tasks`, semesterId)
     )
   },
 
@@ -232,16 +244,17 @@ export const courseTeachingTasksApi = {
   getMajorsByTaskAndDept(
     taskId: Long,
     deptId: Long,
+    semesterId?: number | null,
   ): Promise<ApiResponse<DeptMajorEvaluationItem[] | null>> {
     return http.get<DeptMajorEvaluationItem[]>(
-      `/api/v5/task-evaluation/tasks/${taskId}/depts/${deptId}/majors`
+      withSemesterId(`/api/v5/task-evaluation/tasks/${taskId}/depts/${deptId}/majors`, semesterId)
     )
   },
 
   // 获取学校的任务列表
-  getTasksByCollege(collegeId: Long): Promise<ApiResponse<CollegeTaskItem[] | null>> {
+  getTasksByCollege(collegeId: Long, semesterId?: number | null): Promise<ApiResponse<CollegeTaskItem[] | null>> {
     return http.get<CollegeTaskItem[]>(
-      `/api/v5/task-evaluation/colleges/${collegeId}/tasks`
+      withSemesterId(`/api/v5/task-evaluation/colleges/${collegeId}/tasks`, semesterId)
     )
   },
 
@@ -249,9 +262,10 @@ export const courseTeachingTasksApi = {
   getDeptsByTaskAndCollege(
     taskId: Long,
     collegeId: Long,
+    semesterId?: number | null,
   ): Promise<ApiResponse<CollegeDeptEvaluationItem[] | null>> {
     return http.get<CollegeDeptEvaluationItem[]>(
-      `/api/v5/task-evaluation/tasks/${taskId}/colleges/${collegeId}/depts`
+      withSemesterId(`/api/v5/task-evaluation/tasks/${taskId}/colleges/${collegeId}/depts`, semesterId)
     )
   },
 }

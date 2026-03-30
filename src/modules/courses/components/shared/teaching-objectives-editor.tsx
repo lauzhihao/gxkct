@@ -103,6 +103,17 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
   }, [teachingObjectivesFilterKeyword])
 
   // 教学目标编辑函数
+  const resetTeachingObjectivesFilter = () => {
+    if (filterDebounceTimerRef.current) {
+      clearTimeout(filterDebounceTimerRef.current)
+      filterDebounceTimerRef.current = null
+    }
+
+    setTeachingObjectivesFilterKeyword("")
+    setDebouncedFilterKeyword("")
+    setIsFilteringTeachingObjectives(false)
+  }
+
   const startAddingObjectiveForGoal = (goalId: string) => {
     setGoalObjectiveInputs((prev) => ({
       ...prev,
@@ -112,6 +123,7 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
 
   const handleAddObjectiveForGoal = (goalId: string) => {
     const accordionValue = `indicator-${goalId}`
+    resetTeachingObjectivesFilter()
     setExpandedIndicators((prev) => (
       prev.includes(accordionValue) ? prev : [...prev, accordionValue]
     ))
@@ -385,17 +397,13 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
                   onChange={(e) => setTeachingObjectivesFilterKeyword(e.target.value)}
                   className="flex-1 bg-transparent outline-none text-base placeholder:text-muted-foreground"
                 />
-                {teachingObjectivesFilterKeyword && !isFilteringTeachingObjectives && (
-                  <button
-                    onClick={() => {
-                      setTeachingObjectivesFilterKeyword("")
-                      setDebouncedFilterKeyword("")
-                      if (filterDebounceTimerRef.current) {
-                        clearTimeout(filterDebounceTimerRef.current)
-                      }
-                    }}
-                    className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-                  >
+	                {teachingObjectivesFilterKeyword && !isFilteringTeachingObjectives && (
+	                  <button
+	                    onClick={() => {
+	                      resetTeachingObjectivesFilter()
+	                    }}
+	                    className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+	                  >
                     <X className="w-4 h-4" />
                   </button>
                 )}
@@ -464,15 +472,16 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
                                   </div>
                                 </AccordionTrigger>
 
-                                <button
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation()
-                                    handleAddObjectiveForGoal(String(goal.id))
-                                  }}
-                                  className="absolute right-4 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-primary transition-colors hover:bg-primary/10"
-                                  title="新增教学目标"
-                                >
+	                                <button
+	                                  type="button"
+	                                  onClick={(event) => {
+	                                    event.stopPropagation()
+	                                    handleAddObjectiveForGoal(String(goal.id))
+	                                  }}
+	                                  disabled={goalInput?.isEditing === true}
+	                                  className="absolute right-4 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-primary transition-colors hover:bg-primary/10"
+	                                  title="新增教学目标"
+	                                >
                                   <Plus className="w-4 h-4" />
                                 </button>
                               </div>

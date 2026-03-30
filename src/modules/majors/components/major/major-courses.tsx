@@ -9,25 +9,13 @@ import { usePermission } from "@/shared/hooks/use-permission"
 import type { PermissionAction } from "@/shared/permissions/types"
 import type { TreeNode } from "@/types"
 import { useMajorCoursePreferences } from "@/modules/majors/hooks/use-major-course-preferences"
-import { buildApiUrl } from "@/lib/api/config"
-import { getStoredAuthToken } from "@/lib/api/auth-config"
+import { api } from "@/lib/api"
 import { setCourseCacheBatch, type CourseCacheItem } from "@/shared/utils/course-cache"
+import { useSemesterStore } from "@/shared/stores/semester-store"
+import { useSemesterReadonly } from "@/shared/hooks/use-semester-readonly"
 
 const MANAGE_MAJOR_COURSE_ACTION: PermissionAction = "major.course.create"
 const MANAGE_MAJOR_COURSE_CONTEXT = { scope: "major" as const }
-
-// 右侧课程列表数据结构（接口返回格式）
-interface CourseItem {
-  lang: number
-  parent: { value: string; label: string } | null
-  self: { value: string; label: string } | null
-  manager: Array<{ value: string; label: string }> | null
-  info: any
-  cover: any
-  btnMenus: any[]
-  coverMenus: any[]
-  props: any
-}
 
 interface MajorCoursesProps {
   node: TreeNode
@@ -47,16 +35,18 @@ export function MajorCourses(props: MajorCoursesProps) {
   const { showMyCourses, setShowMyCourses } = useMajorCoursePreferences()
   // [MOD] 优先使用从父组件传入的权限，保持与编辑专业按钮一致
   const { can } = usePermission()
-  const canManageMajorCourse = canManageCourse ?? can(MANAGE_MAJOR_COURSE_ACTION, MANAGE_MAJOR_COURSE_CONTEXT)
+  const selectedSemesterId = useSemesterStore((state) => state.selectedSemesterId)
+  const isSemesterReadonly = useSemesterReadonly()
+  const canManageMajorCourse = !isSemesterReadonly && (canManageCourse ?? can(MANAGE_MAJOR_COURSE_ACTION, MANAGE_MAJOR_COURSE_CONTEXT))
 
   // 右侧组件内部独立获取课程数据，与左侧树完全隔离
-  const [courses, setCourses] = useState<CourseItem[]>([])
+  const [courses, setCourses] = useState<TreeNode[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
-  const setCourseCacheFromItems = useCallback((courseItems: CourseItem[]) => {
+  const setCourseCacheFromItems = useCallback((courseItems: TreeNode[]) => {
     const cacheItems: CourseCacheItem[] = courseItems.map((course) => ({
-      courseId: course.self?.value || '',
-      courseName: course.self?.label || '',
+      courseId: course.id || '',
+      courseName: course.nodeName,
       majorName: node.nodeName || node.name || '',
       instructors: (course.manager || []).map((m: { label: string }) => m.label).filter(Boolean),
     })).filter((item: CourseCacheItem) => item.courseId)
@@ -77,34 +67,14 @@ export function MajorCourses(props: MajorCoursesProps) {
 
       setIsLoading(true)
       try {
-        const headers: Record<string, string> = {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        }
-        const authToken = getStoredAuthToken()
-        if (authToken) {
-          headers['authToken'] = authToken
-        }
-
-        const url = buildApiUrl(`/api/v5/tree/majors/${node.id}/courses?lang=80101`)
-
-        const response = await fetch(url, {
-          method: 'GET',
-          headers,
-        })
-
-        if (response.ok) {
-          const result = await response.json()
-          if (result.code === '0' && Array.isArray(result.data)) {
-            const fetchedCourses = result.data as CourseItem[]
-            setCourses(fetchedCourses)
-            setCourseCacheFromItems(fetchedCourses)
-          } else {
-            setCourses([])
-          }
-        } else {
+        const response = await api.tree.getMajorCourses(node.id, selectedSemesterId)
+        if (!response.data) {
           setCourses([])
+          return
         }
+
+        setCourses(response.data)
+        setCourseCacheFromItems(response.data)
       } catch (error) {
         console.error('[MajorCourses] 获取课程列表失败:', error)
         setCourses([])
@@ -114,23 +84,23 @@ export function MajorCourses(props: MajorCoursesProps) {
     }
 
     fetchCourses()
-  }, [node?.id, refreshKey, setCourseCacheFromItems])
+  }, [node?.id, refreshKey, selectedSemesterId, setCourseCacheFromItems])
 
   // 获取课程ID
-  const getCourseId = (course: any) => course.self?.value || course.id || ''
+  const getCourseId = (course: TreeNode) => course.id || ''
 
   // 获取课程名称
-  const getCourseName = (course: any) => course.self?.label || course.name || ''
+  const getCourseName = (course: TreeNode) => course.nodeName
 
   // 获取讲师数组（从 manager 字段提取 label）
-  const getInstructors = (course: any) => {
+  const getInstructors = (course: TreeNode) => {
     const managers = course.manager || []
-    const instructors = managers.map((m: any) => m.label).filter(Boolean)
+    const instructors = managers.map((m) => m.label).filter(Boolean)
     return instructors.length > 0 ? instructors : ["未设置"]
   }
 
   // 判断讲师是否已设置
-  const isInstructorSet = (course: any) => {
+  const isInstructorSet = (course: TreeNode) => {
     const managers = course.manager || []
     return managers.length > 0
   }
@@ -144,7 +114,7 @@ export function MajorCourses(props: MajorCoursesProps) {
   })
 
   const handleAddCourse = () => {
-    if (!can(MANAGE_MAJOR_COURSE_ACTION, MANAGE_MAJOR_COURSE_CONTEXT)) return
+    if (!canManageMajorCourse) return
     onAddCourse()
   }
 
@@ -203,7 +173,7 @@ export function MajorCourses(props: MajorCoursesProps) {
           <div className="text-muted-foreground mb-4">
             <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
             <p className="text-sm mb-1">暂未设置课程</p>
-            <p className="text-xs text-muted-foreground">开始创建课程，完善专业课程体系</p>
+            <p className="text-xs text-muted-foreground">{selectedSemesterId === null ? "开始创建课程，完善专业课程体系" : "该学期暂无课程数据"}</p>
           </div>
           {canManageMajorCourse && (
             <Button size="sm" variant="ghost" onClick={handleAddCourse} className="gap-2 hover:bg-primary/10">
@@ -214,7 +184,7 @@ export function MajorCourses(props: MajorCoursesProps) {
         </div>
       ) : (
         <div className="grid grid-cols-3 gap-4 mb-[20px]">
-          {filteredCourses.map((course: any) => (
+          {filteredCourses.map((course) => (
             <button
               key={getCourseId(course)}
               onClick={() => onNodeSelect && onNodeSelect({
@@ -225,6 +195,12 @@ export function MajorCourses(props: MajorCoursesProps) {
                 nodeName: getCourseName(course),
                 type: 'course',
                 nodeType: 'course',
+                manager: course.manager,
+                btnMenus: course.btnMenus,
+                coverMenus: course.coverMenus,
+                metadata: {
+                  ...(course.metadata || {}),
+                },
               })}
               className={cn(
                 "relative flex flex-col p-5 rounded-xl border transition-all duration-200 min-h-[165px]",

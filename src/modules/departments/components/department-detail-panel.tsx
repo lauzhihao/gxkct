@@ -52,7 +52,7 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
   // 用于触发重新获取专业列表
   const [refreshMajorsKey, setRefreshMajorsKey] = useState(0)
   const { setActivePage } = useActivePageTracker()
-  const { can } = usePermission()
+  const { can, isSemesterReadonly } = usePermission()
   const { toast } = useToast()
 
   useEffect(() => {
@@ -67,7 +67,7 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
   }
 
   const handleEditDepartment = () => {
-    if (!can(EDIT_DEPARTMENT_ACTION, { scope: "college" })) return
+    if (isSemesterReadonly || !can(EDIT_DEPARTMENT_ACTION, { scope: "college" })) return
     if (!node) return
     setNewDeptName(node.nodeName)
     setNewDeptDesc(node.description || "")
@@ -76,7 +76,7 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
   }
 
   const handleSaveDepartment = async () => {
-    if (!can(EDIT_DEPARTMENT_ACTION, { scope: "college" })) return
+    if (isSemesterReadonly || !can(EDIT_DEPARTMENT_ACTION, { scope: "college" })) return
     if (!newDeptName.trim() || !node) return
     if (!node.parentId) {
       toast({ title: "保存失败", description: "无法获取所属学校信息", variant: "destructive" })
@@ -113,7 +113,7 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
   }
 
   const handleQuickCreateMajor = (data: { name: string; directors: Array<{ name: string }> }) => {
-    if (!can(CREATE_MAJOR_ACTION, { scope: "department" })) return
+    if (isSemesterReadonly || !can(CREATE_MAJOR_ACTION, { scope: "department" })) return
     if (onAddMajor && node) {
       const departmentId = extractNumericId(node.nodeId).toString()
       onAddMajor(departmentId, {
@@ -134,7 +134,7 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
   }
 
   const handleOpenQuickCreateMajor = () => {
-    if (!can(CREATE_MAJOR_ACTION, { scope: "department" })) return
+    if (isSemesterReadonly || !can(CREATE_MAJOR_ACTION, { scope: "department" })) return
     setIsQuickCreateMajorOpen(true)
   }
 

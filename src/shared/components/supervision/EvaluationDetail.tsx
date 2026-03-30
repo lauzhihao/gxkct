@@ -14,11 +14,13 @@ import { courseTeachingTasksApi, type CourseEvaluationDetailResponse, type Evalu
 import { formatDate } from "@/shared/utils/date-utils"
 import { CourseResourcePickerDialog, type PickedResource } from "@/modules/courses/components/dialogs/course-resource-picker-dialog"
 import { showError, showSuccess } from "@/shared/utils/toast-utils"
+import { useSemesterReadonly } from "@/shared/hooks/use-semester-readonly"
 
 interface EvaluationDetailProps {
   taskId: Long
   courseId: Long
   courseName?: string
+  semesterId?: number | null
   onBack: () => void
   breadcrumb?: React.ReactNode
   onSaveSuccess?: () => void
@@ -32,7 +34,7 @@ interface ScoreItem {
 // 评价视图类型
 type EvaluationViewType = "self" | "dept" | "school"
 
-export function EvaluationDetail({ taskId, courseId, onBack, breadcrumb, onSaveSuccess }: EvaluationDetailProps) {
+export function EvaluationDetail({ taskId, courseId, semesterId, onBack, breadcrumb, onSaveSuccess }: EvaluationDetailProps) {
   const [evaluationDetail, setEvaluationDetail] = useState<CourseEvaluationDetailResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   // 按视图类型分开存储评分数据
@@ -54,18 +56,19 @@ export function EvaluationDetail({ taskId, courseId, onBack, breadcrumb, onSaveS
   const [activeViewType, setActiveViewType] = useState<EvaluationViewType>("self")
   // 保存中状态
   const [isSaving, setIsSaving] = useState(false)
+  const isSemesterReadonly = useSemesterReadonly()
 
   // 获取当前视图类型的 scores 和 materialSelections
   const scores = scoresByType[activeViewType]
   const materialSelections = materialsByType.self
 
   const courseResourceNodeId = courseId ? String(courseId) : null
-  const canEditMaterials = activeViewType === "self" && evaluationDetail?.canSelfEvaluate === true
+  const canEditMaterials = !isSemesterReadonly && activeViewType === "self" && evaluationDetail?.canSelfEvaluate === true
 
   // 判断当前是否可以编辑
-  const canEdit = (activeViewType === "self" && evaluationDetail?.canSelfEvaluate) ||
+  const canEdit = !isSemesterReadonly && ((activeViewType === "self" && evaluationDetail?.canSelfEvaluate) ||
     (activeViewType === "dept" && evaluationDetail?.canDeptEvaluate) ||
-    (activeViewType === "school" && evaluationDetail?.canSchoolEvaluate)
+    (activeViewType === "school" && evaluationDetail?.canSchoolEvaluate))
 
   // 获取标准项的等级系数映射
   const getLevelCoefficients = useCallback((itemId: string): Record<string, number> => {
@@ -148,7 +151,7 @@ export function EvaluationDetail({ taskId, courseId, onBack, breadcrumb, onSaveS
 
     const loadEvaluationDetail = async () => {
       try {
-        const response = await courseTeachingTasksApi.getEvaluationDetail(taskId, courseId)
+        const response = await courseTeachingTasksApi.getEvaluationDetail(taskId, courseId, semesterId)
         if (!cancelled && response.data) {
           setEvaluationDetail(response.data)
           const { canSelfEvaluate, canDeptEvaluate, canSchoolEvaluate } = response.data
@@ -194,7 +197,7 @@ export function EvaluationDetail({ taskId, courseId, onBack, breadcrumb, onSaveS
     return () => {
       cancelled = true
     }
-  }, [taskId, courseId, extractEvaluationData])
+  }, [courseId, extractEvaluationData, semesterId, taskId])
 
   // 计算总分
   useEffect(() => {
@@ -357,7 +360,7 @@ export function EvaluationDetail({ taskId, courseId, onBack, breadcrumb, onSaveS
 
   // 处理保存
   const handleSave = async (): Promise<boolean> => {
-    if (!evaluationDetail || isSaving) return false
+    if (!evaluationDetail || isSaving || isSemesterReadonly) return false
 
     const { canSelfEvaluate, canDeptEvaluate, canSchoolEvaluate } = evaluationDetail
 
@@ -419,7 +422,7 @@ export function EvaluationDetail({ taskId, courseId, onBack, breadcrumb, onSaveS
 
     setIsSaving(true)
     try {
-      const response = await courseTeachingTasksApi.submitEvaluation(taskId, courseId, submitDTO)
+      const response = await courseTeachingTasksApi.submitEvaluation(taskId, courseId, submitDTO, semesterId)
       if (response.data) {
         showSuccess("评分保存成功")
         onSaveSuccess?.()

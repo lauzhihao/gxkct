@@ -271,6 +271,9 @@ export interface ProjectMatrixTaskObjective {
   id: string
   index: number
   description: string
+  originalId?: number
+  project_id?: number
+  product?: string
 }
 
 /**
@@ -281,6 +284,7 @@ export interface ProjectMatrixKsaItem {
   name: string
   level: "strong" | "weak"
   description?: string
+  originalId?: number
   // 用于序号标签显示（如 K1, S2, A3）
   category?: "K" | "S" | "A"
   index?: number
@@ -301,6 +305,9 @@ export interface ProjectMatrixRow {
   course_point_id: string
   course_point_name: string
   course_point_description?: string
+  course_point_original_id?: number
+  project_matrix_id?: number
+  project_id?: number
   objective_supports: ProjectMatrixObjectiveSupport[]
   learning_method?: string
   teaching_method?: string
@@ -317,6 +324,8 @@ export interface ProjectMatrixData {
   chapter_id: string
   chapter_index: number
   chapter_name: string
+  project_id?: number
+  course_unit_id?: number
   task_objectives: ProjectMatrixTaskObjective[]
   rows: ProjectMatrixRow[]
   // 索引签名，满足 @xyflow/react Node 泛型约束

@@ -5,7 +5,6 @@ import { convertCourseToCanvasComplete } from "@/lib/utils/course-to-canvas"
 import { BookOpen, Calendar, Pencil, User } from "lucide-react"
 import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
 import { cn } from "@/shared/utils/utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
 import { Accordion } from "@/shared/components/ui/accordion"
@@ -33,6 +32,8 @@ import { useCourseEditPermission } from "@/modules/courses/hooks/use-course-edit
 import type { TreeNode } from "@/types"
 import type { MatrixDataForCanvas, ProjectMatrixApiData } from "@/lib/utils/course-to-canvas"
 import type { GraduationSupportData } from "@/components/canvas-elements/types"
+import { useSemesterStore } from "@/shared/stores/semester-store"
+import { useSemesterReadonly } from "@/shared/hooks/use-semester-readonly"
 
 const COURSE_TABS = {
   info: "课程信息",
@@ -250,12 +251,16 @@ const resolveCourseOrganizationFromTree = (params: {
 
 export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }: DetailPanelProps) {
   const courseNode = node?.nodeType === "course" ? node : null
-  const courseEditable = useCourseEditPermission(courseNode)
+  const hasCourseEditPermission = useCourseEditPermission(courseNode)
+  const selectedSemesterId = useSemesterStore((state) => state.selectedSemesterId)
+  const isSemesterReadonly = useSemesterReadonly()
+  const courseEditable = hasCourseEditPermission && !isSemesterReadonly
   const courseNodeId = courseNode?.id
   const [isEditingCourse, setIsEditingCourse] = useState(false)
   const [contentView, setContentView] = useState<"detail" | "syllabus">("detail")
   const [isEditingTeachingObjectives, setIsEditingTeachingObjectives] = useState(false)
   const [courseDetailData, setCourseDetailData] = useState<CombinedCourseDetail | null>(null)
+  const [courseLoadError, setCourseLoadError] = useState<string | null>(null)
   const [courseGoals, setCourseGoals] = useState<CourseGoal[]>([])
   const [hasLoadedCourseGoals, setHasLoadedCourseGoals] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -268,13 +273,6 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
     teachingObjectiveIndicatorMap: {},
     isLoadingTeachingObjectiveIndicators: false,
   })
-  const [selectedSemester, setSelectedSemester] = useState("2024-spring")
-  const [semesters] = useState([
-    { value: "2024-spring", label: "2024年春季学期" },
-    { value: "2024-fall", label: "2024年秋季学期" },
-    { value: "2025-spring", label: "2025年春季学期" },
-    { value: "2025-fall", label: "2025年秋季学期" },
-  ])
   const { setActivePage } = useActivePageTracker()
   const {
     registerPrepareCanvasData,
@@ -333,34 +331,45 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
       const courseId = courseNodeId
       if (!courseId) {
         console.error("[CourseDetail] 无法获取课程ID")
+        setCourseDetailData(null)
+        setCourseLoadError("无法获取课程ID")
         return false
       }
 
       console.log(`[CourseDetail] 开始加载课程详情，courseId: ${courseId}`)
-      const response = await courseApiService.getCourseDetail(courseId)
+      const response = await courseApiService.getCourseDetail(courseId, selectedSemesterId)
       if (response.data) {
         console.log("[CourseDetail] 课程详情加载成功")
         setCourseDetailData(response.data)
+        setCourseLoadError(null)
         return true
       }
 
       console.error("[CourseDetail] 课程详情返回为空")
+      setCourseDetailData(null)
+      setCourseGoals([])
+      setHasLoadedCourseGoals(false)
+      setCourseLoadError(response.error || "该学期无课程数据")
       return false
     } catch (error) {
       console.error("[CourseDetail] 加载课程详情失败:", error)
+      setCourseDetailData(null)
+      setCourseGoals([])
+      setHasLoadedCourseGoals(false)
+      setCourseLoadError(error instanceof Error ? error.message : "加载课程详情失败")
       return false
     } finally {
       if (!silent) {
         setIsLoading(false)
       }
     }
-  }, [courseNodeId])
+  }, [courseNodeId, selectedSemesterId])
 
   // 加载课程详情数据
   useEffect(() => {
     if (!courseNodeId) return
     void loadCourseDetail()
-  }, [courseNodeId, loadCourseDetail])
+  }, [courseNodeId, loadCourseDetail, selectedSemesterId])
 
   // 加载教学目标数据（课程详情加载完成后即加载）
   const loadCourseGoals = useCallback(async (options?: { refreshMatrix?: boolean }) => {
@@ -913,8 +922,8 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
     return (
       <LoadingState
         variant="card"
-        title="加载失败"
-        description="无法获取课程详情，请检查网络连接或刷新重试"
+        title={courseLoadError === "该学期无课程数据" ? "该学期无课程数据" : "加载失败"}
+        description={courseLoadError || "无法获取课程详情，请检查网络连接或刷新重试"}
       />
     )
   }
@@ -1054,22 +1063,6 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
                 </Button>
               )}
             </div>
-            <Select value={selectedSemester} onValueChange={setSelectedSemester}>
-              <SelectTrigger className="w-[160px] h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {semesters.map((semester) => (
-                  <SelectItem
-                    key={semester.value}
-                    value={semester.value}
-                    className={selectedSemester === semester.value ? "[&_svg]:text-white" : ""}
-                  >
-                    {semester.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
         </div>
 
@@ -1134,7 +1127,7 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
             </TabsContent>
 
             <TabsContent value="supervision" className="space-y-4 mt-4 px-6">
-              <CourseSupervision courseId={courseNode.id || courseNode.nodeId} collegeId={collegeId} />
+              <CourseSupervision courseId={courseNode.id || courseNode.nodeId} collegeId={collegeId} semesterId={selectedSemesterId} />
             </TabsContent>
           </Tabs>
         </div>

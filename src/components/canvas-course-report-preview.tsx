@@ -5,11 +5,11 @@
  * 从画布节点数据汇总展示课程体系完整信息（只读模式，用于导出）
  */
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect, useMemo } from "react"
 import { Button } from "@/shared/components/ui/button"
 import {
   FileText, Target, BookOpen, Layers, Brain, Wrench, Heart,
-  Grid3X3, Table, Award, ClipboardCheck, Save
+  Grid3X3, Table, Award, ClipboardCheck, Save, X
 } from "lucide-react"
 import type {
   CourseInfoData,
@@ -22,10 +22,11 @@ import type {
   CanvasElementData,
 } from "./canvas-elements/types"
 import type { TreeNode } from "@/types"
+import { findKsaByReference } from "@/shared/utils/ksa"
 import { CanvasSaveWizard } from "./canvas-save-wizard"
 import { SafeRichTextContent } from "@/shared/components/ui/safe-rich-text-content"
 import { showError, showSuccess } from "@/shared/utils/toast-utils"
-import { getStoredAuthToken } from "@/lib/api/auth-config"
+import { getStoredAuthUser } from "@/lib/api/auth-config"
 import { exportReport } from "@/modules/courses/report/api"
 
 // 开课报告预览数据结构
@@ -63,8 +64,11 @@ interface CanvasCourseReportPreviewProps {
     majorId?: number
     objectives?: ObjectiveCardData[]
     coursePoints?: CoursePointCardData[]
+    chapters?: ChapterCardData[]
     ksaItems?: KsaItemData[]
   }) => void
+  /** 强制上传最新画布并返回最新 ossKey */
+  onEnsureLatestCanvasOssKey?: () => Promise<string | null>
 }
 
 /**
@@ -115,26 +119,100 @@ function getExportFileBaseName(courseName?: string): string {
   return `${sanitizeFileName(courseName || "开课报告")}_${date}`
 }
 
-interface DraftExportRequestBody {
-  courseInfo: CourseInfoData | null
-  objectives: ObjectiveCardData[]
-  chapters: ChapterCardData[]
-  coursePoints: CoursePointCardData[]
-  ksaItems: KsaItemData[]
-  courseMatrix: CourseMatrixData | null
-  projectMatrices: ProjectMatrixData[]
+function extractNumericId(value: string | number | null | undefined): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const trimmedValue = value.trim()
+  if (trimmedValue.length === 0) {
+    return null
+  }
+
+  const matchedNumber = trimmedValue.match(/\d+/)
+  if (!matchedNumber) {
+    return null
+  }
+
+  const parsedValue = Number.parseInt(matchedNumber[0], 10)
+  return Number.isFinite(parsedValue) ? parsedValue : null
 }
 
-function buildDraftExportRequestBody(report: CourseReportPreviewData, currentCourseInfo: CourseInfoData | null): DraftExportRequestBody {
-  return {
-    courseInfo: currentCourseInfo,
-    objectives: report.objectives,
-    chapters: report.chapters,
-    coursePoints: report.coursePoints,
-    ksaItems: report.ksaItems,
-    courseMatrix: report.courseMatrix,
-    projectMatrices: report.projectMatrices,
+function findTreeCourseNode(
+  node: TreeNode | null,
+  matcher: (treeNode: TreeNode) => boolean
+): TreeNode | null {
+  if (!node) {
+    return null
   }
+
+  if (matcher(node)) {
+    return node
+  }
+
+  if (!Array.isArray(node.children)) {
+    return null
+  }
+
+  for (const childNode of node.children) {
+    const matchedNode = findTreeCourseNode(childNode, matcher)
+    if (matchedNode) {
+      return matchedNode
+    }
+  }
+
+  return null
+}
+
+function resolveLecturer(currentCourseInfo: CourseInfoData | null, treeData: TreeNode | null): string {
+  const metadata = currentCourseInfo?.metadata as (CourseInfoData["metadata"] & { lecturer?: string }) | undefined
+  const metadataLecturer = typeof metadata?.lecturer === "string" ? metadata.lecturer.trim() : ""
+  if (metadataLecturer.length > 0) {
+    return metadataLecturer
+  }
+
+  const savedCourseId = extractNumericId(currentCourseInfo?.metadata?.courseId)
+  let matchedCourseNode: TreeNode | null = null
+
+  if (savedCourseId !== null) {
+    matchedCourseNode = findTreeCourseNode(treeData, (treeNode) => {
+      if (treeNode.nodeType !== "course") {
+        return false
+      }
+      const treeCourseId = extractNumericId(treeNode.id ?? treeNode.nodeId)
+      return treeCourseId === savedCourseId
+    })
+  }
+
+  if (!matchedCourseNode && typeof currentCourseInfo?.name === "string" && currentCourseInfo.name.trim().length > 0) {
+    const normalizedCourseName = currentCourseInfo.name.trim()
+    matchedCourseNode = findTreeCourseNode(treeData, (treeNode) => {
+      if (treeNode.nodeType !== "course") {
+        return false
+      }
+      const treeCourseName = typeof treeNode.name === "string" && treeNode.name.trim().length > 0
+        ? treeNode.name.trim()
+        : treeNode.nodeName.trim()
+      return treeCourseName === normalizedCourseName
+    })
+  }
+
+  const managerLabels = Array.isArray(matchedCourseNode?.manager)
+    ? matchedCourseNode.manager
+        .map((manager) => manager.label.trim())
+        .filter((label) => label.length > 0)
+    : []
+
+  if (managerLabels.length > 0) {
+    return Array.from(new Set(managerLabels)).join("、")
+  }
+
+  const authUserName = getStoredAuthUser()?.userName?.trim()
+  return authUserName && authUserName.length > 0 ? authUserName : ""
 }
 
 function parseFilenameFromContentDisposition(headerValue: string | null): string | null {
@@ -151,6 +229,126 @@ function parseFilenameFromContentDisposition(headerValue: string | null): string
 
   const asciiMatch = headerValue.match(/filename="?([^";]+)"?/i)
   return asciiMatch?.[1] ?? null
+}
+
+function buildExportFingerprint({
+  courseInfo,
+  objectives,
+  chapters,
+  coursePoints,
+  ksaItems,
+  courseMatrix,
+  projectMatrices,
+}: {
+  courseInfo: CourseInfoData | null
+  objectives: ObjectiveCardData[]
+  chapters: ChapterCardData[]
+  coursePoints: CoursePointCardData[]
+  ksaItems: KsaItemData[]
+  courseMatrix: CourseMatrixData | null
+  projectMatrices: ProjectMatrixData[]
+}): string {
+  let normalizedCourseInfo: Record<string, unknown> | null = null
+
+  if (courseInfo) {
+    let normalizedMetadata: Record<string, unknown> | undefined
+    if (courseInfo.metadata) {
+      const metadataWithoutPersistence: Record<string, unknown> = { ...courseInfo.metadata }
+      delete metadataWithoutPersistence.courseId
+      delete metadataWithoutPersistence.majorId
+      delete metadataWithoutPersistence.teachingObjectives
+      delete metadataWithoutPersistence.coursePoints
+      delete metadataWithoutPersistence.chapters
+      normalizedMetadata = metadataWithoutPersistence
+    }
+
+    normalizedCourseInfo = {
+      name: courseInfo.name,
+      description: courseInfo.description,
+      metadata: normalizedMetadata,
+    }
+  }
+
+  return JSON.stringify({
+    courseInfo: normalizedCourseInfo,
+    objectives: objectives.map((item) => ({
+      index: item.index,
+      content: item.content,
+      supports: Array.isArray(item.supports)
+        ? item.supports.map((support) => ({
+            indicatorId: support.indicatorId,
+            title: support.title,
+            desc: support.desc,
+            type: support.type,
+          }))
+        : [],
+    })),
+    chapters: chapters.map((item) => ({
+      index: item.index,
+      name: item.name,
+      theory_hours: item.theory_hours,
+      practice_hours: item.practice_hours,
+    })),
+    coursePoints: coursePoints.map((item) => ({
+      index: item.index,
+      name: item.name,
+      description: item.description,
+      content: item.content,
+    })),
+    ksaItems: ksaItems.map((item) => ({
+      category: item.category,
+      index: item.index,
+      content: item.content,
+    })),
+    courseMatrix: courseMatrix
+      ? {
+          course_name: courseMatrix.course_name,
+          objectives: courseMatrix.objectives.map((item) => ({
+            index: item.index,
+            content: item.content,
+          })),
+          rows: courseMatrix.rows.map((row) => ({
+            chapter_index: row.chapter_index,
+            chapter_name: row.chapter_name,
+            supports: row.supports.map((support) => ({
+              objective_index: support.objective_index,
+              course_points: support.course_points.map((point) => ({
+                name: point.name,
+                level: point.level,
+                description: point.description,
+              })),
+            })),
+          })),
+        }
+      : null,
+    projectMatrices: projectMatrices.map((matrix) => ({
+      chapter_index: matrix.chapter_index,
+      chapter_name: matrix.chapter_name,
+      task_objectives: matrix.task_objectives.map((item) => ({
+        index: item.index,
+        description: item.description,
+      })),
+      rows: matrix.rows.map((row) => ({
+        course_point_name: row.course_point_name,
+        course_point_description: row.course_point_description,
+        learning_method: row.learning_method,
+        teaching_method: row.teaching_method,
+        learning_output: row.learning_output,
+        week: row.week,
+        theory_hours: row.theory_hours,
+        practice_hours: row.practice_hours,
+        objective_supports: row.objective_supports.map((support) => ({
+          ksa_items: support.ksa_items.map((item) => ({
+            name: item.name,
+            level: item.level,
+            description: item.description,
+            category: item.category,
+            index: item.index,
+          })),
+        })),
+      })),
+    })),
+  })
 }
 
 function downloadBlob(blob: Blob, fileName: string): Promise<void> {
@@ -232,22 +430,75 @@ function SectionTitle({
  */
 export function CanvasCourseReportPreview({
   data,
+  onClose,
   canvasElements = [],
   canvasOssKey = null,
   treeData = null,
   onSaveSuccess,
   onUpdateCourseInfo,
+  onEnsureLatestCanvasOssKey,
 }: CanvasCourseReportPreviewProps) {
   const { objectives, chapters, coursePoints, ksaItems, courseMatrix, projectMatrices } = data
 
   // 维护 courseInfo 的本地副本，保存成功后可就地更新 courseId/majorId，
   // 避免因抽屉持有旧快照导致二次保存时重复创建课程
   const [courseInfo, setCourseInfo] = useState(data.courseInfo)
+  const [lastSavedExportFingerprint, setLastSavedExportFingerprint] = useState<string | null>(null)
   const metadata = courseInfo?.metadata
 
   // 保存向导状态
   const [isSaveWizardOpen, setIsSaveWizardOpen] = useState(false)
   const [isExportingWord, setIsExportingWord] = useState(false)
+  const lecturer = useMemo(() => resolveLecturer(courseInfo, treeData), [courseInfo, treeData])
+  const savedCourseId = courseInfo?.metadata?.courseId
+  const currentExportFingerprint = useMemo(() => buildExportFingerprint({
+    courseInfo,
+    objectives,
+    chapters,
+    coursePoints,
+    ksaItems,
+    courseMatrix,
+    projectMatrices,
+  }), [courseInfo, objectives, chapters, coursePoints, ksaItems, courseMatrix, projectMatrices])
+  const isExportReady =
+    typeof lastSavedExportFingerprint === "string" &&
+    lastSavedExportFingerprint === currentExportFingerprint
+  const exportWordDisabledReason = useMemo(() => {
+    if (!courseInfo) {
+      return "缺少课程信息，无法导出 Word"
+    }
+
+    if (!isExportReady) {
+      return "请先完成“更新课程”，再导出 docx"
+    }
+
+    if (typeof savedCourseId !== "number" || !Number.isFinite(savedCourseId) || savedCourseId <= 0) {
+      return "当前课程ID无效，无法导出开课说明"
+    }
+
+    return ""
+  }, [courseInfo, isExportReady, savedCourseId])
+  const canExportWord = exportWordDisabledReason.length === 0
+
+  useEffect(() => {
+    setCourseInfo((previousCourseInfo) => {
+      if (!data.courseInfo) {
+        return data.courseInfo
+      }
+
+      const previousMetadata = previousCourseInfo?.metadata
+      const nextMetadata = data.courseInfo.metadata
+
+      return {
+        ...data.courseInfo,
+        metadata: {
+          ...nextMetadata,
+          courseId: typeof nextMetadata?.courseId === "number" ? nextMetadata.courseId : previousMetadata?.courseId,
+          majorId: typeof nextMetadata?.majorId === "number" ? nextMetadata.majorId : previousMetadata?.majorId,
+        },
+      }
+    })
+  }, [data])
 
   // 包装 onUpdateCourseInfo：同时更新本地 courseInfo 状态和外部画布数据
   const handleUpdateCourseInfo = useCallback((updates: {
@@ -255,6 +506,7 @@ export function CanvasCourseReportPreview({
     majorId?: number
     objectives?: ObjectiveCardData[]
     coursePoints?: CoursePointCardData[]
+    chapters?: ChapterCardData[]
     ksaItems?: KsaItemData[]
   }) => {
     setCourseInfo(prev => {
@@ -270,6 +522,11 @@ export function CanvasCourseReportPreview({
     })
     onUpdateCourseInfo?.(updates)
   }, [onUpdateCourseInfo])
+
+  const handleSaveSuccess = useCallback((majorId: string, courseId: string) => {
+    setLastSavedExportFingerprint(currentExportFingerprint)
+    onSaveSuccess?.(majorId, courseId)
+  }, [currentExportFingerprint, onSaveSuccess])
 
   // 计算章节学时统计
   const totalTheoryHours = chapters.reduce((sum, ch) => sum + (ch.theory_hours || 0), 0)
@@ -293,27 +550,14 @@ export function CanvasCourseReportPreview({
     metadata?.scoreType || metadata?.scoreTable || metadata?.assessmentDescription
 
   const handleExportWord = useCallback(async () => {
+    if (!canExportWord) {
+      showError(exportWordDisabledReason)
+      return
+    }
+
     setIsExportingWord(true)
     try {
-      let response: Response
-      const savedCourseId = courseInfo?.metadata?.courseId
-      if (typeof savedCourseId === "number" && Number.isFinite(savedCourseId)) {
-        response = await exportReport(savedCourseId)
-      } else {
-        const authToken = getStoredAuthToken()
-        response = await fetch("/api/v5/courses/syllabus/export-docx", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(authToken ? { authToken } : {}),
-          },
-          body: JSON.stringify(buildDraftExportRequestBody(data, courseInfo)),
-        })
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`)
-        }
-      }
-
+      const response = await exportReport(savedCourseId as number)
       const blob = await response.blob()
       const headerFilename = parseFilenameFromContentDisposition(response.headers.get("content-disposition"))
       const fallbackFileName = `${getExportFileBaseName(courseInfo?.name)}.docx`
@@ -326,7 +570,7 @@ export function CanvasCourseReportPreview({
     } finally {
       setIsExportingWord(false)
     }
-  }, [courseInfo, data])
+  }, [canExportWord, courseInfo, exportWordDisabledReason, savedCourseId])
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -352,6 +596,7 @@ export function CanvasCourseReportPreview({
                   <InfoField label="授课班级" value={metadata?.teachingClass} />
                   <InfoField label="授课地点" value={metadata?.teachingLocation} />
                   <InfoField label="授课时间" value={parseTeachingTime(metadata?.teachingTime)} />
+                  <InfoField label="授课教师" value={lecturer.length > 0 ? lecturer : "-"} />
                 </div>
                 {/* 长文本字段 */}
                 <TextBlock label="课程介绍" value={metadata?.introduction} richText />
@@ -484,7 +729,7 @@ export function CanvasCourseReportPreview({
                             {point.index}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm font-medium">{point.content}</td>
+                        <td className="px-4 py-3 text-sm font-medium">{point.name}</td>
                         <td className="px-4 py-3 text-sm text-muted-foreground">{typeof point.description === 'string' ? point.description : "-"}</td>
                       </tr>
                     ))}
@@ -706,7 +951,7 @@ export function CanvasCourseReportPreview({
                                       return `${ksa.category}${ksa.index}`
                                     }
                                     // 否则从全局 ksaItems 中查找
-                                    const found = ksaItems.find(k => k.id === ksa.id)
+                                    const found = findKsaByReference(ksaItems, ksa.id)
                                     return found ? `${found.category}${found.index}` : ksa.name
                                   }).filter(Boolean).join(", ")
                                   return (
@@ -759,15 +1004,6 @@ export function CanvasCourseReportPreview({
       <div className="flex-shrink-0 px-6 py-4 border-t border-border flex items-center justify-end">
         <div className="flex items-center gap-3">
           <Button
-            variant="outline"
-            onClick={handleExportWord}
-            disabled={isExportingWord}
-            className="gap-2 border-blue-400 text-blue-700 hover:bg-blue-50 hover:text-blue-800 hover:border-blue-500"
-          >
-            <FileText className="h-4 w-4" />
-            {isExportingWord ? "导出中..." : "导出 Word"}
-          </Button>
-          <Button
             onClick={() => setIsSaveWizardOpen(true)}
             className="gap-2"
             disabled={!courseInfo}
@@ -775,6 +1011,14 @@ export function CanvasCourseReportPreview({
           >
             <Save className="h-4 w-4" />
             更新课程
+          </Button>
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="gap-2"
+          >
+            <X className="h-4 w-4" />
+            关闭
           </Button>
         </div>
       </div>
@@ -787,8 +1031,13 @@ export function CanvasCourseReportPreview({
         canvasElements={canvasElements}
         canvasOssKey={canvasOssKey}
         treeData={treeData}
-        onSaveSuccess={onSaveSuccess}
+        onSaveSuccess={handleSaveSuccess}
         onUpdateCourseInfo={handleUpdateCourseInfo}
+        onExportWord={handleExportWord}
+        isExportingWord={isExportingWord}
+        canExportWord={canExportWord}
+        exportWordDisabledReason={exportWordDisabledReason}
+        onEnsureLatestCanvasOssKey={onEnsureLatestCanvasOssKey}
       />
     </div>
   )

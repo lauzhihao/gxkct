@@ -167,6 +167,7 @@ export function CanvasKsaEditor({
                         placeholder="输入内容描述..."
                         className="w-full px-2 py-1 text-sm"
                         rows={2}
+                        autoResize
                         hideCounter
                         disabled={isSaving}
                       />

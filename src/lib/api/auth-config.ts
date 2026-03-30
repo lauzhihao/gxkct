@@ -1,5 +1,7 @@
 // 认证配置和token管理
 
+import type { SemesterBrief, StoredSemesterContext } from "@/types"
+
 export interface AuthUser {
   id: number
   collegeId: number
@@ -18,10 +20,13 @@ export interface AuthUser {
 export interface AuthResponse {
   authToken: string
   user: AuthUser
+  currentSemesterId: number | null
+  semesterList: SemesterBrief[]
 }
 
 const AUTH_TOKEN_KEY = "education-api-auth-token"
 const AUTH_USER_KEY = "education-api-auth-user"
+const AUTH_SEMESTER_CONTEXT_KEY = "education-api-semester-context"
 const MANAGED_LOCAL_STORAGE_PREFIX = "education-api-"
 
 // 退出登录时保留的非敏感偏好键
@@ -87,6 +92,77 @@ export function getStoredAuthUser(): AuthUser | null {
   } catch {
     return null
   }
+}
+
+function isSemesterBriefArray(value: unknown): value is SemesterBrief[] {
+  if (!Array.isArray(value)) {
+    return false
+  }
+
+  return value.every((item) => {
+    if (!item || typeof item !== "object") {
+      return false
+    }
+
+    const candidate = item as Record<string, unknown>
+    const schoolYear = candidate.schoolYear
+    const termType = candidate.termType
+
+    return typeof candidate.id === "number"
+      && typeof candidate.collegeId === "number"
+      && (typeof schoolYear === "string" || typeof schoolYear === "number")
+      && (typeof termType === "string" || typeof termType === "number")
+      && typeof candidate.name === "string"
+      && typeof candidate.status === "string"
+      && typeof candidate.isCurrent === "boolean"
+  })
+}
+
+function isStoredSemesterContext(value: unknown): value is StoredSemesterContext {
+  if (!value || typeof value !== "object") {
+    return false
+  }
+
+  const candidate = value as Record<string, unknown>
+
+  const currentSemesterId = candidate.currentSemesterId
+  if (currentSemesterId !== null && typeof currentSemesterId !== "number") {
+    return false
+  }
+
+  const selectedSemesterId = candidate.selectedSemesterId
+  if (selectedSemesterId !== null && typeof selectedSemesterId !== "number") {
+    return false
+  }
+
+  return isSemesterBriefArray(candidate.semesterList)
+}
+
+export function getStoredSemesterContext(): StoredSemesterContext | null {
+  if (typeof window === "undefined") return null
+  const raw = localStorage.getItem(AUTH_SEMESTER_CONTEXT_KEY)
+  if (!raw) return null
+
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (!isStoredSemesterContext(parsed)) {
+      return null
+    }
+
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+export function setStoredSemesterContext(context: StoredSemesterContext): void {
+  if (typeof window === "undefined") return
+  localStorage.setItem(AUTH_SEMESTER_CONTEXT_KEY, JSON.stringify(context))
+}
+
+export function clearStoredSemesterContext(): void {
+  if (typeof window === "undefined") return
+  localStorage.removeItem(AUTH_SEMESTER_CONTEXT_KEY)
 }
 
 /**

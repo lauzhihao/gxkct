@@ -1,7 +1,7 @@
 ---
 id: task-075.02
 title: 补齐画布教学目标抽屉毕业要求支撑点展示
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-25 18:38'
 labels:
@@ -35,4 +35,3 @@ priority: medium
 - [ ] #3 不修改 `ObjectiveCardData` 存储格式
 - [ ] #4 不影响抽屉内新增、删除、保存教学目标的现有行为
 <!-- AC:END -->
-

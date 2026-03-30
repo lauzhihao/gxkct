@@ -5,8 +5,63 @@
  * 用于在 UI 中展示课程信息摘要
  */
 
-import type { CourseDevData, CourseExportData } from '../types'
+import type { CourseDevData, CourseExportData, PointData } from '../types'
 import { COURSE_TYPES } from '../constants'
+
+const POINT_PLACEHOLDER_TITLE_PATTERN = /^课点\s*\d+$/
+
+function isPointPlaceholderTitle(title: string): boolean {
+  return POINT_PLACEHOLDER_TITLE_PATTERN.test(title.trim())
+}
+
+function getPointDisplayName(point: PointData): string {
+  const normalizedTitle = point.title.trim()
+  const normalizedDescription = point.description.trim()
+
+  if (normalizedTitle && !isPointPlaceholderTitle(normalizedTitle)) {
+    return normalizedTitle
+  }
+
+  if (normalizedDescription) {
+    return normalizedDescription
+  }
+
+  if (normalizedTitle) {
+    return normalizedTitle
+  }
+
+  return '未命名课点'
+}
+
+function getPointDisplayDescription(point: PointData): string {
+  const normalizedDescription = point.description.trim()
+  const displayName = getPointDisplayName(point)
+
+  if (!normalizedDescription || normalizedDescription === displayName) {
+    return ''
+  }
+
+  return normalizedDescription
+}
+
+function formatPointPreviewText(point: PointData): string {
+  const displayName = getPointDisplayName(point)
+  const displayDescription = getPointDisplayDescription(point)
+
+  if (!displayDescription) {
+    return displayName
+  }
+
+  return `${displayName}：${displayDescription}`
+}
+
+function truncateText(input: string, maxLength: number): string {
+  if (input.length <= maxLength) {
+    return input
+  }
+
+  return `${input.substring(0, maxLength)}...`
+}
 
 // ============================================================================
 // Markdown 生成函数
@@ -112,7 +167,15 @@ function generatePointsSection(data: CourseDevData): string {
   lines.push('')
 
   data.points.forEach((point, index) => {
-    lines.push(`${index + 1}. **${point.title || `课点${index + 1}`}**：${point.description}`)
+    const displayName = getPointDisplayName(point)
+    const displayDescription = getPointDisplayDescription(point)
+
+    if (displayDescription) {
+      lines.push(`${index + 1}. **${displayName}**：${displayDescription}`)
+      return
+    }
+
+    lines.push(`${index + 1}. **${displayName}**`)
   })
 
   lines.push('')
@@ -212,7 +275,7 @@ export function generateStagePreview(data: CourseDevData, currentStage: string):
         lines.push(`已添加 ${data.points.length} 个课点：`)
         lines.push('')
         data.points.slice(0, 5).forEach((p, i) => {
-          lines.push(`${i + 1}. ${p.description.substring(0, 30)}${p.description.length > 30 ? '...' : ''}`)
+          lines.push(`${i + 1}. ${truncateText(formatPointPreviewText(p), 30)}`)
         })
         if (data.points.length > 5) {
           lines.push(`...及另外 ${data.points.length - 5} 个课点`)
@@ -259,7 +322,7 @@ export function convertToExportData(data: CourseDevData): CourseExportData {
     },
     pointksa: {
       points: data.points.map(p => ({
-        title: p.title || '',
+        title: getPointDisplayName(p),
         description: p.description,
       })),
       ksas: data.ksas.map((k, index) => ({

@@ -1,7 +1,7 @@
 ---
 id: task-075.08
 title: 修复画布 KSA 编辑器输入框按内容自适应
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-25 18:38'
 labels:
@@ -34,4 +34,3 @@ priority: medium
 - [ ] #3 不影响其他使用 `ExpandableTextarea` 的场景
 - [ ] #4 不引入滚动抖动或光标跳动问题
 <!-- AC:END -->
-

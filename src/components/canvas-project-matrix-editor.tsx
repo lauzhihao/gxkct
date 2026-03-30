@@ -21,20 +21,27 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/components/ui/dialog"
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover"
 import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip"
+import { findKsaByReference } from "@/shared/utils/ksa"
+
+type AvailableKsaItem = {
+  id: string
+  rawId?: string
+  originalId?: number
+  name: string
+  content: string
+  category: "K" | "S" | "A"
+  index: number
+  description?: string
+}
 
 interface CanvasProjectMatrixEditorProps {
   /** 项目矩阵数据 */
   matrixData: ProjectMatrixData
   /** 可用的KSA列表（用于选择） */
-  availableKsaItems?: Array<{
-    id: string
-    name: string
-    category: "K" | "S" | "A"
-    index: number
-    description?: string
-  }>
+  availableKsaItems?: AvailableKsaItem[]
   /** 保存回调 */
   onSave: (matrixData: ProjectMatrixData) => void
   /** 关闭回调 */
@@ -55,20 +62,14 @@ function KsaTag({
   onToggleLevel,
 }: {
   item: ProjectMatrixKsaItem
-  availableKsaItems?: Array<{
-    id: string
-    name: string
-    category: "K" | "S" | "A"
-    index: number
-    description?: string
-  }>
+  availableKsaItems?: AvailableKsaItem[]
   onRemove: () => void
   onToggleLevel: () => void
 }) {
   const isStrong = item.level === "strong"
 
   // 通过id从availableKsaItems中查找完整的KSA数据（与画布节点KsaLabel逻辑一致）
-  const fullKsaData = availableKsaItems?.find((k) => k.id === item.id)
+  const fullKsaData = findKsaByReference(availableKsaItems, item.id)
 
   // 生成序号标签，如 K1, S2, A3
   // 优先级：item自带 → availableKsaItems匹配 → 降级显示name或id
@@ -135,12 +136,16 @@ function TaskObjectivesManageDialog({
 }) {
   const [localObjectives, setLocalObjectives] =
     useState<ProjectMatrixTaskObjective[]>(taskObjectives)
+  const [taskObjectiveSearch, setTaskObjectiveSearch] = useState("")
+  const [deletingObjectiveId, setDeletingObjectiveId] = useState<string | null>(null)
 
   // 弹窗打开时重置本地状态
   const handleOpenChange = useCallback(
     (isOpen: boolean) => {
       if (isOpen) {
         setLocalObjectives(taskObjectives)
+        setTaskObjectiveSearch("")
+        setDeletingObjectiveId(null)
       }
       onOpenChange(isOpen)
     },
@@ -155,27 +160,49 @@ function TaskObjectivesManageDialog({
       id: newId,
       index: newIndex,
       description: "",
+      product: "",
     }
     setLocalObjectives((prev) => [...prev, newObjective])
+    setTaskObjectiveSearch("")
   }, [localObjectives.length])
 
-  // 更新任务目标描述
-  const handleUpdateDescription = useCallback((id: string, description: string) => {
+  // 更新任务目标字段
+  const handleUpdateField = useCallback((
+    id: string,
+    field: "description" | "product",
+    value: string
+  ) => {
     setLocalObjectives((prev) =>
       prev.map((obj) =>
-        obj.id === id ? { ...obj, description } : obj
+        obj.id === id ? { ...obj, [field]: value } : obj
       )
     )
   }, [])
 
   // 删除任务目标
   const handleDelete = useCallback((id: string) => {
+    setDeletingObjectiveId(null)
     setLocalObjectives((prev) => {
       const filtered = prev.filter((obj) => obj.id !== id)
       // 重新计算索引
       return filtered.map((obj, idx) => ({ ...obj, index: idx + 1 }))
     })
   }, [])
+
+  const filteredObjectives = useMemo(() => {
+    if (taskObjectiveSearch.trim().length === 0) {
+      return localObjectives
+    }
+
+    const searchLower = taskObjectiveSearch.toLowerCase()
+    return localObjectives.filter((obj) => {
+      const productText = typeof obj.product === "string" ? obj.product : ""
+      return (
+        obj.description.toLowerCase().includes(searchLower) ||
+        productText.toLowerCase().includes(searchLower)
+      )
+    })
+  }, [localObjectives, taskObjectiveSearch])
 
   // 确认保存
   const handleConfirm = useCallback(() => {
@@ -194,13 +221,33 @@ function TaskObjectivesManageDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+      <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>教学任务目标管理</DialogTitle>
         </DialogHeader>
 
         {/* 顶部操作区 */}
-        <div className="flex justify-end px-1">
+        <div className="flex gap-2 px-6">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              placeholder="搜索教学任务目标..."
+              value={taskObjectiveSearch}
+              onChange={(e) => setTaskObjectiveSearch(e.target.value)}
+              className="w-full px-3 pr-9 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+            {taskObjectiveSearch && (
+              <button
+                type="button"
+                onClick={() => setTaskObjectiveSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="清空搜索"
+                title="清空搜索"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
           <Button size="sm" onClick={handleAdd} className="gap-2">
             <Plus className="w-4 h-4" />
             新增
@@ -208,43 +255,99 @@ function TaskObjectivesManageDialog({
         </div>
 
         {/* 任务目标列表 */}
-        <div className="flex-1 overflow-y-auto py-4 space-y-2">
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <h4 className="text-sm font-semibold text-foreground mb-3">教学任务目标</h4>
           {localObjectives.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">
               暂无教学任务目标，点击上方&quot;新增&quot;按钮添加
             </div>
+          ) : filteredObjectives.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground text-sm">
+              无匹配结果，请更换关键字
+            </div>
           ) : (
-            localObjectives.map((obj) => (
-              <div
-                key={obj.id}
-                className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-secondary/30 transition-colors"
-              >
-                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-medium text-primary mt-1">
-                  {obj.index}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <ExpandableTextarea
-                    value={obj.description}
-                    onChange={(value) => handleUpdateDescription(obj.id, value)}
-                    placeholder="输入任务目标描述"
-                    maxLength={500}
-                    rows={2}
-                  />
-                </div>
-                <button
-                  onClick={() => handleDelete(obj.id)}
-                  className="flex-shrink-0 p-1.5 rounded hover:bg-red-100 transition-colors mt-1"
-                  title="删除"
-                >
-                  <Trash2 className="w-4 h-4 text-muted-foreground hover:text-red-600" />
-                </button>
-              </div>
-            ))
+            <div className="space-y-2">
+              {filteredObjectives.map((obj) => {
+                const productText = typeof obj.product === "string" ? obj.product : ""
+
+                return (
+                  <div
+                    key={obj.id}
+                    className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-secondary/30 transition-colors"
+                  >
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-medium text-primary mt-1">
+                      {obj.index}
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-3">
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground mb-1">项目任务目标</div>
+                        <ExpandableTextarea
+                          value={obj.description}
+                          onChange={(value) => handleUpdateField(obj.id, "description", value)}
+                          placeholder="请输入项目任务目标的内容"
+                          maxLength={500}
+                          rows={3}
+                        />
+                      </div>
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground mb-1">学习产出及测量评价标准（可选）</div>
+                        <ExpandableTextarea
+                          value={productText}
+                          onChange={(value) => handleUpdateField(obj.id, "product", value)}
+                          placeholder="请输入学习产出及测量评价标准"
+                          maxLength={500}
+                          rows={3}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-1 flex-shrink-0 mt-1">
+                      <Popover
+                        open={deletingObjectiveId === obj.id}
+                        onOpenChange={(isPopoverOpen) => setDeletingObjectiveId(isPopoverOpen ? obj.id : null)}
+                      >
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="p-1.5 rounded hover:bg-secondary transition-colors"
+                            title="删除"
+                          >
+                            <Trash2 className="w-4 h-4 text-muted-foreground hover:text-red-600" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent side="top" align="end" className="w-auto p-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-foreground whitespace-nowrap">
+                              确认删除{obj.description.trim().length > 0 ? `「${obj.description}」` : "此目标"}？
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(obj.id)}
+                              className="p-1.5 rounded hover:bg-red-100 transition-colors"
+                              title="确认删除"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-600" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeletingObjectiveId(null)}
+                              className="p-1.5 rounded hover:bg-secondary transition-colors"
+                              title="取消"
+                            >
+                              <X className="w-4 h-4 text-muted-foreground" />
+                            </button>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           )}
         </div>
 
         {/* 底部按钮 */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-border">
+        <div className="flex justify-end gap-3 px-6 pt-4 border-t border-border">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             取消
           </Button>
@@ -267,13 +370,7 @@ function KsaSelectionDialog({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  availableKsaItems: Array<{
-    id: string
-    name: string
-    category: "K" | "S" | "A"
-    index: number
-    description?: string
-  }>
+  availableKsaItems: AvailableKsaItem[]
   // 当前单元格中的KSA数据，用于预选中
   currentCellKsaItems: ProjectMatrixKsaItem[]
   onConfirm: (
@@ -301,14 +398,15 @@ function KsaSelectionDialog({
       // 弹窗打开时，根据当前单元格已有数据初始化选择状态
       const initialSelections: Record<string, "strong" | "weak"> = {}
       currentCellKsaItems.forEach((item) => {
-        initialSelections[item.id] = item.level
+        const matchedKsa = findKsaByReference(availableKsaItems, item.id)
+        initialSelections[matchedKsa?.id || item.id] = item.level
       })
       setLocalSelections(initialSelections)
       setSearchK("")
       setSearchS("")
       setSearchA("")
     }
-  }, [open, currentCellKsaItems])
+  }, [open, currentCellKsaItems, availableKsaItems])
 
   // 处理弹窗开关
   const handleOpenChange = useCallback(
@@ -336,9 +434,9 @@ function KsaSelectionDialog({
 
   const handleConfirm = useCallback(() => {
     const selections = Object.entries(localSelections).map(([id, level]) => {
-      const ksa = availableKsaItems.find((k) => k.id === id)
+      const ksa = findKsaByReference(availableKsaItems, id)
       return {
-        id,
+        id: ksa?.id || id,
         name: ksa?.name || id,
         level,
         description: ksa?.description,

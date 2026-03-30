@@ -12,11 +12,12 @@ interface DeptEvaluationListProps {
   task: TeachingSupervisoryTask
   collegeId: Long
   collegeName?: string
+  semesterId?: number | null
   onBack: () => void
   onSaveSuccess?: () => void
 }
 
-export function DeptEvaluationList({ task, collegeId, collegeName, onBack, onSaveSuccess }: DeptEvaluationListProps) {
+export function DeptEvaluationList({ task, collegeId, collegeName, semesterId, onBack, onSaveSuccess }: DeptEvaluationListProps) {
   const [depts, setDepts] = useState<CollegeDeptEvaluationItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedDept, setSelectedDept] = useState<CollegeDeptEvaluationItem | null>(null)
@@ -35,13 +36,16 @@ export function DeptEvaluationList({ task, collegeId, collegeName, onBack, onSav
 
     const loadDepts = async () => {
       try {
-        const response = await courseTeachingTasksApi.getDeptsByTaskAndCollege(taskId, collegeId)
+        const response = await courseTeachingTasksApi.getDeptsByTaskAndCollege(taskId, collegeId, semesterId)
         if (!cancelled && response.data) {
           setDepts(response.data)
+        } else if (!cancelled) {
+          setDepts([])
         }
       } catch (error) {
         if (!cancelled) {
           console.error("加载院系列表失败:", error)
+          setDepts([])
         }
       } finally {
         if (!cancelled) {
@@ -55,7 +59,7 @@ export function DeptEvaluationList({ task, collegeId, collegeName, onBack, onSav
     return () => {
       cancelled = true
     }
-  }, [taskId, collegeId])
+  }, [collegeId, semesterId, taskId])
 
   // 处理返回
   const handleBackFromMajorList = () => {
@@ -114,13 +118,14 @@ export function DeptEvaluationList({ task, collegeId, collegeName, onBack, onSav
   // 如果选中了院系，显示专业列表
   if (selectedDept) {
     return (
-      <MajorEvaluationList
-        task={task}
-        deptId={selectedDept.deptId}
-        deptName={selectedDept.deptName}
-        onBack={handleBackFromMajorList}
-        parentBreadcrumb={{ taskTitle: task.title, collegeName }}
-        onSaveSuccess={onSaveSuccess}
+        <MajorEvaluationList
+          task={task}
+          deptId={selectedDept.deptId}
+          deptName={selectedDept.deptName}
+          semesterId={semesterId}
+          onBack={handleBackFromMajorList}
+          parentBreadcrumb={{ taskTitle: task.title, collegeName }}
+          onSaveSuccess={onSaveSuccess}
       />
     )
   }
@@ -134,8 +139,8 @@ export function DeptEvaluationList({ task, collegeId, collegeName, onBack, onSav
       {isLoading ? (
         <LoadingState variant="card" />
       ) : depts.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">该学校下暂无院系数据</div>
-      ) : (
+          <div className="text-center py-12 text-muted-foreground">{semesterId === null ? "该学校下暂无院系数据" : "该学期暂无院系数据"}</div>
+        ) : (
         <div className="grid grid-cols-3 gap-4">
           {depts.map((dept, index) => (
             <button

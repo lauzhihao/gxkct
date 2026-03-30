@@ -117,7 +117,14 @@ export interface ProgressState {
 /**
  * 填充进度类型
  */
-export type FillProgressType = 'matrix' | 'projectMatrix' | 'coursePoints' | 'ksa'
+export type FillProgressType =
+  | 'matrix'
+  | 'projectMatrix'
+  | 'coursePoints'
+  | 'ksa'
+  | 'courseInfo'
+  | 'chapters'
+  | 'objectives'
 
 /**
  * 填充进度状态（合并多个填充操作的进度）

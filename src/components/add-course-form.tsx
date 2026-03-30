@@ -78,6 +78,22 @@ const DEFAULT_SCHEDULE_ROW = {
   sunday: "",
 }
 
+type ScheduleRow = typeof DEFAULT_SCHEDULE_ROW
+type ScheduleField = keyof ScheduleRow
+type ScheduleDayField = Exclude<ScheduleField, "period" | "sessions">
+
+const SCHEDULE_DAY_FIELDS: ScheduleDayField[] = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+]
+
+const getScheduleFieldKey = (rowIndex: number, field: ScheduleField) => `${rowIndex}-${field}`
+
 const courseNatureOptions = [
   { id: 1, name: "通识教育课" },
   { id: 2, name: "学科基础课" },
@@ -163,12 +179,26 @@ function AddCourseForm({
     return Array.isArray(data) ? data : (data ? [data] : [DEFAULT_SCHEDULE_ROW])
   }, [])
 
-  const [teachingScheduleRows, setTeachingScheduleRows] = useState<typeof DEFAULT_SCHEDULE_ROW[]>(() =>
+  const [teachingScheduleRows, setTeachingScheduleRows] = useState<ScheduleRow[]>(() =>
     parseTeachingSchedule(initialData?.teachingTime)
   )
 
   // 课程表字段展开/收起状态 - 使用 rowIndex-fieldName 作为key
   const [scheduleFieldsExpanded, setScheduleFieldsExpanded] = useState<Record<string, boolean>>({})
+  const setScheduleFieldExpanded = useCallback((rowIndex: number, field: ScheduleField, expanded: boolean) => {
+    const fieldKey = getScheduleFieldKey(rowIndex, field)
+
+    setScheduleFieldsExpanded((currentState) => {
+      if (currentState[fieldKey] === expanded) {
+        return currentState
+      }
+
+      return {
+        ...currentState,
+        [fieldKey]: expanded,
+      }
+    })
+  }, [])
 
   // 课程表操作函数
   const notifyNoPermission = useCallback(() => {
@@ -269,7 +299,7 @@ function AddCourseForm({
     }
   }
 
-  const updateScheduleRow = (index: number, field: string, value: string) => {
+  const updateScheduleRow = (index: number, field: ScheduleField, value: string) => {
     const newRows = [...teachingScheduleRows]
     newRows[index] = { ...newRows[index], [field]: value }
     setTeachingScheduleRows(newRows)
@@ -1189,78 +1219,43 @@ function AddCourseForm({
                       </TableHeader>
                       <TableBody>
                         {teachingScheduleRows.map((row, rowIndex) => {
-                          const dayFields = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+                          const renderScheduleTextarea = (field: ScheduleField, value: string) => {
+                            const fieldKey = getScheduleFieldKey(rowIndex, field)
+                            const isExpanded = scheduleFieldsExpanded[fieldKey] === true
+
+                            return (
+                              <textarea
+                                placeholder=""
+                                value={value}
+                                onChange={(e) => updateScheduleRow(rowIndex, field, e.target.value)}
+                                onFocus={() => setScheduleFieldExpanded(rowIndex, field, true)}
+                                onBlur={() => setScheduleFieldExpanded(rowIndex, field, false)}
+                                className={`w-full border border-input rounded-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none overflow-hidden transition-[height,padding] ${
+                                  isExpanded ? "h-[4.5rem] px-1 py-1" : "h-6 px-1 py-0.5"
+                                } text-xs text-center`}
+                                rows={isExpanded ? 3 : 1}
+                                data-schedule-row={rowIndex}
+                                data-schedule-field={field}
+                              />
+                            )
+                          }
 
                           return (
                             <TableRow key={rowIndex} className="hover:bg-secondary/20">
                               {/* 时段单元格 */}
                               <TableCell className="p-1 text-center">
-                                {scheduleFieldsExpanded[`${rowIndex}-period`] ? (
-                                  <textarea
-                                    placeholder=""
-                                    value={row.period}
-                                    onChange={(e) => updateScheduleRow(rowIndex, "period", e.target.value)}
-                                    onBlur={() => setScheduleFieldsExpanded({ ...scheduleFieldsExpanded, [`${rowIndex}-period`]: false })}
-                                    className="w-full px-1 py-0.5 text-xs border border-input rounded-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-                                    rows={3}
-                                    autoFocus
-                                  />
-                                ) : (
-                                  <Input
-                                    placeholder=""
-                                    value={row.period}
-                                    onFocus={() => setScheduleFieldsExpanded({ ...scheduleFieldsExpanded, [`${rowIndex}-period`]: true })}
-                                    readOnly
-                                    className="cursor-text text-xs h-6 p-0.5 text-center rounded-sm"
-                                  />
-                                )}
+                                {renderScheduleTextarea("period", row.period)}
                               </TableCell>
 
                               {/* 节次单元格 */}
                               <TableCell className="p-1 text-center">
-                                {scheduleFieldsExpanded[`${rowIndex}-sessions`] ? (
-                                  <textarea
-                                    placeholder=""
-                                    value={row.sessions}
-                                    onChange={(e) => updateScheduleRow(rowIndex, "sessions", e.target.value)}
-                                    onBlur={() => setScheduleFieldsExpanded({ ...scheduleFieldsExpanded, [`${rowIndex}-sessions`]: false })}
-                                    className="w-full px-1 py-0.5 text-xs border border-input rounded-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-                                    rows={3}
-                                    autoFocus
-                                  />
-                                ) : (
-                                  <Input
-                                    placeholder=""
-                                    value={row.sessions}
-                                    onFocus={() => setScheduleFieldsExpanded({ ...scheduleFieldsExpanded, [`${rowIndex}-sessions`]: true })}
-                                    readOnly
-                                    className="cursor-text text-xs h-6 p-0.5 text-center rounded-sm"
-                                  />
-                                )}
+                                {renderScheduleTextarea("sessions", row.sessions)}
                               </TableCell>
 
                               {/* 周一到周日单元格 */}
-                              {dayFields.map((day) => (
+                              {SCHEDULE_DAY_FIELDS.map((day) => (
                                 <TableCell key={`${rowIndex}-${day}`} className="p-1 text-center">
-                                  {scheduleFieldsExpanded[`${rowIndex}-${day}`] ? (
-                                    <textarea
-                                      placeholder=""
-                                      value={row[day as keyof typeof row]}
-                                      onChange={(e) => updateScheduleRow(rowIndex, day, e.target.value)}
-                                      onBlur={() => setScheduleFieldsExpanded({ ...scheduleFieldsExpanded, [`${rowIndex}-${day}`]: false })}
-                                      className="w-full px-1 py-0.5 text-xs border border-input rounded-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-                                      rows={3}
-                                      autoFocus
-                                    />
-                                  ) : (
-                                    <Input
-                                      placeholder=""
-                                      value={row[day as keyof typeof row]}
-                                      onFocus={() => setScheduleFieldsExpanded({ ...scheduleFieldsExpanded, [`${rowIndex}-${day}`]: true })}
-                                      readOnly
-                                      className="cursor-text text-xs h-6 p-0.5 text-center rounded-sm"
-                                    />
-                                  )}
+                                  {renderScheduleTextarea(day, row[day])}
                                 </TableCell>
                               ))}
 

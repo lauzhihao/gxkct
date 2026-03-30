@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { ChevronDown, Palette, Bell, Eye, EyeOff } from "lucide-react"
+import { ChevronDown, Palette, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import {
   DropdownMenu,
@@ -24,7 +24,7 @@ import {
 } from "@/shared/components/ui/alert-dialog"
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar"
 import { Input } from "@/shared/components/ui/input"
-import { cn } from "@/shared/utils/utils"
+import { cn, extractNumericId } from "@/shared/utils/utils"
 import { api, getStoredAuthUser, clearAllAuthData } from "@/lib/api"
 import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
 import { usePermission } from "@/shared/hooks/use-permission"
@@ -34,6 +34,8 @@ import { useAiCanvasStore } from "@/shared/stores/ai-canvas-store"
 import { showError, showSuccess, showWarning } from "@/shared/utils/toast-utils"
 import type { InitialCanvasData } from "@/types/ai-assistant"
 import { IdentitySwitchDialog } from "./identity-switch-dialog"
+import { SemesterManagement } from "@/modules/universities/components/shared/semester-management"
+import { useLocalStorage } from "@/shared/hooks/use-local-storage"
 
 const EMPTY_INITIAL_CANVAS_DATA: InitialCanvasData = {
   elements: [],
@@ -232,7 +234,6 @@ export function Header({ currentPath, treeData }: HeaderProps) {
   const { can } = usePermission()
   const [courseDevDrawerOpen, setCourseDevDrawerOpen] = useState(false)
   const [currentTheme, setCurrentTheme] = useState<keyof typeof COLOR_THEMES>("vercelBlue")
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications)
   const [userName, setUserName] = useState<string>("用户")
   const [aiInitialCanvasData, setAiInitialCanvasData] = useState<InitialCanvasData | null>(null)
   const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false)
@@ -248,15 +249,23 @@ export function Header({ currentPath, treeData }: HeaderProps) {
   const startLoading = useLoadingStore((state) => state.startLoading)
   const stopLoading = useLoadingStore((state) => state.stopLoading)
 
+  const [currentSchoolId] = useLocalStorage<string | null>("education-current-school", null)
+  
+  let activeCollegeId = currentSchoolId ? parseInt(currentSchoolId, 10) : null
+  let activeCollegeName = "学校"
+  if (treeData && treeData.children && activeCollegeId) {
+    const collegeNode = treeData.children.find(c => extractNumericId(c.nodeId) === activeCollegeId)
+    if (collegeNode) {
+      activeCollegeName = collegeNode.nodeName || "学校"
+    }
+  }
+
   // 课程详情页注册的画布数据准备回调（带缓存复用）
   const prepareCanvasData = useAiCanvasStore((state) => state.prepareCanvasData)
   const prepareOrGetCanvasData = useAiCanvasStore((state) => state.prepareOrGetCanvasData)
 
-  const unreadCount = notifications.filter((n) => !n.read).length
-  const avatarText = userName.trim().charAt(0).toUpperCase() || "U"
   const authUserId = getStoredAuthUser()?.id ?? null
-  const notificationMenuItemClassName =
-    "cursor-pointer flex flex-col items-start gap-1 py-3 px-3 border-b border-border/50 last:border-0 focus:text-primary data-[highlighted]:text-primary"
+  const avatarText = userName.trim().charAt(0).toUpperCase() || "U"
   const userMenuItemClassName =
     "cursor-pointer hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground data-[highlighted]:bg-primary data-[highlighted]:text-primary-foreground"
   const canManageWorkshop = can(WORKSHOP_MANAGEMENT_ACTION, WORKSHOP_MANAGEMENT_CONTEXT)
@@ -409,71 +418,12 @@ export function Header({ currentPath, treeData }: HeaderProps) {
 
         {/* Right side - User info and search */}
         <div className="flex items-center gap-4">
-          {/* Notification Bell */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative text-foreground hover:bg-primary/10 hover:text-primary transition-colors">
-                <Bell className="h-5 w-5" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
-                    {unreadCount > 99 ? "99+" : unreadCount}
-                  </span>
-                )}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80 bg-white/95 backdrop-blur-md border-primary/20">
-              <div className="px-3 py-2 flex items-center justify-between border-b border-border">
-                <div className="text-sm font-semibold text-foreground">消息通知</div>
-                {unreadCount > 0 && (
-                  <div className="text-xs text-muted-foreground">{unreadCount} 条未读</div>
-                )}
-              </div>
-              <div className="max-h-[400px] overflow-y-auto">
-                {notifications.length > 0 ? (
-                  notifications.map((notification) => (
-                    <DropdownMenuItem
-                      key={notification.id}
-                       className={cn(
-                         notificationMenuItemClassName,
-                         !notification.read ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-primary/5",
-                       )}
-                      onClick={() => {
-                        setNotifications((prev) =>
-                          prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n)),
-                        )
-                      }}
-                    >
-                      <div className="flex items-start justify-between w-full gap-2">
-                        <div className="flex items-center gap-2">
-                          {!notification.read && <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1" />}
-                          <span className="text-sm font-medium text-foreground">{notification.title}</span>
-                        </div>
-                        <span className="text-xs text-muted-foreground flex-shrink-0">{notification.time}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground line-clamp-2 pl-4">{notification.content}</p>
-                    </DropdownMenuItem>
-                  ))
-                ) : (
-                  <div className="py-8 text-center text-sm text-muted-foreground">暂无消息</div>
-                )}
-              </div>
-              {notifications.length > 0 && (
-                <>
-                  <DropdownMenuSeparator />
-                  <div className="px-3 py-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full text-xs hover:bg-primary/10 hover:text-primary"
-                      onClick={() => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))}
-                    >
-                      全部标记为已读
-                    </Button>
-                  </div>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Semester Management */}
+          {activeCollegeId ? (
+            <div className="flex items-center gap-4">
+              <SemesterManagement collegeId={activeCollegeId} collegeName={activeCollegeName} />
+            </div>
+          ) : null}
 
           {/* Color Palette */}
           <DropdownMenu>

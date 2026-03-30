@@ -12,6 +12,7 @@ import { formatDate } from "@/shared/utils/date-utils"
 interface CourseSupervisionProps {
   courseId?: string | number
   collegeId?: number
+  semesterId?: number | null
 }
 
 // 状态映射配置
@@ -84,7 +85,7 @@ const mapTaskToTeachingTask = (
   }
 }
 
-export function CourseSupervision({ courseId, collegeId }: CourseSupervisionProps) {
+export function CourseSupervision({ courseId, collegeId, semesterId }: CourseSupervisionProps) {
   const [tasks, setTasks] = useState<TeachingSupervisoryTask[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [selectedTask, setSelectedTask] = useState<TeachingSupervisoryTask | null>(null)
@@ -106,7 +107,7 @@ export function CourseSupervision({ courseId, collegeId }: CourseSupervisionProp
 
       setIsLoading(true)
       try {
-        const response = await courseTeachingTasksApi.getTasksByCourse(parsedCourseId as Long)
+        const response = await courseTeachingTasksApi.getTasksByCourse(parsedCourseId as Long, semesterId)
         if (response.data) {
           const normalizedTasks = response.data.map((task) => mapTaskToTeachingTask(task, collegeId))
           setTasks(normalizedTasks)
@@ -122,7 +123,7 @@ export function CourseSupervision({ courseId, collegeId }: CourseSupervisionProp
     }
 
     loadSupervisionTasks()
-  }, [courseId, collegeId])
+  }, [collegeId, courseId, semesterId])
 
   // 如果选中了任务，显示详情页面
   if (selectedTask) {
@@ -140,7 +141,7 @@ export function CourseSupervision({ courseId, collegeId }: CourseSupervisionProp
       {isLoading ? (
         <LoadingState title="加载中..." description="正在获取督导任务数据" variant="card" />
       ) : tasks.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground">暂无进行中的督导任务</div>
+        <div className="text-center py-8 text-muted-foreground">{semesterId === null ? "暂无进行中的督导任务" : "该学期暂无督导任务"}</div>
       ) : (
         <div className="grid grid-cols-3 gap-3">
           {tasks.map((task) => {

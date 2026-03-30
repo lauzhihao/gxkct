@@ -570,10 +570,10 @@ export function WorkshopManagementForm({
               <tbody>
                 {previewRows.map((row, index) => (
                   <tr
-                    key={`${row.account}-${row.code}-${index}`}
+                    key={`${row.account}-${row.group}-${index}`}
                     className="border-t odd:bg-muted/10 even:bg-background hover:bg-primary/5 transition-colors"
                   >
-                    <td className="px-3 py-2">{row.code}</td>
+                    <td className="px-3 py-2">{index + 1}</td>
                     <td className="px-3 py-2">{row.group}</td>
                     <td className="px-3 py-2">{row.name}</td>
                     <td className="px-3 py-2">{row.account}</td>

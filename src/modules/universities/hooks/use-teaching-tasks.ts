@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { api } from "@/lib/api"
 import type { TeachingSupervisoryTask, Long } from "@/types"
+import { courseTeachingTasksApi } from "@/modules/courses/api/courseTeachingTasksApi"
 
 type TeachingStatus = "not_started" | "in_progress" | "completed"
 type TeachingTaskInput = Omit<TeachingSupervisoryTask, "id" | "createdAt" | "updatedAt">
@@ -16,23 +17,49 @@ interface UseTeachingTasksResult {
   archiveTask: (taskId: Long) => Promise<TeachingSupervisoryTask | null>
 }
 
-export function useTeachingTasks(universityId: Long): UseTeachingTasksResult {
+function mapCollegeTaskToTeachingTask(task: {
+  taskId: Long
+  title: string
+  startDate: string
+  endDate: string
+  status: "not_started" | "in_progress" | "completed"
+  collegeId: Long
+  collegeName: string
+  majorCount: number
+  courseCount: number
+}): TeachingSupervisoryTask {
+  return {
+    id: task.taskId,
+    taskId: task.taskId,
+    universityId: task.collegeId,
+    title: task.title,
+    description: "",
+    startDate: task.startDate,
+    endDate: task.endDate,
+    status: task.status,
+    creator: task.collegeName,
+    majorCount: task.majorCount,
+    courseCount: task.courseCount,
+  }
+}
+
+export function useTeachingTasks(universityId: Long, semesterId?: number | null): UseTeachingTasksResult {
   const [tasks, setTasks] = useState<TeachingSupervisoryTask[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   const fetchTasks = useCallback(async () => {
     try {
       setIsLoading(true)
-      const response = await api.teachingTasks.getTasks(universityId, {
-        includeCriteria: true,
-      })
+      const response = await courseTeachingTasksApi.getTasksByCollege(universityId, semesterId)
       if (response.data) {
-        setTasks(response.data)
+        setTasks(response.data.map((task) => mapCollegeTaskToTeachingTask(task)))
+      } else {
+        setTasks([])
       }
     } finally {
       setIsLoading(false)
     }
-  }, [universityId])
+  }, [semesterId, universityId])
 
   useEffect(() => {
     fetchTasks()

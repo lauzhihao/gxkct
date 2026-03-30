@@ -9,6 +9,7 @@ import type {
   KsaItemData,
 } from "@/components/canvas-elements/types"
 import { CanvasComponentType } from "@/components/canvas-elements/types"
+import { matchesKsaReferenceId } from "@/shared/utils/ksa"
 
 /**
  * 高亮类型枚举
@@ -182,7 +183,7 @@ export function useCanvasHighlight(): UseCanvasHighlightReturn {
     const ksaCard = elements.find(el => {
       if (el.type !== CanvasComponentType.KSA_ITEM) return false
       const cardData = el.data as KsaItemData
-      return cardData.id === ksaId
+      return matchesKsaReferenceId(cardData, ksaId)
     })
 
     if (ksaCard) {

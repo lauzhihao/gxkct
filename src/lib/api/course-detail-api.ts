@@ -159,7 +159,7 @@ export class CourseDetailApi {
    * 获取课程详情数据
    * @param courseId 真实的课程ID（数字字符串，来自metadata.courseId）
    */
-  async getCourseDetail(courseId: string): Promise<ApiResponse<CombinedCourseDetail>> {
+  async getCourseDetail(courseId: string, semesterId?: number | null): Promise<ApiResponse<CombinedCourseDetail>> {
     try {
       console.log(`[CourseDetailApi] 获取课程详情，courseId: ${courseId}`)
 
@@ -172,6 +172,12 @@ export class CourseDetailApi {
           error: "无效的课程ID",
           status: 400,
         }
+      }
+
+      const queryParams = new URLSearchParams()
+      queryParams.set("courseid", courseId)
+      if (typeof semesterId === "number" && Number.isFinite(semesterId)) {
+        queryParams.set("semesterId", String(semesterId))
       }
 
       // 调用真实API获取课程详情
@@ -214,7 +220,7 @@ export class CourseDetailApi {
           points: any[]
           ksas: any[]
         }
-      }>(`/api/major/v2.0/courseunitdetail?courseid=${courseId}`)
+      }>(`/api/major/v2.0/courseunitdetail?${queryParams.toString()}`)
 
       if (courseDetailResponse.error || !courseDetailResponse.data) {
         console.error("[CourseDetailApi] 获取课程详情API失败:", courseDetailResponse.error)
@@ -227,11 +233,21 @@ export class CourseDetailApi {
 
       const courseDetailData = courseDetailResponse.data
 
-      if (!courseDetailData?.course) {
+      if (!courseDetailData?.course || typeof courseDetailData.course !== "object") {
         console.error("[CourseDetailApi] 课程详情数据不完整")
         return {
           data: null,
-          error: "课程数据不完整",
+          error: "该学期无课程数据",
+          status: 404,
+        }
+      }
+
+      const rawCourse = courseDetailData.course as Record<string, unknown>
+      if (Object.keys(rawCourse).length === 0 || typeof rawCourse.id !== "number" || typeof rawCourse.name !== "string") {
+        console.error("[CourseDetailApi] 课程详情为空或缺少关键字段")
+        return {
+          data: null,
+          error: "该学期无课程数据",
           status: 404,
         }
       }

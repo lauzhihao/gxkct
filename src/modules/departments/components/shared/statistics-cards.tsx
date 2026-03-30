@@ -11,22 +11,9 @@ import { LoadingState } from "@/shared/components/ui/loading-state"
 import { Building2, GraduationCap, BookOpen, FileText, Search, User } from "lucide-react"
 import cn from "classnames"
 import { useDepartmentMajorsPreferences } from "@/modules/departments/hooks/use-department-majors-preferences"
-import { buildApiUrl } from "@/lib/api/config"
-import { getStoredAuthToken } from "@/lib/api/auth-config"
+import { api } from "@/lib/api"
 import { setMajorCacheBatch, type MajorCacheItem } from "@/shared/utils/major-cache"
-
-// 接口返回的专业数据结构
-interface MajorItem {
-  lang: number
-  parent: { value: string; label: string } | null
-  self: { value: string; label: string } | null
-  manager: TreeNodeManager[] | null
-  info: Record<string, unknown> | null
-  cover: Record<string, unknown> | null
-  btnMenus: TreeNodeMenuItem[]
-  coverMenus: TreeNodeMenuItem[]
-  props: Record<string, unknown> | null
-}
+import { useSemesterStore } from "@/shared/stores/semester-store"
 
 interface StatisticsCardsProps {
   node: TreeNode
@@ -42,6 +29,7 @@ interface StatisticsCardsProps {
 export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser, initialMajorSearch, refreshKey }: StatisticsCardsProps) {
   const [departmentSearch, setDepartmentSearch] = useState("")
   const [majorSearch, setMajorSearch] = useState("")
+  const selectedSemesterId = useSemesterStore((state) => state.selectedSemesterId)
 
   // 监听 initialMajorSearch 变化，自动填充搜索框
   useEffect(() => {
@@ -51,10 +39,10 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
   }, [initialMajorSearch])
 
   // 院系详情独立获取的专业列表数据
-  const [majors, setMajors] = useState<MajorItem[]>([])
+  const [majors, setMajors] = useState<TreeNode[]>([])
   const [isLoadingMajors, setIsLoadingMajors] = useState(false)
 
-  const setMajorCacheFromItems = useCallback((majorItems: MajorItem[]) => {
+  const setMajorCacheFromItems = useCallback((majorItems: TreeNode[]) => {
     const cacheItems = majorItems
       .map((major): MajorCacheItem | null => {
         const majorId = getMajorId(major)
@@ -62,7 +50,7 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
           return null
         }
 
-        const source = typeof major.props?.source === "string" ? major.props.source : undefined
+        const source = typeof major.metadata?.source === "string" ? major.metadata.source : undefined
 
         return {
           majorId,
@@ -104,33 +92,14 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
 
       setIsLoadingMajors(true)
       try {
-        const url = buildApiUrl(`/api/v5/tree/departments/${node.id}/majors?lang=80101`)
-        const headers: Record<string, string> = {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        }
-        const authToken = getStoredAuthToken()
-        if (authToken) {
-          headers['authToken'] = authToken
-        }
-
-        const response = await fetch(url, {
-          method: 'GET',
-          headers,
-        })
-
-        if (response.ok) {
-          const result = await response.json()
-          if (result.code === '0' && Array.isArray(result.data)) {
-            const responseItems = result.data as MajorItem[]
-            setMajors(responseItems)
-            setMajorCacheFromItems(responseItems)
-          } else {
-            setMajors([])
-          }
-        } else {
+        const response = await api.tree.getDepartmentMajors(node.id, selectedSemesterId)
+        if (!response.data) {
           setMajors([])
+          return
         }
+
+        setMajors(response.data)
+        setMajorCacheFromItems(response.data)
       } catch (error) {
         console.error('[StatisticsCards] 获取专业列表失败:', error)
         setMajors([])
@@ -140,16 +109,16 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
     }
 
     fetchMajors()
-  }, [isDepartment, node.id, refreshKey, setMajorCacheFromItems])
+  }, [isDepartment, node.id, refreshKey, selectedSemesterId, setMajorCacheFromItems])
 
   // 获取专业ID
-  const getMajorId = (major: MajorItem) => major.self?.value || ''
+  const getMajorId = (major: TreeNode) => major.id || ''
 
   // 获取专业名称
-  const getMajorName = (major: MajorItem) => major.self?.label || ''
+  const getMajorName = (major: TreeNode) => major.nodeName
 
   // 获取管理员数组
-  const getManagers = (major: MajorItem) => major.manager || []
+  const getManagers = (major: TreeNode) => major.manager || []
 
   // Filter departments by search
   const filteredDepartments = departments.filter((dept) =>
@@ -373,34 +342,35 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
                   const majorId = getMajorId(major)
                   const majorName = getMajorName(major)
                   const managers = getManagers(major)
-                  const isVirtualMajor = (major.props as { source?: string } | null)?.source === "course-level-switchDpt"
-                  const prefetchedCourses = (major.props as { prefetchedCourses?: MajorItem[] } | null)?.prefetchedCourses || []
+                   const isVirtualMajor = (major.metadata as { source?: string } | null)?.source === "course-level-switchDpt"
+                   const prefetchedCourses = (major.metadata as { prefetchedCourses?: TreeNode[] } | null)?.prefetchedCourses || []
 
-                   return (
-                     <button
+                    return (
+                      <button
                        key={majorId}
                        onClick={() => {
                          setMajorCacheFromItems([major])
                          // 构造节点对象，硬编码 nodeType 为 major
-                         onNodeSelect?.({
-                           id: majorId,
-                          nodeId: `major_${majorId}`,
-                          name: majorName,
-                          nodeName: majorName,
-                          type: 'major',
-                          nodeType: 'major',
-                          btnMenus: major.btnMenus,
-                          coverMenus: major.coverMenus,
-                          manager: isVirtualMajor ? [] : managers,
-                          metadata: {
-                            managers: isVirtualMajor ? [] : managers,
-                            source: (major.props as { source?: string } | null)?.source,
-                            prefetchedCourses,
+                          onNodeSelect?.({
+                            ...major,
+                            id: majorId,
+                            nodeId: `major_${majorId}`,
+                            name: majorName,
+                            nodeName: majorName,
+                            type: 'major',
+                            nodeType: 'major',
                             btnMenus: major.btnMenus,
                             coverMenus: major.coverMenus,
-                          },
-                        })
-                      }}
+                            manager: isVirtualMajor ? [] : managers,
+                            metadata: {
+                              ...(major.metadata || {}),
+                              managers: isVirtualMajor ? [] : managers,
+                              prefetchedCourses,
+                              btnMenus: major.btnMenus,
+                              coverMenus: major.coverMenus,
+                            },
+                         })
+                       }}
                       className={cn(
                         "relative flex flex-col p-5 rounded-xl border transition-all duration-200 min-h-[165px]",
                         "bg-white/40 backdrop-blur-md border-primary/20",

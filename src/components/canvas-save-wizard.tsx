@@ -26,17 +26,19 @@ import type {
   CourseMatrixData,
   GraduationSupportData,
   KsaItemData,
+  ProjectMatrixData,
 } from "./canvas-elements/types"
 import { CanvasComponentType } from "./canvas-elements/types"
 import { CourseDetailApi, type SaveCourseUnitRequest } from "@/lib/api/course-detail-api"
-import { api, type CourseGoal, type Project as ApiProject } from "@/lib/api"
+import { api, type CourseGoal, type Project as ApiProject, type TaskGoalItem } from "@/lib/api"
 import type { CoursePoint as ApiCoursePoint } from "@/lib/api/course-points-api"
-import type { KsaListResponse } from "@/lib/api/matrix-api"
-import { getStoredAuthUser } from "@/lib/api/auth-config"
+import type { KsaListResponse, ProjectMatrixDataResponse, ProjectMatrixSaveItem } from "@/lib/api/matrix-api"
 import { getCourseTypeId } from "@/shared/utils/data-transform"
+import { findKsaByReference } from "@/shared/utils/ksa"
+import { courseCanvasSyncApi, type CourseCanvasSyncEvent } from "@/lib/api/course-canvas-sync-api"
+import { isCurrentUserCourseOwner, resolveCourseManagers } from "@/shared/utils/course-ownership"
 
 // ============ 常量定义 ============
-const SUCCESS_DIALOG_CLOSE_DELAY_MS = 1500
 const DEFAULT_CLASS_ID = 1
 const DEFAULT_COURSE_TYPE_ID = 1
 const NEW_RECORD_ID = 0
@@ -51,8 +53,9 @@ const SAVE_STEP_ITEMS = [
 ] as const
 
 type SaveStepKey = (typeof SAVE_STEP_ITEMS)[number]["key"]
-type SaveStepStatus = "pending" | "in_progress" | "completed"
+type SaveStepStatus = "pending" | "in_progress" | "completed" | "failed"
 type SaveStepState = Record<SaveStepKey, SaveStepStatus>
+type SaveFlowStatus = "idle" | "saving" | "success" | "error"
 
 function createInitialSaveStepState(): SaveStepState {
   return SAVE_STEP_ITEMS.reduce<SaveStepState>((accumulator, item) => {
@@ -206,7 +209,7 @@ interface CourseItem {
   cover: any
   btnMenus: any[]
   coverMenus: any[]
-  props: any
+  metadata: Record<string, unknown> | null
 }
 
 function normalizeTreeCourseToCourseItem(course: TreeNode): CourseItem {
@@ -227,7 +230,7 @@ function normalizeTreeCourseToCourseItem(course: TreeNode): CourseItem {
     cover: null,
     btnMenus: Array.isArray(course.btnMenus) ? course.btnMenus : [],
     coverMenus: Array.isArray(course.coverMenus) ? course.coverMenus : [],
-    props: course.metadata || {},
+    metadata: course.metadata || null,
   }
 }
 
@@ -263,6 +266,10 @@ interface MatrixCoursePointResolution {
   latestPoint: CoursePointCardData
 }
 
+type ProjectMatrixResponseData = NonNullable<ProjectMatrixDataResponse["data"]>
+type ProjectMatrixResponseProject = ProjectMatrixResponseData["projects"][number]
+type ProjectMatrixResponseRow = NonNullable<ProjectMatrixResponseData["data"]>[number]
+
 /**
  * 保存向导组件的Props接口
  */
@@ -287,8 +294,19 @@ export interface CanvasSaveWizardProps {
     majorId?: number
     objectives?: ObjectiveCardData[]
     coursePoints?: CoursePointCardData[]
+    chapters?: ChapterCardData[]
     ksaItems?: KsaItemData[]
   }) => void
+  /** 导出 Word 回调（仅在更新成功后可用） */
+  onExportWord?: () => void
+  /** 是否正在导出 Word */
+  isExportingWord?: boolean
+  /** 是否允许导出 Word */
+  canExportWord?: boolean
+  /** 导出 Word 不可用原因 */
+  exportWordDisabledReason?: string
+  /** 强制上传最新画布并返回最新 ossKey */
+  onEnsureLatestCanvasOssKey?: () => Promise<string | null>
 }
 
 /**
@@ -406,6 +424,67 @@ function findPathByOrganization(
   }
 
   return null
+}
+
+function normalizeProjectMatrixResponseData(
+  responseData: ProjectMatrixDataResponse | ProjectMatrixResponseData | null | undefined
+): ProjectMatrixResponseData | null {
+  if (!responseData) {
+    return null
+  }
+
+  const candidate = responseData as ProjectMatrixDataResponse & {
+    projects?: ProjectMatrixResponseData["projects"]
+    data?: ProjectMatrixResponseData["data"] | ProjectMatrixResponseData
+  }
+
+  if (Array.isArray(candidate.projects)) {
+    return candidate as unknown as ProjectMatrixResponseData
+  }
+
+  const nestedData = candidate.data as ProjectMatrixResponseData | undefined
+  if (nestedData && Array.isArray(nestedData.projects)) {
+    return nestedData
+  }
+
+  return null
+}
+
+function mapCanvasSyncStepToSaveStep(step: string): SaveStepKey | null {
+  switch (step) {
+    case "snapshot":
+    case "validate":
+    case "course":
+    case "graduation_support":
+      return "course"
+    case "objectives":
+      return "objectives"
+    case "chapters":
+      return "projectMatrix"
+    case "course_points":
+      return "coursePoints"
+    case "ksa":
+      return "ksa"
+    case "course_matrix":
+      return "courseMatrix"
+    case "task_goals":
+    case "project_matrix":
+      return "projectMatrix"
+    default:
+      return null
+  }
+}
+
+function getSaveStepDisplayLabel(itemLabel: string, status: SaveStepStatus): string {
+  if (status === "completed") {
+    return itemLabel.replace("正在", "已")
+  }
+
+  if (status === "failed") {
+    return itemLabel.replace("正在", "更新") + "失败"
+  }
+
+  return itemLabel
 }
 
 /**
@@ -571,12 +650,6 @@ function CoursePicker({
   onSearchChange,
   majorId,
 }: CoursePickerProps) {
-  // 获取当前登录用户名（从 localStorage 中读取）
-  const currentUserName = useMemo(() => {
-    const authUser = getStoredAuthUser()
-    return authUser?.userName ?? ""
-  }, [])
-
   // 获取课程ID
   const getCourseId = (course: CourseItem) => course.self?.value || ""
 
@@ -585,14 +658,22 @@ function CoursePicker({
 
   // 获取讲师数组
   const getInstructors = (course: CourseItem) => {
-    const managers = course.manager || []
+    const managers = resolveCourseManagers({
+      id: getCourseId(course),
+      manager: course.manager,
+      metadata: course.metadata,
+    })
     const instructors = managers.map((m) => m.label).filter(Boolean)
     return instructors.length > 0 ? instructors : ["未设置"]
   }
 
   // 判断讲师是否已设置
   const isInstructorSet = (course: CourseItem) => {
-    const managers = course.manager || []
+    const managers = resolveCourseManagers({
+      id: getCourseId(course),
+      manager: course.manager,
+      metadata: course.metadata,
+    })
     return managers.length > 0
   }
 
@@ -601,12 +682,15 @@ function CoursePicker({
     return courses.filter((course) => {
       const courseName = getCourseName(course)
       const matchesSearch = !searchTerm || courseName.toLowerCase().includes(searchTerm.toLowerCase())
-      const instructors = getInstructors(course)
-      const isMyCourseCourse = instructors.includes(currentUserName)
+      const isMyCourseCourse = isCurrentUserCourseOwner({
+        id: getCourseId(course),
+        manager: course.manager,
+        metadata: course.metadata,
+      })
       // 必须是"我的课程"且匹配搜索条件
       return isMyCourseCourse && matchesSearch
     })
-  }, [courses, searchTerm, currentUserName])
+  }, [courses, searchTerm])
 
   // 处理课程点击（直接选择进入下一步）
   const handleCourseClick = useCallback((courseId: string) => {
@@ -750,10 +834,16 @@ export function CanvasSaveWizard({
   open,
   onOpenChange,
   courseInfo,
+  canvasOssKey = null,
   canvasElements,
   treeData,
   onSaveSuccess,
   onUpdateCourseInfo,
+  onExportWord,
+  isExportingWord = false,
+  canExportWord = false,
+  exportWordDisabledReason,
+  onEnsureLatestCanvasOssKey,
 }: CanvasSaveWizardProps) {
   // 选中的路径状态
   const [selectedPath, setSelectedPath] = useState<SelectedPath>({
@@ -775,19 +865,24 @@ export function CanvasSaveWizard({
   const [selectedCourseName, setSelectedCourseName] = useState<string>("")
 
   // 保存状态
-  const [isSaving, setIsSaving] = useState(false)
-  const [saveSuccess, setSaveSuccess] = useState(false)
+  const [saveFlowStatus, setSaveFlowStatus] = useState<SaveFlowStatus>("idle")
   const [saveStepState, setSaveStepState] = useState<SaveStepState>(() => createInitialSaveStepState())
   const [saveStepMessage, setSaveStepMessage] = useState<string>("")
+  const [saveErrorMessage, setSaveErrorMessage] = useState<string>("")
+
+  const isSaving = saveFlowStatus === "saving"
+  const saveSuccess = saveFlowStatus === "success"
+  const hasSaveError = saveFlowStatus === "error"
 
   // [MOD] 合并画布元素提取逻辑，统一作为保存数据源
-  const { objectives, coursePoints, chapters, ksaItems, courseMatrixData, graduationSupportData } = useMemo(() => {
+  const { objectives, coursePoints, chapters, ksaItems, courseMatrixData, projectMatrices, graduationSupportData } = useMemo(() => {
     const result = {
       objectives: [] as ObjectiveCardData[],
       coursePoints: [] as CoursePointCardData[],
       chapters: [] as ChapterCardData[],
       ksaItems: [] as KsaItemData[],
       courseMatrixData: undefined as CourseMatrixData | undefined,
+      projectMatrices: [] as ProjectMatrixData[],
       graduationSupportData: undefined as GraduationSupportData | undefined,
     }
 
@@ -808,6 +903,9 @@ export function CanvasSaveWizard({
         case CanvasComponentType.COURSE_MATRIX:
           result.courseMatrixData = el.data as CourseMatrixData
           break
+        case CanvasComponentType.PROJECT_MATRIX:
+          result.projectMatrices.push(el.data as ProjectMatrixData)
+          break
         case CanvasComponentType.GRADUATION_SUPPORT:
           result.graduationSupportData = el.data as GraduationSupportData
           break
@@ -823,6 +921,7 @@ export function CanvasSaveWizard({
       }
       return a.category.localeCompare(b.category)
     })
+    result.projectMatrices.sort((a, b) => a.chapter_index - b.chapter_index)
 
     return result
   }, [canvasElements])
@@ -900,10 +999,10 @@ export function CanvasSaveWizard({
   useEffect(() => {
     if (!open) {
       // 关闭时重置状态
-      setSaveSuccess(false)
-      setIsSaving(false)
+      setSaveFlowStatus("idle")
       setSaveStepState(createInitialSaveStepState())
       setSaveStepMessage("")
+      setSaveErrorMessage("")
       // 重置课程相关状态
       setCourses([])
       setSelectedCourseId(null)
@@ -951,6 +1050,25 @@ export function CanvasSaveWizard({
       [step]: status,
     }))
     setSaveStepMessage(message)
+  }, [])
+
+  const markSaveStepFailure = useCallback((step: SaveStepKey | null, message: string) => {
+    setSaveStepState((prev) => {
+      const targetStep = step !== null
+        ? step
+        : SAVE_STEP_ITEMS.find((item) => prev[item.key] === "in_progress")?.key
+
+      if (!targetStep) {
+        return prev
+      }
+
+      return {
+        ...prev,
+        [targetStep]: "failed",
+      }
+    })
+    setSaveStepMessage(message)
+    setSaveErrorMessage(message)
   }, [])
 
   const buildObjectiveGroupsForApi = useCallback((): CourseGoal[] => {
@@ -1102,6 +1220,38 @@ export function CanvasSaveWizard({
     })
   }, [ksaItems])
 
+  const syncChapterOriginalIds = useCallback((latestProjects: ApiProject[] | null | undefined): ChapterCardData[] => {
+    const availableProjects = Array.isArray(latestProjects) ? [...latestProjects] : []
+
+    return chapters.map((chapter, index) => {
+      const currentOriginalId = typeof chapter.originalId === "number" ? chapter.originalId : null
+      if (currentOriginalId !== null && currentOriginalId > 0) {
+        return chapter
+      }
+
+      const matchedIndex = availableProjects.findIndex((project) => {
+        const projectName = typeof project.name === "string" ? project.name.trim() : ""
+        const projectIndex = normalizePositiveNumber(project.indexNo)
+        return projectName === chapter.name.trim() && projectIndex === index + 1
+      })
+
+      if (matchedIndex === -1) {
+        return chapter
+      }
+
+      const matchedProject = availableProjects.splice(matchedIndex, 1)[0]
+      const matchedProjectId = normalizePositiveNumber(matchedProject?.id)
+      if (matchedProjectId <= 0) {
+        return chapter
+      }
+
+      return {
+        ...chapter,
+        originalId: matchedProjectId,
+      }
+    })
+  }, [chapters])
+
   const buildObjectiveDeleteIds = useCallback((serverGoals: CourseGoal[]): number[] => {
     const currentObjectiveIds = new Set(
       objectives
@@ -1161,8 +1311,11 @@ export function CanvasSaveWizard({
     return courseIdNum
   }, [hasCurrentCourseContext, savedCourseId, selectedCourseId, onUpdateCourseInfo])
 
-  // 保存课程单元基本信息
-  const saveCourseUnit = useCallback(async (courseId: number, majorIdNum: number): Promise<void> => {
+  const buildCourseUnitSaveRequest = useCallback((
+    courseId: number,
+    majorIdNum: number,
+    chapterPayload: SaveCourseUnitRequest["course"]["courseMatrixVOS"]
+  ): SaveCourseUnitRequest => {
     const metadata = courseInfo?.metadata || {}
     const resolvedClassId = getCourseTypeId(metadata.courseType)
     const normalizedIntroduction = normalizeNullableStringField("introduction", metadata.introduction)
@@ -1186,7 +1339,7 @@ export function CanvasSaveWizard({
     const normalizedCredits = normalizeOptionalNumberField("credits", metadata.credits)
     const normalizedScoreTable = normalizeScoreTableField(metadata.scoreTable)
 
-    const saveRequest: SaveCourseUnitRequest = {
+    return {
       course: {
         id: courseId,
         majorId: majorIdNum,
@@ -1197,7 +1350,7 @@ export function CanvasSaveWizard({
         criterion: null,
         theoryPeriod: metadata.theoryPeriod || 0,
         practicePeriod: metadata.practicePeriod || 0,
-        courseMatrixVOS: [],
+        courseMatrixVOS: chapterPayload,
         position: null,
         teachingClass: normalizedTeachingClass,
         teachingLocation: normalizedTeachingLocation,
@@ -1220,13 +1373,17 @@ export function CanvasSaveWizard({
         assessmentDescription: normalizedAssessmentDescription,
       },
     }
+  }, [courseInfo])
 
+  // 保存课程单元基本信息
+  const saveCourseUnit = useCallback(async (courseId: number, majorIdNum: number): Promise<void> => {
+    const saveRequest = buildCourseUnitSaveRequest(courseId, majorIdNum, [])
     const apiInstance = new CourseDetailApi()
     const response = await apiInstance.saveCourseUnit(saveRequest)
     if (response.error) {
       throw new Error(response.error)
     }
-  }, [courseInfo])
+  }, [buildCourseUnitSaveRequest])
 
   // 保存课点数据（覆盖式重建，确保课程矩阵使用最新课点ID）
   const saveCoursePoints = useCallback(async (courseId: number, majorId: number): Promise<CoursePointCardData[]> => {
@@ -1252,7 +1409,7 @@ export function CanvasSaveWizard({
     return syncedCoursePoints
   }, [coursePoints, onUpdateCourseInfo, syncCoursePointOriginalIds])
 
-  const saveKsaItems = useCallback(async (courseId: number, majorId: number): Promise<void> => {
+  const saveKsaItems = useCallback(async (courseId: number, majorId: number): Promise<KsaItemData[]> => {
     const latestKsaResponse = await api.matrices.getKsaList(String(majorId), String(courseId))
     if (latestKsaResponse.error) {
       throw new Error(latestKsaResponse.error)
@@ -1302,6 +1459,7 @@ export function CanvasSaveWizard({
     const syncedKsaItems = syncKsaOriginalIds(refreshedKsaResponse.data)
     onUpdateCourseInfo?.({ courseId, majorId, ksaItems: syncedKsaItems })
     console.log("[CanvasSaveWizard] KSA 保存成功, 数量:", payload.length)
+    return syncedKsaItems
   }, [ksaItems, onUpdateCourseInfo, syncKsaOriginalIds])
 
   // [MOD] 构建课程矩阵的 project 数据
@@ -1464,25 +1622,391 @@ export function CanvasSaveWizard({
     console.log("[CanvasSaveWizard] course matrix rebuilt, chapter count:", rebuildPayload.length)
   }, [buildMatrixDataItems, buildMatrixProject, courseMatrixData, coursePoints])
 
-  // 保存项目矩阵数据
-  const saveProjectMatrix = useCallback(async (courseId: number): Promise<void> => {
-    if (chapters.length === 0) return
+  const fetchLatestProjectMatrixData = useCallback(async (courseId: number): Promise<ProjectMatrixResponseData> => {
+    const response = await api.matrices.getProjectMatrixData(String(courseId))
+    if (response.error) {
+      throw new Error(response.error)
+    }
 
-    const projects = chapters.map((chapter, index) => ({
-      id: chapter.id,
-      name: chapter.name,
-      theoryPeriod: chapter.theory_hours?.toString() || "0",
-      practicePeriod: chapter.practice_hours?.toString() || "0",
-      courseUnitId: courseId,
-      indexNo: index + 1,
-    }))
+    const normalizedData = normalizeProjectMatrixResponseData(response.data)
+    if (!normalizedData) {
+      throw new Error("项目矩阵响应结构异常，无法更新课程")
+    }
 
-    await api.projectTeachGoal.updateProjectTeachGoal(String(courseId), {
-      projects,
-      goals: [],
-    })
-    console.log("[CanvasSaveWizard] 项目矩阵保存成功, 章节数量:", projects.length)
-  }, [chapters])
+    return normalizedData
+  }, [])
+
+  const resolveProjectMatrixServerProject = useCallback((
+    matrix: ProjectMatrixData,
+    serverProjects: ProjectMatrixResponseProject[]
+  ): ProjectMatrixResponseProject | null => {
+    const matrixProjectId = normalizePositiveNumber(matrix.project_id)
+    if (matrixProjectId > 0) {
+      const matchedById = serverProjects.find((item) => (
+        normalizePositiveNumber(item.project?.id) === matrixProjectId
+      ))
+      if (matchedById) {
+        return matchedById
+      }
+    }
+
+    const normalizedChapterName = matrix.chapter_name.trim()
+    return serverProjects.find((item) => (
+      normalizePositiveNumber(item.project?.indexNo) === matrix.chapter_index
+      && item.project?.name?.trim() === normalizedChapterName
+    )) ?? serverProjects.find((item) => item.project?.name?.trim() === normalizedChapterName) ?? null
+  }, [])
+
+  const resolveProjectMatrixRowPointOriginalId = useCallback((
+    row: ProjectMatrixData["rows"][number],
+    latestCoursePoints: CoursePointCardData[]
+  ): number => {
+    const directOriginalId = normalizePositiveNumber(row.course_point_original_id)
+    if (directOriginalId > 0) {
+      return directOriginalId
+    }
+
+    const directRowId = normalizePositiveNumber(row.course_point_id)
+    if (directRowId > 0) {
+      return directRowId
+    }
+
+    const matchedByCanvasId = latestCoursePoints.find((point) => point.id === row.course_point_id)
+    if (matchedByCanvasId?.originalId && matchedByCanvasId.originalId > 0) {
+      return matchedByCanvasId.originalId
+    }
+
+    const normalizedName = row.course_point_name.trim()
+    const normalizedDescription = (row.course_point_description || "").trim()
+    const matchedByContent = latestCoursePoints.find((point) => (
+      point.name.trim() === normalizedName
+      && (point.description || "").trim() === normalizedDescription
+      && typeof point.originalId === "number"
+      && point.originalId > 0
+    ))
+
+    return matchedByContent?.originalId ?? 0
+  }, [])
+
+  const resolveProjectMatrixKsaOriginalId = useCallback((
+    ksaItem: ProjectMatrixData["rows"][number]["objective_supports"][number]["ksa_items"][number],
+    latestKsaItems: KsaItemData[]
+  ): number => {
+    const directOriginalId = normalizePositiveNumber(ksaItem.originalId)
+    if (directOriginalId > 0) {
+      return directOriginalId
+    }
+
+    const directItemId = normalizePositiveNumber(ksaItem.id)
+    if (directItemId > 0) {
+      return directItemId
+    }
+
+    const matchedKsa = findKsaByReference(latestKsaItems, ksaItem.id)
+      ?? latestKsaItems.find((item) => (
+        item.category === ksaItem.category
+        && item.index === ksaItem.index
+        && item.content.trim() === (ksaItem.description || "").trim()
+      ))
+
+    return typeof matchedKsa?.originalId === "number" && matchedKsa.originalId > 0
+      ? matchedKsa.originalId
+      : 0
+  }, [])
+
+  const saveProjectMatrix = useCallback(async (
+    courseId: number,
+    majorId: number,
+    latestCoursePoints: CoursePointCardData[],
+    latestKsaItems: KsaItemData[]
+  ): Promise<void> => {
+    const initialProjectMatrixData = await fetchLatestProjectMatrixData(courseId)
+    const latestProjects = Array.isArray(initialProjectMatrixData.projects)
+      ? initialProjectMatrixData.projects
+      : []
+
+    const syncedChapters = syncChapterOriginalIds(latestProjects.map((item) => item.project))
+    onUpdateCourseInfo?.({ courseId, majorId, chapters: syncedChapters })
+
+    for (const matrix of projectMatrices) {
+      const matchedProject = resolveProjectMatrixServerProject(matrix, latestProjects)
+      const projectId = normalizePositiveNumber(matchedProject?.project?.id)
+      if (projectId <= 0) {
+        throw new Error(`未找到章节 ${matrix.chapter_name} 对应的服务端项目，无法保存项目矩阵`)
+      }
+
+      const latestGoals = Array.isArray(matchedProject?.goals) ? matchedProject.goals : []
+      const currentObjectives = [...(matrix.task_objectives || [])]
+        .filter((objective) => objective.description.trim().length > 0)
+        .sort((left, right) => left.index - right.index)
+
+      const retainedGoalIds = new Set<number>()
+      const taskGoalPayload: TaskGoalItem[] = currentObjectives.map((objective) => {
+        const originalGoalId = typeof objective.originalId === "number"
+          ? objective.originalId
+          : normalizePositiveNumber(objective.id)
+        const matchedGoal = originalGoalId > 0
+          ? latestGoals.find((goal) => goal.id === originalGoalId)
+          : undefined
+        const resolvedGoalId = matchedGoal ? matchedGoal.id : NEW_RECORD_ID
+
+        if (resolvedGoalId > 0) {
+          retainedGoalIds.add(resolvedGoalId)
+        }
+
+        return {
+          id: resolvedGoalId,
+          projectId,
+          description: objective.description,
+          product: objective.product ?? matchedGoal?.product ?? "",
+        }
+      })
+
+      latestGoals
+        .filter((goal) => !retainedGoalIds.has(goal.id))
+        .forEach((goal) => {
+          taskGoalPayload.push({
+            id: -Math.abs(goal.id),
+            projectId,
+            description: goal.description,
+            product: goal.product || "",
+          })
+        })
+
+      if (taskGoalPayload.length > 0) {
+        const saveTaskGoalResponse = await api.projectTeachGoal.updateTaskGoals(taskGoalPayload)
+        if (saveTaskGoalResponse.error) {
+          throw new Error(saveTaskGoalResponse.error)
+        }
+      }
+    }
+
+    const refreshedProjectMatrixData = await fetchLatestProjectMatrixData(courseId)
+    const refreshedProjects = Array.isArray(refreshedProjectMatrixData.projects)
+      ? refreshedProjectMatrixData.projects
+      : []
+    const refreshedRows = Array.isArray(refreshedProjectMatrixData.data)
+      ? refreshedProjectMatrixData.data
+      : []
+
+    const projectMatrixPayload: ProjectMatrixSaveItem[] = []
+
+    for (const matrix of projectMatrices) {
+      const matchedProject = resolveProjectMatrixServerProject(matrix, refreshedProjects)
+      const projectId = normalizePositiveNumber(matchedProject?.project?.id)
+      if (projectId <= 0) {
+        throw new Error(`未找到章节 ${matrix.chapter_name} 的最新项目数据，无法保存项目矩阵`)
+      }
+
+      const latestGoals = Array.isArray(matchedProject?.goals) ? matchedProject.goals : []
+      const unmatchedGoals = [...latestGoals]
+      const taskGoalIdByCanvasId = new Map<string, number>()
+
+      matrix.task_objectives
+        .filter((objective) => objective.description.trim().length > 0)
+        .sort((left, right) => left.index - right.index)
+        .forEach((objective) => {
+          const originalGoalId = typeof objective.originalId === "number"
+            ? objective.originalId
+            : normalizePositiveNumber(objective.id)
+          const matchedGoalIndex = unmatchedGoals.findIndex((goal) => {
+            if (originalGoalId > 0) {
+              return goal.id === originalGoalId
+            }
+            return goal.description.trim() === objective.description.trim()
+          })
+
+          const matchedGoal = matchedGoalIndex >= 0
+            ? unmatchedGoals.splice(matchedGoalIndex, 1)[0]
+            : unmatchedGoals.shift()
+
+          const resolvedGoalId = normalizePositiveNumber(matchedGoal?.id)
+          if (resolvedGoalId > 0) {
+            taskGoalIdByCanvasId.set(objective.id, resolvedGoalId)
+          }
+        })
+
+      const projectScopedRows = refreshedRows.filter(
+        (item) => normalizePositiveNumber(item.courseMatrix?.projectId) === projectId
+      )
+      const serverRowsByMatrixId = new Map<number, ProjectMatrixResponseRow>(
+        projectScopedRows
+          .map((item) => [normalizePositiveNumber(item.courseMatrix?.id), item] as const)
+          .filter(([matrixId]) => matrixId > 0)
+      )
+      const serverRowsByPointId = new Map<number, ProjectMatrixResponseRow[]>()
+      projectScopedRows.forEach((item) => {
+        const pointId = normalizePositiveNumber(item.courseMatrix?.point?.id)
+        if (pointId <= 0) {
+          return
+        }
+        const existingRows = serverRowsByPointId.get(pointId) || []
+        existingRows.push(item)
+        serverRowsByPointId.set(pointId, existingRows)
+      })
+
+      for (const row of matrix.rows) {
+        const pointOriginalId = resolveProjectMatrixRowPointOriginalId(row, latestCoursePoints)
+        if (pointOriginalId <= 0) {
+          throw new Error(`项目矩阵中的课点 ${row.course_point_name} 缺少服务端ID，无法保存`)
+        }
+
+        const directProjectMatrixId = normalizePositiveNumber(row.project_matrix_id)
+        const matchedServerRow = directProjectMatrixId > 0
+          ? serverRowsByMatrixId.get(directProjectMatrixId)
+          : (serverRowsByPointId.get(pointOriginalId) || [])[0]
+        const projectMatrixId = normalizePositiveNumber(matchedServerRow?.courseMatrix?.id)
+        if (!matchedServerRow || projectMatrixId <= 0) {
+          throw new Error(`未找到课点 ${row.course_point_name} 对应的项目矩阵行，无法保存`)
+        }
+
+        const existingPointMatrices = Array.isArray(matchedServerRow.projectMatrices)
+          ? matchedServerRow.projectMatrices
+          : []
+
+        const pointMatrixPayload: ProjectMatrixSaveItem["projectMatrices"] = []
+
+        const selectedSupportByGoal = new Map<number, Map<number, number>>()
+        row.objective_supports.forEach((support) => {
+          const taskGoalId = taskGoalIdByCanvasId.get(support.task_objective_id)
+          if (!taskGoalId || taskGoalId <= 0) {
+            return
+          }
+
+          const selectedKsaMap = new Map<number, number>()
+          support.ksa_items.forEach((ksaItem) => {
+            const ksaOriginalId = resolveProjectMatrixKsaOriginalId(ksaItem, latestKsaItems)
+            if (ksaOriginalId <= 0) {
+              throw new Error(`KSA ${ksaItem.name || ksaItem.id} 缺少服务端ID，无法保存项目矩阵`)
+            }
+            selectedKsaMap.set(ksaOriginalId, ksaItem.level === "strong" ? 0 : 1)
+          })
+
+          selectedSupportByGoal.set(taskGoalId, selectedKsaMap)
+        })
+
+        existingPointMatrices.forEach((item) => {
+          const taskGoalId = normalizePositiveNumber(item.taskGoalId)
+          const ksaId = normalizePositiveNumber(item.ksa?.id)
+          if (taskGoalId <= 0 || ksaId <= 0) {
+            return
+          }
+
+          const selectedKsaMap = selectedSupportByGoal.get(taskGoalId)
+          const existingRelate = item.relate?.relate === 0 ? 0 : 1
+          const desiredRelate = selectedKsaMap?.get(ksaId)
+
+          if (desiredRelate === undefined || desiredRelate !== existingRelate) {
+            pointMatrixPayload.push({
+              id: -Math.abs(normalizePositiveNumber(item.id)),
+              projectMatrixId,
+              taskGoalId,
+              ksa: {
+                id: ksaId,
+                majorId,
+                courseUnitId: courseId,
+                title: item.ksa?.title || "",
+                description: item.ksa?.description || "",
+                level: normalizePositiveNumber(item.ksa?.level),
+              },
+              relate: {
+                name: existingRelate === 0 ? "强支撑" : "弱支撑",
+                code: existingRelate === 0 ? "primary" : "success",
+                relate: existingRelate,
+              },
+              valid: true,
+            })
+          }
+
+          if (selectedKsaMap) {
+            selectedKsaMap.delete(ksaId)
+          }
+        })
+
+        selectedSupportByGoal.forEach((selectedKsaMap, taskGoalId) => {
+          selectedKsaMap.forEach((relateValue, ksaId) => {
+            const matchedKsa = latestKsaItems.find((item) => item.originalId === ksaId)
+            pointMatrixPayload.push({
+              id: NEW_RECORD_ID,
+              projectMatrixId,
+              taskGoalId,
+              ksa: {
+                id: ksaId,
+                majorId,
+                courseUnitId: courseId,
+                title: matchedKsa?.category || "",
+                description: matchedKsa?.content || "",
+                level: matchedKsa?.index || 0,
+              },
+              relate: {
+                name: relateValue === 0 ? "强支撑" : "弱支撑",
+                code: relateValue === 0 ? "primary" : "success",
+                relate: relateValue,
+              },
+              valid: true,
+            })
+          })
+        })
+
+        projectMatrixPayload.push({
+          courseMatrix: {
+            id: projectMatrixId,
+            courseUnitId: courseId,
+            projectId,
+            graduateRequireId: normalizePositiveNumber(matchedServerRow.courseMatrix?.graduateRequireId),
+            point: {
+              id: pointOriginalId,
+              title: row.course_point_name,
+              description: row.course_point_description || "",
+            },
+            relate: matchedServerRow.courseMatrix?.relate
+              ? {
+                  name: matchedServerRow.courseMatrix.relate.name || "",
+                  code: matchedServerRow.courseMatrix.relate.code || "",
+                  relate: matchedServerRow.courseMatrix.relate.relate,
+                }
+              : undefined,
+            study: row.learning_method || "",
+            teach: row.teaching_method || "",
+            product: row.learning_output || "",
+            week: String(row.week ?? 0),
+            period: String(normalizePositiveNumber(matchedServerRow.courseMatrix?.period)),
+            theoryPeriod: String(row.theory_hours ?? 0),
+            practicePeriod: String(row.practice_hours ?? 0),
+            valid: true,
+          },
+          projectMatrices: pointMatrixPayload,
+        })
+      }
+    }
+
+    if (projectMatrixPayload.length > 0) {
+      const saveResponse = await api.matrices.updateProjectMatrixData(projectMatrixPayload)
+      if (saveResponse.error) {
+        throw new Error(saveResponse.error)
+      }
+    }
+
+    const refreshedProjectResponse = await api.projectTeachGoal.getProjectTeachGoal(String(courseId))
+    if (refreshedProjectResponse.error) {
+      throw new Error(refreshedProjectResponse.error)
+    }
+
+    const latestChapterProjects = Array.isArray(refreshedProjectResponse.data?.projects)
+      ? refreshedProjectResponse.data.projects
+      : []
+    const latestSyncedChapters = syncChapterOriginalIds(latestChapterProjects)
+    onUpdateCourseInfo?.({ courseId, majorId, chapters: latestSyncedChapters })
+    console.log("[CanvasSaveWizard] 项目矩阵保存成功, 项目数:", projectMatrices.length)
+  }, [
+    fetchLatestProjectMatrixData,
+    onUpdateCourseInfo,
+    projectMatrices,
+    resolveProjectMatrixKsaOriginalId,
+    resolveProjectMatrixRowPointOriginalId,
+    resolveProjectMatrixServerProject,
+    syncChapterOriginalIds,
+  ])
 
   // 保存教学目标与毕业要求指标点的关联关系
   const saveObjectiveIndicatorMapping = useCallback(async (courseId: number): Promise<void> => {
@@ -1527,13 +2051,55 @@ export function CanvasSaveWizard({
 
     setSaveStepState(createInitialSaveStepState())
     setSaveStepMessage("正在准备更新课程")
-    setIsSaving(true)
+    setSaveErrorMessage("")
+    setSaveFlowStatus("saving")
     try {
       const majorId = extractNumericId(selectedPath.majorId!)
       const majorIdNum = parseInt(majorId, 10)
 
       // 1. 获取选中的课程ID（用户从列表中选择的占位课程）
       const courseId = getSelectedCourseId(majorIdNum)
+
+      const latestCanvasOssKey = await (onEnsureLatestCanvasOssKey?.() ?? Promise.resolve(canvasOssKey))
+      if (typeof latestCanvasOssKey === "string" && latestCanvasOssKey.length > 0) {
+        setSaveStepMessage("正在基于最新画布快照覆盖课程数据")
+        markSaveStep("course", "in_progress", "正在同步课程画布快照")
+
+        const syncResponse = await courseCanvasSyncApi.syncCourseFromCanvasStream(
+          String(courseId),
+          latestCanvasOssKey,
+          (event: CourseCanvasSyncEvent) => {
+            const mappedStep = mapCanvasSyncStepToSaveStep(event.step)
+            const isErrorEvent = event.type === "error" || event.status === "error"
+
+            if (isErrorEvent) {
+              markSaveStepFailure(mappedStep, event.message)
+              return
+            }
+
+            if (mappedStep) {
+              const nextStatus = event.status === "completed" ? "completed" : "in_progress"
+              markSaveStep(mappedStep, nextStatus, event.message)
+            } else {
+              setSaveStepMessage(event.message)
+            }
+          }
+        )
+
+        onUpdateCourseInfo?.({
+          courseId: syncResponse.courseId,
+          majorId: syncResponse.majorId,
+        })
+
+        SAVE_STEP_ITEMS.forEach((item) => {
+          markSaveStep(item.key, "completed", `${item.label.replace("正在", "已")}（画布快照同步）`)
+        })
+
+        setSaveFlowStatus("success")
+        toast.success("课程数据已按画布快照覆盖更新")
+        onSaveSuccess?.(majorId, String(syncResponse.courseId))
+        return
+      }
 
       // 2. 保存课程单元（必须成功）
       markSaveStep("course", "in_progress", "正在更新课程基本信息")
@@ -1550,7 +2116,7 @@ export function CanvasSaveWizard({
       markSaveStep("coursePoints", "completed", "课点已更新")
 
       markSaveStep("ksa", "in_progress", "正在更新 KSA")
-      await saveKsaItems(courseId, majorIdNum)
+      const syncedKsaItems = await saveKsaItems(courseId, majorIdNum)
       markSaveStep("ksa", "completed", "KSA 已更新")
 
       markSaveStep("courseMatrix", "in_progress", "正在更新课程矩阵")
@@ -1558,25 +2124,25 @@ export function CanvasSaveWizard({
       markSaveStep("courseMatrix", "completed", "课程矩阵已更新")
 
       markSaveStep("projectMatrix", "in_progress", "正在更新项目矩阵")
-      await saveProjectMatrix(courseId)
+      await saveProjectMatrix(courseId, majorIdNum, syncedCoursePoints, syncedKsaItems)
       markSaveStep("projectMatrix", "completed", "项目矩阵已更新")
 
       // 保存成功
-      setSaveSuccess(true)
+      setSaveFlowStatus("success")
       toast.success("课程数据已成功更新")
       onSaveSuccess?.(majorId, String(courseId))
-      setTimeout(() => onOpenChange(false), SUCCESS_DIALOG_CLOSE_DELAY_MS)
 
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "更新失败，请稍后重试"
+      markSaveStepFailure(null, errorMessage)
+      setSaveFlowStatus("error")
       console.error("[CanvasSaveWizard] 更新课程失败:", error)
-      toast.error(error instanceof Error ? error.message : "更新失败，请稍后重试")
-    } finally {
-      setIsSaving(false)
+      toast.error(errorMessage)
     }
   }, [
     validateBeforeSave, getSelectedCourseId, saveCourseUnit,
     saveObjectiveIndicatorMapping, saveCoursePoints, saveKsaItems, saveCourseMatrix, saveProjectMatrix,
-    selectedPath, onSaveSuccess, onOpenChange, markSaveStep
+    selectedPath, onSaveSuccess, markSaveStep, markSaveStepFailure, onEnsureLatestCanvasOssKey, canvasOssKey, onUpdateCourseInfo
   ])
 
   // 是否可以保存（必须选中课程、专业，且所有教学目标都已关联）
@@ -1604,29 +2170,88 @@ export function CanvasSaveWizard({
 
         {/* 保存成功状态 */}
         {saveSuccess ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-6">
-            <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center">
-              <CheckCircle2 className="h-10 w-10 text-green-600" />
-            </div>
-            <div className="text-center">
-              <p className="text-xl font-medium text-foreground">更新成功</p>
-              <p className="text-base text-muted-foreground mt-2">
-                课程数据已成功更新
-              </p>
-            </div>
-          </div>
-        ) : isSaving ? (
           <div className="py-6">
             <div className="rounded-xl border border-border bg-secondary/20 p-5">
               <div className="flex items-center gap-3 pb-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-base font-medium text-foreground">正在更新课程</p>
-                  <p className="text-sm text-muted-foreground">{saveStepMessage}</p>
+                  <p className="text-base font-medium text-foreground">课程更新完成</p>
+                  <p className="text-sm text-muted-foreground">当前课程已完成更新，可以继续导出 docx</p>
                 </div>
               </div>
+              <div className="space-y-3">
+                {SAVE_STEP_ITEMS.map((item) => (
+                  <div key={item.key} className="flex items-center gap-3 rounded-lg border border-border bg-background px-4 py-3">
+                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    <span className="text-sm text-foreground">
+                      {item.label.replace("正在", "已")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <DialogFooter className="mt-5 gap-3">
+                <Button
+                  onClick={onExportWord}
+                  disabled={!canExportWord || isExportingWord}
+                  className="gap-2 px-6"
+                  title={canExportWord ? "导出当前最新课程数据的 docx" : exportWordDisabledReason}
+                >
+                  {isExportingWord ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      导出中...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="h-4 w-4" />
+                      导出 docx
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  className="gap-2 px-6"
+                >
+                  <X className="h-4 w-4" />
+                  关闭
+                </Button>
+              </DialogFooter>
+            </div>
+          </div>
+        ) : isSaving || hasSaveError ? (
+          <div className="py-6">
+            <div className="rounded-xl border border-border bg-secondary/20 p-5">
+              <div className="flex items-center gap-3 pb-4">
+                <div className={cn(
+                  "flex h-10 w-10 items-center justify-center rounded-full",
+                  hasSaveError ? "bg-red-100" : "bg-primary/10"
+                )}>
+                  {hasSaveError ? (
+                    <X className="h-5 w-5 text-red-600" />
+                  ) : (
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  )}
+                </div>
+                <div>
+                  <p className="text-base font-medium text-foreground">
+                    {hasSaveError ? "课程更新失败" : "正在更新课程"}
+                  </p>
+                  <p className={cn(
+                    "text-sm",
+                    hasSaveError ? "text-red-600" : "text-muted-foreground"
+                  )}>
+                    {hasSaveError ? saveErrorMessage : saveStepMessage}
+                  </p>
+                </div>
+              </div>
+              {hasSaveError ? (
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {saveErrorMessage}
+                </div>
+              ) : null}
               <div className="space-y-3">
                 {SAVE_STEP_ITEMS.map((item) => {
                   const status = saveStepState[item.key]
@@ -1634,6 +2259,10 @@ export function CanvasSaveWizard({
                     <div key={item.key} className="flex items-center gap-3 rounded-lg border border-border bg-background px-4 py-3">
                       {status === "completed" ? (
                         <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      ) : status === "failed" ? (
+                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-red-100">
+                          <X className="h-3.5 w-3.5 text-red-600" />
+                        </div>
                       ) : status === "in_progress" ? (
                         <Loader2 className="h-5 w-5 animate-spin text-primary" />
                       ) : (
@@ -1642,15 +2271,36 @@ export function CanvasSaveWizard({
                       <span className={cn(
                         "text-sm",
                         status === "completed" && "text-foreground",
+                        status === "failed" && "text-red-600",
                         status === "in_progress" && "text-primary",
                         status === "pending" && "text-muted-foreground"
                       )}>
-                        {item.label.replace("正在", status === "completed" ? "已" : "正在")}
+                        {getSaveStepDisplayLabel(item.label, status)}
                       </span>
                     </div>
                   )
                 })}
               </div>
+              {hasSaveError ? (
+                <DialogFooter className="mt-5 gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => onOpenChange(false)}
+                    className="gap-2 px-6"
+                  >
+                    <X className="h-4 w-4" />
+                    关闭
+                  </Button>
+                  <Button
+                    onClick={handleSave}
+                    disabled={!canSave}
+                    className="gap-2 px-6"
+                  >
+                    <Save className="h-4 w-4" />
+                    重新更新
+                  </Button>
+                </DialogFooter>
+              ) : null}
             </div>
           </div>
         ) : (

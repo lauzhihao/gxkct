@@ -16,7 +16,6 @@ import type {
   SourceDocumentCardData,
   GraduationSupportData,
 } from "@/components/canvas-elements/types"
-import type { CourseReportPreviewData } from "@/components/canvas-course-report-preview"
 
 /**
  * 编辑弹窗状态类型
@@ -89,7 +88,7 @@ export interface ProjectMatrixDrawerState {
  */
 export interface CourseReportDrawerState {
   open: boolean
-  data: CourseReportPreviewData | null
+  nodeId: string
 }
 
 /**
@@ -135,6 +134,8 @@ export interface UseCanvasDrawersOptions {
   onSourceDocumentRegenerate?: (document: SourceDocumentCardData) => void
   /** 专业矩阵（毕业要求支撑）更新回调 */
   onGraduationSupportUpdate?: (panelId: string, data: GraduationSupportData) => void
+  /** 强制上传最新画布并返回最新 ossKey */
+  onEnsureLatestCanvasOssKey?: () => Promise<string | null>
 }
 
 /**
@@ -167,7 +168,7 @@ export interface UseCanvasDrawersReturn {
 
   // 课点编辑处理函数
   handleCoursePointPanelEdit: (panelId: string, focusTarget?: { pointId?: string; pointIndex?: number }) => void
-  handleCoursePointsSave: (coursePoints: CoursePointCardData[]) => void
+  handleCoursePointsSave: (coursePoints: CoursePointCardData[]) => Promise<void>
   handleCoursePointDrawerClose: () => void
 
   // KSA编辑处理函数
@@ -232,6 +233,7 @@ export function useCanvasDrawers({
   onSourceDocumentUpdate,
   onSourceDocumentRegenerate,
   onGraduationSupportUpdate,
+  onEnsureLatestCanvasOssKey,
 }: UseCanvasDrawersOptions): UseCanvasDrawersReturn {
   // 正在更新的面板ID集合（用于显示loading效果）
   const [updatingPanelIds, setUpdatingPanelIds] = useState<Set<string>>(new Set())
@@ -297,7 +299,7 @@ export function useCanvasDrawers({
   // 开课报告预览抽屉状态
   const [courseReportDrawer, setCourseReportDrawer] = useState<CourseReportDrawerState>({
     open: false,
-    data: null,
+    nodeId: "",
   })
 
   // 源文档编辑抽屉状态
@@ -398,33 +400,37 @@ export function useCanvasDrawers({
 
   // 处理课点编辑保存
   const handleCoursePointsSave = useCallback(
-    (coursePoints: CoursePointCardData[]) => {
+    async (coursePoints: CoursePointCardData[]) => {
       if (!coursePointDrawer.panelId) return
 
       const panelId = coursePointDrawer.panelId
       setIsSavingCoursePoints(true)
       setUpdatingPanelIds(prev => new Set(prev).add(panelId))
 
-      setCoursePointDrawer({
-        open: false,
-        panelId: "",
-        coursePoints: [],
-        focusPointId: null,
-        focusPointIndex: null,
-      })
-      setIsSavingCoursePoints(false)
+      try {
+        onCoursePointsUpdate?.(panelId, coursePoints)
+        await onEnsureLatestCanvasOssKey?.()
 
-      onCoursePointsUpdate?.(panelId, coursePoints)
-
-      setTimeout(() => {
-        setUpdatingPanelIds(prev => {
-          const next = new Set(prev)
-          next.delete(panelId)
-          return next
+        setCoursePointDrawer({
+          open: false,
+          panelId: "",
+          coursePoints: [],
+          focusPointId: null,
+          focusPointIndex: null,
         })
-      }, 300)
+      } finally {
+        setIsSavingCoursePoints(false)
+
+        setTimeout(() => {
+          setUpdatingPanelIds(prev => {
+            const next = new Set(prev)
+            next.delete(panelId)
+            return next
+          })
+        }, 300)
+      }
     },
-    [coursePointDrawer.panelId, onCoursePointsUpdate]
+    [coursePointDrawer.panelId, onCoursePointsUpdate, onEnsureLatestCanvasOssKey]
   )
 
   // 关闭课点编辑抽屉
@@ -561,10 +567,12 @@ export function useCanvasDrawers({
       setIsSavingObjectives(true)
       setUpdatingPanelIds(prev => new Set(prev).add(panelId))
 
-      setObjectiveDrawer({ open: false, panelId: "", objectives: [] })
-      setIsSavingObjectives(false)
-
       onObjectivesUpdate?.(panelId, objectives)
+      setObjectiveDrawer((prev) => ({
+        ...prev,
+        objectives,
+      }))
+      setIsSavingObjectives(false)
 
       setTimeout(() => {
         setUpdatingPanelIds(prev => {
@@ -671,83 +679,19 @@ export function useCanvasDrawers({
 
   // ==================== 开课报告预览处理函数 ====================
 
-  // 处理开课报告节点编辑图标点击 - 收集画布数据并打开预览抽屉
-  const handleCourseReportEdit = useCallback(() => {
-      // 从画布节点中提取所有数据
-      // 课程信息
-      const courseInfoNode = flowNodes.find(n => n.type === FlowNodeType.COURSE_INFO)
-      const courseInfo = courseInfoNode ? (courseInfoNode.data as unknown as CourseInfoData) : null
-
-      // 教学目标（从面板子节点提取）
-      const objectivePanelNode = flowNodes.find(n => n.type === FlowNodeType.OBJECTIVE_PANEL)
-      const objectives = objectivePanelNode
-        ? flowNodes
-            .filter(n => n.parentId === objectivePanelNode.id)
-            .map(n => n.data as unknown as ObjectiveCardData)
-            .sort((a, b) => a.index - b.index)
-        : []
-
-      // 章节（从面板子节点提取）
-      const chapterPanelNode = flowNodes.find(n => n.type === FlowNodeType.CHAPTER_PANEL)
-      const chapters = chapterPanelNode
-        ? flowNodes
-            .filter(n => n.parentId === chapterPanelNode.id)
-            .map(n => n.data as unknown as ChapterCardData)
-            .sort((a, b) => a.index - b.index)
-        : []
-
-      // 课点（从面板子节点提取）
-      const coursePointPanelNode = flowNodes.find(n => n.type === FlowNodeType.COURSE_POINT_PANEL)
-      const coursePoints = coursePointPanelNode
-        ? flowNodes
-            .filter(n => n.parentId === coursePointPanelNode.id)
-            .map(n => n.data as unknown as CoursePointCardData)
-            .sort((a, b) => a.index - b.index)
-        : []
-
-      // KSA（从面板子节点提取）
-      const ksaPanelNode = flowNodes.find(n => n.type === FlowNodeType.KSA_PANEL)
-      const ksaItems = ksaPanelNode
-        ? flowNodes
-            .filter(n => n.parentId === ksaPanelNode.id)
-            .map(n => n.data as unknown as KsaItemData)
-            .sort((a, b) => {
-              // 先按类别排序 K < S < A，再按 index 排序
-              const categoryOrder: Record<string, number> = { K: 0, S: 1, A: 2 }
-              const catDiff = categoryOrder[a.category] - categoryOrder[b.category]
-              return catDiff !== 0 ? catDiff : a.index - b.index
-            })
-        : []
-
-      // 课程矩阵
-      const courseMatrixNode = flowNodes.find(n => n.type === FlowNodeType.COURSE_MATRIX)
-      const courseMatrix = courseMatrixNode ? (courseMatrixNode.data as unknown as CourseMatrixData) : null
-
-      // 项目矩阵列表
-      const projectMatrices = flowNodes
-        .filter(n => n.type === FlowNodeType.PROJECT_MATRIX)
-        .map(n => n.data as unknown as ProjectMatrixData)
-        .sort((a, b) => a.chapter_index - b.chapter_index)
-
+  // 处理开课报告节点编辑图标点击
+  const handleCourseReportEdit = useCallback((nodeId: string) => {
       setCourseReportDrawer({
         open: true,
-        data: {
-          courseInfo,
-          objectives,
-          chapters,
-          coursePoints,
-          ksaItems,
-          courseMatrix,
-          projectMatrices,
-        },
+        nodeId,
       })
     },
-    [flowNodes]
+    []
   )
 
   // 关闭开课报告预览抽屉
   const handleCourseReportDrawerClose = useCallback(() => {
-    setCourseReportDrawer({ open: false, data: null })
+    setCourseReportDrawer({ open: false, nodeId: "" })
   }, [])
 
   // ==================== 源文档编辑处理函数 ====================

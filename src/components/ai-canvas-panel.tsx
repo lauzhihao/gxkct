@@ -186,8 +186,11 @@ export interface AiCanvasPanelProps {
     majorId?: number
     objectives?: ObjectiveCardData[]
     coursePoints?: CoursePointCardData[]
+    chapters?: ChapterCardData[]
     ksaItems?: KsaItemData[]
   }) => void
+  // 强制上传最新画布并返回最新 ossKey
+  onEnsureLatestCanvasOssKey?: () => Promise<string | null>
   // 是否正在上传画布数据到OSS
   isUploading?: boolean
   // 布局模式
@@ -242,6 +245,7 @@ function AiCanvasPanelInner({
   treeData = null,
   onSaveSuccess,
   onUpdateCourseInfo,
+  onEnsureLatestCanvasOssKey,
   isUploading = false,
   layoutMode = "horizontal",
   onLayoutModeChange,
@@ -380,6 +384,7 @@ function AiCanvasPanelInner({
     onSourceDocumentUpdate,
     onSourceDocumentRegenerate,
     onGraduationSupportUpdate,
+    onEnsureLatestCanvasOssKey,
   })
 
   // 记录上一次的节点 ID 集合，用于检测节点增删
@@ -1087,6 +1092,7 @@ function AiCanvasPanelInner({
         treeData={treeData}
         onSaveSuccess={onSaveSuccess}
         onUpdateCourseInfo={onUpdateCourseInfo}
+        onEnsureLatestCanvasOssKey={onEnsureLatestCanvasOssKey}
         lockGraduationSupportOrganization={lockGraduationSupportOrganization}
       />
     </div>

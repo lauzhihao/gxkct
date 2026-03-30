@@ -306,6 +306,27 @@ export function IdentitySwitchDialog({ open, onOpenChange, userId }: IdentitySwi
     })
   }, [debouncedKeyword, identities])
 
+  const sortedFilteredIdentities = useMemo(() => {
+    if (filteredIdentities.length <= 1 || currentIdentityKey === null) {
+      return filteredIdentities
+    }
+
+    const currentItems: AvailableIdentityItem[] = []
+    const otherItems: AvailableIdentityItem[] = []
+
+    filteredIdentities.forEach((identity) => {
+      const identityKey = getIdentityKey(identity.permissionId, identity.relativeId, identity.college?.id)
+      if (identityKey === currentIdentityKey) {
+        currentItems.push(identity)
+        return
+      }
+
+      otherItems.push(identity)
+    })
+
+    return [...currentItems, ...otherItems]
+  }, [currentIdentityKey, filteredIdentities])
+
   return (
     <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="sm:max-w-2xl" showCloseButton={!isLoading && !isSubmitting}>
@@ -338,9 +359,9 @@ export function IdentitySwitchDialog({ open, onOpenChange, userId }: IdentitySwi
             <div className="py-16 text-center text-sm text-muted-foreground">无匹配身份</div>
           )}
 
-          {!isLoading && !errorMessage && filteredIdentities.length > 0 && (
+          {!isLoading && !errorMessage && sortedFilteredIdentities.length > 0 && (
             <div className="space-y-2">
-              {filteredIdentities.map((identity, index) => {
+              {sortedFilteredIdentities.map((identity, index) => {
                 const identityKey = getIdentityKey(identity.permissionId, identity.relativeId, identity.college?.id)
                 const renderKey = `${identityKey}-${index}`
                 const isCurrent = identityKey === currentIdentityKey

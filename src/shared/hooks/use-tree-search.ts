@@ -9,7 +9,7 @@ interface SearchResult {
   path: TreeNode[]
 }
 
-export function useTreeSearch() {
+export function useTreeSearch(semesterId?: number | null) {
   const [searchTerm, setSearchTerm] = useState("")
   const [isSearching, setIsSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
@@ -24,21 +24,23 @@ export function useTreeSearch() {
       return
     }
 
+    const cacheKey = `${semesterId === null || semesterId === undefined ? "all" : semesterId}:${keyword}`
+
     // 检查缓存
-    if (searchCache.has(keyword)) {
+    if (searchCache.has(cacheKey)) {
       console.log(`[v0] useTreeSearch: 使用缓存结果 for "${keyword}"`)
-      setSearchResults(searchCache.get(keyword) || [])
+      setSearchResults(searchCache.get(cacheKey) || [])
       setIsSearching(false)
       return
     }
 
     setIsSearching(true)
     try {
-      const response = await api.tree.searchTree(keyword)
+      const response = await api.tree.searchTree(keyword, semesterId)
       if (response.data) {
         setSearchResults(response.data)
         // 缓存结果
-        setSearchCache((prev) => new Map(prev).set(keyword, response.data || []))
+        setSearchCache((prev) => new Map(prev).set(cacheKey, response.data || []))
       } else {
         setSearchResults([])
       }
@@ -48,7 +50,7 @@ export function useTreeSearch() {
     } finally {
       setIsSearching(false)
     }
-  }, [searchCache])
+  }, [searchCache, semesterId])
 
   // 防抖搜索
   const handleSearchChange = useCallback((term: string) => {
@@ -83,6 +85,11 @@ export function useTreeSearch() {
     }
   }, [])
 
+  useEffect(() => {
+    setSearchResults([])
+    setSearchCache(new Map())
+  }, [semesterId])
+
   return {
     searchTerm,
     setSearchTerm: handleSearchChange,
@@ -93,4 +100,3 @@ export function useTreeSearch() {
     resultCount: searchResults.length,
   }
 }
-

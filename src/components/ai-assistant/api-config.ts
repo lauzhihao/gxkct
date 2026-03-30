@@ -96,6 +96,7 @@ export interface AIRequestPayload {
   fill_course_point_panel?: boolean
   fill_ksa_panel?: boolean
   target_matrix_id?: string
+  target_chapter_id?: string
   target_panel_id?: string
   target_course_info_id?: string
 }
@@ -145,6 +146,9 @@ export function buildAIRequest(
   // 添加目标面板 ID
   if (payload.target_matrix_id) {
     body.target_matrix_id = payload.target_matrix_id
+  }
+  if (payload.target_chapter_id) {
+    body.target_chapter_id = payload.target_chapter_id
   }
   if (payload.target_panel_id) {
     body.target_panel_id = payload.target_panel_id

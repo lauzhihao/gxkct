@@ -1,7 +1,7 @@
 ---
 id: task-075.04
 title: 修复课程矩阵单元格弹窗仅加载当前单元格关系
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-25 18:38'
 labels:
@@ -35,4 +35,3 @@ priority: medium
 - [ ] #3 确认后只修改当前单元格，不污染其他单元格
 - [ ] #4 不影响已有课点新增、删除、切换强弱支撑功能
 <!-- AC:END -->
-

@@ -31,6 +31,7 @@ import {
 import { generateEdgeId } from "@/components/flow/utils/layout"
 import { CANVAS_LAYOUT_POSITION_CONFIG } from "@/components/flow/utils/canvas-layout"
 import { getCourseType, getCourseNature } from "@/shared/utils/data-transform"
+import { getKsaReferenceId } from "@/shared/utils/ksa"
 
 // ============ 布局常量 ============
 
@@ -687,12 +688,17 @@ export function createKsaItem(
   // 确保 category 是有效值，否则默认为 K
   const validCategory = ["K", "S", "A"].includes(category) ? category : "K"
   const cardId = `ksa_${validCategory}_${index + 1}`
+  const businessId = getKsaReferenceId({
+    id: ksa.id ?? cardId,
+    originalId: ksa.id ?? undefined,
+  }) || cardId
 
   const cardData: KsaItemData = {
-    id: cardId,
+    id: businessId,
     category: validCategory,
     index: index + 1,
     content: ksa.content || ksa.description || "",
+    originalId: ksa.id ?? undefined,
   }
 
   return {
@@ -749,7 +755,9 @@ export interface ProjectMatrixApiData {
   data?: Array<{
     courseMatrix: {
       id: string | number
+      courseUnitId?: string | number
       projectId: string | number
+      graduateRequireId?: string | number
       point?: {
         id: string | number
         title: string
@@ -922,15 +930,6 @@ type ProjectDataItem = NonNullable<ProjectMatrixApiData["data"]>[number]
 type ProjectMatrix = NonNullable<ProjectDataItem["projectMatrices"]>[number]
 
 /**
- * 课点分组的数据结构
- */
-type CoursePointGroupData = {
-  point: { id: string; title: string; description?: string }
-  courseMatrix?: ProjectDataItem["courseMatrix"]
-  matricesByGoal: Map<string, Array<ProjectMatrix>>
-}
-
-/**
  * 规范化 KSA 分类：确保使用有效的分类 (K/S/A)
  * 如果值不是有效分类，则默认为 K
  */
@@ -1000,64 +999,27 @@ function buildProjectDataLookupMap(
 }
 
 /**
- * 按课点 ID 分组并建立目标支撑映射
- * 将同一课点的所有数据组织为：课点 -> 目标 -> KSA 矩阵
+ * 将后端项目矩阵数据逐条转换为画布行。
+ * 保留原始 project_matrix 行粒度，避免重复课点被合并后丢失行级映射。
  */
-function buildCoursePointGrouping(
-  projectDataItems: ProjectDataItem[]
-): Map<string, CoursePointGroupData> {
-  const coursePointMap = new Map<string, CoursePointGroupData>()
-
-  projectDataItems.forEach((item) => {
-    // 提取课点 ID
-    const pointId = String(item.courseMatrix?.point?.id || item.courseMatrix?.id || "")
-    if (!pointId) return
-
-    // 初始化课点分组（第一次见到该课点时）
-    if (!coursePointMap.has(pointId)) {
-      coursePointMap.set(pointId, {
-        point: {
-          id: pointId,
-          title: item.courseMatrix?.point?.title || "",
-          description: item.courseMatrix?.point?.description,
-        },
-        courseMatrix: item.courseMatrix,
-        matricesByGoal: new Map(),
-      })
-    }
-
-    // 获取当前课点的分组，并将项目矩阵按目标 ID 分组
-    const groupedPoint = coursePointMap.get(pointId)
-    if (!groupedPoint) return
-
-    if (item.projectMatrices && item.projectMatrices.length > 0) {
-      item.projectMatrices.forEach((pm) => {
-        // 按任务目标 ID 分组
-        const goalKey = String(pm.taskGoalId)
-        const groupedMatrices = groupedPoint.matricesByGoal.get(goalKey) || []
-        groupedMatrices.push(pm)
-        groupedPoint.matricesByGoal.set(goalKey, groupedMatrices)
-      })
-    }
-  })
-
-  return coursePointMap
-}
-
-/**
- * 将课点分组转换为行数据
- * 为每个课点生成完整的行数据，包含所有目标支撑和 KSA 信息
- */
-function transformCoursePointsToRows(
-  coursePointMap: Map<string, CoursePointGroupData>,
+function transformProjectDataItemsToRows(
+  projectDataItems: ProjectDataItem[],
   taskObjectives: ProjectMatrixTaskObjective[],
   ksaMap: Map<number, { title: string; description: string; level: number }>
 ): ProjectMatrixRow[] {
-  return Array.from(coursePointMap.values()).map((data) => {
+  return projectDataItems.map((item, rowIndex) => {
+    const courseMatrixId = typeof item.courseMatrix?.id === "number" ? item.courseMatrix.id : 0
+    const pointOriginalId = typeof item.courseMatrix?.point?.id === "number" ? item.courseMatrix.point.id : 0
+    const rowId = courseMatrixId > 0
+      ? `project_matrix_${courseMatrixId}`
+      : `project_${item.courseMatrix?.projectId || 0}_row_${rowIndex + 1}`
+
     // 为每个教学目标构建支撑信息
     const objectiveSupports: ProjectMatrixObjectiveSupport[] = taskObjectives.map((obj) => {
-      // 获取该目标相关的所有矩阵项
-      const matchingMatrices = data.matricesByGoal.get(obj.id) || []
+      // 当前行只保留当前 courseMatrix.id 下的任务目标支撑
+      const matchingMatrices = (item.projectMatrices || []).filter(
+        (pm) => String(pm.taskGoalId) === obj.id
+      )
 
       // 将矩阵项转换为 KSA 项
       const ksaItems: ProjectMatrixKsaItem[] = matchingMatrices
@@ -1077,6 +1039,7 @@ function transformCoursePointsToRows(
             level: (pm.relate?.relate === 0 ? "strong" : "weak") as "strong" | "weak",
             // 描述优先使用原始数据，次选查找表
             description: pm.ksa!.description || ksaInfo?.description || "",
+            originalId: Number(pm.ksa!.id),
             category,
             // 索引优先使用原始数据，次选查找表，最后默认 1
             index: pm.ksa!.level || ksaInfo?.level || 1,
@@ -1091,23 +1054,26 @@ function transformCoursePointsToRows(
 
     // 组装完整的行数据
     return {
-      course_point_id: String(data.point.id),
-      course_point_name: data.point.title || "",
-      course_point_description: data.point.description,
+      course_point_id: rowId,
+      course_point_name: item.courseMatrix?.point?.title || "",
+      course_point_description: item.courseMatrix?.point?.description,
+      course_point_original_id: pointOriginalId > 0 ? pointOriginalId : undefined,
+      project_matrix_id: courseMatrixId > 0 ? courseMatrixId : undefined,
+      project_id: Number(item.courseMatrix?.projectId),
       objective_supports: objectiveSupports,
-      learning_method: data.courseMatrix?.study || undefined,
-      teaching_method: data.courseMatrix?.teach || undefined,
-      learning_output: data.courseMatrix?.product || undefined,
-      week: data.courseMatrix?.week ? Number(data.courseMatrix.week) : undefined,
-      theory_hours: data.courseMatrix?.theoryPeriod ? Number(data.courseMatrix.theoryPeriod) : undefined,
-      practice_hours: data.courseMatrix?.practicePeriod ? Number(data.courseMatrix.practicePeriod) : undefined,
+      learning_method: item.courseMatrix?.study || undefined,
+      teaching_method: item.courseMatrix?.teach || undefined,
+      learning_output: item.courseMatrix?.product || undefined,
+      week: item.courseMatrix?.week ? Number(item.courseMatrix.week) : undefined,
+      theory_hours: item.courseMatrix?.theoryPeriod ? Number(item.courseMatrix.theoryPeriod) : undefined,
+      practice_hours: item.courseMatrix?.practicePeriod ? Number(item.courseMatrix.practicePeriod) : undefined,
     }
   })
 }
 
 /**
  * 将项目 API 数据转换为画布项目矩阵数据
- * 数据管线：构建查找表 -> 预分组 -> 按课点分组 -> 行映射 -> 结果组装
+ * 数据管线：构建查找表 -> 按项目分组 -> 逐条 courseMatrix 行映射 -> 结果组装
  */
 function convertProjectMatrixToCanvasData(
   apiData: ProjectMatrixApiData,
@@ -1130,16 +1096,16 @@ function convertProjectMatrixToCanvasData(
       id: String(goal.id),
       index: goalIdx + 1,
       description: goal.description || "",
+      originalId: goal.id,
+      project_id: project.id,
+      product: goal.product,
     }))
 
     // 阶段 2b：获取该项目的全部数据行
     const projectDataItems = projectDataMap.get(String(project.id)) || []
 
-    // 阶段 2c：按课点 ID 分组并建立目标支撑映射
-    const coursePointMap = buildCoursePointGrouping(projectDataItems)
-
-    // 阶段 2d：将课点分组转换为行数据
-    const rows = transformCoursePointsToRows(coursePointMap, taskObjectives, ksaMap)
+    // 阶段 2c：保留原始 project_matrix 行粒度，避免聚合后无法准确回写
+    const rows = transformProjectDataItemsToRows(projectDataItems, taskObjectives, ksaMap)
 
     // 阶段 2e：组装项目结果
     const chapterName = chapterNameMap.get(project.id) || project.name || ""
@@ -1148,6 +1114,8 @@ function convertProjectMatrixToCanvasData(
       chapter_id: `chapter_${projectIdx + 1}`,
       chapter_index: project.indexNo || projectIdx + 1,
       chapter_name: chapterName,
+      project_id: project.id,
+      course_unit_id: project.courseUnitId,
       task_objectives: taskObjectives,
       rows,
     }
@@ -1480,8 +1448,12 @@ export function convertCourseToCanvasComplete(
     const categoryIndices: Record<string, number> = { K: 0, S: 0, A: 0 }
     const ksaItems = sortedKsas.map((ksa) => {
       const idx = ++categoryIndices[ksa.validCategory]
+      const businessId = getKsaReferenceId({
+        id: ksa.id ?? `ksa_${ksa.validCategory}_${idx}`,
+        originalId: ksa.id ?? undefined,
+      }) || `ksa_${ksa.validCategory}_${idx}`
       return {
-        id: `ksa_${ksa.validCategory}_${idx}`,
+        id: businessId,
         category: ksa.validCategory,
         index: idx,
         content: ksa.content || ksa.description || "",
@@ -1507,9 +1479,13 @@ export function convertCourseToCanvasComplete(
     sortedKsas.forEach((ksa, sortedIndex) => {
       const categoryIdx = ++cardCategoryIndices[ksa.validCategory]
       const cardId = `ksa_${ksa.validCategory}_${categoryIdx}`
+      const businessId = getKsaReferenceId({
+        id: ksa.id ?? cardId,
+        originalId: ksa.id ?? undefined,
+      }) || cardId
 
       const cardData: KsaItemData = {
-        id: cardId,
+        id: businessId,
         category: ksa.validCategory,
         index: categoryIdx,
         content: ksa.content || ksa.description || "",

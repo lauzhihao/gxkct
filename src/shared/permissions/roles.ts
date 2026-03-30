@@ -31,7 +31,7 @@ export const PERMISSION_ROLES: PermissionRoleMap = {
   1901: {
     key: "mentor",
     name: "指导老师",
-    description: "指导教师角色，默认不开放组织成员管理操作",
+    description: "指导教师角色，可开设专业并管理本人负责的课程相关内容",
   },
   2001: {
     key: "majorAdmin",
