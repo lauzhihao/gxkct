@@ -6,7 +6,7 @@ services:
     # 如无私有 Registry，改为本地构建：build: .
     image: ${DOCKER_REGISTRY}/gxkct-web:${DOCKER_IMAGE_TAG:-latest}
 
-    container_name: gxkct-preview
+    container_name: ${CONTAINER_NAME:-gxkct-preview}
 
     # 端口映射：容器 3000 -> 主机 3000（nginx 反向代理使用）
     ports:
