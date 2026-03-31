@@ -4,10 +4,12 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
 import { api } from '@/lib/api'
+import { useSemesterStore } from '@/shared/stores/semester-store'
 // 登录状态在本地处理，不再展示全局 toast
 
 export function LoginForm() {
   const router = useRouter()
+  const syncFromAuthContext = useSemesterStore((state) => state.syncFromAuthContext)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [usernameError, setUsernameError] = useState('')
@@ -52,6 +54,15 @@ export function LoginForm() {
       }
 
       setUsernameError('')
+
+      if (response.data) {
+        syncFromAuthContext({
+          currentSemesterId: response.data.currentSemesterId,
+          selectedSemesterId: response.data.currentSemesterId,
+          semesterList: response.data.semesterList,
+        })
+      }
+
       // 登录成功后跳转到首页
       router.push('/')
     } catch (error) {

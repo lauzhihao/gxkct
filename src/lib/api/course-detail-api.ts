@@ -349,8 +349,6 @@ export class CourseDetailApi {
         }
       }
 
-      console.log("[CourseDetailApi] 专业详情数据加载成功", response.data)
-
       return {
         data: response.data,
         error: null,

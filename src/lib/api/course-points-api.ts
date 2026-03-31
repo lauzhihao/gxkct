@@ -43,8 +43,6 @@ export class CoursePointsApi {
         }
       }
 
-      console.log("[CoursePointsApi] 课点列表加载成功", response.data)
-
       return {
         data: response.data,
         error: null,

@@ -26,19 +26,30 @@ export function resolvePreferredSelectedSemesterId(input: InitializeSemesterStat
   const availableSemesterIds = new Set<number>()
 
   semesterList.forEach((semester) => {
-    availableSemesterIds.add(semester.id)
+    availableSemesterIds.add(Number(semester.id))
   })
 
-  if (selectedSemesterId !== null && availableSemesterIds.has(selectedSemesterId)) {
-    return selectedSemesterId
+  // [MOD] 逻辑重构：严格按照用户要求的优先级
+  // 1. 优先保留用户手动切换的“查看视图”
+  const targetSelectedId = selectedSemesterId !== null ? Number(selectedSemesterId) : null
+  if (targetSelectedId !== null && availableSemesterIds.has(targetSelectedId)) {
+    return targetSelectedId
   }
 
-  if (currentSemesterId !== null && availableSemesterIds.has(currentSemesterId)) {
-    return currentSemesterId
+  // 2. 如果没有手动选中的，则使用接口返回的 isCurrent === true 的项
+  const serverCurrentSemester = semesterList.find(s => s.isCurrent === true || Number(s.isCurrent) === 1)
+  if (serverCurrentSemester) {
+    return Number(serverCurrentSemester.id)
+  }
+
+  // 3. 兜底逻辑：使用 currentSemesterId
+  const targetCurrentId = currentSemesterId !== null ? Number(currentSemesterId) : null
+  if (targetCurrentId !== null && availableSemesterIds.has(targetCurrentId)) {
+    return targetCurrentId
   }
 
   if (semesterList.length > 0) {
-    return semesterList[0].id
+    return Number(semesterList[0].id)
   }
 
   return null

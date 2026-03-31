@@ -14,6 +14,7 @@ export function useSemesterReadonly(): boolean {
       return false
     }
 
-    return selectedSemesterId !== currentSemesterId
+    // [MOD] 使用 Number 强制转换进行对比，解决 String/Number 不匹配导致的只读判定错误
+    return Number(selectedSemesterId) !== Number(currentSemesterId)
   }, [currentSemesterId, selectedSemesterId])
 }

@@ -108,13 +108,11 @@ function isSemesterBriefArray(value: unknown): value is SemesterBrief[] {
     const schoolYear = candidate.schoolYear
     const termType = candidate.termType
 
-    return typeof candidate.id === "number"
-      && typeof candidate.collegeId === "number"
-      && (typeof schoolYear === "string" || typeof schoolYear === "number")
-      && (typeof termType === "string" || typeof termType === "number")
-      && typeof candidate.name === "string"
-      && typeof candidate.status === "string"
-      && typeof candidate.isCurrent === "boolean"
+    // [MOD] 增强容错性：放宽对 isCurrent 和 status 的校验要求，支持数字和缺失情况
+    const hasId = typeof candidate.id === "number" || typeof candidate.id === "string"
+    const hasName = typeof candidate.name === "string"
+    
+    return hasId && hasName
   })
 }
 

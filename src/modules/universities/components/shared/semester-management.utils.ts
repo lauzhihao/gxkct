@@ -29,10 +29,24 @@ export function canViewSemesterManagement(userId: number | null): boolean {
 }
 
 export function canSetSemesterAsCurrent(semester: SemesterBrief): boolean {
-  return semester.isCurrent !== true && semester.status === "READY"
+  return semester.isCurrent !== true
 }
 
 function parseSchoolYear(value: string | number, semesterName: string): ParsedSchoolYear {
+  // [MOD] 优先从名称中提取学年范围 (yyyy-yyyy)，因为这更符合用户的视觉预期
+  const nameMatch = semesterName.match(/(\d{4})[-/](\d{4})/)
+  if (nameMatch) {
+    const startYear = Number.parseInt(nameMatch[1], 10)
+    const endYear = Number.parseInt(nameMatch[2], 10)
+    if (endYear === startYear + 1) {
+      return {
+        kind: "academic-range",
+        startYear,
+        endYear,
+      }
+    }
+  }
+
   if (typeof value === "number" && Number.isInteger(value) && value >= 1000 && value <= 9999) {
     return {
       kind: "calendar",
@@ -87,7 +101,10 @@ function parseSemesterTerm(semester: SemesterBrief): RecognizedSemesterTerm {
   throw new Error(`无法识别学期类型: ${name}`)
 }
 
-export function buildNextSemesterDraft(sourceSemester: SemesterBrief): SemesterBootstrapDraft {
+export function buildNextSemesterDraft(
+  sourceSemester: SemesterBrief,
+  existingSemesters: SemesterBrief[] = []
+): SemesterBootstrapDraft {
   const currentSchoolYear = parseSchoolYear(sourceSemester.schoolYear, sourceSemester.name)
   const currentTerm = parseSemesterTerm(sourceSemester)
 
@@ -95,29 +112,33 @@ export function buildNextSemesterDraft(sourceSemester: SemesterBrief): SemesterB
     throw new Error("暂不支持基于夏季学期创建下一学期")
   }
 
-  const nextTerm: CreateSemesterTermType = currentTerm === "SPRING" ? "AUTUMN" : "SPRING"
+  // [MOD] 保持学期类型不变，年份递增，并根据现有列表自动去重
+  const nextTerm: CreateSemesterTermType = currentTerm === "SPRING" ? "SPRING" : "AUTUMN"
+  const nextTermLabel = nextTerm === "AUTUMN" ? "第一学期" : "第二学期"
 
-  let nextSchoolYear: string
-  if (currentSchoolYear.kind === "calendar") {
-    const nextYear = currentTerm === "AUTUMN" ? currentSchoolYear.year + 1 : currentSchoolYear.year
-    nextSchoolYear = String(nextYear)
-  } else {
-    const nextStartYear = currentTerm === "SPRING"
-      ? currentSchoolYear.startYear + 1
-      : currentSchoolYear.startYear
-    const nextEndYear = currentTerm === "SPRING"
-      ? currentSchoolYear.endYear + 1
-      : currentSchoolYear.endYear
-    nextSchoolYear = `${nextStartYear}-${nextEndYear}`
+  let nextYearOffset = 1
+  let nextSemesterName = ""
+  let nextSchoolYear = ""
+
+  const existingNames = new Set(existingSemesters.map((s) => s.name))
+
+  while (true) {
+    if (currentSchoolYear.kind === "calendar") {
+      const nextYear = currentSchoolYear.year + nextYearOffset
+      nextSchoolYear = String(nextYear)
+      nextSemesterName = `${nextSchoolYear}学年${nextTermLabel}`
+    } else {
+      const nextStartYear = currentSchoolYear.startYear + nextYearOffset
+      const nextEndYear = currentSchoolYear.endYear + nextYearOffset
+      nextSchoolYear = `${nextStartYear}-${nextEndYear}`
+      nextSemesterName = `${nextSchoolYear}学年${nextTermLabel}`
+    }
+
+    if (!existingNames.has(nextSemesterName)) {
+      break
+    }
+    nextYearOffset += 1
   }
-
-  const usesAcademicSemesterName = sourceSemester.name.includes("第一学期") || sourceSemester.name.includes("第二学期")
-  const nextTermLabel = nextTerm === "SPRING" ? "春季学期" : "秋季学期"
-  const nextSemesterName = usesAcademicSemesterName
-    ? `${nextSchoolYear}学年${nextTerm === "AUTUMN" ? "第一学期" : "第二学期"}`
-    : currentSchoolYear.kind === "academic-range"
-      ? `${nextSchoolYear}学年${nextTermLabel}`
-      : `${nextSchoolYear}年${nextTermLabel}`
 
   return {
     schoolYear: nextSchoolYear,

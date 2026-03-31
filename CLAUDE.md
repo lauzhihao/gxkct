@@ -86,3 +86,12 @@ It is a SEVERE VIOLATION to perform [MODE: PLAN] and [MODE: EXECUTE] in the same
   export function Component() { ... }
   // ... context ...
   ```
+
+## 成本优化
+
+派发子任务时根据复杂度选择模型：
+- **haiku**: 简单任务（文件操作、执行明确命令、格式化、简单搜索）
+- **sonnet**: 中等任务（代码分析、调试、需要推理）
+- **opus**: 复杂任务（深度推理、架构设计、创造性工作）
+
+默认优先 haiku，必要时再升级。

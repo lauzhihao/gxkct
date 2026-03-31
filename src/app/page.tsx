@@ -111,9 +111,11 @@ export default function Page() {
     return firstNode || null
   }, [])
 
-  useEffect(() => {
-    initializeFromStoredContext(getStoredSemesterContext())
-  }, [initializeFromStoredContext])
+  // [MOD] 移除冗余的 initializeFromStoredContext 调用，因为它已经在 SemesterStore 初始化时执行，且在重登过程中由 LoginForm 处理。
+  // 此 useEffect 容易在 TreeData 加载时导致状态回流，从而显示“暂无学期”
+  // useEffect(() => {
+  //   initializeFromStoredContext(getStoredSemesterContext())
+  // }, [initializeFromStoredContext])
 
   useEffect(() => {
     selectedNodePathRef.current = selectedNodePath

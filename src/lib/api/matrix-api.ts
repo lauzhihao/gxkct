@@ -666,7 +666,6 @@ export class MatrixApi {
         }
       }
 
-      console.log("[getKsaList] 接口调用成功:", response.data)
       return {
         data: response.data,
         error: null,

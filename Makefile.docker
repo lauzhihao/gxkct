@@ -1,0 +1,96 @@
+.PHONY: deploy-help deploy logs restart stop shell health stats
+
+DOCKER_HOST ?= gxkct.com
+DOCKER_USER ?= root
+DOCKER_SSH_KEY ?=
+DOCKER_PORT ?= 3000
+DOCKER_API_URL ?= https://preview.gxkct.com/college
+DOCKER_ENV ?= preview
+DOCKER_CONTAINER ?= gxkct-preview
+
+# 部署命令帮助
+deploy-help:
+	@echo "Docker 部署命令："
+	@echo "  make deploy DOCKER_HOST=<host> DOCKER_API_URL=<url>"
+	@echo "    例子：make deploy DOCKER_HOST=gxkct.com DOCKER_API_URL=https://preview.gxkct.com/college"
+	@echo ""
+	@echo "管理命令："
+	@echo "  make logs DOCKER_HOST=gxkct.com           # 查看日志"
+	@echo "  make restart DOCKER_HOST=gxkct.com        # 重启容器"
+	@echo "  make stop DOCKER_HOST=gxkct.com           # 停止容器"
+	@echo "  make shell DOCKER_HOST=gxkct.com          # 进入容器"
+	@echo "  make health DOCKER_HOST=gxkct.com         # 检查健康状态"
+	@echo "  make stats DOCKER_HOST=gxkct.com          # 查看资源占用"
+
+# 部署
+deploy:
+	@test -n "$(DOCKER_HOST)" || (echo "Error: DOCKER_HOST not set"; exit 1)
+	@test -n "$(DOCKER_API_URL)" || (echo "Error: DOCKER_API_URL not set"; exit 1)
+	@bash bin/deploy-fresh-server.sh \
+		--host $(DOCKER_HOST) \
+		--remote-user $(DOCKER_USER) \
+		--api-base-url $(DOCKER_API_URL) \
+		--port $(DOCKER_PORT) \
+		--next-public-environment $(DOCKER_ENV) \
+		--container-name $(DOCKER_CONTAINER) \
+		$(if $(DOCKER_SSH_KEY),--ssh-key $(DOCKER_SSH_KEY),)
+
+# 查看日志
+logs:
+	@test -n "$(DOCKER_HOST)" || (echo "Error: DOCKER_HOST not set"; exit 1)
+	@bash bin/docker-manage.sh \
+		--host $(DOCKER_HOST) \
+		--remote-user $(DOCKER_USER) \
+		--container $(DOCKER_CONTAINER) \
+		$(if $(DOCKER_SSH_KEY),--ssh-key $(DOCKER_SSH_KEY),) \
+		logs
+
+# 重启容器
+restart:
+	@test -n "$(DOCKER_HOST)" || (echo "Error: DOCKER_HOST not set"; exit 1)
+	@bash bin/docker-manage.sh \
+		--host $(DOCKER_HOST) \
+		--remote-user $(DOCKER_USER) \
+		--container $(DOCKER_CONTAINER) \
+		$(if $(DOCKER_SSH_KEY),--ssh-key $(DOCKER_SSH_KEY),) \
+		restart
+
+# 停止容器
+stop:
+	@test -n "$(DOCKER_HOST)" || (echo "Error: DOCKER_HOST not set"; exit 1)
+	@bash bin/docker-manage.sh \
+		--host $(DOCKER_HOST) \
+		--remote-user $(DOCKER_USER) \
+		--container $(DOCKER_CONTAINER) \
+		$(if $(DOCKER_SSH_KEY),--ssh-key $(DOCKER_SSH_KEY),) \
+		stop
+
+# 进入容器 Shell
+shell:
+	@test -n "$(DOCKER_HOST)" || (echo "Error: DOCKER_HOST not set"; exit 1)
+	@bash bin/docker-manage.sh \
+		--host $(DOCKER_HOST) \
+		--remote-user $(DOCKER_USER) \
+		--container $(DOCKER_CONTAINER) \
+		$(if $(DOCKER_SSH_KEY),--ssh-key $(DOCKER_SSH_KEY),) \
+		shell
+
+# 检查健康状态
+health:
+	@test -n "$(DOCKER_HOST)" || (echo "Error: DOCKER_HOST not set"; exit 1)
+	@bash bin/docker-manage.sh \
+		--host $(DOCKER_HOST) \
+		--remote-user $(DOCKER_USER) \
+		--container $(DOCKER_CONTAINER) \
+		$(if $(DOCKER_SSH_KEY),--ssh-key $(DOCKER_SSH_KEY),) \
+		health
+
+# 查看资源占用
+stats:
+	@test -n "$(DOCKER_HOST)" || (echo "Error: DOCKER_HOST not set"; exit 1)
+	@bash bin/docker-manage.sh \
+		--host $(DOCKER_HOST) \
+		--remote-user $(DOCKER_USER) \
+		--container $(DOCKER_CONTAINER) \
+		$(if $(DOCKER_SSH_KEY),--ssh-key $(DOCKER_SSH_KEY),) \
+		stats

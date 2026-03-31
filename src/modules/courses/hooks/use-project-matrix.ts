@@ -208,13 +208,8 @@ export function useProjectMatrix(node: TreeNode, majorId?: string | number): Use
         if (!responseData) {
           console.warn("[useProjectMatrix] 项目矩阵响应结构异常:", projectMatrixResponse.data)
         } else {
-          console.log("[useProjectMatrix] projects结构:", JSON.stringify(responseData.projects?.[0], null, 2))
           console.log("[useProjectMatrix] data数组长度:", responseData.data?.length)
-          if (responseData.data?.length > 0) {
-            console.log("[useProjectMatrix] data[0]结构:", JSON.stringify(responseData.data[0], null, 2))
-          }
           const convertedData = convertToProjectMatrixData(responseData)
-          console.log("[useProjectMatrix] 转换后的数据:", JSON.stringify(convertedData, null, 2))
           setProjectMatrixData(convertedData)
         }
       }
@@ -223,7 +218,6 @@ export function useProjectMatrix(node: TreeNode, majorId?: string | number): Use
       if (majorIdValue && courseIdValue) {
         try {
           const ksaListResponse = await projectMatrixApi.getKsaList(String(majorIdValue), String(courseIdValue))
-          console.log("[useProjectMatrix] KSA列表响应:", ksaListResponse)
           if (ksaListResponse.error) {
             console.error("[useProjectMatrix] 获取KSA列表失败:", ksaListResponse.error)
             // 如果API调用失败，使用模拟数据
@@ -238,7 +232,6 @@ export function useProjectMatrix(node: TreeNode, majorId?: string | number): Use
             ]
             setKsaListData(mockKsaData)
           } else if (ksaListResponse.data) {
-            console.log("[useProjectMatrix] KSA列表加载成功:", ksaListResponse.data)
             const ksaArray = Array.isArray(ksaListResponse.data) ? ksaListResponse.data : []
             setKsaListData(ksaArray)
           }

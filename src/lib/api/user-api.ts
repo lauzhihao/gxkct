@@ -223,6 +223,18 @@ export class UserApi {
         }
       }
 
+      // [MOD] 针对特殊用户（如 ID 40），如果 getcurrentdepartment 返回了实际学院 ID，则需要重新加载该学院的学期列表
+      const finalCollegeId = resolvedUser.collegeId
+      if (typeof finalCollegeId === "number" && (semesterList.length === 0 || finalCollegeId !== response.data.user.collegeId)) {
+        console.log(`[UserApi] 正在为学院 ${finalCollegeId} 重新加载学期列表...`)
+        const semesterRes = await this.httpAdapter.get<SemesterBrief[]>(`/api/v5/colleges/${finalCollegeId}/semesters`)
+        if (semesterRes.data) {
+          semesterList = parseSemesterBriefList({ semesterList: semesterRes.data }, "semesterList")
+          const currentFromList = semesterList.find((s) => s.isCurrent)
+          currentSemesterId = currentFromList ? currentFromList.id : (semesterList.length > 0 ? semesterList[0].id : null)
+        }
+      }
+
       // 保存用户信息到localStorage
       setStoredAuthUser(resolvedUser)
       setStoredSemesterContext({

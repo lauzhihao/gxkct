@@ -60,8 +60,10 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
   const currentUserId = getCurrentUserId()
   const canOpenSemesterManagement = canViewSemesterManagement(currentUserId)
   const isReadonly = useSemesterReadonly()
+  const currentSemesterId = useSemesterStore((state) => state.currentSemesterId)
   const updateCurrentSemesterId = useSemesterStore((state) => state.updateCurrentSemesterId)
   const updateSemesterList = useSemesterStore((state) => state.updateSemesterList)
+  const globalSemesterList = useSemesterStore((state) => state.semesterList)
   const selectedSemesterId = useSemesterStore((state) => state.selectedSemesterId)
   const setSelectedSemesterId = useSemesterStore((state) => state.setSelectedSemesterId)
 
@@ -71,6 +73,8 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
   const [draft, setDraft] = useState<DraftState | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isPolling, setIsPolling] = useState(false)
+  const [pollCount, setPollCount] = useState(0)
   const [pendingCurrentSemester, setPendingCurrentSemester] = useState<SemesterBrief | null>(null)
   const [switchingSemesterId, setSwitchingSemesterId] = useState<number | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -142,7 +146,7 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
   }, [loadSemesters, resetTransientState])
 
   const currentSemester = useMemo(() => getCurrentSemesterItem(semesterList), [semesterList])
-  const selectedSemester = useMemo(() => semesterList.find(s => s.id === selectedSemesterId) || null, [semesterList, selectedSemesterId])
+  const selectedSemester = useMemo(() => globalSemesterList.find(s => Number(s.id) === Number(selectedSemesterId)) || null, [globalSemesterList, selectedSemesterId])
 
   useEffect(() => {
     loadRequestIdRef.current += 1
@@ -163,6 +167,38 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
     void loadSemesters()
   }, [loadSemesters])
 
+  // [MOD] 自动轮询新创建学期的状态
+  useEffect(() => {
+    if (!isPolling || !isDialogOpen) {
+      return
+    }
+
+    // 最多轮询 5 次 (约 10 秒)
+    if (pollCount >= 5) {
+      setIsPolling(false)
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      const latestList = await loadSemesters()
+      setPollCount((prev) => prev + 1)
+
+      // [MOD] 轮询期间如果发现列表更新，同步更新全局 Store
+      if (latestList) {
+        updateSemesterList(latestList)
+      }
+
+      if (latestList && latestList.every((s) => s.status === "READY")) {
+        setIsPolling(false)
+      }
+    }, 2000)
+
+
+    return () => {
+      clearTimeout(timer)
+    }
+  }, [isPolling, pollCount, isDialogOpen, loadSemesters])
+
   const filteredSemesterList = useMemo(() => {
     const normalizedSearchTerm = searchTerm.trim().toLowerCase()
     if (!normalizedSearchTerm) {
@@ -174,7 +210,7 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
 
   const handleStartDraft = useCallback((sourceSemester: SemesterBrief) => {
     try {
-      const nextDraft = buildNextSemesterDraft(sourceSemester)
+      const nextDraft = buildNextSemesterDraft(sourceSemester, semesterList)
       setDraft({
         ...nextDraft,
         sourceSemesterName: sourceSemester.name,
@@ -185,7 +221,7 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
       setDraftError(message)
       showError(message, "无法创建学期")
     }
-  }, [])
+  }, [semesterList])
 
   const handleSaveDraft = useCallback(async () => {
     if (!draft) {
@@ -224,7 +260,14 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
 
       setDraft(null)
       showSuccess(`已提交“${trimmedName}”推进请求`, `当前阶段：${response.data.stage}`)
-      await loadSemesters()
+      setIsPolling(true)
+      setPollCount(0)
+      
+      // [MOD] 刷新列表并更新 Store
+      const latestSemesterList = await loadSemesters()
+      if (latestSemesterList) {
+        updateSemesterList(latestSemesterList)
+      }
     } catch (error) {
       if (saveRequestIdRef.current !== requestId || activeCollegeIdRef.current !== requestedCollegeId) {
         return
@@ -268,6 +311,7 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
 
       setPendingCurrentSemester(null)
       setIsDialogOpen(false)
+      setSelectedSemesterId(semester.id)
       updateCurrentSemesterId(semester.id)
       const latestSemesterList = await loadSemesters()
       if (latestSemesterList) {
@@ -287,7 +331,7 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
         setSwitchingSemesterId(null)
       }
     }
-  }, [collegeId, loadSemesters, pendingCurrentSemester, updateCurrentSemesterId, updateSemesterList])
+  }, [collegeId, loadSemesters, pendingCurrentSemester, setSelectedSemesterId, updateCurrentSemesterId, updateSemesterList])
 
   const currentSemesterLabel = selectedSemester
     ? `${selectedSemester.name}${isReadonly ? " (只读)" : ""}`
@@ -344,19 +388,13 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
             {isLoading ? <Spinner className="h-4 w-4 shrink-0 text-primary" /> : null}
           </div>
 
-          <div className="rounded-xl border border-border bg-background/60">
+          <div className="rounded-xl border border-border bg-background/60 overflow-hidden">
             {canOpenSemesterManagement && draft ? (
-              <div className="border-b border-emerald-200/70 bg-emerald-50/70 px-4 py-3 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+              <div className="border-b border-primary/20 bg-primary/10 px-4 py-3 dark:border-primary/50 dark:bg-primary/5">
                 <div className="flex items-start gap-3">
                   <div className="min-w-0 flex-1">
-                    <div className="rounded-md border border-emerald-200 bg-background px-3 py-2 text-sm font-medium text-foreground">
+                    <div className="rounded-md border border-primary/20 bg-background px-3 py-2 text-sm font-medium text-foreground shadow-sm">
                       {draft.name}
-                    </div>
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      基于 “{draft.sourceSemesterName}” 推进到下一学期，保存后会调用后台 bootstrap 流程。
-                    </div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      目标学年：{draft.schoolYear}，目标学期：{draft.targetTermType}
                     </div>
                     {draftError ? <div className="mt-2 text-xs font-medium text-destructive">{draftError}</div> : null}
                   </div>
@@ -366,7 +404,7 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
                       size="icon"
                       onClick={() => void handleSaveDraft()}
                       disabled={isSaving}
-                      className="h-9 w-9 rounded-full bg-emerald-600 text-white hover:bg-emerald-700"
+                      className="h-9 w-9 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
                       aria-label="保存新学期"
                     >
                       {isSaving ? <Spinner className="h-4 w-4" /> : <Check className="h-4 w-4" />}
@@ -377,7 +415,7 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
                       variant="ghost"
                       onClick={handleCancelDraft}
                       disabled={isSaving}
-                      className="h-9 w-9 rounded-full border border-destructive/20 text-destructive hover:bg-destructive/10"
+                      className="h-9 w-9 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90 border-none shadow-sm"
                       aria-label="取消创建学期"
                     >
                       <X className="h-4 w-4" />
@@ -409,8 +447,8 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
                 <TooltipProvider>
                   <div className="divide-y divide-border">
                   {filteredSemesterList.map((semester) => {
-                    const isCurrentSemester = semester.isCurrent
-                    const isSelected = semester.id === selectedSemesterId
+                    const isCurrentSemester = Number(semester.id) === Number(currentSemesterId)
+                    const isSelected = Number(semester.id) === Number(selectedSemesterId)
                     const canSetCurrent = canSetSemesterAsCurrent(semester)
                     const isSwitchingCurrent = switchingSemesterId === semester.id
                     const isDraftBlocked = draft !== null || isSaving || isLoading || switchingSemesterId !== null
@@ -461,36 +499,41 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
                             </Tooltip>
                           )}
 
-                          {/* 管理操作 - 仅管理员可见 */}
-                          {canOpenSemesterManagement && (
-                            <div className="flex items-center gap-2 border-l border-border pl-2 ml-1">
-                              {isCurrentSemester ? (
-                                <div className="flex h-9 w-9 items-center justify-center text-primary/40">
-                                  <Flag className="h-[18px] w-[18px]" fill="currentColor" />
-                                </div>
-                              ) : canSetCurrent ? (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      type="button"
-                                      size="icon"
-                                      variant="ghost"
-                                      onClick={() => setPendingCurrentSemester(semester)}
-                                      disabled={isDraftBlocked}
-                                      className={cn(
-                                        "h-9 w-9 rounded-full border border-border/70 text-primary transition-all",
-                                        isDraftBlocked
-                                          ? "opacity-0 group-hover:opacity-30 focus-visible:opacity-30"
-                                          : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
-                                      )}
-                                      aria-label={`将${semester.name}设为全校当前学期`}
-                                    >
-                                      {isSwitchingCurrent ? <Spinner className="h-[18px] w-[18px]" /> : <Flag className="h-[18px] w-[18px]" />}
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top">设为全校当前</TooltipContent>
-                                </Tooltip>
-                              ) : null}
+                      {canOpenSemesterManagement && (
+                        <div className="flex items-center gap-2 border-l border-border pl-2 ml-1">
+                          {isCurrentSemester ? (
+                            <div className="flex h-9 w-9 items-center justify-center text-primary/40">
+                              <Flag className="h-[18px] w-[18px]" fill="currentColor" />
+                            </div>
+                          ) : canSetCurrent ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => setPendingCurrentSemester(semester)}
+                                  disabled={isDraftBlocked || semester.status !== "READY"}
+                                  className={cn(
+                                    "h-9 w-9 rounded-full border border-border/70 text-primary transition-all",
+                                    (isDraftBlocked || semester.status !== "READY")
+                                      ? "opacity-0 group-hover:opacity-30 focus-visible:opacity-30"
+                                      : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
+                                  )}
+                                  aria-label={`将${semester.name}设为全校当前学期`}
+                                >
+                                  {isSwitchingCurrent ? (
+                                    <Spinner className="h-[18px] w-[18px]" />
+                                  ) : (
+                                    <Flag className={cn("h-[18px] w-[18px]", semester.status !== "READY" && "text-muted-foreground/50")} />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                {semester.status === "READY" ? "设为全校当前" : "学期正在复制中，请稍后操作"}
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : null}
 
                               <Tooltip>
                                 <TooltipTrigger asChild>

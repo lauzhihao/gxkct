@@ -659,7 +659,7 @@ export const CanvasDrawers = memo(function CanvasDrawers({
           <SheetHeader className="px-6 pt-6 pb-4 border-b border-border flex-shrink-0">
             <SheetTitle>编辑教学目标</SheetTitle>
           </SheetHeader>
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-hidden">
             <CanvasObjectiveEditor
               objectives={objectiveDrawerDisplayData.objectives}
               objectiveGroups={objectiveDrawerDisplayData.objectiveGroups}
