@@ -297,14 +297,18 @@ export class CourseDetailApi {
    * 保存课程数据
    * @param data 课程保存请求数据
    */
-  async saveCourseUnit(data: SaveCourseUnitRequest): Promise<ApiResponse<any>> {
+  /**
+   * [MOD] 新增课程（使用新的 v5 接口）
+   * @param data 课程数据（SaveCourseUnitRequest 格式，body 一模一样）
+   */
+  async createCourse(data: SaveCourseUnitRequest): Promise<ApiResponse<any>> {
     try {
-      console.log(`[CourseDetailApi] 保存课程数据`, data)
+      console.log(`[CourseDetailApi] 新增课程数据`, data)
 
-      const response = await this.storage.postToApi<any>('/api/major/v2.0/savecourseunit', data)
+      const response = await this.storage.postToApi<any>('/api/v5/matrix/courses', data)
 
       if (response.error) {
-        console.error("[CourseDetailApi] 保存课程失败:", response.error)
+        console.error("[CourseDetailApi] 新增课程失败:", response.error)
         return {
           data: null,
           error: response.error,
@@ -312,7 +316,7 @@ export class CourseDetailApi {
         }
       }
 
-      console.log("[CourseDetailApi] 课程保存成功", response.data)
+      console.log("[CourseDetailApi] 课程新增成功", response.data)
 
       return {
         data: response.data,
@@ -320,7 +324,39 @@ export class CourseDetailApi {
         status: 200,
       }
     } catch (error) {
-      console.error("[CourseDetailApi] 保存课程失败:", error)
+      console.error("[CourseDetailApi] 新增课程失败:", error)
+      return {
+        data: null,
+        error: String(error),
+        status: 500,
+      }
+    }
+  }
+
+  async saveCourseUnit(data: SaveCourseUnitRequest): Promise<ApiResponse<any>> {
+    try {
+      console.log(`[CourseDetailApi] 编辑课程数据`, data)
+
+      const response = await this.storage.postToApi<any>('/api/major/v2.0/savecourseunit', data)
+
+      if (response.error) {
+        console.error("[CourseDetailApi] 编辑课程失败:", response.error)
+        return {
+          data: null,
+          error: response.error,
+          status: response.status,
+        }
+      }
+
+      console.log("[CourseDetailApi] 课程编辑成功", response.data)
+
+      return {
+        data: response.data,
+        error: null,
+        status: 200,
+      }
+    } catch (error) {
+      console.error("[CourseDetailApi] 编辑课程失败:", error)
       return {
         data: null,
         error: String(error),
@@ -356,6 +392,53 @@ export class CourseDetailApi {
       }
     } catch (error) {
       console.error("[CourseDetailApi] 获取专业详情失败:", error)
+      return {
+        data: null,
+        error: String(error),
+        status: 500,
+      }
+    }
+  }
+
+  /**
+   * 删除课程
+   * @param semesterId 学期ID
+   * @param courseUnitId 课程单元ID
+   */
+  async deleteCourse(semesterId: number | string | null | undefined, courseUnitId: number | string | null | undefined): Promise<ApiResponse<any>> {
+    try {
+      // 参数验证
+      if (!semesterId) {
+        throw new Error("学期ID不能为空")
+      }
+      if (!courseUnitId) {
+        throw new Error("课程单元ID不能为空")
+      }
+
+      console.log(`[CourseDetailApi] 删除课程，semesterId: ${semesterId}, courseUnitId: ${courseUnitId}`)
+
+      const response = await this.storage.deleteFromApi<any>(
+        `/api/v5/matrix/semesters/${semesterId}/courses/${courseUnitId}`
+      )
+
+      if (response.error) {
+        console.error("[CourseDetailApi] 删除课程失败:", response.error)
+        return {
+          data: null,
+          error: response.error,
+          status: response.status,
+        }
+      }
+
+      console.log("[CourseDetailApi] 课程删除成功", response.data)
+
+      return {
+        data: response.data,
+        error: null,
+        status: 200,
+      }
+    } catch (error) {
+      console.error("[CourseDetailApi] 删除课程失败:", error)
       return {
         data: null,
         error: String(error),
