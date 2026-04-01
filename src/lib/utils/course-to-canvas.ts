@@ -426,7 +426,9 @@ function createCourseInfoElement(
       courseType: getCourseType(course.classId),
       courseNatureId: course.typeId,
       courseNatureName: getCourseNature(course.typeId),
-      openingDate: course.createTime,
+      // [MOD] 改为开课学期字段（暂时保留兼容逻辑）
+      openingSemesterId: (course as any).openingSemesterId,
+      openingSemesterDisplay: (course as any).openingSemesterDisplay,
       // 扩展字段
       teachingClass: course.teachingClass,
       teachingLocation: course.teachingLocation,
@@ -1589,7 +1591,7 @@ export function convertCourseToCanvasComplete(
         )
         const courseReportData: CourseReportCardData = {
           id: "course_report_loaded",
-          name: "开课报告",
+          name: "开课说明",
         }
         const courseReportElement: CanvasElementData = {
           id: courseReportData.id,

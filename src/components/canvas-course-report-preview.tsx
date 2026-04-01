@@ -1,7 +1,7 @@
 "use client"
 
 /**
- * 画布开课报告预览组件
+ * 画布开课说明预览组件
  * 从画布节点数据汇总展示课程体系完整信息（只读模式，用于导出）
  */
 
@@ -29,7 +29,7 @@ import { showError, showSuccess } from "@/shared/utils/toast-utils"
 import { getStoredAuthUser } from "@/lib/api/auth-config"
 import { exportReport } from "@/modules/courses/report/api"
 
-// 开课报告预览数据结构
+// 开课说明预览数据结构
 export interface CourseReportPreviewData {
   // 课程基本信息
   courseInfo: CourseInfoData | null
@@ -106,17 +106,17 @@ function parseTeachingTime(teachingTime?: string): string {
 }
 
 function sanitizeFileName(rawName?: string): string {
-  if (!rawName) return "开课报告"
+  if (!rawName) return "开课说明"
   const sanitized = rawName
     .replace(/[\\/:*?"<>|]/g, "-")
     .replace(/\s+/g, " ")
     .trim()
-  return sanitized || "开课报告"
+  return sanitized || "开课说明"
 }
 
 function getExportFileBaseName(courseName?: string): string {
   const date = new Date().toISOString().slice(0, 10)
-  return `${sanitizeFileName(courseName || "开课报告")}_${date}`
+  return `${sanitizeFileName(courseName || "开课说明")}_${date}`
 }
 
 function extractNumericId(value: string | number | null | undefined): number | null {
@@ -426,7 +426,7 @@ function SectionTitle({
 }
 
 /**
- * 开课报告预览组件
+ * 开课说明预览组件
  */
 export function CanvasCourseReportPreview({
   data,
@@ -588,7 +588,8 @@ export function CanvasCourseReportPreview({
                   <InfoField label="课程名称" value={courseInfo.name} />
                   <InfoField label="课程类型" value={metadata?.courseType} />
                   <InfoField label="课程性质" value={metadata?.courseNatureName} />
-                  <InfoField label="开课日期" value={formatDate(metadata?.openingDate)} />
+                  {/* [MOD] 改为开课学期（只读显示） */}
+                  <InfoField label="开课学期" value={metadata?.openingSemesterDisplay} />
                   <InfoField label="理论学时" value={metadata?.theoryPeriod} />
                   <InfoField label="实践学时" value={metadata?.practicePeriod} />
                   <InfoField label="学分" value={metadata?.credits} />

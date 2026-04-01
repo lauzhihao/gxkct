@@ -164,7 +164,8 @@ export const CourseInfoNode = memo(function CourseInfoNode({
 
         {/* 基本信息网格 */}
         <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-          <InfoItem icon={Calendar} label="开课日期" value={formatDate(metadata?.openingDate)} />
+          {/* [MOD] 改为开课学期（只读显示） */}
+          <InfoItem icon={Calendar} label="开课学期" value={metadata?.openingSemesterDisplay} />
           <InfoItem icon={Users} label="学生人数" value={metadata?.studentCount ? `${metadata.studentCount}人` : undefined} />
           <InfoItem icon={MapPin} label="授课地点" value={metadata?.teachingLocation} />
           <InfoItem icon={Clock} label="授课时间" value={teachingTimeDisplay ?? undefined} />

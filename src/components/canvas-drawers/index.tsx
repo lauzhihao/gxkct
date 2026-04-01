@@ -323,7 +323,7 @@ export interface CanvasDrawersProps {
   onProjectMatrixSave: (matrixData: ProjectMatrixData) => void
   onProjectMatrixDrawerClose: () => void
 
-  // 开课报告预览抽屉状态和处理函数
+  // 开课说明预览抽屉状态和处理函数
   courseReportDrawer: CourseReportDrawerState
   onCourseReportDrawerClose: () => void
 
@@ -533,12 +533,13 @@ export const CanvasDrawers = memo(function CanvasDrawers({
                 majorId=""
                 isEditMode={true}
                 hideChapterSectionInEdit={true}
+                allowHourFieldEdit={true}
                 initialData={{
                   name: courseInfoData.name || "",
                   courseType: courseInfoData.metadata?.courseType || "必修",
                   courseNatureId: courseInfoData.metadata?.courseNatureId || 0,
                   introduction: courseInfoData.metadata?.introduction || "",
-                  openingDate: courseInfoData.metadata?.openingDate || "",
+                  // [MOD] 移除 openingDate，由表单自动获取当前学期
                   theoryPeriod: courseInfoData.metadata?.theoryPeriod ?? 0,
                   practicePeriod: courseInfoData.metadata?.practicePeriod ?? 0,
                   teachingClass: courseInfoData.metadata?.teachingClass || "",
@@ -723,7 +724,7 @@ export const CanvasDrawers = memo(function CanvasDrawers({
         </SheetContent>
       </Sheet>
 
-      {/* 开课报告预览抽屉 */}
+      {/* 开课说明预览抽屉 */}
       <Sheet
         open={courseReportDrawer.open}
         onOpenChange={(open) => {
@@ -734,7 +735,7 @@ export const CanvasDrawers = memo(function CanvasDrawers({
       >
         <SheetContent side="right" className="w-[800px] sm:max-w-[800px] p-0 flex flex-col">
           <SheetHeader className="px-6 pt-6 pb-4 border-b border-border flex-shrink-0">
-            <SheetTitle>开课报告预览</SheetTitle>
+            <SheetTitle>开课说明预览</SheetTitle>
           </SheetHeader>
           {courseReportDrawer.open && (
             <div className="flex-1 min-h-0 flex flex-col">

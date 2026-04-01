@@ -59,7 +59,7 @@ export enum CanvasComponentType {
   COURSE_MATRIX = "course_matrix",
   PROJECT_MATRIX_PANEL = "project_matrix_panel",
   PROJECT_MATRIX = "project_matrix",
-  // 开课报告
+  // 开课说明
   COURSE_REPORT = "course_report",
 }
 
@@ -80,7 +80,9 @@ export interface CourseInfoData {
   description?: string          // 兼容课程简介（表单用）
   // ======================================================
   metadata?: {
-    openingDate?: string
+    // [MOD] 改为开课学期（只读）
+    openingSemesterId?: number
+    openingSemesterDisplay?: string
     courseType?: string           // 课程类型：必修/选修
     courseNatureId?: number
     courseNatureName?: string     // 课程性质名称
@@ -399,7 +401,7 @@ export interface GraduationSupportData {
 }
 
 /**
- * 开课报告卡片数据（用于画布显示）
+ * 开课说明卡片数据（用于画布显示）
  */
 export interface CourseReportCardData {
   id: string

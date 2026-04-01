@@ -84,7 +84,9 @@ export interface TaskObjective {
 export interface CourseMetadata {
   courseType?: string
   courseNature?: string
-  openingDate?: string
+  // [MOD] 改为开课学期字段
+  openingSemesterId?: number
+  openingSemesterDisplay?: string
   teachingObjectives?: TeachingObjective[]
   coursePoints?: CoursePoint[]
   chapters?: Chapter[]
