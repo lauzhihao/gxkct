@@ -18,6 +18,8 @@ import { canvasApi } from "@/lib/api/canvas-api"
 import { RichTextEditor } from "@/shared/components/ui/rich-text-editor"
 import { usePermission } from "@/shared/hooks/use-permission"
 import type { PermissionAction } from "@/shared/permissions/types"
+import { useSemesterStore } from "@/shared/stores/semester-store"
+import type { SemesterBrief } from "@/types"
 
 const CREATE_COURSE_ACTION: PermissionAction = "major.course.create"
 const EDIT_COURSE_ACTION: PermissionAction = "course.detail.edit"
@@ -64,6 +66,7 @@ interface AddCourseFormProps {
   courseDetailData?: any
   hideChapterSectionInEdit?: boolean
   enableAutoSaveInEdit?: boolean
+  allowHourFieldEdit?: boolean
 }
 
 const DEFAULT_SCHEDULE_ROW = {
@@ -111,6 +114,7 @@ function AddCourseForm({
   courseDetailData,
   hideChapterSectionInEdit = false,
   enableAutoSaveInEdit = true,
+  allowHourFieldEdit = false,
 }: AddCourseFormProps) {
   const { toast } = useToast()
   const { can } = usePermission()
@@ -154,8 +158,29 @@ function AddCourseForm({
     return initialData?.id
   }, [initialData?.id])
 
+  // [MOD] 将开课日期改为开课学期（只读，显示全校当前学期）
+  const semesterList = useSemesterStore((state) => state.semesterList)
+  const currentSemesterId = useSemesterStore((state) => state.currentSemesterId)
+
+  // [MOD] 获取全校当前学期
+  const currentSemester = useMemo(() => {
+    if (!semesterList || semesterList.length === 0) {
+      return null
+    }
+    // 优先使用标记为 isCurrent 的学期
+    const current = semesterList.find((s) => s.isCurrent)
+    if (current) {
+      return current
+    }
+    // 如果没有标记，则使用 store 中的 currentSemesterId
+    if (currentSemesterId) {
+      return semesterList.find((s) => Number(s.id) === Number(currentSemesterId)) || null
+    }
+    return null
+  }, [semesterList, currentSemesterId])
+
   // Tab 1: Basic Information - 直接访问 initialData 的属性
-  const [openingDate, setOpeningDate] = useState(initialData?.openingDate || "")
+  const [openingSemesterId, setOpeningSemesterId] = useState<number | null>(currentSemester?.id ?? null)
   const [courseType, setCourseType] = useState(initialData?.courseType || "必修")
   const [courseName, setCourseName] = useState(initialData?.name || initialData?.nodeName || "")
   const [courseNatureId, setCourseNatureId] = useState<number>(initialData?.courseNatureId || 0)
@@ -442,13 +467,12 @@ function AddCourseForm({
       if (courseData.typeId) {
         setCourseNatureId(courseData.typeId)
       }
-      // 从 createTime 提取日期部分
-      if (courseData.createTime) {
-        const dateStr = courseData.createTime.split("T")[0]
-        setOpeningDate(dateStr)
+      // [MOD] 开课学期初始化为全校当前学期（移除旧的 createTime 逻辑）
+      if (currentSemester) {
+        setOpeningSemesterId(currentSemester.id)
       }
     }
-  }, [isEditMode, courseDetailData, initialData?.name, normalizeChapterProjects, parseTeachingSchedule])
+  }, [isEditMode, courseDetailData, initialData?.name, normalizeChapterProjects, parseTeachingSchedule, currentSemester])
 
   // Tab 3: Course Point Information Library
   const [coursePoints] = useState<CoursePoint[]>(
@@ -630,11 +654,25 @@ function AddCourseForm({
     }
   }, [])
 
+  // [MOD] 获取开课学期的显示名称
+  const openingSemesterDisplay = useMemo(() => {
+    if (!currentSemester) {
+      return "未找到当前学期"
+    }
+    return `${currentSemester.schoolYear}年 ${
+      currentSemester.termType === "SPRING" || currentSemester.termType === 1
+        ? "春季学期"
+        : "秋季学期"
+    }`
+  }, [currentSemester])
+
   const buildCourseData = useCallback(() => ({
     name: courseName,
     type: "course" as const,
     metadata: {
-      openingDate,
+      // [MOD] 改为开课学期 ID
+      openingSemesterId,
+      openingSemesterDisplay,
       courseType,
       courseNatureId,
       courseNatureName: courseNatureName,
@@ -682,7 +720,8 @@ function AddCourseForm({
     initialData?.children,
     introduction,
     mainTextbook,
-    openingDate,
+    openingSemesterId,
+    openingSemesterDisplay,
     otherSuggestions,
     practicePeriod,
     practiceRequirements,
@@ -973,16 +1012,13 @@ function AddCourseForm({
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="opening-date">开课日期</Label>
-                  <div className="relative">
-                    <Input
-                      id="opening-date"
-                      type="date"
-                      value={openingDate}
-                      onChange={(e) => setOpeningDate(e.target.value)}
-                      className="pr-10"
-                    />
-                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  {/* [MOD] 改为开课学期（只读） */}
+                  <Label>开课学期</Label>
+                  <div className="flex items-center px-3 py-2 bg-muted/30 border border-border rounded-md h-10">
+                    <span className="text-sm font-medium text-foreground flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-muted-foreground" />
+                      {openingSemesterDisplay}
+                    </span>
                   </div>
                 </div>
 
@@ -1079,7 +1115,7 @@ function AddCourseForm({
                     placeholder="例如：32"
                     value={theoryPeriod}
                     onChange={(e) => setTheoryPeriod(Number.parseInt(e.target.value) || 0)}
-                    readOnly={isEditMode}
+                    readOnly={isEditMode && !allowHourFieldEdit}
                   />
                 </div>
 
@@ -1092,7 +1128,7 @@ function AddCourseForm({
                     placeholder="例如：16"
                     value={practicePeriod}
                     onChange={(e) => setPracticePeriod(Number.parseInt(e.target.value) || 0)}
-                    readOnly={isEditMode}
+                    readOnly={isEditMode && !allowHourFieldEdit}
                   />
                 </div>
 
