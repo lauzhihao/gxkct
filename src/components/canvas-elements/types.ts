@@ -80,7 +80,7 @@ export interface CourseInfoData {
   description?: string          // 兼容课程简介（表单用）
   // ======================================================
   metadata?: {
-    // [MOD] 改为开课学期（只读）
+    // [MOD] 改为开课学期（只读，自动读取全校当前学期）
     openingSemesterId?: number
     openingSemesterDisplay?: string
     courseType?: string           // 课程类型：必修/选修

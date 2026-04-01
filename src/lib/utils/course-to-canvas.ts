@@ -426,7 +426,7 @@ function createCourseInfoElement(
       courseType: getCourseType(course.classId),
       courseNatureId: course.typeId,
       courseNatureName: getCourseNature(course.typeId),
-      // [MOD] 改为开课学期字段（暂时保留兼容逻辑）
+      // [MOD] 改为开课学期字段（由表单自动获取当前学期）
       openingSemesterId: (course as any).openingSemesterId,
       openingSemesterDisplay: (course as any).openingSemesterDisplay,
       // 扩展字段
