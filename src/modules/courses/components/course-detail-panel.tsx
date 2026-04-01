@@ -1,14 +1,25 @@
 "use client"
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import type { DetailPanelProps } from "@/components/detail-panel/types"
 import { convertCourseToCanvasComplete } from "@/lib/utils/course-to-canvas"
-import { BookOpen, Calendar, Pencil, User } from "lucide-react"
+import { BookOpen, Calendar, Pencil, Trash2, User } from "lucide-react"
 import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
 import { cn } from "@/shared/utils/utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
 import { Accordion } from "@/shared/components/ui/accordion"
 import { LoadingState } from "@/shared/components/ui/loading-state"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/shared/components/ui/alert-dialog"
+import { showError, showSuccess } from "@/shared/utils/toast-utils"
 import AddCourseForm from "@/components/add-course-form"
 import { api, type CombinedCourseDetail, type CourseGoal, type SaveCourseUnitRequest } from "@/lib/api"
 import { courseApiService } from "@/modules/courses/api"
@@ -249,7 +260,14 @@ const resolveCourseOrganizationFromTree = (params: {
   }
 }
 
-export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }: DetailPanelProps) {
+export function CourseDetail({
+  node,
+  onUpdateNode,
+  treeData,
+  selectedNodePath,
+  onNodeSelect,
+  onTreeRefresh
+}: DetailPanelProps) {
   const courseNode = node?.nodeType === "course" ? node : null
   const hasCourseEditPermission = useCourseEditPermission(courseNode)
   const selectedSemesterId = useSemesterStore((state) => state.selectedSemesterId)
@@ -267,6 +285,8 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
   const [activeTab, setActiveTab] = useState("info")
   const [activeMatrixTab, setActiveMatrixTab] = useState("courseMatrix")
   const [matrixRefreshToken, setMatrixRefreshToken] = useState(0)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [teachingObjectiveFilterData, setTeachingObjectiveFilterData] = useState<TeachingObjectiveFilterData>({
     majorIndicators: [],
     isLoadingMajorIndicators: false,
@@ -281,6 +301,24 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
     clearPreparedCanvasData,
   } = useAiCanvasStore()
   const prefetchedCanvasCourseIdRef = useRef<string | null>(null)
+
+  // [MOD] 计算开课学期显示信息 - 必须在所有条件返回之前调用
+  const semesterList = useSemesterStore((state) => state.semesterList)
+  const semesterDisplay = useMemo(() => {
+    if (!semesterList || semesterList.length === 0) {
+      return "-"
+    }
+    // 从 semesterList 中查找对应学期
+    const currentSemester = semesterList.find((s) => s.isCurrent) || semesterList.find((s) => Number(s.id) === Number(selectedSemesterId))
+    if (!currentSemester) {
+      return "-"
+    }
+    return `${currentSemester.schoolYear}年 ${
+      currentSemester.termType === "SPRING" || currentSemester.termType === 1
+        ? "春季学期"
+        : "秋季学期"
+    }`
+  }, [semesterList, selectedSemesterId])
 
   useEffect(() => {
     if (!courseNode) return
@@ -609,6 +647,68 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
     }
 
     setContentView("syllabus")
+  }
+
+  const handleDeleteCourse = async () => {
+    if (!courseEditable) {
+      console.warn("[CourseDetail] delete course blocked by permission or ownership")
+      return
+    }
+
+    setShowDeleteConfirm(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    // 参数验证
+    if (!selectedSemesterId) {
+      showError("学期ID缺失，无法删除", "删除失败")
+      return
+    }
+
+    if (!courseNodeId) {
+      showError("课程单元ID缺失，无法删除", "删除失败")
+      return
+    }
+
+    setIsDeleting(true)
+    try {
+      const response = await api.courseDetail.deleteCourse(selectedSemesterId, courseNodeId)
+
+      if (response.error) {
+        showError(response.error, "删除课程失败")
+        return
+      }
+
+      showSuccess("课程已删除", "删除成功")
+      setShowDeleteConfirm(false)
+
+      // 重新加载树
+      if (onTreeRefresh) {
+        await onTreeRefresh()
+      }
+
+      // 找到课程所在的专业，关闭详情面板并导航到该专业的课程列表
+      if (selectedNodePath && selectedNodePath.length > 0 && onNodeSelect) {
+        const majorNode = selectedNodePath.find((node) => node.nodeType === "major")
+        if (majorNode) {
+          // 先关闭详情面板
+          onNodeSelect(null)
+          // 使用 setTimeout 保证面板关闭动画完成后再选择专业
+          setTimeout(() => {
+            onNodeSelect(majorNode)
+          }, 300)
+        }
+      } else {
+        // 如果找不到专业，就直接关闭面板
+        onNodeSelect(null)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "删除课程失败"
+      console.error("[CourseDetail] delete course error:", error)
+      showError(message, "删除课程失败")
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   // 注册画布数据准备回调到全局 store，供 Header AI 按钮调用
@@ -1051,16 +1151,29 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
             )}
           </div>
           <div className="flex flex-col gap-2 absolute top-6 right-6">
-            <div className="flex gap-2 justify-end">
+            <div className="flex flex-col gap-2 items-end">
               {onUpdateNode && courseEditable && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={handleStartEditCourse}
-                  className="gap-2 hover:bg-primary/10"
-                >
-                  <Pencil className="w-4 h-4 text-primary" />
-                </Button>
+                <>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleStartEditCourse}
+                    className="gap-2 hover:bg-primary/10"
+                    title="编辑课程"
+                  >
+                    <Pencil className="w-4 h-4 text-primary" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleDeleteCourse}
+                    disabled={isDeleting}
+                    className="gap-2 hover:bg-destructive/10"
+                    title="删除课程"
+                  >
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                </>
               )}
             </div>
           </div>
@@ -1082,6 +1195,7 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
                 courseDetail={courseDetailInfo.course}
                 courseNameData={courseNameData}
                 createTime={createTime}
+                semesterDisplay={semesterDisplay}
                 courseEditable={courseEditable}
                 onOpenCourseSyllabus={handleOpenCourseSyllabus}
               />
@@ -1132,6 +1246,30 @@ export function CourseDetail({ node, onUpdateNode, treeData, selectedNodePath }:
           </Tabs>
         </div>
       </div>
+
+      {/* 删除课程确认对话框 */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除课程</AlertDialogTitle>
+            <AlertDialogDescription>
+              您确定要删除课程"<span className="font-semibold text-foreground">{courseDetailData?.courseNameData?.name || "未命名"}</span>"吗？此操作无法撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>
+              取消
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "删除中..." : "确认删除"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }
