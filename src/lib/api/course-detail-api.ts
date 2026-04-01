@@ -298,17 +298,19 @@ export class CourseDetailApi {
    * @param data 课程保存请求数据
    */
   /**
-   * [MOD] 新增课程（使用新的 v5 接口）
-   * @param data 课程数据（SaveCourseUnitRequest 格式，body 一模一样）
+   * [MOD] 保存课程（新增/编辑统一接口，使用 v5 API）
+   * @param data 课程数据（SaveCourseUnitRequest 格式）
+   * 规则：course.id = 0 表示新增，course.id > 0 表示编辑
    */
-  async createCourse(data: SaveCourseUnitRequest): Promise<ApiResponse<any>> {
+  async saveCourseUnit(data: SaveCourseUnitRequest): Promise<ApiResponse<any>> {
     try {
-      console.log(`[CourseDetailApi] 新增课程数据`, data)
+      const operationType = data.course?.id ? "编辑" : "新增"
+      console.log(`[CourseDetailApi] ${operationType}课程数据`, data)
 
       const response = await this.storage.postToApi<any>('/api/v5/matrix/courses', data)
 
       if (response.error) {
-        console.error("[CourseDetailApi] 新增课程失败:", response.error)
+        console.error(`[CourseDetailApi] ${operationType}课程失败:`, response.error)
         return {
           data: null,
           error: response.error,
@@ -316,7 +318,7 @@ export class CourseDetailApi {
         }
       }
 
-      console.log("[CourseDetailApi] 课程新增成功", response.data)
+      console.log(`[CourseDetailApi] 课程${operationType}成功`, response.data)
 
       return {
         data: response.data,
@@ -324,7 +326,7 @@ export class CourseDetailApi {
         status: 200,
       }
     } catch (error) {
-      console.error("[CourseDetailApi] 新增课程失败:", error)
+      console.error("[CourseDetailApi] 课程保存失败:", error)
       return {
         data: null,
         error: String(error),
@@ -333,36 +335,11 @@ export class CourseDetailApi {
     }
   }
 
-  async saveCourseUnit(data: SaveCourseUnitRequest): Promise<ApiResponse<any>> {
-    try {
-      console.log(`[CourseDetailApi] 编辑课程数据`, data)
-
-      const response = await this.storage.postToApi<any>('/api/major/v2.0/savecourseunit', data)
-
-      if (response.error) {
-        console.error("[CourseDetailApi] 编辑课程失败:", response.error)
-        return {
-          data: null,
-          error: response.error,
-          status: response.status,
-        }
-      }
-
-      console.log("[CourseDetailApi] 课程编辑成功", response.data)
-
-      return {
-        data: response.data,
-        error: null,
-        status: 200,
-      }
-    } catch (error) {
-      console.error("[CourseDetailApi] 编辑课程失败:", error)
-      return {
-        data: null,
-        error: String(error),
-        status: 500,
-      }
-    }
+  /**
+   * @deprecated 请使用 saveCourseUnit，已迁移到 v5 API
+   */
+  async createCourse(data: SaveCourseUnitRequest): Promise<ApiResponse<any>> {
+    return this.saveCourseUnit(data)
   }
 
   /**
