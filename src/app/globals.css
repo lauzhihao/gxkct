@@ -168,8 +168,7 @@
   }
 
   /* Shadcn UI组件 - 可交互的卡片和列表项 */
-  [data-slot="card"][onclick],
-  [data-slot="item"][onclick],
+  [data-interactive="true"],
   [data-slot="card"].cursor-pointer,
   [data-slot="item"].cursor-pointer {
     cursor: pointer;
@@ -231,9 +230,9 @@
     cursor: pointer;
   }
 
-  /* 带有点击事件的元素 */
-  [onclick]:not(:disabled):not([aria-disabled="true"]) {
-    cursor: pointer;
+  /* 纯装饰层不参与命中，避免父子层之间反复切换 hover 目标 */
+  [data-card-decoration="true"] {
+    pointer-events: none;
   }
 
   /* Label关联的可点击标签 */

@@ -97,6 +97,46 @@ const SCHEDULE_DAY_FIELDS: ScheduleDayField[] = [
 
 const getScheduleFieldKey = (rowIndex: number, field: ScheduleField) => `${rowIndex}-${field}`
 
+const HOUR_FIELD_HELP_TEXT = "系统自动汇总章节项目学时"
+
+const readOptionalNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined) {
+    return null
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null
+  }
+
+  if (typeof value === "string") {
+    const trimmedValue = value.trim()
+    if (trimmedValue.length === 0) {
+      return null
+    }
+
+    const parsedValue = Number(trimmedValue)
+    return Number.isFinite(parsedValue) ? parsedValue : null
+  }
+
+  return null
+}
+
+const resolveReadonlyHourFieldValue = (
+  sourceValue: number | null,
+  summarizedValue: number,
+  hasMeaningfulChapterData: boolean,
+): number | "" => {
+  if (sourceValue !== null && Number.isFinite(sourceValue)) {
+    return sourceValue
+  }
+
+  if (hasMeaningfulChapterData && Number.isFinite(summarizedValue)) {
+    return summarizedValue
+  }
+
+  return ""
+}
+
 const courseNatureOptions = [
   { id: 1, name: "通识教育课" },
   { id: 2, name: "学科基础课" },
@@ -187,6 +227,8 @@ function AddCourseForm({
   const [introduction, setIntroduction] = useState(initialData?.introduction || "")
   const [theoryPeriod, setTheoryPeriod] = useState(initialData?.theoryPeriod || 0)
   const [practicePeriod, setPracticePeriod] = useState(initialData?.practicePeriod || 0)
+  const [theoryPeriodSource, setTheoryPeriodSource] = useState<number | null>(() => readOptionalNumber(initialData?.theoryPeriod))
+  const [practicePeriodSource, setPracticePeriodSource] = useState<number | null>(() => readOptionalNumber(initialData?.practicePeriod))
   // 新增字段
   const [teachingClass, setTeachingClass] = useState(initialData?.teachingClass || "")
   const [teachingLocation, setTeachingLocation] = useState(initialData?.teachingLocation || "")
@@ -425,9 +467,22 @@ function AddCourseForm({
       return
     }
 
-    setTheoryPeriod((current: number) => (current === summarizedPeriods.theoryPeriod ? current : summarizedPeriods.theoryPeriod))
-    setPracticePeriod((current: number) => (current === summarizedPeriods.practicePeriod ? current : summarizedPeriods.practicePeriod))
-  }, [hasMeaningfulChapterData, summarizedPeriods.practicePeriod, summarizedPeriods.theoryPeriod])
+    if (theoryPeriodSource === null) {
+      setTheoryPeriod((current: number) => (current === summarizedPeriods.theoryPeriod ? current : summarizedPeriods.theoryPeriod))
+    }
+
+    if (practicePeriodSource === null) {
+      setPracticePeriod((current: number) => (current === summarizedPeriods.practicePeriod ? current : summarizedPeriods.practicePeriod))
+    }
+  }, [hasMeaningfulChapterData, practicePeriodSource, summarizedPeriods.practicePeriod, summarizedPeriods.theoryPeriod, theoryPeriodSource])
+
+  const isReadonlyHourField = isEditMode && !allowHourFieldEdit
+  const theoryPeriodDisplayValue = isReadonlyHourField
+    ? resolveReadonlyHourFieldValue(theoryPeriodSource, summarizedPeriods.theoryPeriod, hasMeaningfulChapterData)
+    : theoryPeriod
+  const practicePeriodDisplayValue = isReadonlyHourField
+    ? resolveReadonlyHourFieldValue(practicePeriodSource, summarizedPeriods.practicePeriod, hasMeaningfulChapterData)
+    : practicePeriod
 
   // 在编辑模式下，使用传入的 courseDetailData 初始化表单字段
   useEffect(() => {
@@ -438,8 +493,12 @@ function AddCourseForm({
       console.log(`[AddCourseForm] 使用 courseDetailData 初始化表单字段`)
       setCourseName(courseData.name || initialData?.name || "")
       setIntroduction(courseData.introduction || "")
-      setTheoryPeriod(courseData.theoryPeriod || 0)
-      setPracticePeriod(courseData.practicePeriod || 0)
+      const nextTheoryPeriod = readOptionalNumber(courseData.theoryPeriod)
+      const nextPracticePeriod = readOptionalNumber(courseData.practicePeriod)
+      setTheoryPeriodSource(nextTheoryPeriod)
+      setPracticePeriodSource(nextPracticePeriod)
+      setTheoryPeriod(nextTheoryPeriod !== null ? nextTheoryPeriod : 0)
+      setPracticePeriod(nextPracticePeriod !== null ? nextPracticePeriod : 0)
       // 初始化新增字段
       setTeachingClass(courseData.teachingClass || "")
       setTeachingLocation(courseData.teachingLocation || "")
@@ -654,17 +713,8 @@ function AddCourseForm({
     }
   }, [])
 
-  // [MOD] 获取开课学期的显示名称
-  const openingSemesterDisplay = useMemo(() => {
-    if (!currentSemester) {
-      return "未找到当前学期"
-    }
-    return `${currentSemester.schoolYear}年 ${
-      currentSemester.termType === "SPRING" || currentSemester.termType === 1
-        ? "春季学期"
-        : "秋季学期"
-    }`
-  }, [currentSemester])
+  // [MOD] 获取开课学期的显示名称（直接取学期对象的 name 字段，无需前端计算）
+  const openingSemesterDisplay = currentSemester?.name ?? null
 
   const buildCourseData = useCallback(() => ({
     name: courseName,
@@ -1112,11 +1162,12 @@ function AddCourseForm({
                     id="theory-period"
                     type="number"
                     min="0"
-                    placeholder="例如：32"
-                    value={theoryPeriod}
+                    placeholder={isReadonlyHourField ? undefined : "例如：32"}
+                    value={theoryPeriodDisplayValue}
                     onChange={(e) => setTheoryPeriod(Number.parseInt(e.target.value) || 0)}
                     readOnly={isEditMode && !allowHourFieldEdit}
                   />
+                  <p className="text-xs font-medium text-amber-600">{HOUR_FIELD_HELP_TEXT}</p>
                 </div>
 
                 <div className="space-y-2">
@@ -1125,11 +1176,12 @@ function AddCourseForm({
                     id="practice-period"
                     type="number"
                     min="0"
-                    placeholder="例如：16"
-                    value={practicePeriod}
+                    placeholder={isReadonlyHourField ? undefined : "例如：16"}
+                    value={practicePeriodDisplayValue}
                     onChange={(e) => setPracticePeriod(Number.parseInt(e.target.value) || 0)}
                     readOnly={isEditMode && !allowHourFieldEdit}
                   />
+                  <p className="text-xs font-medium text-amber-600">{HOUR_FIELD_HELP_TEXT}</p>
                 </div>
 
                 {/* 主要教材和参考文献放在一行 */}

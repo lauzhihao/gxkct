@@ -279,16 +279,17 @@ export function MajorCourses(props: MajorCoursesProps) {
               key={getCourseId(course)}
               role="button"
               tabIndex={0}
+              data-interactive="true"
               onClick={() => handleCourseCardClick(course)}
               onKeyDown={(e) => handleCourseCardKeyDown(course, e)}
               className={cn(
                 "relative flex flex-col p-5 rounded-xl border transition-all duration-200 min-h-[165px]",
                 "bg-white/40 backdrop-blur-md border-primary/20",
-                "hover:bg-white/60 hover:shadow-lg hover:scale-105 hover:border-primary/40",
+                "hover:bg-white/60 hover:shadow-lg hover:border-primary/40",
                 "group cursor-pointer",
               )}
             >
-              <div className="absolute top-3 left-3">
+              <div className="absolute top-3 left-3" data-card-decoration="true">
                 <div
                   className={cn(
                     "w-10 h-10 rounded-lg flex items-center justify-center",
@@ -302,7 +303,7 @@ export function MajorCourses(props: MajorCoursesProps) {
                 </div>
               </div>
 
-              <div className="absolute top-3 right-3">
+              <div className="absolute top-3 right-3" data-card-decoration="true">
                 <div className="px-2 py-0.5 rounded-full bg-white/60 backdrop-blur-sm border border-primary/30 text-xs font-medium text-primary">
                   课程
                 </div>
@@ -316,7 +317,10 @@ export function MajorCourses(props: MajorCoursesProps) {
                 </div>
               </div>
 
-              <div className="absolute bottom-3 left-3 flex flex-wrap gap-1 max-w-[calc(100%-24px)]">
+              <div
+                className="absolute bottom-3 left-3 flex max-w-[calc(100%-24px)] flex-wrap gap-1"
+                data-card-decoration="true"
+              >
                 {getInstructors(course).map((instructor: string, idx: number) => (
                   <div
                     key={idx}
@@ -355,8 +359,9 @@ export function MajorCourses(props: MajorCoursesProps) {
                   className={cn(
                     "absolute bottom-3 right-3 p-1.5 rounded-lg",
                     "bg-white/50 backdrop-blur-sm border border-destructive/30",
-                    "text-destructive transition-all duration-200",
-                    "opacity-0 group-hover:opacity-100",
+                    "text-destructive transition-[opacity,background-color,border-color] duration-200",
+                    "invisible opacity-0 pointer-events-none group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto",
+                    "focus-visible:visible focus-visible:opacity-100 focus-visible:pointer-events-auto",
                     "hover:bg-destructive/20 hover:border-destructive/60",
                   )}
                   title="删除课程"

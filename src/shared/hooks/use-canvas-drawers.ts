@@ -84,7 +84,7 @@ export interface ProjectMatrixDrawerState {
 }
 
 /**
- * 开课报告预览抽屉状态类型
+ * 开课说明预览抽屉状态类型
  */
 export interface CourseReportDrawerState {
   open: boolean
@@ -196,7 +196,7 @@ export interface UseCanvasDrawersReturn {
   handleProjectMatrixSave: (matrixData: ProjectMatrixData) => void
   handleProjectMatrixDrawerClose: () => void
 
-  // 开课报告预览处理函数
+  // 开课说明预览处理函数
   handleCourseReportEdit: (nodeId: string) => void
   handleCourseReportDrawerClose: () => void
 
@@ -296,7 +296,7 @@ export function useCanvasDrawers({
   })
   const [isSavingProjectMatrix, setIsSavingProjectMatrix] = useState(false)
 
-  // 开课报告预览抽屉状态
+  // 开课说明预览抽屉状态
   const [courseReportDrawer, setCourseReportDrawer] = useState<CourseReportDrawerState>({
     open: false,
     nodeId: "",
@@ -677,9 +677,9 @@ export function useCanvasDrawers({
     setProjectMatrixDrawer({ open: false, nodeId: "", matrixData: null })
   }, [])
 
-  // ==================== 开课报告预览处理函数 ====================
+  // ==================== 开课说明预览处理函数 ====================
 
-  // 处理开课报告节点编辑图标点击
+  // 处理开课说明节点编辑图标点击
   const handleCourseReportEdit = useCallback((nodeId: string) => {
       setCourseReportDrawer({
         open: true,
@@ -689,7 +689,7 @@ export function useCanvasDrawers({
     []
   )
 
-  // 关闭开课报告预览抽屉
+  // 关闭开课说明预览抽屉
   const handleCourseReportDrawerClose = useCallback(() => {
     setCourseReportDrawer({ open: false, nodeId: "" })
   }, [])
@@ -844,7 +844,7 @@ export function useCanvasDrawers({
     handleProjectMatrixSave,
     handleProjectMatrixDrawerClose,
 
-    // 开课报告预览处理函数
+    // 开课说明预览处理函数
     handleCourseReportEdit,
     handleCourseReportDrawerClose,
 

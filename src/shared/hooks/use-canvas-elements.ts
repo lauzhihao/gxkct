@@ -51,7 +51,7 @@ const DEFAULT_ELEMENT_SIZES: Record<CanvasComponentType, { width: number; height
   [CanvasComponentType.COURSE_MATRIX]: { width: 1100, height: 680 },
   [CanvasComponentType.PROJECT_MATRIX_PANEL]: { width: 900, height: 200 },  // 最小高度，实际会动态计算
   [CanvasComponentType.PROJECT_MATRIX]: { width: 900, height: 200 },        // 最小高度，实际会动态计算
-  [CanvasComponentType.COURSE_REPORT]: { width: 480, height: 180 },         // 开课报告
+  [CanvasComponentType.COURSE_REPORT]: { width: 480, height: 180 },         // 开课说明
 }
 
 const KSA_PANEL_FIXED_SIZE = {
@@ -339,7 +339,7 @@ const SINGLETON_COMPONENT_TYPES: CanvasComponentType[] = [
   CanvasComponentType.CHAPTER_PANEL,      // 章节面板
   CanvasComponentType.KSA_PANEL,          // KSA面板
   CanvasComponentType.COURSE_MATRIX,      // 课程矩阵
-  CanvasComponentType.COURSE_REPORT,      // 开课报告
+  CanvasComponentType.COURSE_REPORT,      // 开课说明
 ]
 
 // 各列起始 X 坐标（水平布局）
@@ -1060,59 +1060,30 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
     }
   }, [selectedId])
 
-  // 删除元素及其右侧（下游）相连的节点
-  // 只沿着 source → target 方向删除，不删除左侧（上游）节点
-  // 同时清理 specialComponents 中对应的数据
-  const removeElementWithConnected = useCallback((id: string) => {
-    // 先计算要删除的节点ID（使用当前 edges 状态）
-    const connectedIds = new Set<string>([id])
-    const queue = [id]
-
-    // BFS 遍历找出所有下游节点
-    while (queue.length > 0) {
-      const currentId = queue.shift()!
-      for (const edge of edges) {
-        if (edge.source === currentId && !connectedIds.has(edge.target)) {
-          connectedIds.add(edge.target)
-          queue.push(edge.target)
-        }
-      }
+  const removeElementsAndCleanup = useCallback((idsToRemove: Set<string>) => {
+    if (idsToRemove.size === 0) {
+      return
     }
 
-    // 找出所有要删除的子节点
-    const idsToRemove = new Set(connectedIds)
-    for (const el of elements) {
-      if (el.parentId && connectedIds.has(el.parentId)) {
-        idsToRemove.add(el.id)
-      }
-    }
-
-    // 收集要删除的元素信息，用于清理 specialComponents
-    // 包括元素类型和项目矩阵的 chapter_id（用于构建 specialComponents 的 key）
     const elementsToRemove = elements.filter(el => idsToRemove.has(el.id))
     const specialComponentKeysToRemove: string[] = []
     for (const el of elementsToRemove) {
-      // 项目矩阵使用 "${component}_${chapter_id}" 作为 key
       if (el.type === CanvasComponentType.PROJECT_MATRIX || el.type === CanvasComponentType.PROJECT_MATRIX_PANEL) {
         const chapterId = (el.data as { chapter_id?: string }).chapter_id || 'default'
         specialComponentKeysToRemove.push(`${el.type}_${chapterId}`)
       } else {
-        // 其他组件直接使用类型作为 key
         specialComponentKeysToRemove.push(el.type)
       }
-      // 源文档卡片还需要清理 source_documents key
       if (el.type === CanvasComponentType.SOURCE_DOCUMENT_CARD) {
         specialComponentKeysToRemove.push('source_documents')
       }
     }
 
-    // 批量更新状态
     setElements(prev => prev.filter(el => !idsToRemove.has(el.id)))
     setEdges(prev => prev.filter(edge =>
       !idsToRemove.has(edge.source) && !idsToRemove.has(edge.target)
     ))
 
-    // 清理 specialComponents 中对应的数据
     if (specialComponentKeysToRemove.length > 0) {
       setSpecialComponents(prev => {
         const newState = { ...prev }
@@ -1129,7 +1100,49 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
     if (idsToRemove.has(selectedId || "")) {
       setSelectedId(null)
     }
-  }, [edges, elements, selectedId])
+  }, [elements, selectedId])
+
+  const collectDownstreamElementIds = useCallback((id: string, includeSelf: boolean) => {
+    const connectedIds = new Set<string>()
+    const queue = [id]
+
+    while (queue.length > 0) {
+      const currentId = queue.shift()!
+      for (const edge of edges) {
+        if (edge.source === currentId && edge.target !== id && !connectedIds.has(edge.target)) {
+          connectedIds.add(edge.target)
+          queue.push(edge.target)
+        }
+      }
+    }
+
+    const idsToRemove = new Set(connectedIds)
+    if (includeSelf) {
+      idsToRemove.add(id)
+    }
+
+    for (const el of elements) {
+      if (el.parentId && idsToRemove.has(el.parentId)) {
+        idsToRemove.add(el.id)
+      }
+    }
+
+    return idsToRemove
+  }, [edges, elements])
+
+  // 删除元素及其右侧（下游）相连的节点
+  // 只沿着 source → target 方向删除，不删除左侧（上游）节点
+  // 同时清理 specialComponents 中对应的数据
+  const removeElementWithConnected = useCallback((id: string) => {
+    const idsToRemove = collectDownstreamElementIds(id, true)
+    removeElementsAndCleanup(idsToRemove)
+  }, [collectDownstreamElementIds, removeElementsAndCleanup])
+
+  // 仅删除右侧（下游）相连的节点，保留当前节点本身
+  const removeDownstreamConnected = useCallback((id: string) => {
+    const idsToRemove = collectDownstreamElementIds(id, false)
+    removeElementsAndCleanup(idsToRemove)
+  }, [collectDownstreamElementIds, removeElementsAndCleanup])
 
   // 更新元素
   const updateElement = useCallback((id: string, updates: Partial<CanvasElementData>) => {
@@ -2071,7 +2084,7 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
               return [...prev, newElement]
             }
 
-            // ---------- 开课报告处理 ----------
+            // ---------- 开课说明处理 ----------
             if (component === CanvasComponentType.COURSE_REPORT) {
               const elementSize = DEFAULT_ELEMENT_SIZES[component]
 
@@ -2550,6 +2563,7 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
     addElement,
     removeElement,
     removeElementWithConnected,
+    removeDownstreamConnected,
     updateElement,
     updateElementData,
     updateElementPosition,

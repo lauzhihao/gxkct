@@ -11,6 +11,7 @@ interface ChapterPanelNodeProps {
     isDeleting?: boolean
     isLoading?: boolean
     isRefreshing?: boolean
+    progressMessage?: string | null
     onDelete?: (nodeId: string) => void
     onRefresh?: (nodeId: string) => void
     childCount?: number
@@ -70,6 +71,7 @@ export const ChapterPanelNode = memo(function ChapterPanelNode({
       onEdit={handleEdit}
       onDelete={handleDelete}
       onRefresh={handleRefresh}
+      progressMessage={data.progressMessage}
     />
   )
 })

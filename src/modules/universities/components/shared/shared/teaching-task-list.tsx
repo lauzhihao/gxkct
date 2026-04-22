@@ -1,5 +1,6 @@
 "use client"
 
+import type { KeyboardEvent } from "react"
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
@@ -46,20 +47,35 @@ export function TeachingTaskList({ tasks, selectedStatus, onTaskClick, onSetting
     )
   }
 
+  const handleTaskCardKeyDown = (task: TeachingSupervisoryTask, event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return
+    }
+
+    event.preventDefault()
+    onTaskClick?.(task)
+  }
+
   return (
     <div className="grid grid-cols-4 gap-4">
       {filteredTasks.map((task) => (
         <Card
           key={task.id}
+          role="button"
+          tabIndex={0}
+          data-interactive="true"
           className="hover:shadow-md transition-shadow border-border bg-card/50 backdrop-blur-sm relative cursor-pointer hover:border-primary/50"
           onClick={() => onTaskClick?.(task)}
+          onKeyDown={(event) => {
+            handleTaskCardKeyDown(task, event)
+          }}
         >
-          <div className="absolute top-2 right-2 flex items-center gap-2">
+          <div className="pointer-events-none absolute top-2 right-2 flex items-center gap-2">
             {onSettingsClick && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 hover:bg-primary/10"
+                className="pointer-events-auto h-6 w-6 hover:bg-primary/10"
                 onClick={(e) => {
                   e.stopPropagation()
                   onSettingsClick(task)
@@ -70,6 +86,7 @@ export function TeachingTaskList({ tasks, selectedStatus, onTaskClick, onSetting
             )}
             <Badge
               variant="outline"
+              data-card-decoration="true"
               className={cn("text-xs", getStatusColor(task.status))}
             >
               {getStatusLabel(task.status)}

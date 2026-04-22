@@ -11,6 +11,7 @@ import {
   CanvasAction,
   CanvasComponentType,
   ProcessingEventMessage,
+  ProgressEventMessage,
   StatusEventMessage,
   ObjectiveCardData,
   ChapterCardData,
@@ -94,6 +95,28 @@ const INDICATOR_SOURCE_PRIORITY: Record<IndicatorSource, number> = {
   thinking: 1,
 }
 
+const PROCESSING_ACTION_ROUTE_MAP: Array<[string, FillProgressType]> = [
+  ["course_points_", "coursePoints"],
+  ["ksa_", "ksa"],
+  ["chapter_", "chapters"],
+  ["objective_", "objectives"],
+  ["course_info_", "courseInfo"],
+  ["project_matrix_", "projectMatrix"],
+  ["course_matrix_", "matrix"],
+  ["matrix_", "matrix"],
+]
+
+const PROGRESS_STAGE_ROUTE_MAP: Record<string, FillProgressType> = {
+  fill_course_point_panel: "coursePoints",
+  fill_ksa_panel: "ksa",
+  fill_chapter_panel: "chapters",
+  fill_objective_panel: "objectives",
+  fill_course_info: "courseInfo",
+  fill_project_matrix: "projectMatrix",
+  fill_matrix: "matrix",
+  fill_course_matrix: "matrix",
+}
+
 function normalizeIndicatorText(rawText: string | undefined): string {
   if (!rawText) return ""
   const normalized = rawText.replace(/\s+/g, " ").trim()
@@ -137,6 +160,40 @@ function formatProcessingIndicator(event: ProcessingEventMessage): string {
   if (event.stage === "classified") return "正在分析画布内容..."
 
   return "正在处理中..."
+}
+
+function setLatestThinkingMessage(
+  thinkingState: { mode: ThinkingDisplayMode; accumulated: string; latest: string },
+  message: string,
+  setStreamingThinking: (value: string) => void,
+) {
+  thinkingState.mode = "latest"
+  thinkingState.latest = message
+  setStreamingThinking(message)
+}
+
+function resolveFillProgressTypeFromProcessing(
+  event: ProcessingEventMessage,
+  fallbackType?: FillProgressType,
+): FillProgressType | null {
+  if (fallbackType) return fallbackType
+
+  const action = String(event.detail?.action || "")
+  for (const [prefix, type] of PROCESSING_ACTION_ROUTE_MAP) {
+    if (action.startsWith(prefix)) {
+      return type
+    }
+  }
+
+  return null
+}
+
+function resolveFillProgressTypeFromProgress(
+  progress: ProgressEventMessage,
+  fallbackType?: FillProgressType,
+): FillProgressType | null {
+  if (fallbackType) return fallbackType
+  return PROGRESS_STAGE_ROUTE_MAP[String(progress.stage || "")] || null
 }
 
 export function AiAssistantDrawer({
@@ -290,6 +347,28 @@ export function AiAssistantDrawer({
     setFillProgress(prev => ({ ...prev, [type]: message }))
   }, [])
 
+  const syncFillProgressFromProcessing = useCallback((
+    event: ProcessingEventMessage,
+    fallbackType?: FillProgressType,
+  ) => {
+    if (!event.message) return
+    const resolvedType = resolveFillProgressTypeFromProcessing(event, fallbackType)
+    if (resolvedType) {
+      updateFillProgress(resolvedType, event.message)
+    }
+  }, [updateFillProgress])
+
+  const syncFillProgressFromProgress = useCallback((
+    progress: ProgressEventMessage,
+    fallbackType?: FillProgressType,
+  ) => {
+    if (!progress.message) return
+    const resolvedType = resolveFillProgressTypeFromProgress(progress, fallbackType)
+    if (resolvedType) {
+      updateFillProgress(resolvedType, progress.message)
+    }
+  }, [updateFillProgress])
+
   // 画布元素管理
   const {
     elements: canvasElements,
@@ -297,6 +376,7 @@ export function AiAssistantDrawer({
     specialComponents: canvasSpecialComponents,
     selectedId: canvasSelectedId,
     removeElementWithConnected: removeCanvasElement,
+    removeDownstreamConnected: removeCanvasDownstream,
     removeEdge: removeCanvasEdge,
     selectElement: selectCanvasElement,
     setSelectedIdOnly,
@@ -304,7 +384,6 @@ export function AiAssistantDrawer({
     updateElementData: updateCanvasElementData,
     updatePanelChildren: updateCanvasPanelChildren,
     clearCanvas,
-    clearSpecialComponents,
     loadCanvasData,
     handleCanvasEvent,
     relayoutElements,
@@ -1021,20 +1100,14 @@ export function AiAssistantDrawer({
           setStreamingText(sseErrorMessage)
         },
         onProgressEvent: (progress) => {
-          thinkingState.mode = "latest"
           const progressLine = `[${progress.current}/${progress.total}] ${progress.message}`
-          thinkingState.latest = progressLine
-          setStreamingThinking(progressLine)
+          setLatestThinkingMessage(thinkingState, progressLine, setStreamingThinking)
+          syncFillProgressFromProgress(progress, config.fillProgressType)
         },
         onProcessingEvent: (event) => {
-          thinkingState.mode = "latest"
-          thinkingState.latest = event.message
-          setStreamingThinking(event.message)
+          setLatestThinkingMessage(thinkingState, event.message, setStreamingThinking)
           updateStreamingIndicator("processing", formatProcessingIndicator(event))
-          // 直接将 processing 消息路由到指定面板，保持与聊天区文字同步
-          if (event.stage === 'generating' && event.message && config.fillProgressType) {
-            updateFillProgress(config.fillProgressType, event.message)
-          }
+          syncFillProgressFromProcessing(event, config.fillProgressType)
         },
         onModeEvent: (modeEvent) => {
           if (modeEvent.mode === 'course_building') {
@@ -1109,7 +1182,7 @@ export function AiAssistantDrawer({
 
       console.error(`[${config.logPrefix}] 失败:`, error)
     }
-  }, [isRegenerating, streamingMessageId, isInitialized, sessionId, handleCanvasEvent, processStream, resetSSEController, forceCanvasUpload, waitForCanvasStateFlush, updateCanvasData, updateFillProgress, updateStreamingIndicator, markStreamingContentStarted, relayoutElements])
+  }, [isRegenerating, streamingMessageId, isInitialized, sessionId, handleCanvasEvent, processStream, resetSSEController, forceCanvasUpload, waitForCanvasStateFlush, updateCanvasData, syncFillProgressFromProcessing, syncFillProgressFromProgress, updateStreamingIndicator, markStreamingContentStarted, relayoutElements])
 
   const restoreRegenerateTargetSelection = useCallback((targetId?: string | null) => {
     if (typeof targetId !== "string" || targetId.length === 0) {
@@ -1149,6 +1222,10 @@ export function AiAssistantDrawer({
       fillProgressType: 'chapters',
       onBeforeRequest: () => {
         restoreRegenerateTargetSelection(targetPanelId)
+        if (chapterPanel) {
+          console.log("[填充章节项目] 删除下游组件，保留当前章节面板:", chapterPanel.id)
+          removeCanvasDownstream(chapterPanel.id)
+        }
         // 清空章节面板子节点（填充前必须清空，否则原有内容会传到后台）
         if (chapterPanel) {
           console.log("[填充章节项目] 清空章节面板:", chapterPanel.id)
@@ -1161,7 +1238,7 @@ export function AiAssistantDrawer({
       },
     })
     updateFillProgress('chapters', null)
-  }, [executeSSERequest, canvasElements, updateCanvasPanelChildren, updateFillProgress, restoreRegenerateTargetSelection])
+  }, [executeSSERequest, canvasElements, removeCanvasDownstream, updateCanvasPanelChildren, updateFillProgress, restoreRegenerateTargetSelection])
 
   // 处理教学目标面板自动填充请求
   // [MOD] 增加 userPrompt 参数，支持重做时传入用户提示词
@@ -1192,6 +1269,10 @@ export function AiAssistantDrawer({
       fillProgressType: 'objectives',
       onBeforeRequest: () => {
         restoreRegenerateTargetSelection(targetPanelId)
+        if (objectivePanel) {
+          console.log("[填充教学目标] 删除下游组件，保留当前教学目标面板:", objectivePanel.id)
+          removeCanvasDownstream(objectivePanel.id)
+        }
         // 清空教学目标面板子节点（填充前必须清空，否则原有内容会传到后台）
         if (objectivePanel) {
           console.log("[填充教学目标] 清空教学目标面板:", objectivePanel.id)
@@ -1204,7 +1285,7 @@ export function AiAssistantDrawer({
       },
     })
     updateFillProgress('objectives', null)
-  }, [executeSSERequest, canvasElements, updateCanvasPanelChildren, updateFillProgress, restoreRegenerateTargetSelection])
+  }, [executeSSERequest, canvasElements, removeCanvasDownstream, updateCanvasPanelChildren, updateFillProgress, restoreRegenerateTargetSelection])
 
   // 处理画布组件重做请求
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1258,16 +1339,14 @@ export function AiAssistantDrawer({
       fillProgressType: 'matrix',
       onBeforeRequest: () => {
         restoreRegenerateTargetSelection(targetMatrixId)
+        if (courseMatrix) {
+          console.log("[填充课程矩阵] 删除下游组件，保留当前课程矩阵:", courseMatrix.id)
+          removeCanvasDownstream(courseMatrix.id)
+        }
         // 清空课程矩阵数据（填充前必须清空，否则原有内容会传到后台）
         if (courseMatrix) {
           console.log("[填充课程矩阵] 清空课程矩阵:", courseMatrix.id)
           updateCanvasElementData(courseMatrix.id, { rows: [] })
-        }
-
-        // 课程矩阵重生成时，清空 specialComponents，避免上传旧矩阵快照
-        if (targetMatrixId) {
-          console.log("[填充课程矩阵] 重生成模式，清空 specialComponents")
-          clearSpecialComponents()
         }
       },
       onComplete: () => {
@@ -1277,7 +1356,7 @@ export function AiAssistantDrawer({
     })
     // 确保进度在任何情况下都被清除
     updateFillProgress('matrix', null)
-  }, [executeSSERequest, canvasElements, updateCanvasElementData, clearSpecialComponents, updateFillProgress, restoreRegenerateTargetSelection])
+  }, [executeSSERequest, canvasElements, removeCanvasDownstream, updateCanvasElementData, updateFillProgress, restoreRegenerateTargetSelection])
 
   // 处理项目矩阵自动填充请求
   // [MOD] 添加可选参数 targetMatrixId，支持重做时指定目标矩阵
@@ -1315,6 +1394,10 @@ export function AiAssistantDrawer({
       fillProgressType: 'projectMatrix',
       onBeforeRequest: () => {
         restoreRegenerateTargetSelection(targetMatrixId)
+        if (projectMatrix) {
+          console.log("[填充项目矩阵] 删除下游组件，保留当前项目矩阵:", projectMatrix.id)
+          removeCanvasDownstream(projectMatrix.id)
+        }
         // 清空项目矩阵数据（填充前必须清空，否则原有内容会传到后台）
         if (projectMatrix) {
           console.log("[填充项目矩阵] 清空项目矩阵:", projectMatrix.id)
@@ -1327,7 +1410,7 @@ export function AiAssistantDrawer({
       },
     })
     updateFillProgress('projectMatrix', null)
-  }, [executeSSERequest, canvasElements, updateCanvasElementData, updateFillProgress, restoreRegenerateTargetSelection])
+  }, [executeSSERequest, canvasElements, removeCanvasDownstream, updateCanvasElementData, updateFillProgress, restoreRegenerateTargetSelection])
 
   // 处理课程信息自动填充请求（从源文档生成课程基本信息）
   const handleFillCourseInfo = useCallback(async (courseInfoId: string, userPrompt?: string, displayUserContent?: string) => {
@@ -1359,6 +1442,10 @@ export function AiAssistantDrawer({
       skipInitCheck: true,
       onBeforeRequest: () => {
         restoreRegenerateTargetSelection(courseInfoId)
+        if (courseInfo) {
+          console.log("[填充课程信息] 删除下游组件，保留当前课程信息:", courseInfo.id)
+          removeCanvasDownstream(courseInfo.id)
+        }
       },
       onComplete: () => {
         updateFillProgress('courseInfo', null)
@@ -1366,7 +1453,7 @@ export function AiAssistantDrawer({
       },
     })
     updateFillProgress('courseInfo', null)
-  }, [sessionId, canvasElements, executeSSERequest, updateFillProgress, restoreRegenerateTargetSelection])
+  }, [sessionId, canvasElements, executeSSERequest, removeCanvasDownstream, updateFillProgress, restoreRegenerateTargetSelection])
 
   // 处理课点信息自动填充请求
   // [MOD] 增加 userPrompt 参数，支持重做时传入用户提示词
@@ -1397,6 +1484,10 @@ export function AiAssistantDrawer({
       fillProgressType: 'coursePoints',
       onBeforeRequest: () => {
         restoreRegenerateTargetSelection(targetPanelId)
+        if (coursePointPanel) {
+          console.log("[填充课点信息] 删除下游组件，保留当前课点面板:", coursePointPanel.id)
+          removeCanvasDownstream(coursePointPanel.id)
+        }
         // 清空课点面板子节点（填充前必须清空，否则原有内容会传到后台）
         if (coursePointPanel) {
           console.log("[填充课点信息] 清空课点面板:", coursePointPanel.id)
@@ -1409,7 +1500,7 @@ export function AiAssistantDrawer({
       },
     })
     updateFillProgress('coursePoints', null)
-  }, [executeSSERequest, canvasElements, updateCanvasPanelChildren, updateFillProgress, restoreRegenerateTargetSelection])
+  }, [executeSSERequest, canvasElements, removeCanvasDownstream, updateCanvasPanelChildren, updateFillProgress, restoreRegenerateTargetSelection])
 
   // 处理 KSA 面板自动填充请求
   // [MOD] 增加 userPrompt 参数，支持重做时传入用户提示词
@@ -1440,6 +1531,10 @@ export function AiAssistantDrawer({
       fillProgressType: 'ksa',
       onBeforeRequest: () => {
         restoreRegenerateTargetSelection(targetPanelId)
+        if (ksaPanel) {
+          console.log("[填充KSA] 删除下游组件，保留当前KSA面板:", ksaPanel.id)
+          removeCanvasDownstream(ksaPanel.id)
+        }
         // 清空KSA面板子节点（填充前必须清空，否则原有内容会传到后台）
         if (ksaPanel) {
           console.log("[填充KSA] 清空KSA面板:", ksaPanel.id)
@@ -1453,7 +1548,7 @@ export function AiAssistantDrawer({
     })
     // 确保进度被清除（包括错误情况）
     updateFillProgress('ksa', null)
-  }, [executeSSERequest, canvasElements, updateCanvasPanelChildren, updateFillProgress, restoreRegenerateTargetSelection])
+  }, [executeSSERequest, canvasElements, removeCanvasDownstream, updateCanvasPanelChildren, updateFillProgress, restoreRegenerateTargetSelection])
 
   // 停止生成处理函数
   const handleStopGeneration = useCallback(async () => {
@@ -1794,35 +1889,14 @@ export function AiAssistantDrawer({
           console.log('[UI事件]', event.action, event)
         },
         onProgressEvent: (progress) => {
-          thinkingState.mode = "latest"
           const progressLine = `[${progress.current}/${progress.total}] ${progress.message}`
-          thinkingState.latest = progressLine
-          setStreamingThinking(progressLine)
+          setLatestThinkingMessage(thinkingState, progressLine, setStreamingThinking)
+          syncFillProgressFromProgress(progress)
         },
         onProcessingEvent: (event) => {
-          thinkingState.mode = "latest"
-          thinkingState.latest = event.message
-          setStreamingThinking(event.message)
+          setLatestThinkingMessage(thinkingState, event.message, setStreamingThinking)
           updateStreamingIndicator("processing", formatProcessingIndicator(event))
-          // 根据 detail.action 前缀路由到对应面板，保持与聊天区文字同步
-          if (event.stage === 'generating' && event.message) {
-            const action = event.detail?.action || ''
-            if (action.startsWith('course_points_')) {
-              updateFillProgress('coursePoints', event.message)
-            } else if (action.startsWith('ksa_')) {
-              updateFillProgress('ksa', event.message)
-            } else if (action.startsWith('chapter_')) {
-              updateFillProgress('chapters', event.message)
-            } else if (action.startsWith('objective_')) {
-              updateFillProgress('objectives', event.message)
-            } else if (action.startsWith('course_info_')) {
-              updateFillProgress('courseInfo', event.message)
-            } else if (action.startsWith('project_matrix_')) {
-              updateFillProgress('projectMatrix', event.message)
-            } else if (action.startsWith('course_matrix_') || action.startsWith('matrix_')) {
-              updateFillProgress('matrix', event.message)
-            }
-          }
+          syncFillProgressFromProcessing(event)
         },
         onModeEvent: (modeEvent) => {
           if (modeEvent.mode === 'course_building') {
@@ -1904,7 +1978,7 @@ export function AiAssistantDrawer({
       // [MOD] 错误时也清除 loading 状态
       clearLinkedElementLoading()
     }
-  }, [inputMessage, isInitialized, sessionId, regenerateTag, attachedFiles, uploadFileToOss, handleCanvasEvent, processStream, resetSSEController, handleFillCoursePoints, handleFillKsa, handleFillChapterPanel, handleFillObjectivePanel, handleFillCourseMatrix, handleFillProjectMatrix, handleFillCourseInfo, clearAttachedFiles, forceCanvasUpload, waitForCanvasStateFlush, updateCanvasData, updateFillProgress, updateStreamingIndicator, markStreamingContentStarted, selectCanvasElement, relayoutElements])
+  }, [inputMessage, isInitialized, sessionId, regenerateTag, attachedFiles, uploadFileToOss, handleCanvasEvent, processStream, resetSSEController, handleFillCoursePoints, handleFillKsa, handleFillChapterPanel, handleFillObjectivePanel, handleFillCourseMatrix, handleFillProjectMatrix, handleFillCourseInfo, clearAttachedFiles, forceCanvasUpload, waitForCanvasStateFlush, updateCanvasData, syncFillProgressFromProcessing, syncFillProgressFromProgress, updateStreamingIndicator, markStreamingContentStarted, selectCanvasElement, relayoutElements])
 
   // 连接菜单处理器
   const handleConnectionMenuSelect = useMemo(

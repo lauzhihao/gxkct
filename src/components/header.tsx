@@ -249,7 +249,7 @@ export function Header({ currentPath, treeData }: HeaderProps) {
   const startLoading = useLoadingStore((state) => state.startLoading)
   const stopLoading = useLoadingStore((state) => state.stopLoading)
 
-  const [currentSchoolId] = useLocalStorage<string | null>("education-current-school", null)
+  const [currentSchoolId, setCurrentSchoolId] = useLocalStorage<string | null>("education-current-school", null)
   
   let activeCollegeId = currentSchoolId ? parseInt(currentSchoolId, 10) : null
   let activeCollegeName = "学校"
@@ -532,6 +532,7 @@ export function Header({ currentPath, treeData }: HeaderProps) {
         open={identitySwitchDialogOpen}
         onOpenChange={setIdentitySwitchDialogOpen}
         userId={authUserId}
+        onSchoolChange={setCurrentSchoolId}
       />
 
       <AlertDialog

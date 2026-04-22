@@ -32,8 +32,7 @@ import type { TreeNode } from "@/types"
 import { useTreeSearch } from "@/shared/hooks/use-tree-search"
 import { useDepartmentMajors } from "@/modules/departments/hooks/use-department-majors"
 import { PermissionGate } from "@/shared/components/permission-gate"
-import { getCourseCache } from "@/shared/utils/course-cache"
-import { getMajorCache, setMajorCacheBatch } from "@/shared/utils/major-cache"
+import { getMajorCache, syncMajorCacheForDepartment } from "@/shared/utils/major-cache"
 import { WorkshopCreateDialog } from "@/components/workshop-create-dialog"
 import { api } from "@/lib/api"
 
@@ -256,12 +255,14 @@ function TreeNodeComponent({
           return
         }
 
-        setMajorCacheBatch([{
+        syncMajorCacheForDepartment(String(departmentId), selectedSemesterId, [{
           majorId,
           majorName: matchedMajor.nodeName,
           btnMenus: Array.isArray(matchedMajor.btnMenus) ? matchedMajor.btnMenus : [],
           coverMenus: Array.isArray(matchedMajor.coverMenus) ? matchedMajor.coverMenus : [],
           managers: Array.isArray(matchedMajor.manager) ? matchedMajor.manager : [],
+          departmentId: String(departmentId),
+          semesterId: typeof selectedSemesterId === "number" && Number.isFinite(selectedSemesterId) ? selectedSemesterId : null,
           source: typeof matchedMajor.metadata?.source === "string" ? matchedMajor.metadata.source : undefined,
         }])
 
@@ -281,26 +282,7 @@ function TreeNodeComponent({
     }
 
     if (node.nodeType === "course") {
-      const courseId = String(node.id || extractNumericId(node.nodeId || ""))
-      const courseCache = getCourseCache(courseId)
-      const cachedManagers = (courseCache?.instructors || []).map((name) => ({ value: name, label: name }))
-
-      if (cachedManagers.length > 0) {
-        const selectedNode: TreeNode = {
-          ...node,
-          manager: node.manager && node.manager.length > 0 ? node.manager : cachedManagers,
-          metadata: {
-            ...(node.metadata || {}),
-            managers:
-              Array.isArray((node.metadata as { managers?: unknown })?.managers) && (node.metadata as { managers?: unknown[] }).managers?.length
-                ? (node.metadata as { managers?: unknown[] }).managers
-                : cachedManagers,
-          },
-        }
-        onSelect(selectedNode)
-      } else {
-        onSelect(node)
-      }
+      onSelect(node)
     } else if (node.nodeType === "major") {
       const isAlreadyViewingMajor = selectedNode?.nodeType === "major" && selectedNode.nodeId === node.nodeId
       if (!isAlreadyViewingMajor) {

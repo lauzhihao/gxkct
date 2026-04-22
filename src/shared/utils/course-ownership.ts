@@ -1,6 +1,5 @@
 import type { TreeNode } from "@/types"
 import { getStoredAuthUser } from "@/lib/api/auth-config"
-import { getCourseCache } from "./course-cache"
 
 interface CourseManagerLike {
   value?: string
@@ -36,15 +35,7 @@ export function resolveCourseManagers(courseTarget?: CourseOwnershipTarget | Tre
     ? (courseTarget?.metadata as CourseMetadataWithManagers).managers
     : []
 
-  const courseId = String(courseTarget?.id ?? "").trim()
-  const cacheManagers = courseId.length > 0
-    ? (getCourseCache(courseId)?.instructors ?? []).map((name) => ({
-        value: name,
-        label: name,
-      }))
-    : []
-
-  const mergedManagers = [...directManagers, ...metadataManagers, ...cacheManagers]
+  const mergedManagers = [...directManagers, ...metadataManagers]
   const uniqueManagers = new Map<string, CourseManagerLike>()
 
   mergedManagers.forEach((manager) => {

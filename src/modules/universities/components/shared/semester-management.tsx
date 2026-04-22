@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Check, Flag, Plus, Search, Settings2, X } from "lucide-react"
+import { Check, Flag, Plus, Search, Settings2, Trash2, X } from "lucide-react"
 import { api, getCurrentUserId } from "@/lib/api"
 import { useSemesterReadonly } from "@/shared/hooks/use-semester-readonly"
 import {
@@ -60,6 +60,7 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
   const currentUserId = getCurrentUserId()
   const canOpenSemesterManagement = canViewSemesterManagement(currentUserId)
   const isReadonly = useSemesterReadonly()
+  const syncFromAuthContext = useSemesterStore((state) => state.syncFromAuthContext)
   const currentSemesterId = useSemesterStore((state) => state.currentSemesterId)
   const updateCurrentSemesterId = useSemesterStore((state) => state.updateCurrentSemesterId)
   const updateSemesterList = useSemesterStore((state) => state.updateSemesterList)
@@ -77,6 +78,8 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
   const [pollCount, setPollCount] = useState(0)
   const [pendingCurrentSemester, setPendingCurrentSemester] = useState<SemesterBrief | null>(null)
   const [switchingSemesterId, setSwitchingSemesterId] = useState<number | null>(null)
+  const [pendingDeleteSemester, setPendingDeleteSemester] = useState<SemesterBrief | null>(null)
+  const [isDeletingSemesterId, setIsDeletingSemesterId] = useState<number | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [draftError, setDraftError] = useState<string | null>(null)
   const loadRequestIdRef = useRef(0)
@@ -88,6 +91,7 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
     const requestId = loadRequestIdRef.current + 1
     loadRequestIdRef.current = requestId
     const requestedCollegeId = collegeId
+    const currentSelectedSemesterId = useSemesterStore.getState().selectedSemesterId
 
     setIsLoading(true)
     setLoadError(null)
@@ -111,6 +115,12 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
       }
 
       setSemesterList(response.data)
+      const nextCurrentSemester = getCurrentSemesterItem(response.data)
+      syncFromAuthContext({
+        currentSemesterId: nextCurrentSemester ? nextCurrentSemester.id : null,
+        selectedSemesterId: currentSelectedSemesterId,
+        semesterList: response.data,
+      })
       return response.data
     } catch (error) {
       if (loadRequestIdRef.current !== requestId || activeCollegeIdRef.current !== requestedCollegeId) {
@@ -126,13 +136,15 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
         setIsLoading(false)
       }
     }
-  }, [collegeId])
+  }, [collegeId, syncFromAuthContext])
 
   const resetTransientState = useCallback(() => {
     setSearchTerm("")
     setDraft(null)
     setDraftError(null)
     setPendingCurrentSemester(null)
+    setPendingDeleteSemester(null)
+    setIsDeletingSemesterId(null)
     setLoadError(null)
   }, [])
 
@@ -159,13 +171,11 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
     setIsSaving(false)
     setPendingCurrentSemester(null)
     setSwitchingSemesterId(null)
+    setPendingDeleteSemester(null)
+    setIsDeletingSemesterId(null)
     setLoadError(null)
     setDraftError(null)
   }, [collegeId])
-
-  useEffect(() => {
-    void loadSemesters()
-  }, [loadSemesters])
 
   // [MOD] 自动轮询新创建学期的状态
   useEffect(() => {
@@ -242,8 +252,13 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
     setDraftError(null)
 
     try {
+      // [MOD] 将学年范围转换为结束年份（如 "2025-2026" -> "2026"）
+      const endYear = draft.schoolYear.includes('-')
+        ? draft.schoolYear.split('-')[1]
+        : draft.schoolYear
+
       const response = await api.semesters.bootstrapSemester(requestedCollegeId, {
-        schoolYear: draft.schoolYear,
+        schoolYear: endYear,
       })
 
       if (response.error) {
@@ -287,6 +302,44 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
     setDraft(null)
     setDraftError(null)
   }, [])
+
+  const handleConfirmDeleteSemester = useCallback(async () => {
+    const semester = pendingDeleteSemester
+    if (!semester) {
+      return
+    }
+
+    const requestedCollegeId = collegeId
+    setIsDeletingSemesterId(semester.id)
+
+    try {
+      const response = await api.semesters.deleteSemester(requestedCollegeId, semester.id)
+      if (response.error) {
+        throw new Error(response.error)
+      }
+
+      if (activeCollegeIdRef.current !== requestedCollegeId) {
+        return
+      }
+
+      setPendingDeleteSemester(null)
+      showSuccess(`已删除"${semester.name}"`, "学期删除成功")
+      const latestSemesterList = await loadSemesters()
+      if (latestSemesterList) {
+        updateSemesterList(latestSemesterList)
+      }
+    } catch (error) {
+      if (activeCollegeIdRef.current !== requestedCollegeId) {
+        return
+      }
+      const message = error instanceof Error ? error.message : "删除学期失败"
+      showError(message, "删除学期失败")
+    } finally {
+      if (activeCollegeIdRef.current === requestedCollegeId) {
+        setIsDeletingSemesterId(null)
+      }
+    }
+  }, [collegeId, loadSemesters, pendingDeleteSemester, updateSemesterList])
 
   const handleConfirmSetCurrentSemester = useCallback(async () => {
     const semester = pendingCurrentSemester
@@ -556,6 +609,30 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
                                 </TooltipTrigger>
                                 <TooltipContent side="top">创建新学期</TooltipContent>
                               </Tooltip>
+
+                              {/* 删除学期按钮 - 当前视图或全校当前学期禁用 */}
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => setPendingDeleteSemester(semester)}
+                                    disabled={isDraftBlocked || isCurrentSemester || isSelected || isDeletingSemesterId !== null}
+                                    className="h-9 w-9 rounded-full border border-border/70 text-destructive transition-all opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                                    aria-label={`删除${semester.name}`}
+                                  >
+                                    {isDeletingSemesterId === semester.id ? (
+                                      <Spinner className="h-[18px] w-[18px]" />
+                                    ) : (
+                                      <Trash2 className="h-[18px] w-[18px]" />
+                                    )}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  {isCurrentSemester ? "当前学期不可删除" : isSelected ? "当前视图学期不可删除" : "删除学期"}
+                                </TooltipContent>
+                              </Tooltip>
                             </div>
                           )}
                         </div>
@@ -594,6 +671,36 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
               disabled={switchingSemesterId !== null}
             >
               {switchingSemesterId !== null ? "切换中..." : "确定"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={pendingDeleteSemester !== null}
+        onOpenChange={(open) => {
+          if (!open && isDeletingSemesterId === null) {
+            setPendingDeleteSemester(null)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除学期确认</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDeleteSemester
+                ? `确定要删除"${pendingDeleteSemester.name}"吗？此操作不可恢复，该学期的所有数据将被删除。`
+                : "确定要删除该学期吗？"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingSemesterId !== null}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void handleConfirmDeleteSemester()}
+              disabled={isDeletingSemesterId !== null}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeletingSemesterId !== null ? "删除中..." : "确定删除"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

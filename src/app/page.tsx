@@ -59,6 +59,7 @@ export default function Page() {
   // 添加ref来引用右侧详情面板容器，用于滚动控制
   const detailPanelContainerRef = useRef<HTMLDivElement>(null)
   const treeRequestIdRef = useRef(0)
+  const currentSchoolIdRef = useRef<string | null>(currentSchoolId)
   const selectedNodePathRef = useRef<TreeNode[]>([])
   const {
     treeData,
@@ -75,7 +76,11 @@ export default function Page() {
   const selectedSemesterId = useSemesterStore((state) => state.selectedSemesterId)
   const initializeFromStoredContext = useSemesterStore((state) => state.initializeFromStoredContext)
 
-  const resolveNextSelectedNode = useCallback((latestTree: TreeNode, previousSelectedNode: TreeNode | null): TreeNode | null => {
+  const resolveNextSelectedNode = useCallback((
+    latestTree: TreeNode,
+    previousSelectedNode: TreeNode | null,
+    preferredSchoolId: string | null,
+  ): TreeNode | null => {
     const latestSelectedNodePath = selectedNodePathRef.current
 
     if (previousSelectedNode) {
@@ -102,6 +107,20 @@ export default function Page() {
       }
     }
 
+    if (preferredSchoolId && Array.isArray(latestTree.children)) {
+      const preferredSchoolNode = latestTree.children.find((child) => {
+        if (child.nodeType !== "university") {
+          return false
+        }
+
+        return extractNumericId(child.nodeId).toString() === preferredSchoolId
+      })
+
+      if (preferredSchoolNode) {
+        return preferredSchoolNode
+      }
+    }
+
     const starredNode = findStarredNode(latestTree)
     if (starredNode) {
       return starredNode
@@ -116,6 +135,10 @@ export default function Page() {
   // useEffect(() => {
   //   initializeFromStoredContext(getStoredSemesterContext())
   // }, [initializeFromStoredContext])
+
+  useEffect(() => {
+    currentSchoolIdRef.current = currentSchoolId
+  }, [currentSchoolId])
 
   useEffect(() => {
     selectedNodePathRef.current = selectedNodePath
@@ -148,10 +171,14 @@ export default function Page() {
       if (response.data) {
         console.log("[v0] 树形数据加载成功，children数量:", response.data.children?.length || 0)
         const latestTree = response.data
+        const authUser = getStoredAuthUser()
+        const preferredSchoolId =
+          currentSchoolIdRef.current ??
+          (typeof authUser?.collegeId === "number" ? String(authUser.collegeId) : null)
         setInitialData(latestTree)
         resetTreeData(latestTree)
         setSelectedNode((prevSelectedNode) => {
-          return resolveNextSelectedNode(latestTree, prevSelectedNode)
+          return resolveNextSelectedNode(latestTree, prevSelectedNode, preferredSchoolId)
         })
       } else {
         console.error("[v0] 加载树形数据失败:", response.error)
@@ -176,9 +203,10 @@ export default function Page() {
       return selectedNode
     }
 
-    const treeNode = findNodeById(treeData, selectedNode.nodeId)
+    const treeNode = findNodeInTree(treeData, selectedNode.nodeId)
+      ?? (selectedNode.id ? findNodeInTree(treeData, selectedNode.id) : null)
     if (!treeNode) {
-      return selectedNode
+      return null
     }
 
     return {
@@ -268,11 +296,15 @@ export default function Page() {
       }
 
       const latestTree = response.data
+      const authUser = getStoredAuthUser()
+      const preferredSchoolId =
+        currentSchoolIdRef.current ??
+        (typeof authUser?.collegeId === "number" ? String(authUser.collegeId) : null)
       setInitialData(latestTree)
       resetTreeData(latestTree)
 
       setSelectedNode((prevSelectedNode) => {
-        return resolveNextSelectedNode(latestTree, prevSelectedNode)
+        return resolveNextSelectedNode(latestTree, prevSelectedNode, preferredSchoolId)
       })
       setIsLoading(false)
 

@@ -85,7 +85,7 @@ export interface UseProcessedNodesOptions {
   onCourseMatrixEdit: (nodeId: string) => void
   /** 项目矩阵编辑回调 */
   onProjectMatrixEdit: (nodeId: string) => void
-  /** 开课报告编辑回调 */
+  /** 开课说明编辑回调 */
   onCourseReportEdit: (nodeId: string) => void
   /** Panel 添加回调 */
   onPanelAdd: (panelType: string, panelId: string) => void
@@ -136,7 +136,7 @@ function getNodeDisplayName(node: Node): string {
     case FlowNodeType.PROJECT_MATRIX:
       return `${(nodeData.chapter_name as string) || ""}项目矩阵`
     case FlowNodeType.COURSE_REPORT:
-      return "开课报告"
+      return "开课说明"
     case FlowNodeType.SOURCE_DOCUMENT_PANEL:
       return "源文档"
     case FlowNodeType.SOURCE_DOCUMENT:
@@ -439,7 +439,7 @@ export function useProcessedNodes({
         }
       }
 
-      // 开课报告节点注入 onEdit 回调
+      // 开课说明节点注入 onEdit 回调
       if (node.type === FlowNodeType.COURSE_REPORT) {
         return {
           ...node,

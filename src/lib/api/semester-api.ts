@@ -388,6 +388,24 @@ export class SemesterApi {
     }
   }
 
+  async deleteSemester(collegeId: number, semesterId: number): Promise<ApiResponse<null>> {
+    try {
+      const response = await this.http.delete<unknown>(
+        `/api/v5/colleges/${collegeId}/semesters/${semesterId}`
+      )
+      if (response.error) {
+        return toApiError<null>(response)
+      }
+      return {
+        data: null,
+        error: null,
+        status: response.status,
+      }
+    } catch (error) {
+      return normalizeError(error, "删除学期失败")
+    }
+  }
+
   async pollCopyTaskUntilFinished(
     semesterId: number,
     options?: {

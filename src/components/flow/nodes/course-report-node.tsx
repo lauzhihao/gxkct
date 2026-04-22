@@ -7,7 +7,7 @@ import { BaseFlowNode } from "./base-flow-node";
 import { getStoredAuthUser } from "@/lib/api";
 
 /**
- * 开课报告数据类型
+ * 开课说明数据类型
  */
 export interface CourseReportData {
   id: string;
@@ -19,7 +19,7 @@ export interface CourseReportData {
 }
 
 /**
- * 扩展的开课报告数据类型，包含注入的回调
+ * 扩展的开课说明数据类型，包含注入的回调
  */
 interface CourseReportNodeData extends CourseReportData {
   highlighted?: boolean;
@@ -31,7 +31,7 @@ interface CourseReportNodeData extends CourseReportData {
 }
 
 /**
- * 开课报告节点
+ * 开课说明节点
  * 作为画布的最终节点，无右侧连接点，画布内唯一
  */
 // 使用 any 类型绕过 @xyflow/react 的严格 Node 泛型约束
@@ -77,7 +77,7 @@ export const CourseReportNode = memo(function CourseReportNode(
       isDeleting={data.isDeleting}
       isRefreshing={data.isRefreshing}
       icon={<FileText className="h-4 w-4" />}
-      title={data.name || "开课报告"}
+      title={data.name || "开课说明"}
       headerColorClass="bg-rose-100"
       borderColorClass="border-rose-200"
       textColorClass="text-rose-700"
@@ -102,7 +102,7 @@ export const CourseReportNode = memo(function CourseReportNode(
           )}
         </div>
 
-        {/* 查看开课报告链接 */}
+        {/* 查看开课说明链接 */}
         <p className="text-gray-500 text-lg text-center">
           <button
             type="button"
@@ -111,7 +111,7 @@ export const CourseReportNode = memo(function CourseReportNode(
           >
             点击查看
           </button>
-          完整开课报告
+          完整开课说明
         </p>
       </div>
     </BaseFlowNode>

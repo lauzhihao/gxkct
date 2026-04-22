@@ -55,6 +55,9 @@ export interface CourseDetailData {
     scoreType?: string
     scoreTable?: any
     assessmentDescription?: string
+    // 开课学期字段
+    openingSemesterId?: number
+    openingSemesterDisplay?: string
   }
   pointksa: {
     points: any[]
@@ -149,6 +152,9 @@ export interface SaveCourseUnitRequest {
     scoreType?: string
     scoreTable?: any
     assessmentDescription?: string
+    // 开课学期字段
+    openingSemesterId?: number | null
+    openingSemesterDisplay?: string | null
   }
 }
 

@@ -27,6 +27,8 @@ import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
 import { PermissionGate } from "@/shared/components/permission-gate"
 import { usePermission } from "@/shared/hooks/use-permission"
 import type { PermissionAction } from "@/shared/permissions/types"
+import { clearMajorCacheForDepartment } from "@/shared/utils/major-cache"
+import { useSemesterStore } from "@/shared/stores/semester-store"
 
 const DEPARTMENT_TABS = {
   overview: "院系概览",
@@ -54,6 +56,7 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
   const { setActivePage } = useActivePageTracker()
   const { can, isSemesterReadonly } = usePermission()
   const { toast } = useToast()
+  const selectedSemesterId = useSemesterStore((state) => state.selectedSemesterId)
 
   useEffect(() => {
     if (!node) return
@@ -125,6 +128,10 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
           director: data.directors.map((d) => d.name).join("、"),
         },
       })
+    }
+    if (node?.id) {
+      // 创建成功后主动清理当前院系的专业缓存，避免后续详情读取旧元数据。
+      clearMajorCacheForDepartment(node.id, selectedSemesterId)
     }
     // 创建成功后，自动填充搜索框并刷新专业列表
     setMajorSearchFilter(data.name)

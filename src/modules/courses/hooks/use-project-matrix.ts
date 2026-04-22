@@ -124,6 +124,22 @@ export interface KsaItem {
   level: number
 }
 
+const KSA_TITLE_ORDER: Record<KsaItem["title"], number> = { K: 0, S: 1, A: 2 }
+
+function sortKsaListForState(items: readonly KsaItem[]): KsaItem[] {
+  return [...items].sort((left, right) => {
+    if (left.title !== right.title) {
+      return KSA_TITLE_ORDER[left.title] - KSA_TITLE_ORDER[right.title]
+    }
+
+    if (left.level !== right.level) {
+      return left.level - right.level
+    }
+
+    return left.id - right.id
+  })
+}
+
 export interface UseProjectMatrixResult {
   // 数据状态
   projectMatrixData: ProjectMatrixData | null
@@ -230,10 +246,10 @@ export function useProjectMatrix(node: TreeNode, majorId?: string | number): Use
               { id: 5, majorId: 0, courseUnitId: 0, title: "A", description: "态度点1", level: 1 },
               { id: 6, majorId: 0, courseUnitId: 0, title: "A", description: "态度点2", level: 2 },
             ]
-            setKsaListData(mockKsaData)
+            setKsaListData(sortKsaListForState(mockKsaData))
           } else if (ksaListResponse.data) {
             const ksaArray = Array.isArray(ksaListResponse.data) ? ksaListResponse.data : []
-            setKsaListData(ksaArray)
+            setKsaListData(sortKsaListForState(ksaArray))
           }
         } catch (error) {
           console.error("[useProjectMatrix] 获取KSA列表异常:", error)

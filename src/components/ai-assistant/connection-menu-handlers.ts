@@ -210,7 +210,7 @@ function handleCourseInfoOption(ctx: ConnectionMenuContext): void {
 }
 
 /**
- * 处理开课报告创建
+ * 处理开课说明创建
  */
 function handleCourseReportOption(
   ctx: ConnectionMenuContext,
@@ -222,7 +222,7 @@ function handleCourseReportOption(
     component: CanvasComponentType.COURSE_REPORT,
     data: {
       id: `course-report-${Date.now()}`,
-      name: "开课报告",
+      name: "开课说明",
       status: "draft",
       createdAt: new Date().toLocaleDateString("zh-CN"),
     },
@@ -294,7 +294,7 @@ export function createConnectionMenuHandler(ctx: ConnectionMenuContext) {
       return
     }
 
-    // 处理开课报告
+    // 处理开课说明
     if (option === "courseReport") {
       handleCourseReportOption(ctx, position)
       return

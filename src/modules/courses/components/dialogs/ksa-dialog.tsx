@@ -3,8 +3,8 @@
  * 负责显示和管理KSA支撑关系
  */
 
-import { useState } from "react"
-import { Plus, Check, X, Edit, Trash2 } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { Plus, Check, X, Edit, Trash2, Eraser } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/shared/components/ui/dialog"
 import { Button } from "@/shared/components/ui/button"
 import { Textarea } from "@/shared/components/ui/textarea"
@@ -30,7 +30,15 @@ interface NormalizedKsaMutationItem extends KsaMutationItem {
   title: KsaTitle
 }
 
+interface KsaSummaryState {
+  total: number
+  added: number
+  duplicate: number
+  delta: number
+}
+
 const KSA_TITLES: readonly KsaTitle[] = ["K", "S", "A"]
+const KSA_TITLE_ORDER: Record<KsaTitle, number> = { K: 0, S: 1, A: 2 }
 
 function isKsaTitle(value: string): value is KsaTitle {
   return KSA_TITLES.includes(value as KsaTitle)
@@ -53,7 +61,13 @@ function buildKsaNormalizationContext<T extends KsaMutationItem>(items: readonly
           return left.level - right.level
         }
 
-        if (left.id !== right.id) {
+        const leftIsNewItem = left.id <= 0
+        const rightIsNewItem = right.id <= 0
+        if (leftIsNewItem !== rightIsNewItem) {
+          return leftIsNewItem ? 1 : -1
+        }
+
+        if (left.id > 0 && right.id > 0 && left.id !== right.id) {
           return left.id - right.id
         }
 
@@ -69,6 +83,46 @@ function buildKsaNormalizationContext<T extends KsaMutationItem>(items: readonly
     indexedItems,
     nextLevelByIndex,
   }
+}
+
+function sortKsaItemsForDisplay<T extends KsaMutationItem>(items: readonly T[]): T[] {
+  return items
+    .map((item, originalIndex) => ({
+      ...item,
+      originalIndex,
+      normalizedTitle: item.title.trim().toUpperCase(),
+    }))
+    .sort((left, right) => {
+      if (!isKsaTitle(left.normalizedTitle) || !isKsaTitle(right.normalizedTitle)) {
+        throw new Error("Invalid KSA title encountered while sorting")
+      }
+
+      if (left.normalizedTitle !== right.normalizedTitle) {
+        return KSA_TITLE_ORDER[left.normalizedTitle] - KSA_TITLE_ORDER[right.normalizedTitle]
+      }
+
+      if (left.level !== right.level) {
+        return left.level - right.level
+      }
+
+      const leftIsNewItem = left.id <= 0
+      const rightIsNewItem = right.id <= 0
+      if (leftIsNewItem !== rightIsNewItem) {
+        return leftIsNewItem ? 1 : -1
+      }
+
+      if (left.id > 0 && right.id > 0 && left.id !== right.id) {
+        return left.id - right.id
+      }
+
+      return left.originalIndex - right.originalIndex
+    })
+    .map((sortableItem) => {
+      const { originalIndex, normalizedTitle, ...item } = sortableItem
+      void originalIndex
+      void normalizedTitle
+      return item
+    })
 }
 
 function normalizeKsaMutationItems(items: readonly KsaMutationItem[]): NormalizedKsaMutationItem[] {
@@ -102,7 +156,7 @@ function normalizeKsaMutationItems(items: readonly KsaMutationItem[]): Normalize
 function normalizeKsaListItems(items: readonly RawKsaListItem[]): KsaItem[] {
   const { indexedItems, nextLevelByIndex } = buildKsaNormalizationContext(items)
 
-  return indexedItems.map(({ originalIndex, normalizedTitle, ...item }) => {
+  const normalizedItems = indexedItems.map(({ originalIndex, normalizedTitle, ...item }) => {
     if (!isKsaTitle(normalizedTitle)) {
       throw new Error(`Invalid KSA title: ${item.title}`)
     }
@@ -125,6 +179,25 @@ function normalizeKsaListItems(items: readonly RawKsaListItem[]): KsaItem[] {
       level: nextLevel,
     }
   })
+
+  return sortKsaItemsForDisplay(normalizedItems)
+}
+
+function matchesKsaSearch(item: KsaItem, searchValue: string): boolean {
+  const normalizedSearch = searchValue.trim().toLowerCase()
+  if (!normalizedSearch) {
+    return true
+  }
+
+  const displayCode = `${item.title}${item.level}`.toLowerCase()
+  const levelText = String(item.level)
+  const descriptionText = item.description.trim().toLowerCase()
+
+  return (
+    displayCode.startsWith(normalizedSearch) ||
+    levelText.startsWith(normalizedSearch) ||
+    descriptionText.includes(normalizedSearch)
+  )
 }
 
 interface KsaDialogProps {
@@ -179,8 +252,6 @@ export function KsaDialog({
   courseId,
   majorId,
 }: KsaDialogProps) {
-  if (!selectedKsaCell) return null
-
   const normalizedKsaListData = normalizeKsaListItems(ksaListData)
 
   // Group KSA list data by type
@@ -190,39 +261,82 @@ export function KsaDialog({
 
   // Filter by search and sort by level
   const filteredKnowledgePoints = knowledgePoints
-    .filter(
-      (p) =>
-        !ksaSearchK ||
-        p.id?.toString().includes(ksaSearchK) ||
-        p.description?.toLowerCase().includes(ksaSearchK.toLowerCase())
-    )
-    .sort((a, b) => a.level - b.level)
+    .filter((p) => matchesKsaSearch(p, ksaSearchK))
+    .sort((a, b) => {
+      if (a.level !== b.level) {
+        return a.level - b.level
+      }
+
+      return a.id - b.id
+    })
 
   const filteredSkillPoints = skillPoints
-    .filter(
-      (p) =>
-        !ksaSearchS ||
-        p.id?.toString().includes(ksaSearchS) ||
-        p.description?.toLowerCase().includes(ksaSearchS.toLowerCase())
-    )
-    .sort((a, b) => a.level - b.level)
+    .filter((p) => matchesKsaSearch(p, ksaSearchS))
+    .sort((a, b) => {
+      if (a.level !== b.level) {
+        return a.level - b.level
+      }
+
+      return a.id - b.id
+    })
 
   const filteredAttitudePoints = attitudePoints
-    .filter(
-      (p) =>
-        !ksaSearchA ||
-        p.id?.toString().includes(ksaSearchA) ||
-        p.description?.toLowerCase().includes(ksaSearchA.toLowerCase())
-    )
-    .sort((a, b) => a.level - b.level)
+    .filter((p) => matchesKsaSearch(p, ksaSearchA))
+    .sort((a, b) => {
+      if (a.level !== b.level) {
+        return a.level - b.level
+      }
+
+      return a.id - b.id
+    })
 
   // 批量新增状态
   const [batchAddType, setBatchAddType] = useState<KsaTitle | null>(null)
   const [batchAddInput, setBatchAddInput] = useState("")
   const [isBatchAdding, setIsBatchAdding] = useState(false)
-  const [batchSummary, setBatchSummary] = useState<Record<string, { total: number; added: number; duplicate: number }>>({})
+  const [batchSummary, setBatchSummary] = useState<Partial<Record<KsaTitle, KsaSummaryState>>>({})
+  const [visibleBatchSummary, setVisibleBatchSummary] = useState<Record<KsaTitle, boolean>>({
+    K: false,
+    S: false,
+    A: false,
+  })
+  const [clearingKsaType, setClearingKsaType] = useState<KsaTitle | null>(null)
   const [deletingKsaId, setDeletingKsaId] = useState<number | null>(null)
-  const KSA_TYPE_LABEL: Record<string, string> = { K: "K点", S: "S点", A: "A点" }
+  const batchSummaryTimerRef = useRef<Partial<Record<KsaTitle, ReturnType<typeof setTimeout>>>>({})
+
+  const getNextKsaLevel = (ksaType: KsaTitle) => {
+    const sameTypeItems = normalizedKsaListData.filter((item) => item.title === ksaType)
+    if (sameTypeItems.length === 0) {
+      return 1
+    }
+
+    return sameTypeItems[sameTypeItems.length - 1].level + 1
+  }
+
+  useEffect(() => {
+    const activeTimers = batchSummaryTimerRef.current
+
+    return () => {
+      for (const timer of Object.values(activeTimers)) {
+        if (timer) {
+          clearTimeout(timer)
+        }
+      }
+    }
+  }, [])
+
+  const showBatchSummary = (ksaType: KsaTitle) => {
+    const activeTimer = batchSummaryTimerRef.current[ksaType]
+    if (activeTimer) {
+      clearTimeout(activeTimer)
+    }
+
+    setVisibleBatchSummary((prev) => ({ ...prev, [ksaType]: true }))
+    batchSummaryTimerRef.current[ksaType] = setTimeout(() => {
+      setVisibleBatchSummary((prev) => ({ ...prev, [ksaType]: false }))
+      delete batchSummaryTimerRef.current[ksaType]
+    }, 10000)
+  }
 
   // 批量新增 KSA
   const handleBatchAddKsa = async (ksaType: KsaTitle) => {
@@ -232,7 +346,8 @@ export function KsaDialog({
       .filter((item) => item !== "")
 
     if (normalizedItems.length === 0) {
-      setBatchSummary((prev) => ({ ...prev, [ksaType]: { total: 0, added: 0, duplicate: 0 } }))
+      setBatchSummary((prev) => ({ ...prev, [ksaType]: { total: 0, added: 0, duplicate: 0, delta: 0 } }))
+      showBatchSummary(ksaType)
       return
     }
 
@@ -257,11 +372,14 @@ export function KsaDialog({
     const duplicate = total - added
 
     if (added === 0) {
-      setBatchSummary((prev) => ({ ...prev, [ksaType]: { total, added, duplicate } }))
+      setBatchSummary((prev) => ({ ...prev, [ksaType]: { total, added, duplicate, delta: 0 } }))
+      showBatchSummary(ksaType)
       setBatchAddInput("")
       setBatchAddType(null)
       return
     }
+
+    const nextLevelStart = getNextKsaLevel(ksaType)
 
     const payload = [
       ...normalizedKsaListData.map((k) => ({ id: k.id, title: k.title, description: k.description, level: k.level })),
@@ -269,8 +387,8 @@ export function KsaDialog({
         id: 0,
         title: ksaType,
         description: desc,
-        // level 在 saveAndReload 中统一按类别重排，避免批量新增后出现重复编号。
-        level: index + 1,
+        // 新增项从当前类别最大编号后续接续，避免保存后重新打开时插入到中间位置。
+        level: nextLevelStart + index,
       })),
     ]
 
@@ -279,9 +397,10 @@ export function KsaDialog({
       const error = await saveAndReload(payload)
       if (error) {
         showError("批量新增失败: " + error)
-        setBatchSummary((prev) => ({ ...prev, [ksaType]: { total, added: 0, duplicate: 0 } }))
+        setBatchSummary((prev) => ({ ...prev, [ksaType]: { total, added: 0, duplicate: 0, delta: 0 } }))
       } else {
-        setBatchSummary((prev) => ({ ...prev, [ksaType]: { total, added, duplicate } }))
+        setBatchSummary((prev) => ({ ...prev, [ksaType]: { total, added, duplicate, delta: added } }))
+        showBatchSummary(ksaType)
         setBatchAddInput("")
         setBatchAddType(null)
       }
@@ -358,6 +477,12 @@ export function KsaDialog({
   }
 
   const handleDeleteKsa = async (ksaId: number) => {
+    const targetKsa = normalizedKsaListData.find((item) => item.id === ksaId)
+    if (!targetKsa) {
+      showError("未找到要删除的KSA项")
+      return
+    }
+
     // 构建完整列表: 将被删除项的 id 取负值
     const payload = normalizedKsaListData.map((k) => ({
       id: k.id === ksaId ? -Math.abs(k.id) : k.id,
@@ -369,28 +494,98 @@ export function KsaDialog({
     const error = await saveAndReload(payload)
     if (error) {
       showError("删除失败: " + error)
+    } else {
+      setBatchSummary((prev) => ({ ...prev, [targetKsa.title]: { total: 1, added: 0, duplicate: 0, delta: -1 } }))
+      showBatchSummary(targetKsa.title)
     }
 
     setDeletingKsaId(null)
   }
 
+  const handleClearKsaType = async (ksaType: KsaTitle) => {
+    const pointsToClear = normalizedKsaListData.filter((item) => item.title === ksaType)
+    const clearCount = pointsToClear.length
+
+    const payload = normalizedKsaListData.map((item) => ({
+      id: item.title === ksaType ? -Math.abs(item.id) : item.id,
+      title: item.title,
+      description: item.description,
+      level: item.level,
+    }))
+
+    const error = await saveAndReload(payload)
+    if (error) {
+      showError("清除失败: " + error)
+    } else {
+      setBatchSummary((prev) => ({ ...prev, [ksaType]: { total: clearCount, added: 0, duplicate: 0, delta: -clearCount } }))
+      showBatchSummary(ksaType)
+      setClearingKsaType(null)
+      if (batchAddType === ksaType) {
+        setBatchAddInput("")
+        setBatchAddType(null)
+      }
+    }
+  }
+
   const renderInfoPointList = (
-    title: string,
+    englishTitle: string,
+    chineseTitle: string,
     points: KsaItem[],
     filteredPoints: KsaItem[],
     searchValue: string,
     onSearchChange: (value: string) => void,
     colorClass: string,
     bgClass: string,
+    hoverBgClass: string,
     borderClass: string,
     ksaType: KsaTitle
-  ) => (
+  ) => {
+    const summary = visibleBatchSummary[ksaType] ? batchSummary[ksaType] : undefined
+    const summaryText = summary ? `${summary.delta >= 0 ? "+" : ""}${summary.delta}` : null
+
+    return (
     <div className="flex-1 flex flex-col min-h-0 border rounded-lg shadow-sm overflow-hidden">
       {/* Card Header */}
       <div className={`px-4 py-3 ${bgClass} ${borderClass}`}>
-        <h4 className={`text-sm font-semibold ${colorClass}`}>
-          {title} ({points.length})
-        </h4>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <h4 className={`text-[1.2rem] font-bold tracking-wide ${colorClass} whitespace-nowrap`}>
+              {englishTitle}
+            </h4>
+            <div
+              className={cn(
+                "rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap",
+                borderClass,
+                bgClass,
+                colorClass
+              )}
+            >
+              {chineseTitle}
+            </div>
+            <div
+              className={cn(
+                "rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap",
+                borderClass,
+                bgClass,
+                colorClass
+              )}
+            >
+              {points.length}
+            </div>
+          </div>
+          {summaryText ? (
+            <div
+              className={cn(
+                "max-w-full rounded-none border px-2 py-1 text-xs font-medium whitespace-nowrap text-right",
+                borderClass,
+                bgClass,
+                colorClass
+              )}
+            >
+              {summaryText}
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {/* Search - Fixed */}
@@ -399,21 +594,52 @@ export function KsaDialog({
           type="text"
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder={`搜索${title.split("（")[0]}...`}
+          placeholder={`搜索${chineseTitle}...`}
           disabled={editingKsaId !== null || batchAddType === ksaType}
           className="flex-1 px-2 py-1.5 text-xs border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
         />
-        <button
-          onClick={() => {
-            setBatchAddType(batchAddType === ksaType ? null : ksaType)
-            setBatchAddInput("")
-          }}
-          disabled={editingKsaId !== null || isBatchAdding}
-          className={`flex-shrink-0 p-1.5 rounded-md ${bgClass} hover:opacity-80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
-          title="批量新增"
-        >
-          <Plus className={`w-4 h-4 ${colorClass}`} />
-        </button>
+        <div className="relative flex flex-shrink-0 items-center gap-2">
+          <button
+            onClick={() => {
+              setBatchAddType(batchAddType === ksaType ? null : ksaType)
+              setBatchAddInput("")
+              setClearingKsaType(null)
+            }}
+            disabled={editingKsaId !== null || isBatchAdding || clearingKsaType !== null}
+            className={`h-8 w-8 flex-shrink-0 rounded-md ${bgClass} hover:opacity-80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+            title="批量新增"
+          >
+            <Plus className={`mx-auto h-4 w-4 ${colorClass}`} />
+          </button>
+          <button
+            onClick={() => setClearingKsaType(clearingKsaType === ksaType ? null : ksaType)}
+            disabled={editingKsaId !== null || isBatchAdding || batchAddType !== null || deletingKsaId !== null}
+            className="h-8 w-8 flex-shrink-0 rounded-md bg-red-50 transition-colors hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            title={`清除全部${ksaType}`}
+          >
+            <Eraser className="mx-auto h-4 w-4 text-red-600" />
+          </button>
+          {clearingKsaType === ksaType ? (
+            <>
+              <div className="fixed inset-0 z-[9]" onClick={() => setClearingKsaType(null)} />
+              <div className="absolute right-0 top-full z-[12] mt-2 flex items-center gap-1 whitespace-nowrap rounded-md border border-border bg-white px-2 py-1 shadow-lg">
+                <span className="text-xs text-muted-foreground">确认清除全部{ksaType}?</span>
+                <button
+                  onClick={() => handleClearKsaType(ksaType)}
+                  className="rounded p-0.5 transition-colors hover:bg-red-100"
+                >
+                  <Check className="h-3.5 w-3.5 text-red-600" />
+                </button>
+                <button
+                  onClick={() => setClearingKsaType(null)}
+                  className="rounded p-0.5 transition-colors hover:bg-gray-100"
+                >
+                  <X className="h-3.5 w-3.5 text-gray-500" />
+                </button>
+              </div>
+            </>
+          ) : null}
+        </div>
       </div>
 
       {/* Batch Add Area */}
@@ -422,7 +648,7 @@ export function KsaDialog({
           <Textarea
             value={batchAddInput}
             onChange={(e) => setBatchAddInput(e.target.value)}
-            placeholder={`请输入${title.split("（")[0]}描述，每行一个；支持换行符或英文分号分隔。`}
+            placeholder={`请输入${chineseTitle}描述，每行一个；支持换行符或英文分号分隔。`}
             className="flex-1 resize-none text-xs border-0 shadow-none focus-visible:ring-0 p-0"
             disabled={isBatchAdding}
           />
@@ -462,7 +688,7 @@ export function KsaDialog({
                 <div
                   key={point.id}
                   className={cn(
-                    "p-2 rounded-lg border transition-all",
+                    "cursor-pointer p-2 rounded-lg border transition-all duration-200 ease-out hover:scale-[1.015] hover:shadow-md hover:shadow-black/5",
                     isEditing && "border-blue-300 bg-blue-50",
                     !isEditing && support ? `${borderClass} ${bgClass}` : !isEditing && "border-border bg-background"
                   )}
@@ -516,10 +742,13 @@ export function KsaDialog({
                                 setEditingDescription(point.description)
                               }}
                               disabled={editingKsaId !== null || newRowKsaType !== null}
-                              className="p-1 rounded hover:bg-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              className={cn(
+                                "p-1 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                                hoverBgClass
+                              )}
                               title="编辑"
                             >
-                              <Edit className="w-4 h-4 text-blue-600" />
+                              <Edit className={cn("w-4 h-4", colorClass)} />
                             </button>
                             <div className="relative">
                               <button
@@ -594,15 +823,13 @@ export function KsaDialog({
         </div>
       </div>
       )}
-      {/* Batch summary */}
-      {batchSummary[ksaType] && (
-        <div className={`px-3 py-2 text-xs flex-shrink-0 border-t ${batchSummary[ksaType].added > 0 ? "text-green-600" : "text-muted-foreground"}`}>
-          已解析{batchSummary[ksaType].added}个有效{KSA_TYPE_LABEL[ksaType] || "项"}
-          {batchSummary[ksaType].duplicate > 0 && `，${batchSummary[ksaType].duplicate}个重复已跳过`}
-        </div>
-      )}
     </div>
   )
+  }
+
+  if (!selectedKsaCell) {
+    return null
+  }
 
   return (
     <Dialog open={ksaDialogOpen} onOpenChange={setKsaDialogOpen}>
@@ -618,35 +845,41 @@ export function KsaDialog({
           {/* KSA Lists */}
           <div className="flex-1 grid grid-cols-3 gap-3 min-h-0">
             {renderInfoPointList(
-              "知识（Knowledge）",
+              "Knowledge",
+              "知识",
               knowledgePoints,
               filteredKnowledgePoints,
               ksaSearchK,
               setKsaSearchK,
               "text-blue-700",
               "bg-blue-50",
+              "hover:bg-blue-50",
               "border-blue-300",
               "K"
             )}
             {renderInfoPointList(
-              "技能（Skills）",
+              "Skills",
+              "技能",
               skillPoints,
               filteredSkillPoints,
               ksaSearchS,
               setKsaSearchS,
               "text-green-700",
               "bg-green-50",
+              "hover:bg-green-50",
               "border-green-300",
               "S"
             )}
             {renderInfoPointList(
-              "态度（Attitude）",
+              "Attitude",
+              "态度",
               attitudePoints,
               filteredAttitudePoints,
               ksaSearchA,
               setKsaSearchA,
               "text-purple-700",
               "bg-purple-50",
+              "hover:bg-purple-50",
               "border-purple-300",
               "A"
             )}

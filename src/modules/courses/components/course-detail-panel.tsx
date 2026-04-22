@@ -302,23 +302,10 @@ export function CourseDetail({
   } = useAiCanvasStore()
   const prefetchedCanvasCourseIdRef = useRef<string | null>(null)
 
-  // [MOD] 计算开课学期显示信息 - 必须在所有条件返回之前调用
-  const semesterList = useSemesterStore((state) => state.semesterList)
+  // [MOD] 开课学期：从后端返回的 courseDetail 中直接获取，不再前端计算
   const semesterDisplay = useMemo(() => {
-    if (!semesterList || semesterList.length === 0) {
-      return "-"
-    }
-    // 从 semesterList 中查找对应学期
-    const currentSemester = semesterList.find((s) => s.isCurrent) || semesterList.find((s) => Number(s.id) === Number(selectedSemesterId))
-    if (!currentSemester) {
-      return "-"
-    }
-    return `${currentSemester.schoolYear}年 ${
-      currentSemester.termType === "SPRING" || currentSemester.termType === 1
-        ? "春季学期"
-        : "秋季学期"
-    }`
-  }, [semesterList, selectedSemesterId])
+    return courseDetailData?.courseDetailData?.course?.openingSemesterDisplay || "-"
+  }, [courseDetailData])
 
   useEffect(() => {
     if (!courseNode) return
@@ -594,6 +581,9 @@ export function CourseDetail({
           scoreType: courseData.metadata?.scoreType,
           scoreTable: courseData.metadata?.scoreTable,
           assessmentDescription: courseData.metadata?.assessmentDescription,
+          // 开课学期字段
+          openingSemesterId: courseData.metadata?.openingSemesterId,
+          openingSemesterDisplay: courseData.metadata?.openingSemesterDisplay,
         }
       }
 
@@ -1158,20 +1148,22 @@ export function CourseDetail({
                     size="sm"
                     variant="ghost"
                     onClick={handleStartEditCourse}
-                    className="gap-2 hover:bg-primary/10"
+                    className="gap-2 px-3 whitespace-nowrap hover:bg-primary/10"
                     title="编辑课程"
                   >
                     <Pencil className="w-4 h-4 text-primary" />
+                    <span className="text-primary font-medium">编辑课程</span>
                   </Button>
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={handleDeleteCourse}
                     disabled={isDeleting}
-                    className="gap-2 hover:bg-destructive/10"
+                    className="gap-2 px-3 whitespace-nowrap hover:bg-destructive/10"
                     title="删除课程"
                   >
                     <Trash2 className="w-4 h-4 text-destructive" />
+                    <span className="text-destructive font-medium">删除课程</span>
                   </Button>
                 </>
               )}

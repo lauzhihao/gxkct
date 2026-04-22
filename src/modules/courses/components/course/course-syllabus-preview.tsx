@@ -40,6 +40,9 @@ interface CourseSyllabusPreviewProps {
     assessmentMethod?: string | null
     assessmentForm?: string | null
     assessmentDescription?: string | null
+    // 开课学期字段
+    openingSemesterId?: number | null
+    openingSemesterDisplay?: string | null
   }
   onBack: () => void
 }
@@ -614,6 +617,8 @@ export function CourseSyllabusPreview({
   const fallbackTheory = Number(courseDetail?.theoryPeriod ?? 0)
   const fallbackPractice = Number(courseDetail?.practicePeriod ?? 0)
   const mergedTotalPeriodData = totalPeriodData[0] > 0 ? totalPeriodData : [fallbackTheory + fallbackPractice, fallbackTheory, fallbackPractice]
+  // [MOD] 开课学期：优先使用外面传进来的 courseDetail 数据，再用 API 查询的数据
+  const mergedOpeningSemester = normalizeText(courseDetail?.openingSemesterDisplay) || normalizeText(additionalInfo.year)
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#f5f1e8]">
@@ -644,7 +649,7 @@ export function CourseSyllabusPreview({
                 <div className="hidden md:block" />
 
                 <div className="md:col-span-1">
-                  <BasicInfoField label="开课学期" value={additionalInfo.year ?? ""} />
+                  <BasicInfoField label="开课学期" value={mergedOpeningSemester} />
                 </div>
                 <div className="hidden md:block" />
                 <div className="hidden md:block" />

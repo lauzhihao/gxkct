@@ -85,10 +85,10 @@ class MajorApiService {
 
   /**
    * 删除专业
-   * GET /api/v4/webpage/home/delmajor?majorId=*
+   * DELETE /api/v5/tree/semesters/{semesterId}/majors/{majorId}
    */
-  async deleteMajor(majorId: string): Promise<ApiResponse<number | null>> {
-    return this.httpAdapter.get(`/api/v4/webpage/home/delmajor?majorId=${majorId}`)
+  async deleteMajor(semesterId: number, majorId: string): Promise<ApiResponse<null>> {
+    return this.httpAdapter.delete(`/api/v5/tree/semesters/${semesterId}/majors/${majorId}`)
   }
 }
 

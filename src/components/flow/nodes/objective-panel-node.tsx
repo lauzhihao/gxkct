@@ -11,6 +11,7 @@ interface ObjectivePanelNodeProps {
     isDeleting?: boolean
     isLoading?: boolean
     isRefreshing?: boolean
+    progressMessage?: string | null
     onDelete?: (nodeId: string) => void
     onRefresh?: (nodeId: string) => void
     onEdit?: (nodeId: string) => void
@@ -68,6 +69,7 @@ export const ObjectivePanelNode = memo(function ObjectivePanelNode({
       onAdd={handleAdd}
       onDelete={handleDelete}
       onRefresh={handleRefresh}
+      progressMessage={data.progressMessage}
       onEdit={handleEdit}
     />
   )

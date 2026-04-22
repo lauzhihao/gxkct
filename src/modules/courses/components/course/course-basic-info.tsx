@@ -1,7 +1,6 @@
 "use client"
 import { useMemo, type ReactNode } from "react"
 import { Calendar, BookOpen, FileText, Clock, Tag, Square, Check } from "lucide-react"
-import { formatDate } from "@/shared/utils/date-utils"
 import { getCourseType, getCourseNature } from "@/shared/utils/data-transform"
 import { SectionCard, SectionHeader, Divider } from "@/shared/components/design-system"
 import { SafeRichTextContent } from "@/shared/components/ui/safe-rich-text-content"
@@ -49,6 +48,7 @@ interface CourseBasicInfoProps {
   courseDetail?: CourseDetailData
   courseNameData?: unknown
   createTime?: string
+  semesterDisplay?: string
   metadata?: unknown
   courseEditable?: boolean
   onOpenCourseSyllabus?: () => void
@@ -93,6 +93,7 @@ export function CourseBasicInfo({
   name,
   courseDetail,
   createTime,
+  semesterDisplay,
   courseEditable = false,
   onOpenCourseSyllabus,
 }: CourseBasicInfoProps) {
@@ -120,13 +121,13 @@ export function CourseBasicInfo({
           <div className="text-base font-medium text-foreground">{name}</div>
         </div>
 
-        {/* 开课日期 */}
+        {/* [MOD] 开课学期（改为只读显示） */}
         <div className="flex flex-row items-center gap-3">
           <div className="flex items-center gap-1 text-sm text-muted-foreground flex-shrink-0">
             <Calendar className="w-3 h-3" />
-            <span>开课日期</span>
+            <span>开课学期</span>
           </div>
-          <div className="text-base font-medium text-foreground">{formatDate(createTime)}</div>
+          <div className="text-base font-medium text-foreground">{semesterDisplay || "-"}</div>
         </div>
 
         {/* 课程性质 */}

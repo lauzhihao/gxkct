@@ -88,7 +88,7 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
     chapterChildCount > 0 &&
     coursePointChildCount > 0
 
-  // 渲染从项目矩阵拖出的菜单（只显示开课报告）
+  // 渲染从项目矩阵拖出的菜单（只显示开课说明）
   const renderProjectMatrixMenu = () => (
     <button
       className={`group flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm canvas-menu-item ${
@@ -98,10 +98,10 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
       }`}
       onClick={() => !hasCourseReport && onSelect("courseReport")}
       disabled={hasCourseReport}
-      title={hasCourseReport ? "画布中已存在开课报告" : ""}
+      title={hasCourseReport ? "画布中已存在开课说明" : ""}
     >
       <FileText className={`h-4 w-4 transition-colors ${hasCourseReport ? "text-rose-300" : "text-rose-500 group-hover:text-accent-foreground"}`} />
-      <span>开课报告</span>
+      <span>开课说明</span>
     </button>
   )
 

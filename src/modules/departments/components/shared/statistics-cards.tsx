@@ -6,13 +6,13 @@ import { Card, CardContent } from "@/shared/components/ui/card"
 import { Badge } from "@/shared/components/ui/badge"
 import { Checkbox } from "@/shared/components/ui/checkbox"
 import { Label } from "@/shared/components/ui/label"
-import type { TreeNode, TreeNodeManager, TreeNodeMenuItem } from "@/types"
+import type { TreeNode } from "@/types"
 import { LoadingState } from "@/shared/components/ui/loading-state"
 import { Building2, GraduationCap, BookOpen, FileText, Search, User } from "lucide-react"
 import cn from "classnames"
 import { useDepartmentMajorsPreferences } from "@/modules/departments/hooks/use-department-majors-preferences"
 import { api } from "@/lib/api"
-import { setMajorCacheBatch, type MajorCacheItem } from "@/shared/utils/major-cache"
+import { syncMajorCacheForDepartment, type MajorCacheItem } from "@/shared/utils/major-cache"
 import { useSemesterStore } from "@/shared/stores/semester-store"
 
 interface StatisticsCardsProps {
@@ -42,7 +42,7 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
   const [majors, setMajors] = useState<TreeNode[]>([])
   const [isLoadingMajors, setIsLoadingMajors] = useState(false)
 
-  const setMajorCacheFromItems = useCallback((majorItems: TreeNode[]) => {
+  const setMajorCacheFromItems = useCallback((majorItems: TreeNode[], departmentId: string, semesterId: number | null) => {
     const cacheItems = majorItems
       .map((major): MajorCacheItem | null => {
         const majorId = getMajorId(major)
@@ -58,14 +58,14 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
           btnMenus: Array.isArray(major.btnMenus) ? major.btnMenus : [],
           coverMenus: Array.isArray(major.coverMenus) ? major.coverMenus : [],
           managers: Array.isArray(major.manager) ? major.manager : [],
+          departmentId,
+          semesterId,
           source,
         }
       })
       .filter((item): item is MajorCacheItem => item !== null)
 
-    if (cacheItems.length > 0) {
-      setMajorCacheBatch(cacheItems)
-    }
+    syncMajorCacheForDepartment(departmentId, semesterId, cacheItems)
   }, [])
 
   // 使用 hook 管理"我的专业"偏好设置，仅在部门节点时使用
@@ -85,6 +85,15 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
   const isUniversity = node.nodeType === "university"
   const isDepartment = node.nodeType === "department"
 
+  const handleSelectableCardKeyDown = useCallback((event: React.KeyboardEvent<HTMLElement>, targetNode: TreeNode) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return
+    }
+
+    event.preventDefault()
+    onNodeSelect?.(targetNode)
+  }, [onNodeSelect])
+
   // 当节点为院系时，根据院系ID调用接口获取专业列表
   useEffect(() => {
     const fetchMajors = async () => {
@@ -99,7 +108,7 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
         }
 
         setMajors(response.data)
-        setMajorCacheFromItems(response.data)
+        setMajorCacheFromItems(response.data, node.id, selectedSemesterId)
       } catch (error) {
         console.error('[StatisticsCards] 获取专业列表失败:', error)
         setMajors([])
@@ -262,13 +271,20 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
                 return (
                   <Card
                     key={dept.nodeId}
+                    role="button"
+                    tabIndex={0}
+                    data-interactive="true"
                     className="cursor-pointer hover:shadow-md transition-shadow border-border bg-card/50 backdrop-blur-sm relative"
                     onClick={() => {
                       onNodeSelect?.(dept)
                     }}
+                    onKeyDown={(event) => {
+                      handleSelectableCardKeyDown(event, dept)
+                    }}
                   >
                     <Badge
                       variant="secondary"
+                      data-card-decoration="true"
                       className="absolute top-2 right-2 text-xs flex items-center gap-1 bg-primary/10 text-primary border-primary/20"
                     >
                       {getNodeTypeIcon(dept.nodeType)}
@@ -349,7 +365,11 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
                       <button
                        key={majorId}
                        onClick={() => {
-                         setMajorCacheFromItems([major])
+                         if (!node.id) {
+                           throw new Error("Department node id is required before selecting a major card")
+                         }
+
+                         setMajorCacheFromItems([major], node.id, selectedSemesterId)
                          // 构造节点对象，硬编码 nodeType 为 major
                           onNodeSelect?.({
                             ...major,
@@ -374,11 +394,12 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
                       className={cn(
                         "relative flex flex-col p-5 rounded-xl border transition-all duration-200 min-h-[165px]",
                         "bg-white/40 backdrop-blur-md border-primary/20",
-                        "hover:bg-white/60 hover:shadow-lg hover:scale-105 hover:border-primary/40",
+                        "hover:bg-white/60 hover:shadow-lg hover:border-primary/40",
                         "group cursor-pointer",
                       )}
+                      data-interactive="true"
                     >
-                      <div className="absolute top-3 left-3">
+                      <div className="absolute top-3 left-3" data-card-decoration="true">
                         <div
                           className={cn(
                             "w-10 h-10 rounded-lg flex items-center justify-center",
@@ -392,7 +413,7 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
                         </div>
                       </div>
 
-                      <div className="absolute top-3 right-3">
+                      <div className="absolute top-3 right-3" data-card-decoration="true">
                         <div className="px-2 py-0.5 rounded-full bg-white/60 backdrop-blur-sm border border-primary/30 text-xs font-medium text-primary">
                           专业
                         </div>
@@ -407,7 +428,7 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
                       </div>
 
                       {!isVirtualMajor && managers.length > 0 && (
-                        <div className="absolute bottom-3 left-3 right-3 flex flex-wrap gap-2">
+                        <div className="absolute bottom-3 left-3 right-3 flex flex-wrap gap-2" data-card-decoration="true">
                           {managers.map((manager, index) => (
                             <div key={index} className="flex items-center gap-[6px] px-[8px] py-[2px] rounded bg-primary border border-primary">
                               <User className="w-[13px] h-[13px] text-white" />

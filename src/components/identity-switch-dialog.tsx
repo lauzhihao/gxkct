@@ -16,12 +16,14 @@ import {
   api,
   getStoredAuthUser,
   setStoredAuthUser,
+  setStoredSemesterContext,
   type AllAvailableCollegeData,
   type AvailableIdentityItem,
   type CurrentIdentityInfo,
   type UpdateCurrentDepartmentPayload,
 } from "@/lib/api"
 import { showError, showSuccess, showWarning } from "@/shared/utils/toast-utils"
+import type { SemesterBrief } from "@/types"
 
 const EMPTY_IDENTITIES: AvailableIdentityItem[] = []
 
@@ -29,6 +31,7 @@ interface IdentitySwitchDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   userId: number | null
+  onSchoolChange?: (schoolId: string) => void
 }
 
 function getIdentityKey(permissionId: number, relativeId: number, collegeId?: number | null): string {
@@ -73,7 +76,20 @@ function renderDepartmentText(identity: AvailableIdentityItem, keyword: string):
   ))
 }
 
-export function IdentitySwitchDialog({ open, onOpenChange, userId }: IdentitySwitchDialogProps) {
+function resolveCurrentSemesterId(semesterList: SemesterBrief[]): number | null {
+  const currentSemester = semesterList.find((semester) => semester.isCurrent)
+  if (currentSemester) {
+    return currentSemester.id
+  }
+
+  if (semesterList.length > 0) {
+    return semesterList[0].id
+  }
+
+  return null
+}
+
+export function IdentitySwitchDialog({ open, onOpenChange, userId, onSchoolChange }: IdentitySwitchDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -120,6 +136,35 @@ export function IdentitySwitchDialog({ open, onOpenChange, userId }: IdentitySwi
       }
     })
   }, [])
+
+  const syncTargetSchoolContext = useCallback(
+    async (collegeId: number): Promise<{ error: string | null }> => {
+      if (onSchoolChange) {
+        onSchoolChange(String(collegeId))
+      }
+
+      const semesterResponse = await api.semesters.getSemesters(collegeId)
+      if (semesterResponse.error) {
+        setStoredSemesterContext({
+          currentSemesterId: null,
+          selectedSemesterId: null,
+          semesterList: [],
+        })
+        return { error: semesterResponse.error }
+      }
+
+      const semesterList = semesterResponse.data ?? []
+      const currentSemesterId = resolveCurrentSemesterId(semesterList)
+      setStoredSemesterContext({
+        currentSemesterId,
+        selectedSemesterId: currentSemesterId,
+        semesterList,
+      })
+
+      return { error: null }
+    },
+    [onSchoolChange],
+  )
 
   const loadIdentityData = useCallback(async () => {
     if (!userId) {
@@ -231,15 +276,23 @@ export function IdentitySwitchDialog({ open, onOpenChange, userId }: IdentitySwi
           return
         }
 
+        const targetCollegeId = payload.college?.id
+        if (typeof targetCollegeId !== "number" || !Number.isFinite(targetCollegeId)) {
+          showError("目标学校信息缺失，无法完成身份切换")
+          return
+        }
+
         const authUser = getStoredAuthUser()
         if (authUser) {
           setStoredAuthUser({
             ...authUser,
             permissionId: payload.permissionId,
             relativeId: payload.relativeId,
-            collegeId: payload.college?.id ?? authUser.collegeId,
+            collegeId: targetCollegeId,
           })
         }
+
+        const semesterSyncResult = await syncTargetSchoolContext(targetCollegeId)
 
         applyCurrentIdentityToState({
           ...identityData.current,
@@ -251,14 +304,18 @@ export function IdentitySwitchDialog({ open, onOpenChange, userId }: IdentitySwi
         })
         setSelectedIdentityKey(getIdentityKey(payload.permissionId, payload.relativeId, payload.college?.id))
 
-        showSuccess("身份切换成功")
+        if (semesterSyncResult.error) {
+          showWarning(`身份已切换，但目标学校学期初始化失败：${semesterSyncResult.error}`)
+        } else {
+          showSuccess("身份切换成功")
+        }
         onOpenChange(false)
         window.location.href = "/"
       } finally {
         setIsSubmitting(false)
       }
     },
-    [applyCurrentIdentityToState, currentIdentityKey, identityData, onOpenChange, userId],
+    [applyCurrentIdentityToState, currentIdentityKey, identityData, onOpenChange, syncTargetSchoolContext, userId],
   )
 
   const handleConfirmSwitch = useCallback(async () => {
@@ -400,7 +457,7 @@ export function IdentitySwitchDialog({ open, onOpenChange, userId }: IdentitySwi
                       {!isCurrent && (
                         <Button
                           size="sm"
-                          className="opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                          className="invisible opacity-0 transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
                           disabled={isSubmitting || isLoading}
                           onClick={(event) => {
                             event.stopPropagation()

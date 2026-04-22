@@ -17,6 +17,26 @@ test("page tree loading effect avoids unstable dependencies", async () => {
   assert.match(source, /void loadTreeData\(\)\s*\n\s*}\s*,\s*\[resetTreeData, resolveNextSelectedNode, router, selectedSemesterId\]\)/)
 })
 
+test("page tree loading prefers current school selection after identity switch", async () => {
+  const source = await readSource("./page.tsx")
+
+  assert.match(source, /const currentSchoolIdRef = useRef<string \| null>\(currentSchoolId\)/)
+  assert.match(source, /currentSchoolIdRef\.current = currentSchoolId/)
+  assert.match(
+    source,
+    /const preferredSchoolId =\s*currentSchoolIdRef\.current\s*\?\?\s*\(typeof authUser\?\.collegeId === "number" \? String\(authUser\.collegeId\) : null\)/,
+  )
+  assert.match(source, /return resolveNextSelectedNode\(latestTree, prevSelectedNode, preferredSchoolId\)/)
+})
+
+test("page detail panel does not reuse stale selected node outside latest tree", async () => {
+  const source = await readSource("./page.tsx")
+
+  assert.match(source, /const treeNode = findNodeInTree\(treeData, selectedNode\.nodeId\)/)
+  assert.match(source, /\?\? \(selectedNode\.id \? findNodeInTree\(treeData, selectedNode\.id\) : null\)/)
+  assert.match(source, /if \(!treeNode\) \{\s*return null\s*\}/)
+})
+
 test("useLocalStorage exposes stable setter callbacks", async () => {
   const source = await readSource("../shared/hooks/use-local-storage.ts")
 

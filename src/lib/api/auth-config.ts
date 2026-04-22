@@ -1,4 +1,6 @@
 // 认证配置和token管理
+import { clearCourseCache } from "@/shared/utils/course-cache"
+import { clearMajorCache } from "@/shared/utils/major-cache"
 
 import type { SemesterBrief, StoredSemesterContext } from "@/types"
 
@@ -211,6 +213,8 @@ export function clearAllAuthData(): void {
 
   // 仅清理认证和业务缓存，保留非敏感偏好设置
   clearManagedLocalStorage()
+  clearMajorCache()
+  clearCourseCache()
   // session 级数据在登出时全部清空
   sessionStorage.clear()
 }

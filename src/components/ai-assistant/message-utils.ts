@@ -143,7 +143,7 @@ export const ELEMENT_TYPE_TITLES: Partial<Record<CanvasComponentType, string>> =
   [CanvasComponentType.KSA_PANEL]: "KSA三要素",
   [CanvasComponentType.COURSE_MATRIX]: "课程矩阵",
   [CanvasComponentType.PROJECT_MATRIX]: "项目矩阵",
-  [CanvasComponentType.COURSE_REPORT]: "开课报告",
+  [CanvasComponentType.COURSE_REPORT]: "开课说明",
 }
 
 /**
@@ -155,7 +155,7 @@ const ELEMENT_TITLE_FIELDS: Partial<Record<CanvasComponentType, { field: string;
   [CanvasComponentType.COURSE_INFO]: { field: "name" },
   [CanvasComponentType.COURSE_MATRIX]: { field: "course_name", suffix: "课程矩阵" },
   [CanvasComponentType.PROJECT_MATRIX]: { field: "chapter_name", suffix: "项目矩阵" },
-  [CanvasComponentType.COURSE_REPORT]: { field: "course_name", suffix: "开课报告" },
+  [CanvasComponentType.COURSE_REPORT]: { field: "course_name", suffix: "开课说明" },
 }
 
 /**

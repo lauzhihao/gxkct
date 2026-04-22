@@ -16,6 +16,14 @@ test("semester management syncs current semester into global store after switch"
   assert.match(source, /if \(latestSemesterList\) \{\s*updateSemesterList\(latestSemesterList\)/)
 })
 
+test("semester management no longer auto-loads semesters on mount", async () => {
+  const source = await readSource()
+
+  assert.doesNotMatch(source, /useEffect\(\(\) => \{\s*void loadSemesters\(\)\s*\}, \[loadSemesters\]\)/)
+  assert.doesNotMatch(source, /}, \[collegeId, selectedSemesterId, syncFromAuthContext\]\)/)
+  assert.match(source, /const currentSelectedSemesterId = useSemesterStore\.getState\(\)\.selectedSemesterId/)
+})
+
 test("semester management confirms before switching current semester and closes dialog on success", async () => {
   const source = await readSource()
 

@@ -45,6 +45,9 @@ export class HttpAdapter {
   private getHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
     }
 
     const authToken = getStoredAuthToken()
@@ -65,6 +68,7 @@ export class HttpAdapter {
       const response = await fetch(url, {
         method: 'GET',
         headers: this.getHeaders(),
+        cache: 'no-store',
         signal: AbortSignal.timeout(config.timeout),
       })
 
@@ -96,6 +100,7 @@ export class HttpAdapter {
         method: 'POST',
         headers: this.getHeaders(),
         body: data ? JSON.stringify(data) : undefined,
+        cache: 'no-store',
         signal: AbortSignal.timeout(config.timeout),
       })
 
@@ -127,6 +132,7 @@ export class HttpAdapter {
         method: 'PATCH',
         headers: this.getHeaders(),
         body: data ? JSON.stringify(data) : undefined,
+        cache: 'no-store',
         signal: AbortSignal.timeout(config.timeout),
       })
 
@@ -158,6 +164,7 @@ export class HttpAdapter {
         method: 'PUT',
         headers: this.getHeaders(),
         body: data ? JSON.stringify(data) : undefined,
+        cache: 'no-store',
         signal: AbortSignal.timeout(config.timeout),
       })
 
@@ -188,6 +195,7 @@ export class HttpAdapter {
       const response = await fetch(url, {
         method: 'DELETE',
         headers: this.getHeaders(),
+        cache: 'no-store',
         signal: AbortSignal.timeout(config.timeout),
       })
 

@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import type { TreeNode, TreeNodeMenuItem } from "@/types"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
 import { Button } from "@/shared/components/ui/button"
-import { GraduationCap, Pencil,Trash2 } from "lucide-react"
+import { GraduationCap, Pencil, Trash2 } from "lucide-react"
 import AddCourseForm from "@/components/add-course-form"
 import { AddMajorForm } from "@/modules/majors/components/forms/add-major-form"
 import { MajorBasicInfo } from "@/modules/majors/components/major/major-basic-info"
@@ -28,7 +28,8 @@ import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
 import { usePermission } from "@/shared/hooks/use-permission"
 import type { PermissionAction } from "@/shared/permissions/types"
 import { extractNumericId } from "@/shared/utils/utils"
-import { getMajorCache } from "@/shared/utils/major-cache"
+import { getMajorCache, removeMajorCache } from "@/shared/utils/major-cache"
+import { useSemesterStore } from "@/shared/stores/semester-store"
 
 const MAJOR_TABS = {
   courses: "课程管理",
@@ -149,6 +150,7 @@ export function MajorDetail(props: MajorDetailProps) {
   }, [cachedMajor?.btnMenus, node.btnMenus, node.metadata])
 
   const { can, isSemesterReadonly } = usePermission()
+  const selectedSemesterId = useSemesterStore((state) => state.selectedSemesterId)
   const canEditMajor = !isSemesterReadonly && !isVirtualMajorFromSwitchDpt && hasMenuPermission(resolvedBtnMenus, "majoredit")
   const canDeleteMajor = !isSemesterReadonly && !isVirtualMajorFromSwitchDpt && hasMenuPermission(resolvedBtnMenus, "majordel")
   const canManageMajorCourse = can(MANAGE_MAJOR_COURSE_ACTION, { scope: "major" })
@@ -178,11 +180,16 @@ export function MajorDetail(props: MajorDetailProps) {
     setIsDeletingMajor(true)
 
     try {
-      const response = await majorApiService.deleteMajor(nodeId)
+      if (typeof selectedSemesterId !== "number" || !Number.isFinite(selectedSemesterId)) {
+        throw new Error("当前学期ID不能为空")
+      }
+
+      const response = await majorApiService.deleteMajor(selectedSemesterId, nodeId)
       if (response.error) {
         throw new Error(response.error)
       }
 
+      removeMajorCache(nodeId)
       setIsDeleteDialogOpen(false)
       await onTreeRefresh?.()
     } catch (error) {
@@ -271,29 +278,29 @@ export function MajorDetail(props: MajorDetailProps) {
               </div>
             </div>
             <div className="flex flex-col gap-2 items-end flex-shrink-0">
-              <div className="flex gap-2 justify-end">
-                {onUpdateNode && canEditMajor && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={handleOpenEditMajor}
-                    className="gap-2 hover:bg-primary/10"
-                  >
-                    <Pencil className="w-4 h-4 text-primary" />
-                  </Button>
-                )}
-                {canDeleteMajor && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setIsDeleteDialogOpen(true)}
-                    disabled={isDeletingMajor}
-                    className="gap-2 hover:bg-destructive/10"
-                  >
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
-                )}
-              </div>
+              {onUpdateNode && canEditMajor && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleOpenEditMajor}
+                  className="gap-2 px-3 whitespace-nowrap hover:bg-primary/10"
+                >
+                  <Pencil className="w-4 h-4 text-primary" />
+                  <span className="text-primary font-medium">编辑专业</span>
+                </Button>
+              )}
+              {canDeleteMajor && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                  disabled={isDeletingMajor}
+                  className="gap-2 px-3 whitespace-nowrap hover:bg-destructive/10"
+                >
+                  <Trash2 className="w-4 h-4 text-destructive" />
+                  <span className="text-destructive font-medium">删除专业</span>
+                </Button>
+              )}
             </div>
           </div>
         </div>

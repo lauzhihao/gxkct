@@ -52,6 +52,21 @@ const dedupeCourseMatrixPoints = (points: CourseMatrixPointItem[]): CourseMatrix
   return Array.from(pointMap.values())
 }
 
+const cloneCourseMatrixRecord = (record: CourseMatrixRecord): CourseMatrixRecord => {
+  const clonedRecord: CourseMatrixRecord = {}
+
+  Object.entries(record).forEach(([key, points]) => {
+    clonedRecord[key] = points.map((point) => ({ ...point }))
+  })
+
+  return clonedRecord
+}
+
+const getCourseMatrixPoints = (record: CourseMatrixRecord, key: string): CourseMatrixPointItem[] => {
+  const points = record[key]
+  return Array.isArray(points) ? points : []
+}
+
 const parsePositiveNumericId = (value: string | number | undefined): number | null => {
   if (typeof value === "number") {
     if (!Number.isInteger(value) || value <= 0) {
@@ -136,6 +151,43 @@ export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMa
   const prevRefreshTokenRef = useRef<number | undefined>(undefined)
   const hasLoadedCourseMatrixRef = useRef(false)
   const prevCourseIdRef = useRef<string | null>(null)
+  const courseMatrixSnapshotRef = useRef<CourseMatrixRecord>({})
+
+  const syncCourseMatrixSnapshot = useCallback((record: CourseMatrixRecord) => {
+    courseMatrixSnapshotRef.current = cloneCourseMatrixRecord(record)
+  }, [])
+
+  const syncCourseMatrixState = useCallback(
+    (record: CourseMatrixRecord) => {
+      setCourseMatrixData(record)
+      syncCourseMatrixSnapshot(record)
+    },
+    [syncCourseMatrixSnapshot]
+  )
+
+  const buildCourseMatrixRecordFromItems = useCallback((items: CourseMatrixItem[]) => {
+    const transformedData: CourseMatrixRecord = {}
+
+    items.forEach((item: CourseMatrixItem) => {
+      const key = buildMatrixDisplayKey(item.projectId, item.graduateRequireId)
+
+      if (!transformedData[key]) {
+        transformedData[key] = []
+      }
+
+      const nextPoint: CourseMatrixPointItem = {
+        id: String(item.point.id),
+        matrixItemId: item.id,
+        name: item.point.title,
+        description: item.point.description,
+        support: item.relate.relate === 0 ? "strong" : "weak",
+      }
+
+      transformedData[key] = dedupeCourseMatrixPoints([...transformedData[key], nextPoint])
+    })
+
+    return transformedData
+  }, [])
 
   useEffect(() => {
     if (node?.type === "course" && node?.id) {
@@ -319,27 +371,8 @@ export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMa
           const response = await courseMatrixApi.getFilteredCourseMatrix(courseId)
           const matrixResponse = response.status === 404 ? await courseMatrixApi.getCourseMatrix(courseId) : response
           if (matrixResponse.data && Array.isArray(matrixResponse.data)) {
-            const transformedData: CourseMatrixRecord = {}
-
-            matrixResponse.data.forEach((item: CourseMatrixItem) => {
-              const key = buildMatrixDisplayKey(item.projectId, item.graduateRequireId)
-
-              if (!transformedData[key]) {
-                transformedData[key] = []
-              }
-
-              const nextPoint: CourseMatrixPointItem = {
-                id: String(item.point.id),
-                matrixItemId: item.id,
-                name: item.point.title,
-                description: item.point.description,
-                support: item.relate.relate === 0 ? "strong" : "weak",
-              }
-
-              transformedData[key] = dedupeCourseMatrixPoints([...transformedData[key], nextPoint])
-            })
-
-            setCourseMatrixData(transformedData)
+            const transformedData = buildCourseMatrixRecordFromItems(matrixResponse.data)
+            syncCourseMatrixState(transformedData)
           }
         } catch (error) {
           console.error("[CourseMatrix] 加载课程矩阵失败:", error)
@@ -348,31 +381,7 @@ export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMa
 
       loadMatrix()
     }
-  }, [node?.id, node?.type, refreshToken])
-
-  const syncCourseMatrixFromItems = useCallback((items: CourseMatrixItem[]) => {
-    const transformedData: CourseMatrixRecord = {}
-
-    items.forEach((item: CourseMatrixItem) => {
-      const key = buildMatrixDisplayKey(item.projectId, item.graduateRequireId)
-
-      if (!transformedData[key]) {
-        transformedData[key] = []
-      }
-
-      const nextPoint: CourseMatrixPointItem = {
-        id: String(item.point.id),
-        matrixItemId: item.id,
-        name: item.point.title,
-        description: item.point.description,
-        support: item.relate.relate === 0 ? "strong" : "weak",
-      }
-
-      transformedData[key] = dedupeCourseMatrixPoints([...transformedData[key], nextPoint])
-    })
-
-    setCourseMatrixData(transformedData)
-  }, [])
+  }, [buildCourseMatrixRecordFromItems, node?.id, node?.type, refreshToken, syncCourseMatrixState])
 
   const refreshLatestCourseMatrixData = useCallback(async (courseId: string) => {
       const [projectTeachGoalResponse, courseMatrixSeedResponse] = await Promise.all([
@@ -391,11 +400,12 @@ export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMa
     }
 
     if (courseMatrixResponse.data && Array.isArray(courseMatrixResponse.data)) {
-      syncCourseMatrixFromItems(courseMatrixResponse.data)
+      const refreshedMatrix = buildCourseMatrixRecordFromItems(courseMatrixResponse.data)
+      syncCourseMatrixState(refreshedMatrix)
     } else {
       console.warn("[CourseMatrix] 刷新课程矩阵数据失败:", courseMatrixResponse.error)
     }
-  }, [syncCourseMatrixFromItems])
+  }, [buildCourseMatrixRecordFromItems, syncCourseMatrixState])
 
   const handleSaveCourseMatrix = useCallback(
     async (isAutoSave = false) => {
@@ -428,9 +438,39 @@ export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMa
           return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
         }
 
+        const buildMatrixItemPayload = (
+          point: CourseMatrixPointItem,
+          matrixItemId: number,
+          projectId: number,
+          graduateRequireId: number
+        ): CourseMatrixItem => ({
+          id: matrixItemId,
+          courseUnitId: courseIdNum,
+          projectId,
+          graduateRequireId,
+          point: {
+            id: normalizeNumericId(point.id),
+            title: point.name,
+            description: point.description,
+          },
+          relate: resolveSupportPayload(point.support),
+          study: "",
+          teach: "",
+          product: "",
+          week: "0",
+          period: "0",
+        })
+
         const payload = projectTeachGoalData.projects.map((project, projectIndex) => {
           const projectIdNum = normalizeNumericId(project.id)
-          const projectName = editingProjectNames[project.id] ?? project.name ?? `项目${projectIndex + 1}`
+          const projectName = Object.prototype.hasOwnProperty.call(editingProjectNames, project.id)
+            ? editingProjectNames[project.id]
+            : project.name
+          const finalProjectName = projectName && projectName.trim() !== "" ? projectName : `项目${projectIndex + 1}`
+          const uniqueCode = typeof project.uniqueCode === "string" ? project.uniqueCode : ""
+          const product = typeof project.product === "string" ? project.product : ""
+          const theoryPeriod = typeof project.theoryPeriod === "string" ? project.theoryPeriod : "0"
+          const practicePeriod = typeof project.practicePeriod === "string" ? project.practicePeriod : "0"
 
           const chapterItems = courseGoals.flatMap((goal) => {
             const children = goal.children && goal.children.length > 0 ? goal.children : []
@@ -442,41 +482,31 @@ export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMa
               }
 
               const cellKey = buildMatrixDisplayKey(String(project.id), String(child.id))
-              const points = courseMatrixData[cellKey] || []
+              const currentPoints = getCourseMatrixPoints(courseMatrixData, cellKey)
+              const originalPoints = getCourseMatrixPoints(courseMatrixSnapshotRef.current, cellKey)
+              const currentPointMap = new Map(currentPoints.map((point) => [point.id, point]))
 
-              return points.map((point: CourseMatrixPointItem) => {
-                const pointIdNum = normalizeNumericId(point.id)
+              const retainedAndNewItems = currentPoints.map((point) =>
+                buildMatrixItemPayload(point, point.matrixItemId > 0 ? point.matrixItemId : 0, projectIdNum, graduateRequireId)
+              )
 
-                return {
-                  id: point.matrixItemId > 0 ? point.matrixItemId : 0,
-                  courseUnitId: courseIdNum,
-                  projectId: projectIdNum,
-                  graduateRequireId,
-                  point: {
-                    id: pointIdNum,
-                    title: point.name,
-                    description: point.description || "",
-                  },
-                  relate: resolveSupportPayload(point.support),
-                  study: "",
-                  teach: "",
-                  product: "",
-                  week: "0",
-                  period: "0",
-                }
-              })
+              const deletedItems = originalPoints
+                .filter((point) => !currentPointMap.has(point.id) && point.matrixItemId > 0)
+                .map((point) => buildMatrixItemPayload(point, -Math.abs(point.matrixItemId), projectIdNum, graduateRequireId))
+
+              return [...retainedAndNewItems, ...deletedItems]
             })
           })
 
           return {
             project: {
               id: projectIdNum,
-              uniqueCode: project.uniqueCode || "",
+              uniqueCode,
               courseUnitId: courseIdNum,
-              name: projectName,
-              product: project.product || "",
-              theoryPeriod: project.theoryPeriod || "0",
-              practicePeriod: project.practicePeriod || "0",
+              name: finalProjectName,
+              product,
+              theoryPeriod,
+              practicePeriod,
               indexNo: projectIndex + 1,
             },
             data: chapterItems,
@@ -520,7 +550,7 @@ export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMa
       setCoursePointsSearchInDialog("")
 
       const key = buildSelectionDialogKey(projectId, graduateRequireId)
-      const existingCoursePoints = courseMatrixData[key] || []
+      const existingCoursePoints = getCourseMatrixPoints(courseMatrixData, key)
       const initialSelections: Record<string, SupportStrength> = {}
       existingCoursePoints.forEach((cp) => {
         initialSelections[cp.id] = cp.support
@@ -556,19 +586,29 @@ export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMa
     const coursePointsMap = createCoursePointMap(coursePointsList)
 
     setCourseMatrixData((prev) => {
-      const existingPoints = prev[key] || []
+      const existingPoints = getCourseMatrixPoints(prev, key)
       const existingPointMap = new Map(existingPoints.map((point) => [point.id, point]))
+      const snapshotPoints = getCourseMatrixPoints(courseMatrixSnapshotRef.current, key)
+      const snapshotPointMap = new Map(snapshotPoints.map((point) => [point.id, point]))
 
       const newPoints = dedupeCourseMatrixPoints(
         Object.entries(selectedCoursePoints).map(([id, support]) => {
-          const pointData = coursePointsMap.get(id) || { title: id, description: "" }
+          const pointData = coursePointsMap.get(id)
           const existingPoint = existingPointMap.get(id)
+          const snapshotPoint = snapshotPointMap.get(id)
+          const pointTitle = pointData ? pointData.title : id
+          const pointDescription = pointData ? pointData.description : ""
 
           return {
             id,
-            matrixItemId: existingPoint?.matrixItemId || 0,
-            name: pointData.title,
-            description: pointData.description,
+            matrixItemId:
+              existingPoint && existingPoint.matrixItemId > 0
+                ? existingPoint.matrixItemId
+                : snapshotPoint && snapshotPoint.matrixItemId > 0
+                  ? snapshotPoint.matrixItemId
+                  : 0,
+            name: pointTitle,
+            description: pointDescription,
             support,
           }
         })
@@ -589,7 +629,7 @@ export const useCourseMatrixData = ({ node, majorId, refreshToken }: UseCourseMa
     const key = buildSelectionDialogKey(projectId, graduateRequireId)
     setCourseMatrixData((prev) => ({
       ...prev,
-      [key]: (prev[key] || []).filter((cp) => cp.id !== coursePointId),
+      [key]: getCourseMatrixPoints(prev, key).filter((cp) => cp.id !== coursePointId),
     }))
   }, [])
 
