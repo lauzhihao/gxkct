@@ -258,6 +258,11 @@ export function IdentitySwitchDialog({ open, onOpenChange, userId, onSchoolChang
         targetIdentity.departments[0] ??
         null
 
+      if (!selectedDepartment) {
+        showWarning("目标身份未绑定有效院系，暂时无法切换")
+        return
+      }
+
       const payload: UpdateCurrentDepartmentPayload = {
         id: identityData.current.id,
         userId,

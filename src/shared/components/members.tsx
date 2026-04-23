@@ -81,6 +81,7 @@ interface CreatedUserFeedback {
   name: string
   account: string
   password: string
+  mode: "created" | "linked"
 }
 
 type MemberScope = Exclude<PermissionContext["scope"], "root" | undefined>
@@ -110,6 +111,17 @@ const MEMBER_SCOPE_BY_NODE_TYPE: Partial<Record<NodeType, MemberScope>> = {
 function getMemberAction(scope: MemberScope | undefined, operation: MemberOperation): PermissionAction | null {
   if (!scope) return null
   return `${scope}.member.${operation}` as PermissionAction
+}
+
+function isDuplicateAccountErrorMessage(errorMessage: string): boolean {
+  const normalizedErrorMessage = errorMessage.toLowerCase()
+  return (
+    errorMessage.includes("已存在") ||
+    errorMessage.includes("重复") ||
+    normalizedErrorMessage.includes("email_exist") ||
+    normalizedErrorMessage.includes("account exists") ||
+    normalizedErrorMessage.includes("duplicate")
+  )
 }
 
 export function Members({ node }: MembersProps) {
@@ -490,11 +502,9 @@ export function Members({ node }: MembersProps) {
       const relativeId =
         nodeType === "department"
           ? extractNumericId(nodeId)
-          : isDepartmentAdmin
+          : isDepartmentAdmin || isMajorAdmin || isCourseTeacher
             ? extractNumericId(selectedDepartment?.nodeId ?? "")
-            : isMajorAdmin || isCourseTeacher
-              ? extractNumericId(selectedMajor?.nodeId ?? "")
-              : 0
+            : 0
 
       const shouldValidateRelativeId = nodeType === "department" || requiresRelativeNode
 
@@ -510,7 +520,7 @@ export function Members({ node }: MembersProps) {
       }
 
       if (!editingUserId) {
-        const createResponse = await api.users.insertNewUser([
+        const createPayload = [
           {
             id: -1,
             collegeId,
@@ -519,14 +529,20 @@ export function Members({ node }: MembersProps) {
             userName: newUserAccount,
             email: newUserAccount,
           },
-        ])
+        ]
+        let createResponse = await api.users.insertNewUser(createPayload)
+        let createdFeedbackMode: CreatedUserFeedback["mode"] = "created"
+
+        if (createResponse.error && isDuplicateAccountErrorMessage(createResponse.error)) {
+          createResponse = await api.users.insertNewUserSimplePwd(createPayload)
+          createdFeedbackMode = "linked"
+        }
 
         if (createResponse.error) {
           const errorMessage = createResponse.error || "新增失败，请检查账号是否重复"
           const normalizedErrorMessage = errorMessage.toLowerCase()
           const isBusinessValidationError =
-            errorMessage.includes("已存在") ||
-            errorMessage.includes("重复") ||
+            isDuplicateAccountErrorMessage(errorMessage) ||
             errorMessage.includes("不合法") ||
             errorMessage.includes("无效")
           const isSystemError =
@@ -553,6 +569,7 @@ export function Members({ node }: MembersProps) {
           name: createdUserName,
           account: createdUserAccount,
           password: initialPassword,
+          mode: createdFeedbackMode,
         })
       } else {
         if (!editingUser) {
@@ -1194,14 +1211,21 @@ export function Members({ node }: MembersProps) {
           <DialogHeader>
             <DialogTitle>{isCreateSuccessView ? "添加成功" : editingUserId ? "编辑用户" : "添加用户"}</DialogTitle>
             <DialogDescription>
-              {isCreateSuccessView ? "请在弹窗内确认并保存新增用户信息" : "填写用户信息"}
+              {isCreateSuccessView
+                ? createdUserFeedback?.mode === "linked"
+                  ? "已将现有用户关联到当前组织"
+                  : "请在弹窗内确认并保存新增用户信息"
+                : "填写用户信息"}
             </DialogDescription>
           </DialogHeader>
           {isCreateSuccessView ? (
             <div className="space-y-2 rounded-md border border-primary/30 bg-primary/20 p-4 text-[1.05rem] text-primary">
               <div>用户姓名：{createdUserFeedback?.name}</div>
               <div>登录账号：{createdUserFeedback?.account}</div>
-              {createdUserFeedback?.password ? <div>初始密码：{createdUserFeedback.password}</div> : null}
+              {createdUserFeedback?.mode === "linked" ? <div>处理结果：已关联现有用户</div> : null}
+              {createdUserFeedback?.mode === "created" && createdUserFeedback.password ? (
+                <div>初始密码：{createdUserFeedback.password}</div>
+              ) : null}
             </div>
           ) : (
             <div className="space-y-4">
@@ -1436,11 +1460,19 @@ export function Members({ node }: MembersProps) {
                 <Button
                   onClick={() => {
                     if (createdUserFeedback) {
-                      const copyText = [
-                        `用户姓名：${createdUserFeedback.name}`,
-                        `登录账号：${createdUserFeedback.account}`,
-                        `初始密码：${createdUserFeedback.password || "无"}`,
-                      ].join("\n")
+                      const copyLines =
+                        createdUserFeedback.mode === "linked"
+                          ? [
+                              `用户姓名：${createdUserFeedback.name}`,
+                              `登录账号：${createdUserFeedback.account}`,
+                              "处理结果：已关联现有用户",
+                            ]
+                          : [
+                              `用户姓名：${createdUserFeedback.name}`,
+                              `登录账号：${createdUserFeedback.account}`,
+                              `初始密码：${createdUserFeedback.password || "无"}`,
+                            ]
+                      const copyText = copyLines.join("\n")
                       void navigator.clipboard.writeText(copyText)
                     }
                     resetDialogForm()

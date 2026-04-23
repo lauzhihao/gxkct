@@ -314,6 +314,10 @@ export class UserApi {
     return this.httpAdapter.post<InsertNewUserResult[]>("/api/manage/insertNewUser", payload)
   }
 
+  async insertNewUserSimplePwd(payload: InsertNewUserPayload[]): Promise<ApiResponse<InsertNewUserResult[] | null>> {
+    return this.httpAdapter.post<InsertNewUserResult[]>("/api/manage/insertNewUserSimplePwd", payload)
+  }
+
   async updateManagedUser(payload: UpdateManagedUserPayload): Promise<ApiResponse<UpdateManagedUserResult | null>> {
     return this.httpAdapter.post<UpdateManagedUserResult>("/api/v3/manage/updateUser", payload)
   }
