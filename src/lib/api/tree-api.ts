@@ -30,6 +30,7 @@ interface BackendResponse<T> {
 interface TreeListIdentity {
   value?: string
   label?: string
+  name?: string
 }
 
 interface TreeListNodeItem {
@@ -39,6 +40,8 @@ interface TreeListNodeItem {
   btnMenus?: Array<{ label?: string; value?: string; path?: string; type?: string }> | null
   coverMenus?: Array<{ label?: string; value?: string; path?: string; type?: string }> | null
   props?: Record<string, unknown> | null
+  nodeName?: string
+  name?: string
 }
 
 function buildAuthHeaders(): Headers {
@@ -112,20 +115,34 @@ function mapListItemToTreeNode(
   parentNodeId: string,
 ): TreeNode {
   const rawId = item.self?.value
-  const record = item as any
-  const rawName = item.self?.label || record.nodeName || record.name || record.self?.name
+  let resolvedName: string | null = null
 
   if (typeof rawId !== "string" || rawId.trim() === "") {
     throw new Error(`${nodeType} 列表项缺少 self.value`)
   }
 
-  if (typeof rawName !== "string" || rawName.trim() === "") {
+  if (typeof item.self?.label === "string" && item.self.label.trim() !== "") {
+    resolvedName = item.self.label
+  } else if (typeof item.nodeName === "string" && item.nodeName.trim() !== "") {
+    resolvedName = item.nodeName
+  } else if (typeof item.name === "string" && item.name.trim() !== "") {
+    resolvedName = item.name
+  } else if (typeof item.self?.name === "string" && item.self.name.trim() !== "") {
+    resolvedName = item.self.name
+  } else if (nodeType === "course") {
+    resolvedName = "未设置"
+  }
+
+  if (typeof resolvedName !== "string" || resolvedName.trim() === "") {
     throw new Error(`${nodeType} 列表项缺少 self.label`)
   }
 
-  if (!item.self?.label && rawName) {
-     item.self = { ...(item.self || {}), value: rawId, label: rawName }
+  if (!item.self) {
+    item.self = {}
   }
+
+  item.self.value = rawId
+  item.self.label = resolvedName
 
   const nodeId = `${nodeType}_${rawId}`
   const manager = Array.isArray(item.manager)
@@ -139,8 +156,8 @@ function mapListItemToTreeNode(
   return {
     nodeId,
     id: rawId,
-    nodeName: rawName,
-    name: rawName,
+    nodeName: resolvedName,
+    name: resolvedName,
     nodeType,
     type: nodeType,
     parentId: parentNodeId,
