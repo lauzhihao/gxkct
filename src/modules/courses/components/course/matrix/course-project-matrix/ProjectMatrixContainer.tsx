@@ -69,18 +69,10 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId, courseEditable
     ksaSearchK,
     ksaSearchS,
     ksaSearchA,
-    newRowKsaType,
-    newRowDescription,
-    editingKsaId,
-    editingDescription,
     setKsaDialogOpen,
     setKsaSearchK,
     setKsaSearchS,
     setKsaSearchA,
-    setNewRowKsaType,
-    setNewRowDescription,
-    setEditingKsaId,
-    setEditingDescription,
     openKsaDialog: openKsaDialogBase,
     closeKsaDialog,
     setKsaSupportLevel,
@@ -388,18 +380,10 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId, courseEditable
         ksaSearchK={ksaSearchK}
         ksaSearchS={ksaSearchS}
         ksaSearchA={ksaSearchA}
-        newRowKsaType={newRowKsaType}
-        newRowDescription={newRowDescription}
-        editingKsaId={editingKsaId}
-        editingDescription={editingDescription}
         setKsaDialogOpen={setKsaDialogOpen}
         setKsaSearchK={setKsaSearchK}
         setKsaSearchS={setKsaSearchS}
         setKsaSearchA={setKsaSearchA}
-        setNewRowKsaType={setNewRowKsaType}
-        setNewRowDescription={setNewRowDescription}
-        setEditingKsaId={setEditingKsaId}
-        setEditingDescription={setEditingDescription}
         setKsaListData={setKsaListData}
         setKsaSupportLevel={setKsaSupportLevel}
         saveKsaSelection={handleSaveKsaSelection}

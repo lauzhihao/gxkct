@@ -4,11 +4,12 @@
  */
 
 import { useEffect, useRef, useState } from "react"
-import { Plus, Check, X, Edit, Trash2, Eraser } from "lucide-react"
+import { Plus, Check, X, Trash2, Eraser, Sparkles } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/shared/components/ui/dialog"
 import { Button } from "@/shared/components/ui/button"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { Spinner } from "@/shared/components/ui/spinner"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/components/ui/tooltip"
 import { cn } from "@/shared/utils/utils"
 import { showError } from "@/shared/utils/toast-utils"
 import type { KsaItem } from "@/modules/courses/hooks/use-project-matrix"
@@ -35,6 +36,21 @@ interface KsaSummaryState {
   added: number
   duplicate: number
   delta: number
+}
+
+interface KsaDraftItem {
+  rowKey: string
+  id: number
+  title: KsaTitle
+  level: number
+  description: string
+  initialDescription: string
+  isTemporary: boolean
+}
+
+interface IconTooltipButtonProps {
+  label: string
+  children: React.ReactNode
 }
 
 const KSA_TITLES: readonly KsaTitle[] = ["K", "S", "A"]
@@ -183,7 +199,7 @@ function normalizeKsaListItems(items: readonly RawKsaListItem[]): KsaItem[] {
   return sortKsaItemsForDisplay(normalizedItems)
 }
 
-function matchesKsaSearch(item: KsaItem, searchValue: string): boolean {
+function matchesKsaSearch(item: Pick<KsaItem, "title" | "level" | "description">, searchValue: string): boolean {
   const normalizedSearch = searchValue.trim().toLowerCase()
   if (!normalizedSearch) {
     return true
@@ -200,6 +216,15 @@ function matchesKsaSearch(item: KsaItem, searchValue: string): boolean {
   )
 }
 
+function IconTooltipButton({ label, children }: IconTooltipButtonProps) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
+  )
+}
+
 interface KsaDialogProps {
   ksaDialogOpen: boolean
   selectedKsaCell: KsaCellData | null
@@ -208,18 +233,10 @@ interface KsaDialogProps {
   ksaSearchK: string
   ksaSearchS: string
   ksaSearchA: string
-  newRowKsaType: string | null
-  newRowDescription: string
-  editingKsaId: number | null
-  editingDescription: string
   setKsaDialogOpen: (value: boolean) => void
   setKsaSearchK: (value: string) => void
   setKsaSearchS: (value: string) => void
   setKsaSearchA: (value: string) => void
-  setNewRowKsaType: (value: string | null) => void
-  setNewRowDescription: (value: string) => void
-  setEditingKsaId: (value: number | null) => void
-  setEditingDescription: (value: string) => void
   setKsaListData: (data: KsaItem[]) => void
   setKsaSupportLevel: (ksaId: number, level: "strong" | "weak") => void
   saveKsaSelection: () => void
@@ -236,15 +253,10 @@ export function KsaDialog({
   ksaSearchK,
   ksaSearchS,
   ksaSearchA,
-  newRowKsaType,
-  editingKsaId,
-  editingDescription,
   setKsaDialogOpen,
   setKsaSearchK,
   setKsaSearchS,
   setKsaSearchA,
-  setEditingKsaId,
-  setEditingDescription,
   setKsaListData,
   setKsaSupportLevel,
   saveKsaSelection,
@@ -253,42 +265,9 @@ export function KsaDialog({
   majorId,
 }: KsaDialogProps) {
   const normalizedKsaListData = normalizeKsaListItems(ksaListData)
-
-  // Group KSA list data by type
-  const knowledgePoints = normalizedKsaListData.filter((ksa) => ksa.title === "K")
-  const skillPoints = normalizedKsaListData.filter((ksa) => ksa.title === "S")
-  const attitudePoints = normalizedKsaListData.filter((ksa) => ksa.title === "A")
-
-  // Filter by search and sort by level
-  const filteredKnowledgePoints = knowledgePoints
-    .filter((p) => matchesKsaSearch(p, ksaSearchK))
-    .sort((a, b) => {
-      if (a.level !== b.level) {
-        return a.level - b.level
-      }
-
-      return a.id - b.id
-    })
-
-  const filteredSkillPoints = skillPoints
-    .filter((p) => matchesKsaSearch(p, ksaSearchS))
-    .sort((a, b) => {
-      if (a.level !== b.level) {
-        return a.level - b.level
-      }
-
-      return a.id - b.id
-    })
-
-  const filteredAttitudePoints = attitudePoints
-    .filter((p) => matchesKsaSearch(p, ksaSearchA))
-    .sort((a, b) => {
-      if (a.level !== b.level) {
-        return a.level - b.level
-      }
-
-      return a.id - b.id
-    })
+  const [draftRows, setDraftRows] = useState<KsaDraftItem[]>([])
+  const [focusedRowKey, setFocusedRowKey] = useState<string | null>(null)
+  const [pendingFocusRowKey, setPendingFocusRowKey] = useState<string | null>(null)
 
   // 批量新增状态
   const [batchAddType, setBatchAddType] = useState<KsaTitle | null>(null)
@@ -301,8 +280,40 @@ export function KsaDialog({
     A: false,
   })
   const [clearingKsaType, setClearingKsaType] = useState<KsaTitle | null>(null)
-  const [deletingKsaId, setDeletingKsaId] = useState<number | null>(null)
+  const [deletingKsaId, setDeletingKsaId] = useState<string | null>(null)
   const batchSummaryTimerRef = useRef<Partial<Record<KsaTitle, ReturnType<typeof setTimeout>>>>({})
+  const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const tempRowCounterRef = useRef(0)
+
+  const createDraftRows = (items: readonly KsaItem[]): KsaDraftItem[] =>
+    items.map((item) => ({
+      rowKey: `existing-${item.id}`,
+      id: item.id,
+      title: item.title,
+      level: item.level,
+      description: item.description,
+      initialDescription: item.description,
+      isTemporary: false,
+    }))
+
+  const renumberDraftRows = (items: readonly KsaDraftItem[]): KsaDraftItem[] => {
+    const nextLevelByTitle: Record<KsaTitle, number> = { K: 1, S: 1, A: 1 }
+
+    return items.map((item) => ({
+      ...item,
+      level: nextLevelByTitle[item.title]++,
+    }))
+  }
+
+  // Group KSA list data by type
+  const knowledgePoints = draftRows.filter((ksa) => ksa.title === "K")
+  const skillPoints = draftRows.filter((ksa) => ksa.title === "S")
+  const attitudePoints = draftRows.filter((ksa) => ksa.title === "A")
+
+  // Filter by search and sort by level
+  const filteredKnowledgePoints = knowledgePoints.filter((p) => matchesKsaSearch(p, ksaSearchK))
+  const filteredSkillPoints = skillPoints.filter((p) => matchesKsaSearch(p, ksaSearchS))
+  const filteredAttitudePoints = attitudePoints.filter((p) => matchesKsaSearch(p, ksaSearchA))
 
   const getNextKsaLevel = (ksaType: KsaTitle) => {
     const sameTypeItems = normalizedKsaListData.filter((item) => item.title === ksaType)
@@ -312,6 +323,19 @@ export function KsaDialog({
 
     return sameTypeItems[sameTypeItems.length - 1].level + 1
   }
+
+  useEffect(() => {
+    if (!ksaDialogOpen) {
+      setDraftRows([])
+      setFocusedRowKey(null)
+      setPendingFocusRowKey(null)
+      return
+    }
+
+    setDraftRows(createDraftRows(normalizeKsaListItems(ksaListData)))
+    setFocusedRowKey(null)
+    setPendingFocusRowKey(null)
+  }, [ksaDialogOpen, ksaListData])
 
   useEffect(() => {
     const activeTimers = batchSummaryTimerRef.current
@@ -324,6 +348,19 @@ export function KsaDialog({
       }
     }
   }, [])
+
+  useEffect(() => {
+    if (!pendingFocusRowKey) {
+      return
+    }
+
+    const nextInput = inputRefs.current[pendingFocusRowKey]
+    if (nextInput) {
+      nextInput.focus()
+      setFocusedRowKey(pendingFocusRowKey)
+      setPendingFocusRowKey(null)
+    }
+  }, [draftRows, pendingFocusRowKey])
 
   const showBatchSummary = (ksaType: KsaTitle) => {
     const activeTimer = batchSummaryTimerRef.current[ksaType]
@@ -453,39 +490,163 @@ export function KsaDialog({
     return null
   }
 
-  const handleUpdateKsa = async (ksaId: number) => {
-    if (!editingDescription) {
-      showError("请填写描述")
+  const updateDraftRowDescription = (rowKey: string, description: string) => {
+    setDraftRows((prev) =>
+      prev.map((item) =>
+        item.rowKey === rowKey
+          ? {
+              ...item,
+              description,
+            }
+          : item
+      )
+    )
+  }
+
+  const revertDraftRow = (rowKey: string) => {
+    setDraftRows((prev) => {
+      const targetRow = prev.find((item) => item.rowKey === rowKey)
+      if (!targetRow) {
+        return prev
+      }
+
+      if (targetRow.isTemporary) {
+        return renumberDraftRows(prev.filter((item) => item.rowKey !== rowKey))
+      }
+
+      return prev.map((item) =>
+        item.rowKey === rowKey
+          ? {
+              ...item,
+              description: item.initialDescription,
+            }
+          : item
+      )
+    })
+  }
+
+  const focusDraftRow = (rowKey: string) => {
+    if (focusedRowKey && focusedRowKey !== rowKey) {
+      revertDraftRow(focusedRowKey)
+    }
+
+    setFocusedRowKey(rowKey)
+    setPendingFocusRowKey(rowKey)
+  }
+
+  const clearFocusedDraftRow = (rowKey: string) => {
+    if (focusedRowKey !== rowKey) {
       return
     }
 
-    // 构建完整列表: 更新目标项的 description
-    const payload = normalizedKsaListData.map((k) => ({
-      id: k.id,
-      title: k.title,
-      description: k.id === ksaId ? editingDescription : k.description,
-      level: k.level,
-    }))
+    const targetRow = draftRows.find((item) => item.rowKey === rowKey)
+    if (targetRow && hasDraftChanged(targetRow)) {
+      revertDraftRow(rowKey)
+    }
+
+    setFocusedRowKey(null)
+  }
+
+  const insertDraftRowBelow = (rowKey: string, ksaType: KsaTitle) => {
+    const tempRowKey = `temp-${ksaType}-${tempRowCounterRef.current++}`
+
+    setDraftRows((prev) => {
+      const targetIndex = prev.findIndex((item) => item.rowKey === rowKey)
+      if (targetIndex < 0) {
+        return prev
+      }
+
+      const nextRows = [...prev]
+      nextRows.splice(targetIndex + 1, 0, {
+        rowKey: tempRowKey,
+        id: 0,
+        title: ksaType,
+        level: 0,
+        description: "",
+        initialDescription: "",
+        isTemporary: true,
+      })
+
+      return renumberDraftRows(nextRows)
+    })
+
+    setPendingFocusRowKey(tempRowKey)
+  }
+
+  const hasDraftChanged = (item: KsaDraftItem) => item.description !== item.initialDescription
+
+  const canSaveDraft = (item: KsaDraftItem) => item.description.trim() !== "" && hasDraftChanged(item)
+
+  const handleSaveDraftRow = async (rowKey: string) => {
+    const targetRow = draftRows.find((item) => item.rowKey === rowKey)
+    if (!targetRow) {
+      showError("未找到要保存的KSA项")
+      return
+    }
+
+    if (!canSaveDraft(targetRow)) {
+      return
+    }
+
+    let payload: KsaMutationItem[]
+
+    if (targetRow.isTemporary) {
+      const rowsToPersist = renumberDraftRows(
+        draftRows.filter((item) => !item.isTemporary || item.rowKey === rowKey)
+      )
+
+      payload = rowsToPersist.map((item) => ({
+        id: item.isTemporary ? 0 : item.id,
+        title: item.title,
+        description: item.rowKey === rowKey ? item.description : item.initialDescription,
+        level: item.level,
+      }))
+    } else {
+      payload = normalizedKsaListData.map((item) => ({
+        id: item.id,
+        title: item.title,
+        description: item.id === targetRow.id ? targetRow.description : item.description,
+        level: item.level,
+      }))
+    }
 
     const error = await saveAndReload(payload)
     if (error) {
-      showError("更新失败: " + error)
-    } else {
-      setEditingKsaId(null)
-      setEditingDescription("")
+      showError("保存失败: " + error)
+      return
     }
+
+    setBatchSummary((prev) => ({
+      ...prev,
+      [targetRow.title]: {
+        total: 1,
+        added: targetRow.isTemporary ? 1 : 0,
+        duplicate: 0,
+        delta: targetRow.isTemporary ? 1 : 0,
+      },
+    }))
+    showBatchSummary(targetRow.title)
   }
 
-  const handleDeleteKsa = async (ksaId: number) => {
-    const targetKsa = normalizedKsaListData.find((item) => item.id === ksaId)
+  const handleDeleteKsa = async (rowKey: string) => {
+    const targetKsa = draftRows.find((item) => item.rowKey === rowKey)
     if (!targetKsa) {
       showError("未找到要删除的KSA项")
       return
     }
 
+    if (targetKsa.isTemporary) {
+      setDraftRows((prev) => renumberDraftRows(prev.filter((item) => item.rowKey !== rowKey)))
+      if (focusedRowKey === rowKey) {
+        setFocusedRowKey(null)
+      }
+      setDeletingKsaId(null)
+      return
+    }
+
     // 构建完整列表: 将被删除项的 id 取负值
     const payload = normalizedKsaListData.map((k) => ({
-      id: k.id === ksaId ? -Math.abs(k.id) : k.id,
+      id: k.id === targetKsa.id ? -Math.abs(k.id) : k.id,
       title: k.title,
       description: k.description,
       level: k.level,
@@ -530,21 +691,22 @@ export function KsaDialog({
   const renderInfoPointList = (
     englishTitle: string,
     chineseTitle: string,
-    points: KsaItem[],
-    filteredPoints: KsaItem[],
+    points: KsaDraftItem[],
+    filteredPoints: KsaDraftItem[],
     searchValue: string,
     onSearchChange: (value: string) => void,
     colorClass: string,
     bgClass: string,
     hoverBgClass: string,
     borderClass: string,
+    ringClass: string,
     ksaType: KsaTitle
   ) => {
     const summary = visibleBatchSummary[ksaType] ? batchSummary[ksaType] : undefined
     const summaryText = summary ? `${summary.delta >= 0 ? "+" : ""}${summary.delta}` : null
 
     return (
-    <div className="flex-1 flex flex-col min-h-0 border rounded-lg shadow-sm overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-0 rounded-xl border border-border/60 bg-white shadow-sm overflow-hidden">
       {/* Card Header */}
       <div className={`px-4 py-3 ${bgClass} ${borderClass}`}>
         <div className="flex items-center justify-between gap-3">
@@ -595,30 +757,32 @@ export function KsaDialog({
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder={`搜索${chineseTitle}...`}
-          disabled={editingKsaId !== null || batchAddType === ksaType}
+          disabled={batchAddType === ksaType}
           className="flex-1 px-2 py-1.5 text-xs border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
         />
         <div className="relative flex flex-shrink-0 items-center gap-2">
-          <button
-            onClick={() => {
-              setBatchAddType(batchAddType === ksaType ? null : ksaType)
-              setBatchAddInput("")
-              setClearingKsaType(null)
-            }}
-            disabled={editingKsaId !== null || isBatchAdding || clearingKsaType !== null}
-            className={`h-8 w-8 flex-shrink-0 rounded-md ${bgClass} hover:opacity-80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
-            title="批量新增"
-          >
-            <Plus className={`mx-auto h-4 w-4 ${colorClass}`} />
-          </button>
-          <button
-            onClick={() => setClearingKsaType(clearingKsaType === ksaType ? null : ksaType)}
-            disabled={editingKsaId !== null || isBatchAdding || batchAddType !== null || deletingKsaId !== null}
-            className="h-8 w-8 flex-shrink-0 rounded-md bg-red-50 transition-colors hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
-            title={`清除全部${ksaType}`}
-          >
-            <Eraser className="mx-auto h-4 w-4 text-red-600" />
-          </button>
+          <IconTooltipButton label="智能解析">
+            <button
+              onClick={() => {
+                setBatchAddType(batchAddType === ksaType ? null : ksaType)
+                setBatchAddInput("")
+                setClearingKsaType(null)
+              }}
+              disabled={isBatchAdding || clearingKsaType !== null}
+              className={`h-8 w-8 flex-shrink-0 rounded-md ${bgClass} transition-all duration-200 ease-out hover:scale-[1.04] hover:shadow-sm hover:shadow-black/5 disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              <Sparkles className={`mx-auto h-4 w-4 ${colorClass}`} />
+            </button>
+          </IconTooltipButton>
+          <IconTooltipButton label={`清除全部${ksaType}`}>
+            <button
+              onClick={() => setClearingKsaType(clearingKsaType === ksaType ? null : ksaType)}
+              disabled={isBatchAdding || batchAddType !== null || deletingKsaId !== null}
+              className="h-8 w-8 flex-shrink-0 rounded-md bg-red-50 transition-colors hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Eraser className="mx-auto h-4 w-4 text-red-600" />
+            </button>
+          </IconTooltipButton>
           {clearingKsaType === ksaType ? (
             <>
               <div className="fixed inset-0 z-[9]" onClick={() => setClearingKsaType(null)} />
@@ -677,31 +841,89 @@ export function KsaDialog({
       ) : (
       /* List - Scrollable */
       <div className="flex-1 overflow-y-auto min-h-0 bg-background">
-        <div className="p-3 space-y-2">
+        <div className="p-3 space-y-2.5">
           {/* KSA points */}
           {filteredPoints.length > 0 ? (
             filteredPoints.map((point) => {
               const support = selectedKsaSupport[point.id]
-              const isEditing = editingKsaId === point.id
+              const isGlobalMode = selectedKsaCell?.chapterId === "global"
+              const isFocused = focusedRowKey === point.rowKey
+              const isSaveDisabled = !canSaveDraft(point)
 
               return (
                 <div
-                  key={point.id}
+                  key={point.rowKey}
+                  onClick={() => {
+                    if (isGlobalMode) {
+                      focusDraftRow(point.rowKey)
+                    }
+                  }}
                   className={cn(
-                    "cursor-pointer p-2 rounded-lg border transition-all duration-200 ease-out hover:scale-[1.015] hover:shadow-md hover:shadow-black/5",
-                    isEditing && "border-blue-300 bg-blue-50",
-                    !isEditing && support ? `${borderClass} ${bgClass}` : !isEditing && "border-border bg-background"
+                    "cursor-pointer rounded-xl border border-transparent bg-slate-50/80 px-3 py-2.5 transition-all duration-200 ease-out hover:scale-[1.015] hover:shadow-md hover:shadow-black/5",
+                    isFocused && isGlobalMode && `${borderClass} ${bgClass} ring-2 ring-offset-0 ${ringClass}`,
+                    !isFocused && support ? `${bgClass} ring-1 ${borderClass}` : !isFocused && "ring-1 ring-transparent"
                   )}
                 >
                   <div className="flex items-start gap-2">
                     <div className="flex-1 min-w-0">
-                      {isEditing ? (
-                        <textarea
-                          value={editingDescription}
-                          onChange={(e) => setEditingDescription(e.target.value)}
-                          className="w-full px-2 py-1 text-xs border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-                          rows={2}
-                        />
+                      {isGlobalMode ? (
+                        <>
+                          <div className={`text-xs font-medium mb-1 ${colorClass}`}>
+                            <span
+                              className={cn(
+                                "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-all",
+                                isFocused
+                                  ? `${colorClass} shadow-sm ring-1 ${bgClass} border-current`
+                                  : "border-border/70 bg-white/80 text-slate-600"
+                              )}
+                            >
+                              {point.title}
+                              {point.level}
+                            </span>
+                          </div>
+                          <div className="relative min-h-8">
+                            {isFocused ? (
+                              <input
+                                ref={(element) => {
+                                  inputRefs.current[point.rowKey] = element
+                                }}
+                                type="text"
+                                value={point.description}
+                                onChange={(e) => updateDraftRowDescription(point.rowKey, e.target.value)}
+                                onFocus={() => setFocusedRowKey(point.rowKey)}
+                                onBlur={() => {
+                                  clearFocusedDraftRow(point.rowKey)
+                                }}
+                                className="w-full rounded-lg border border-transparent bg-white/65 px-2 py-1 pr-10 text-sm text-foreground outline-none ring-0"
+                              />
+                            ) : (
+                              <div className="px-2 py-1 text-sm text-foreground leading-relaxed break-words">
+                                {point.description}
+                              </div>
+                            )}
+                            {isFocused ? (
+                              <IconTooltipButton label="保存">
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    handleSaveDraftRow(point.rowKey)
+                                  }}
+                                  onMouseDown={(event) => event.preventDefault()}
+                                  disabled={isSaveDisabled}
+                                  className={cn(
+                                    "absolute right-1 top-1/2 -translate-y-1/2 rounded-md border p-1 transition-colors",
+                                    isSaveDisabled
+                                      ? "border-gray-200 bg-gray-100 text-gray-300 cursor-not-allowed"
+                                      : "border-green-500 bg-white text-green-600 shadow-sm hover:border-green-600 hover:bg-green-50"
+                                  )}
+                                >
+                                  <Check className="h-4 w-4" />
+                                </button>
+                              </IconTooltipButton>
+                            ) : null}
+                          </div>
+                        </>
                       ) : (
                         <>
                           <div className={`text-xs font-medium mb-1 ${colorClass}`}>
@@ -713,80 +935,68 @@ export function KsaDialog({
                       )}
                     </div>
                     <div className="flex flex-col gap-1 flex-shrink-0">
-                      {selectedKsaCell?.chapterId === "global" ? (
-                        isEditing ? (
-                          <div className="flex flex-col gap-1">
+                      {isGlobalMode ? (
+                        <>
+                          <IconTooltipButton label="在下方新增">
                             <button
-                              onClick={() => handleUpdateKsa(point.id)}
-                              className="p-1 rounded hover:bg-green-200 transition-colors"
-                              title="保存"
-                            >
-                              <Check className="w-4 h-4 text-green-600" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setEditingKsaId(null)
-                                setEditingDescription("")
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                insertDraftRowBelow(point.rowKey, point.title)
                               }}
-                              className="p-1 rounded hover:bg-gray-200 transition-colors"
-                              title="取消"
-                            >
-                              <X className="w-4 h-4 text-gray-600" />
-                            </button>
-                          </div>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => {
-                                setEditingKsaId(point.id)
-                                setEditingDescription(point.description)
-                              }}
-                              disabled={editingKsaId !== null || newRowKsaType !== null}
+                              disabled={batchAddType !== null || deletingKsaId !== null || clearingKsaType !== null}
                               className={cn(
                                 "p-1 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
                                 hoverBgClass
                               )}
-                              title="编辑"
                             >
-                              <Edit className={cn("w-4 h-4", colorClass)} />
+                              <Plus className={cn("w-4 h-4", colorClass)} />
                             </button>
-                            <div className="relative">
+                          </IconTooltipButton>
+                          <div className="relative">
+                            <IconTooltipButton label="删除">
                               <button
-                                onClick={() => setDeletingKsaId(point.id)}
-                                disabled={editingKsaId !== null || newRowKsaType !== null || deletingKsaId !== null}
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  setDeletingKsaId(point.rowKey)
+                                }}
+                                disabled={batchAddType !== null || deletingKsaId !== null || clearingKsaType !== null}
                                 className="p-1 rounded hover:bg-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="删除"
                               >
                                 <Trash2 className="w-4 h-4 text-red-600" />
                               </button>
-                              {deletingKsaId === point.id && (
-                                <>
-                                  <div className="fixed inset-0 z-[9]" onClick={() => setDeletingKsaId(null)} />
-                                  <div className="absolute right-full top-1/2 -translate-y-1/2 mr-1 flex items-center gap-1 bg-white border border-border rounded-md shadow-md px-2 py-1 whitespace-nowrap z-10">
+                            </IconTooltipButton>
+                            {deletingKsaId === point.rowKey && (
+                              <>
+                                <div className="fixed inset-0 z-[9]" onClick={() => setDeletingKsaId(null)} />
+                                <div className="absolute right-full top-1/2 -translate-y-1/2 mr-1 flex items-center gap-1 bg-white border border-border rounded-md shadow-md px-2 py-1 whitespace-nowrap z-10">
                                   <span className="text-xs text-muted-foreground mr-1">确认删除{point.title}{point.level}?</span>
                                   <button
-                                    onClick={() => handleDeleteKsa(point.id)}
+                                    onClick={(event) => {
+                                      event.stopPropagation()
+                                      handleDeleteKsa(point.rowKey)
+                                    }}
                                     className="p-0.5 rounded hover:bg-red-100 transition-colors"
                                   >
                                     <Check className="w-3.5 h-3.5 text-red-600" />
                                   </button>
                                   <button
-                                    onClick={() => setDeletingKsaId(null)}
+                                    onClick={(event) => {
+                                      event.stopPropagation()
+                                      setDeletingKsaId(null)
+                                    }}
                                     className="p-0.5 rounded hover:bg-gray-100 transition-colors"
                                   >
                                     <X className="w-3.5 h-3.5 text-gray-500" />
                                   </button>
                                 </div>
-                                </>
-                              )}
-                            </div>
-                          </>
-                        )
+                              </>
+                            )}
+                          </div>
+                        </>
                       ) : (
                         <div className="flex flex-col gap-1">
                           <button
                             onClick={() => setKsaSupportLevel(point.id, "strong")}
-                            disabled={editingKsaId !== null || newRowKsaType !== null}
                             className={cn(
                               "px-2 py-0.5 text-xs rounded border transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed",
                               support === "strong"
@@ -798,7 +1008,6 @@ export function KsaDialog({
                           </button>
                           <button
                             onClick={() => setKsaSupportLevel(point.id, "weak")}
-                            disabled={editingKsaId !== null || newRowKsaType !== null}
                             className={cn(
                               "px-2 py-0.5 text-xs rounded border transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed",
                               support === "weak"
@@ -832,13 +1041,12 @@ export function KsaDialog({
   }
 
   return (
-    <Dialog open={ksaDialogOpen} onOpenChange={setKsaDialogOpen}>
-      <DialogContent className="h-[85vh] flex flex-col" style={{ width: "75vw", maxWidth: "75vw" }}>
+    <TooltipProvider delayDuration={0}>
+      <Dialog open={ksaDialogOpen} onOpenChange={setKsaDialogOpen}>
+        <DialogContent className="h-[85vh] flex flex-col" style={{ width: "75vw", maxWidth: "75vw" }}>
         <DialogHeader>
-          <DialogTitle>{selectedKsaCell?.chapterId === "global" ? "KSA库管理" : "设置KSA支撑关系"}</DialogTitle>
-          <DialogDescription>
-            {selectedKsaCell?.chapterId === "global" ? "查看和管理课程的KSA数据" : "选择KSA项目并设置支撑强度"}
-          </DialogDescription>
+          <DialogTitle>KSA管理</DialogTitle>
+          <DialogDescription>点击下方卡片可以编辑KSA，您也可以通过智能解析进行批量新增</DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 flex flex-col min-h-0 space-y-4 py-4 px-4">
@@ -855,6 +1063,7 @@ export function KsaDialog({
               "bg-blue-50",
               "hover:bg-blue-50",
               "border-blue-300",
+              "ring-blue-700",
               "K"
             )}
             {renderInfoPointList(
@@ -868,6 +1077,7 @@ export function KsaDialog({
               "bg-green-50",
               "hover:bg-green-50",
               "border-green-300",
+              "ring-green-700",
               "S"
             )}
             {renderInfoPointList(
@@ -881,6 +1091,7 @@ export function KsaDialog({
               "bg-purple-50",
               "hover:bg-purple-50",
               "border-purple-300",
+              "ring-purple-700",
               "A"
             )}
           </div>
@@ -892,7 +1103,8 @@ export function KsaDialog({
           </Button>
           {selectedKsaCell?.chapterId !== "global" && <Button onClick={saveKsaSelection}>确认</Button>}
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </TooltipProvider>
   )
 }
