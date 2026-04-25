@@ -238,6 +238,8 @@ interface OrganizationTreeNodeProps {
   loadMajorCourses: (nodeId: string, majorId: string) => Promise<TreeNode[]>
   loadedMajorsWithNoCourses: Set<string>
   excludeKeys: Set<string>
+  disabled: boolean
+  renderNodeSuffix?: (node: TreeNode) => ReactElement | null
 }
 
 function OrganizationTreeNode({
@@ -259,6 +261,8 @@ function OrganizationTreeNode({
   loadMajorCourses,
   loadedMajorsWithNoCourses,
   excludeKeys,
+  disabled,
+  renderNodeSuffix,
 }: OrganizationTreeNodeProps): ReactElement {
   const nodeType = getTreeNodeType(node)
   const nodeId = getTreeNodeId(node)
@@ -309,7 +313,8 @@ function OrganizationTreeNode({
     }
   }
   const indentPadding = level * 24
-  let canSelect = selectable && !readOnly
+  const nodeSuffix = renderNodeSuffix ? renderNodeSuffix(node) : null
+  let canSelect = selectable && !readOnly && !disabled
   if (canSelect && isNodeSelectable) {
     canSelect = isNodeSelectable(node)
   }
@@ -323,6 +328,7 @@ function OrganizationTreeNode({
   }
 
   const handleCheckedChange = async () => {
+    if (disabled) return
     if (!canSelect) return
     let cascadeIds = cascadeSelection ? selectableChildIds : []
     let cascadeNodes = cascadeSelection ? selectableChildren : []
@@ -346,6 +352,7 @@ function OrganizationTreeNode({
   }
 
   const handleClick = () => {
+    if (disabled) return
     if (nodeType === "course") {
       void handleCheckedChange()
       return
@@ -356,12 +363,14 @@ function OrganizationTreeNode({
   }
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (disabled) return
     if (event.key !== "Enter" && event.key !== " ") return
     event.preventDefault()
     handleClick()
   }
 
   const handleNameClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (disabled) return
     if (nodeType !== "course") return
     event.stopPropagation()
     void handleCheckedChange()
@@ -371,13 +380,15 @@ function OrganizationTreeNode({
     <div className="select-none">
       <div
         role="button"
-        tabIndex={0}
+        tabIndex={disabled ? -1 : 0}
+        aria-disabled={disabled}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
         className={cn(
           "group flex w-full items-center gap-3 rounded-lg py-2 transition-all duration-200",
           "hover:bg-primary/10",
           "focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary/50",
+          disabled && "cursor-not-allowed opacity-70 hover:bg-transparent",
         )}
         style={{ paddingLeft: `${16 + indentPadding}px`, paddingRight: "16px" }}
       >
@@ -412,6 +423,12 @@ function OrganizationTreeNode({
             {nodeName}
           </div>
         </div>
+
+        {renderNodeSuffix && (
+          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center">
+            {nodeSuffix}
+          </div>
+        )}
       </div>
 
       {isExpanded && actualChildren.length > 0 && (
@@ -437,6 +454,8 @@ function OrganizationTreeNode({
               loadMajorCourses={loadMajorCourses}
               loadedMajorsWithNoCourses={loadedMajorsWithNoCourses}
               excludeKeys={excludeKeys}
+              disabled={disabled}
+              renderNodeSuffix={renderNodeSuffix}
             />
           ))}
         </div>
@@ -467,6 +486,8 @@ export interface OrganizationTreePanelProps {
   emptyText?: string
   searchPlaceholder?: string
   className?: string
+  disabled?: boolean
+  renderNodeSuffix?: (node: TreeNode) => ReactElement | null
 }
 
 export function OrganizationTreePanel({
@@ -485,6 +506,8 @@ export function OrganizationTreePanel({
   emptyText = "暂无数据",
   searchPlaceholder = "搜索组织架构...",
   className,
+  disabled = false,
+  renderNodeSuffix,
 }: OrganizationTreePanelProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const { searchTerm, setSearchTerm, isSearching, clearSearch } = useTreeSearch()
@@ -523,6 +546,7 @@ export function OrganizationTreePanel({
   }
 
   const handleToggleExpand = async (nodeId: string) => {
+    if (disabled) return
     const isCurrentlyExpanded = expandedNodes.has(nodeId)
 
     setExpandedNodes((prev) => {
@@ -589,6 +613,8 @@ export function OrganizationTreePanel({
           loadMajorCourses={loadMajorCourses}
           loadedMajorsWithNoCourses={loadedMajorsWithNoCourses}
           excludeKeys={excludeKeys}
+          disabled={disabled}
+          renderNodeSuffix={renderNodeSuffix}
         />
       )
     }
@@ -620,6 +646,8 @@ export function OrganizationTreePanel({
         loadMajorCourses={loadMajorCourses}
         loadedMajorsWithNoCourses={loadedMajorsWithNoCourses}
         excludeKeys={excludeKeys}
+        disabled={disabled}
+        renderNodeSuffix={renderNodeSuffix}
       />
     ))
   }
@@ -634,13 +662,18 @@ export function OrganizationTreePanel({
             placeholder={searchPlaceholder}
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
+            disabled={disabled}
             className="pl-9"
           />
           {searchTerm && !isSearching && (
             <button
               type="button"
               onClick={() => clearSearch()}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              disabled={disabled}
+              className={cn(
+                "absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground",
+                disabled && "cursor-not-allowed opacity-60 hover:text-muted-foreground",
+              )}
             >
               <X className="h-4 w-4" />
             </button>
