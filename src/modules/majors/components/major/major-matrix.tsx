@@ -11,11 +11,10 @@ import { TreeApi } from "@/lib/api/tree-api"
 import { api } from "@/lib/api"
 import type { MajorMatrixItemResponse } from "@/lib/api/matrix-api"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip"
-import { buildApiUrl } from "@/lib/api/config"
-import { getStoredAuthToken } from "@/lib/api/auth-config"
 import { extractNumericId } from "@/shared/utils/utils"
 import { getMajorCache } from "@/shared/utils/major-cache"
 import { usePermission } from "@/shared/hooks/use-permission"
+import { useSemesterStore } from "@/shared/stores/semester-store"
 
 const treeApiInstance = new TreeApi()
 
@@ -33,10 +32,6 @@ function hasMenuPermission(menus: TreeNodeMenuItem[] | null | undefined, target:
 interface CourseInfo {
   courseId: string
   courseName: string
-}
-
-interface CourseItem {
-  self: { value: string; label: string } | null
 }
 
 interface CourseMatrixRelationDiff {
@@ -84,6 +79,8 @@ export function MajorMatrix(props: MajorMatrixProps) {
     return cachedMajor?.btnMenus ?? []
   }, [cachedMajor?.btnMenus, node.btnMenus, node.metadata])
   const { isSemesterReadonly } = usePermission()
+  // [MOD] 复用课程管理 Tab 的接口，需要当前学期上下文
+  const selectedSemesterId = useSemesterStore((state) => state.selectedSemesterId)
   const canManageMatrix = !isSemesterReadonly && !isVirtualMajorFromSwitchDpt && hasMenuPermission(resolvedBtnMenus, "majoredit")
   const [isEditingMatrix, setIsEditingMatrix] = useState(false)
   const [matrixSupportLevels, setMatrixSupportLevels] = useState<Record<string, string>>({})
@@ -96,6 +93,9 @@ export function MajorMatrix(props: MajorMatrixProps) {
   const indicatorRefsMap = useRef<Map<string, HTMLDivElement>>(new Map())
   const [requiresVOS, setRequiresVOS] = useState<any[]>([])
   const [isLoadingMatrix, setIsLoadingMatrix] = useState(false)
+  // [MOD] 用于动态测量第一行表头高度，作为第二行表头 sticky top 偏移
+  const firstHeaderRowRef = useRef<HTMLTableRowElement | null>(null)
+  const [firstHeaderHeight, setFirstHeaderHeight] = useState(0)
   const [courses, setCourses] = useState<CourseInfo[]>([])
   const [courseMatrixMap, setCourseMatrixMap] = useState<Record<string, MajorMatrixItemResponse[]>>({})
   const [courseLoadingMap, setCourseLoadingMap] = useState<Record<string, boolean>>({})
@@ -181,53 +181,38 @@ export function MajorMatrix(props: MajorMatrixProps) {
     const loadMajorData = async () => {
       setIsLoadingMatrix(true)
       try {
-        const majorDetailPromise = treeApiInstance.getMajorDetail(majorId)
-
-        const courseListUrl = buildApiUrl(`/api/v4/webpage/majorindex/courses?majorId=${majorId}&lang=80101`)
-        const headers: Record<string, string> = {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        }
-        const authToken = getStoredAuthToken()
-        if (authToken) {
-          headers.authToken = authToken
-        }
-
-        const courseListPromise = fetch(courseListUrl, {
-          method: "GET",
-          headers,
-        })
-
+        // [MOD] 复用课程管理 Tab 的接口（api.tree.getMajorCourses），
+        // 移除原本直接 fetch /api/v4/webpage/majorindex/courses 的重复实现
         const [majorDetailResponse, courseListResponse] = await Promise.all([
-          majorDetailPromise,
-          courseListPromise,
+          treeApiInstance.getMajorDetail(majorId),
+          api.tree.getMajorCourses(majorId, selectedSemesterId),
         ])
 
         if (majorDetailResponse.data?.requiresVOS) {
           setRequiresVOS(majorDetailResponse.data.requiresVOS)
         }
 
-        if (!courseListResponse.ok) {
-          throw new Error(`获取课程列表失败，状态码: ${courseListResponse.status}`)
+        if (courseListResponse.error) {
+          const errorText = typeof courseListResponse.error === "string"
+            ? courseListResponse.error
+            : String(courseListResponse.error)
+          throw new Error(`获取课程列表失败: ${errorText}`)
+        }
+        if (!Array.isArray(courseListResponse.data)) {
+          throw new Error("获取课程列表失败: 响应数据不是数组")
         }
 
-        const courseResult = await courseListResponse.json()
-        const rawCourses = Array.isArray(courseResult.data) ? (courseResult.data as CourseItem[]) : []
-
         const parsedCourses: CourseInfo[] = []
-        for (const rawCourse of rawCourses) {
-          if (!rawCourse.self) {
-            continue
-          }
-          const rawId = rawCourse.self.value
-          const rawName = rawCourse.self.label
+        for (const courseNode of courseListResponse.data) {
+          const rawId = courseNode.id
+          const rawName = courseNode.nodeName
 
           if (typeof rawId !== "string" || rawId.trim() === "") {
-            console.error("[MajorMatrix] 跳过课程：缺少有效 courseId", rawCourse)
+            console.error("[MajorMatrix] 跳过课程：缺少有效 courseId", courseNode)
             continue
           }
           if (typeof rawName !== "string" || rawName.trim() === "") {
-            console.error("[MajorMatrix] 跳过课程：缺少有效 courseName", rawCourse)
+            console.error("[MajorMatrix] 跳过课程：缺少有效 courseName", courseNode)
             continue
           }
 
@@ -254,7 +239,7 @@ export function MajorMatrix(props: MajorMatrixProps) {
     }
 
     loadMajorData()
-  }, [node.id])
+  }, [node.id, selectedSemesterId])
 
   // 按课程逐个异步加载矩阵数据，边到达边渲染
   useEffect(() => {
@@ -339,6 +324,24 @@ export function MajorMatrix(props: MajorMatrixProps) {
     }, 100)
     return () => clearTimeout(timer)
   }, [node, expandedIndicators])
+
+  // [MOD] 测量第一行表头高度，使第二行 sticky top 跟随其变化（毕业要求"展开/收起"会改变高度）
+  useEffect(() => {
+    const target = firstHeaderRowRef.current
+    if (!target) return
+
+    const updateHeight = () => {
+      setFirstHeaderHeight(target.getBoundingClientRect().height)
+    }
+
+    updateHeight()
+    const observer = new ResizeObserver(updateHeight)
+    observer.observe(target)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [requiresVOS])
 
   // 获取某门课程在某个指标点的支撑级别
   const getSupportLevel = (courseId: string, reqId: number, indicatorIdx: number): string => {
@@ -661,9 +664,10 @@ export function MajorMatrix(props: MajorMatrixProps) {
             </div>
           </div>
 
-          <div className="relative rounded-lg border border-border overflow-hidden overflow-x-auto mb-[15px]">
+          {/* [MOD] 改为双向滚动容器，作为 sticky 表头/首列的滚动祖先；max-h 控制纵向滚动激活 */}
+          <div className="relative rounded-lg border border-border overflow-auto max-h-[calc(100vh-280px)] mb-[15px]">
             {isSavingMatrix && (
-              <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/60 backdrop-blur-[1px]">
+              <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-[1px]">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Spinner className="w-4 h-4" />
                   <span>保存中...</span>
@@ -672,11 +676,11 @@ export function MajorMatrix(props: MajorMatrixProps) {
             )}
             <table className="w-full text-sm">
               <thead>
-                {/* 第一层表头：课程名称 + 毕业要求 */}
-                <tr className="border-b border-border bg-secondary/50">
+                {/* 第一层表头：课程名称 + 毕业要求（角元 sticky 双向，其余 sticky top） */}
+                <tr ref={firstHeaderRowRef} className="border-b border-border bg-secondary/50">
                   <th
                     rowSpan={2}
-                    className="text-center p-3 text-muted-foreground font-medium border-r border-border sticky left-0 bg-secondary z-10"
+                    className="text-center p-3 text-muted-foreground font-medium border-r border-border sticky left-0 top-0 bg-secondary z-40"
                     style={{ minWidth: "240px", width: "240px", maxWidth: "240px" }}
                   >
                     <span style={{ fontSize: "0.96rem", fontWeight: 600 }}>课程名称</span>
@@ -690,7 +694,7 @@ export function MajorMatrix(props: MajorMatrixProps) {
                       <th
                         key={req.id}
                         colSpan={indicatorCount}
-                        className="text-center p-3 text-muted-foreground font-medium border-r border-border"
+                        className="text-center p-3 text-muted-foreground font-medium border-r border-border sticky top-0 z-30 bg-secondary"
                         style={{ width: "1000px", minWidth: "1000px" }}
                       >
                         <div className="flex items-center justify-center gap-2">
@@ -745,8 +749,8 @@ export function MajorMatrix(props: MajorMatrixProps) {
                       return (
                         <th
                           key={indicatorKey}
-                          className="text-center p-3 text-muted-foreground border-r border-border"
-                          style={{ width: "250px", minWidth: "250px" }}
+                          className="text-center p-3 text-muted-foreground border-r border-border sticky z-30 bg-secondary"
+                          style={{ width: "250px", minWidth: "250px", top: firstHeaderHeight }}
                         >
                           <div className="flex flex-col gap-1">
                             <span className="font-semibold text-sm" style={{ fontSize: "0.96rem", fontWeight: 600 }}>{reqIndex + 1}.{indicatorIdx + 1}</span>
@@ -794,7 +798,7 @@ export function MajorMatrix(props: MajorMatrixProps) {
                 {filteredCourses.length === 0 ? (
                   <tr>
                     <td
-                      className="p-6 text-center text-muted-foreground text-sm sticky left-0 bg-background"
+                      className="p-6 text-center text-muted-foreground text-sm sticky left-0 bg-background z-20"
                       style={{ minWidth: "240px", width: "240px" }}
                     >
                       {courses.length === 0 ? "暂无课程数据" : "没有匹配的课程"}
@@ -805,7 +809,7 @@ export function MajorMatrix(props: MajorMatrixProps) {
                     <tr key={course.courseId} className="border-b border-border hover:bg-white/50 transition-colors">
                       {/* 课程名称列 - sticky + truncate + tooltip */}
                       <td
-                        className="p-3 text-left border-r border-border sticky left-0 bg-background z-10 font-medium"
+                        className="p-3 text-left border-r border-border sticky left-0 bg-background z-20 font-medium"
                         style={{ minWidth: "240px", width: "240px", maxWidth: "240px" }}
                       >
                         <Tooltip>

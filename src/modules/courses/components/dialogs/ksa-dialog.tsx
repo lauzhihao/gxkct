@@ -133,11 +133,12 @@ function sortKsaItemsForDisplay<T extends KsaMutationItem>(items: readonly T[]):
 
       return left.originalIndex - right.originalIndex
     })
-    .map((sortableItem) => {
+    .map((sortableItem): T => {
       const { originalIndex, normalizedTitle, ...item } = sortableItem
       void originalIndex
       void normalizedTitle
-      return item
+      // [MOD] TS 无法对带泛型的 Omit 收敛回 T，这里显式断言（运行时形状一致）
+      return item as unknown as T
     })
 }
 

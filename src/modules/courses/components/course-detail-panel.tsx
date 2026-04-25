@@ -91,6 +91,9 @@ interface CourseFormMetadata {
     practicePeriod?: number | string | null
     courseUnitId?: number | string | null
   }>
+  // [MOD] 与 course-detail-api 保持一致，补齐开课学期相关可空字段
+  openingSemesterId?: number | null
+  openingSemesterDisplay?: string | null
 }
 
 interface CourseFormData {

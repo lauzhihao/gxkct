@@ -11,6 +11,7 @@ import { useToast } from "@/shared/hooks/use-toast"
 import { buildApiUrl } from "@/lib/api/config"
 import { getStoredAuthToken } from "@/lib/api/auth-config"
 import { useSemesterStore } from "@/shared/stores/semester-store"
+import type { TaskMember } from "@/types"
 
 interface QuickCreateCourseDialogProps {
   open: boolean
@@ -66,8 +67,9 @@ export function QuickCreateCourseDialog({
   }, [open])
 
   // 多选模式下，设置选中的教师列表
-  const handleMemberSelect = (selected: any[]) => {
-    setTeachers(Array.isArray(selected) ? selected : [])
+  // [MOD] 与 MemberSelector.onConfirm 的联合类型对齐（单选 / 多选）
+  const handleMemberSelect = (selected: TaskMember | TaskMember[]) => {
+    setTeachers(Array.isArray(selected) ? selected : [selected])
   }
 
   // 移除指定索引的教师

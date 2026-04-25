@@ -31,9 +31,9 @@ export function buildCurrentUserIdentitySet(): Set<string> {
 
 export function resolveCourseManagers(courseTarget?: CourseOwnershipTarget | TreeNode | null): CourseManagerLike[] {
   const directManagers = Array.isArray(courseTarget?.manager) ? courseTarget.manager : []
-  const metadataManagers = Array.isArray((courseTarget?.metadata as CourseMetadataWithManagers | undefined)?.managers)
-    ? (courseTarget?.metadata as CourseMetadataWithManagers).managers
-    : []
+  // [MOD] 先把 metadata.managers 提到本地变量再做 Array.isArray 窄化，避免重复访问导致 TS 推断含 undefined
+  const metadataManagersRaw = (courseTarget?.metadata as CourseMetadataWithManagers | undefined)?.managers
+  const metadataManagers: CourseManagerLike[] = Array.isArray(metadataManagersRaw) ? metadataManagersRaw : []
 
   const mergedManagers = [...directManagers, ...metadataManagers]
   const uniqueManagers = new Map<string, CourseManagerLike>()

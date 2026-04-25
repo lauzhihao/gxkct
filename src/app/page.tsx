@@ -1,14 +1,14 @@
 "use client"
 
-import { useState, useEffect, useRef, useMemo, useCallback } from "react"
-import { useRouter, usePathname } from "next/navigation"
+import { Suspense, useState, useEffect, useRef, useMemo, useCallback } from "react"
+import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { TreeView } from "@/components/tree-view"
 import { DetailPanel } from "@/components/detail-panel"
 import { Header } from "@/components/header"
 import { LoadingState } from "@/shared/components/ui/loading-state"
 import { useTreeData } from "@/shared/hooks/use-tree-data"
 import { useLocalStorage } from "@/shared/hooks/use-local-storage"
-import { api, getStoredAuthUser, getStoredAuthToken, getStoredSemesterContext } from "@/lib/api"
+import { api, getStoredAuthUser, getStoredAuthToken, clearStoredAuthToken } from "@/lib/api"
 import { findStarredNode, getFirstNode } from "@/shared/utils/tree-operations"
 import { cn, extractNumericId } from "@/shared/utils/utils"
 import type { TreeNode } from "@/types"
@@ -36,7 +36,44 @@ const findNodeInTree = (node: TreeNode, targetId: string): TreeNode | null => {
   return null
 }
 
+function hasNonEmptyArray<T>(value: T[] | null | undefined): value is T[] {
+  return Array.isArray(value) && value.length > 0
+}
+
+function mergeTreeNodeWithRichNode(treeNode: TreeNode | null, richNode: TreeNode): TreeNode {
+  if (!treeNode) {
+    return richNode
+  }
+
+  return {
+    ...treeNode,
+    btnMenus: hasNonEmptyArray(richNode.btnMenus) ? richNode.btnMenus : treeNode.btnMenus,
+    coverMenus: hasNonEmptyArray(richNode.coverMenus) ? richNode.coverMenus : treeNode.coverMenus,
+    manager: hasNonEmptyArray(richNode.manager) ? richNode.manager : treeNode.manager,
+    metadata: {
+      ...(treeNode.metadata ? treeNode.metadata : {}),
+      ...(richNode.metadata ? richNode.metadata : {}),
+    },
+  }
+}
+
 export default function Page() {
+  return (
+    <Suspense fallback={<PageLoadingState />}>
+      <PageContent />
+    </Suspense>
+  )
+}
+
+function PageLoadingState() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[oklch(0.97_0.005_240)] via-[oklch(0.96_0.005_240)] to-[oklch(0.95_0.008_240)]">
+      <LoadingState title="加载中..." className="h-screen" />
+    </div>
+  )
+}
+
+function PageContent() {
   const [isLoading, setIsLoading] = useState(true)
   const [initialData, setInitialData] = useState<TreeNode | null>(null)
   const [currentSchoolId, setCurrentSchoolId] = useLocalStorage<string | null>(CURRENT_SCHOOL_STORAGE_KEY, null)
@@ -63,7 +100,6 @@ export default function Page() {
   const selectedNodePathRef = useRef<TreeNode[]>([])
   const {
     treeData,
-    findNodeById,
     addDepartment,
     addMajor,
     addCourse,
@@ -73,8 +109,13 @@ export default function Page() {
   } = useTreeData(initialData)
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+  // [ADD] 节点选择与 URL 同步：URL 作为浏览器历史栈的载体，selectedNode 仍是 React state
+  // 通过 selectedNodeRef 在异步闭包中读取最新值，避免在 setState 之外重复依赖 selectedNode
+  const selectedNodeRef = useRef<TreeNode | null>(null)
+  const pendingNavigationNodeRef = useRef<TreeNode | null>(null)
+  const urlNodeId = searchParams.get("nodeId")
   const selectedSemesterId = useSemesterStore((state) => state.selectedSemesterId)
-  const initializeFromStoredContext = useSemesterStore((state) => state.initializeFromStoredContext)
 
   const resolveNextSelectedNode = useCallback((
     latestTree: TreeNode,
@@ -127,7 +168,7 @@ export default function Page() {
     }
 
     const firstNode = getFirstNode(latestTree)
-    return firstNode || null
+    return firstNode === undefined ? null : firstNode
   }, [])
 
   // [MOD] 移除冗余的 initializeFromStoredContext 调用，因为它已经在 SemesterStore 初始化时执行，且在重登过程中由 LoginForm 处理。
@@ -144,6 +185,53 @@ export default function Page() {
     selectedNodePathRef.current = selectedNodePath
   }, [selectedNodePath])
 
+  // [ADD] 保持 ref 与 state 同步，供 loadTreeData 等闭包读取
+  useEffect(() => {
+    selectedNodeRef.current = selectedNode
+  }, [selectedNode])
+
+  // [ADD] urlNodeId 也用 ref 跟踪，避免 loadTreeData 等 effect 因 URL 变化而重跑树请求
+  const urlNodeIdRef = useRef<string | null>(urlNodeId)
+  useEffect(() => {
+    urlNodeIdRef.current = urlNodeId
+  }, [urlNodeId])
+
+  // [ADD] 用户主动切换节点的统一入口：改写 URL 并入历史栈
+  // URL → state 的同步由下面的 effect 负责，这里只负责写 URL
+  const navigateToNode = useCallback((node: TreeNode | null) => {
+    if (!node) {
+      return
+    }
+    if (node.nodeId === selectedNodeRef.current?.nodeId) {
+      return
+    }
+    pendingNavigationNodeRef.current = node
+    router.push(`/?nodeId=${encodeURIComponent(node.nodeId)}`, { scroll: false })
+  }, [router])
+
+  // [ADD] URL → state 同步：响应浏览器返回/前进键，或 router.push 后的 URL 变化
+  useEffect(() => {
+    if (!treeData || !urlNodeId) {
+      return
+    }
+    if (urlNodeId === selectedNodeRef.current?.nodeId) {
+      return
+    }
+    const found = findNodeInTree(treeData, urlNodeId)
+    const pendingNode = pendingNavigationNodeRef.current
+
+    if (pendingNode?.nodeId === urlNodeId) {
+      setSelectedNode(mergeTreeNodeWithRichNode(found, pendingNode))
+      pendingNavigationNodeRef.current = null
+      return
+    }
+
+    if (found) {
+      setSelectedNode(found)
+    }
+    // URL 指向的节点已不存在时不处理；由树刷新流程兜底替换 URL
+  }, [urlNodeId, treeData])
+
   useEffect(() => {
     const loadTreeData = async () => {
       const requestId = ++treeRequestIdRef.current
@@ -155,33 +243,50 @@ export default function Page() {
 
       setIsLoading(true)
 
-      console.log("[v0] 开始加载树形数据")
+      console.log("[Page] Start loading tree data")
       const response = await api.tree.getTree(undefined, selectedSemesterId)
-      console.log("[v0] API响应:", response)
+      console.log("[Page] Tree API response:", response)
 
       if (treeRequestIdRef.current !== requestId) {
         return
       }
 
       if (response.status === 401) {
+        // [MOD] 服务端判定 token 失效时，必须同步清除本地 token，
+        // 否则登录页的“已登录则跳首页”兜底会与此处互踢形成死循环
+        clearStoredAuthToken()
         router.replace("/login")
         return
       }
 
       if (response.data) {
-        console.log("[v0] 树形数据加载成功，children数量:", response.data.children?.length || 0)
+        if (!Array.isArray(response.data.children)) {
+          throw new Error("[Page] Tree root children is missing or invalid")
+        }
+        console.log("[Page] Tree data loaded. Root children count:", response.data.children.length)
         const latestTree = response.data
         const authUser = getStoredAuthUser()
-        const preferredSchoolId =
-          currentSchoolIdRef.current ??
-          (typeof authUser?.collegeId === "number" ? String(authUser.collegeId) : null)
+        const preferredSchoolId = currentSchoolIdRef.current !== null
+          ? currentSchoolIdRef.current
+          : (typeof authUser?.collegeId === "number" ? String(authUser.collegeId) : null)
         setInitialData(latestTree)
         resetTreeData(latestTree)
-        setSelectedNode((prevSelectedNode) => {
-          return resolveNextSelectedNode(latestTree, prevSelectedNode, preferredSchoolId)
-        })
+        // [MOD] URL 的 nodeId 具有最高优先级（支持分享链接与返回键还原）；
+        // 无 URL 或 URL 指向的节点已不存在时，走原有的 starred/first 兜底
+        const urlNodeIdSnapshot = urlNodeIdRef.current
+        const urlMatchedNode = urlNodeIdSnapshot
+          ? findNodeInTree(latestTree, urlNodeIdSnapshot)
+          : null
+        const resolvedNode = urlMatchedNode !== null
+          ? urlMatchedNode
+          : resolveNextSelectedNode(latestTree, selectedNodeRef.current, preferredSchoolId)
+        setSelectedNode(resolvedNode)
+        // URL 与最终选中节点不一致时，用 replace 同步 URL（不入历史栈，避免首次访问就污染返回键）
+        if (resolvedNode?.nodeId && resolvedNode.nodeId !== urlNodeIdSnapshot) {
+          router.replace(`/?nodeId=${encodeURIComponent(resolvedNode.nodeId)}`, { scroll: false })
+        }
       } else {
-        console.error("[v0] 加载树形数据失败:", response.error)
+        console.error("[Page] Failed to load tree data:", response.error)
         const emptyTree: TreeNode = {
           nodeId: "root",
           nodeName: "根节点",
@@ -203,26 +308,19 @@ export default function Page() {
       return selectedNode
     }
 
-    const treeNode = findNodeInTree(treeData, selectedNode.nodeId)
-      ?? (selectedNode.id ? findNodeInTree(treeData, selectedNode.id) : null)
+    const treeNodeByNodeId = findNodeInTree(treeData, selectedNode.nodeId)
+    const treeNode = treeNodeByNodeId !== null
+      ? treeNodeByNodeId
+      : (selectedNode.id ? findNodeInTree(treeData, selectedNode.id) : null)
     if (!treeNode) {
       return null
     }
 
-    return {
-      ...treeNode,
-      btnMenus: Array.isArray(selectedNode.btnMenus) && selectedNode.btnMenus.length > 0 ? selectedNode.btnMenus : treeNode.btnMenus,
-      coverMenus: Array.isArray(selectedNode.coverMenus) && selectedNode.coverMenus.length > 0 ? selectedNode.coverMenus : treeNode.coverMenus,
-      manager: Array.isArray(selectedNode.manager) && selectedNode.manager.length > 0 ? selectedNode.manager : treeNode.manager,
-      metadata: {
-        ...(treeNode.metadata || {}),
-        ...(selectedNode.metadata || {}),
-      },
-    }
-  }, [findNodeById, selectedNode, treeData])
+    return mergeTreeNodeWithRichNode(treeNode, selectedNode)
+  }, [selectedNode, treeData])
 
   useEffect(() => {
-    console.log("[v0] selectedNode状态变化:", selectedNode)
+    console.log("[Page] selectedNode changed:", selectedNode)
   }, [selectedNode])
 
   useEffect(() => {
@@ -290,38 +388,43 @@ export default function Page() {
       }
 
       if (!response.data) {
-        console.error("[Page] 刷新树形数据失败:", response.error)
+        console.error("[Page] Failed to refresh tree data:", response.error)
         setIsLoading(false)
         return false
       }
 
       const latestTree = response.data
       const authUser = getStoredAuthUser()
-      const preferredSchoolId =
-        currentSchoolIdRef.current ??
-        (typeof authUser?.collegeId === "number" ? String(authUser.collegeId) : null)
+      const preferredSchoolId = currentSchoolIdRef.current !== null
+        ? currentSchoolIdRef.current
+        : (typeof authUser?.collegeId === "number" ? String(authUser.collegeId) : null)
       setInitialData(latestTree)
       resetTreeData(latestTree)
 
-      setSelectedNode((prevSelectedNode) => {
-        return resolveNextSelectedNode(latestTree, prevSelectedNode, preferredSchoolId)
-      })
+      // [MOD] 树刷新后，优先保持 URL 指定的节点；若该节点已被删除，走原有兜底并同步 URL
+      const urlNodeIdSnapshot = urlNodeIdRef.current
+      const urlMatchedNode = urlNodeIdSnapshot
+        ? findNodeInTree(latestTree, urlNodeIdSnapshot)
+        : null
+      const resolvedNode = urlMatchedNode !== null
+        ? urlMatchedNode
+        : resolveNextSelectedNode(latestTree, selectedNodeRef.current, preferredSchoolId)
+      setSelectedNode(resolvedNode)
+      if (resolvedNode?.nodeId && resolvedNode.nodeId !== urlNodeIdSnapshot) {
+        router.replace(`/?nodeId=${encodeURIComponent(resolvedNode.nodeId)}`, { scroll: false })
+      }
       setIsLoading(false)
 
       return true
     } catch (error) {
-      console.error("[Page] 刷新树形数据异常:", error)
+      console.error("[Page] Tree data refresh threw an error:", error)
       setIsLoading(false)
       return false
     }
-  }, [resetTreeData, resolveNextSelectedNode, selectedSemesterId])
+  }, [resetTreeData, resolveNextSelectedNode, router, selectedSemesterId])
 
   if (isLoading || !treeData) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-[oklch(0.97_0.005_240)] via-[oklch(0.96_0.005_240)] to-[oklch(0.95_0.008_240)]">
-        <LoadingState title="加载中..." className="h-screen" />
-      </div>
-    )
+    return <PageLoadingState />
   }
 
   return (
@@ -330,7 +433,7 @@ export default function Page() {
         <Header
           onResetData={handleResetData}
           isTreeCollapsed={isTreeCollapsed}
-          currentPath={pathname ?? undefined}
+          currentPath={pathname}
           selectedNodeName={effectiveSelectedNode?.nodeName}
           treeData={treeData}
         />
@@ -345,7 +448,7 @@ export default function Page() {
             <TreeView
               ref={treeViewRef}
               treeData={treeData}
-              onNodeSelect={setSelectedNode}
+              onNodeSelect={navigateToNode}
               onSelectedNodePathChange={setSelectedNodePath}
               selectedNode={effectiveSelectedNode}
               onWorkshopCreated={refreshTreeData}
@@ -369,7 +472,7 @@ export default function Page() {
               node={effectiveSelectedNode}
               treeData={treeData}
               selectedNodePath={selectedNodePath}
-              onNodeSelect={setSelectedNode}
+              onNodeSelect={navigateToNode}
               onTreeRefresh={refreshTreeData}
               onAddDepartment={handleAddDepartment}
               onAddMajor={handleAddMajor}

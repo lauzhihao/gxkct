@@ -24,17 +24,29 @@ test("page tree loading prefers current school selection after identity switch",
   assert.match(source, /currentSchoolIdRef\.current = currentSchoolId/)
   assert.match(
     source,
-    /const preferredSchoolId =\s*currentSchoolIdRef\.current\s*\?\?\s*\(typeof authUser\?\.collegeId === "number" \? String\(authUser\.collegeId\) : null\)/,
+    /const preferredSchoolId = currentSchoolIdRef\.current !== null\s*\?\s*currentSchoolIdRef\.current\s*:\s*\(typeof authUser\?\.collegeId === "number" \? String\(authUser\.collegeId\) : null\)/,
   )
-  assert.match(source, /return resolveNextSelectedNode\(latestTree, prevSelectedNode, preferredSchoolId\)/)
+  assert.match(source, /resolveNextSelectedNode\(latestTree, selectedNodeRef\.current, preferredSchoolId\)/)
 })
 
 test("page detail panel does not reuse stale selected node outside latest tree", async () => {
   const source = await readSource("./page.tsx")
 
-  assert.match(source, /const treeNode = findNodeInTree\(treeData, selectedNode\.nodeId\)/)
-  assert.match(source, /\?\? \(selectedNode\.id \? findNodeInTree\(treeData, selectedNode\.id\) : null\)/)
+  assert.match(source, /const treeNodeByNodeId = findNodeInTree\(treeData, selectedNode\.nodeId\)/)
+  assert.match(source, /: \(selectedNode\.id \? findNodeInTree\(treeData, selectedNode\.id\) : null\)/)
   assert.match(source, /if \(!treeNode\) \{\s*return null\s*\}/)
+})
+
+test("page URL navigation preserves rich course node fields", async () => {
+  const source = await readSource("./page.tsx")
+
+  assert.match(source, /const pendingNavigationNodeRef = useRef<TreeNode \| null>\(null\)/)
+  assert.match(source, /pendingNavigationNodeRef\.current = node\s*router\.push/)
+  assert.match(source, /const pendingNode = pendingNavigationNodeRef\.current/)
+  assert.match(source, /if \(pendingNode\?\.nodeId === urlNodeId\) \{\s*setSelectedNode\(mergeTreeNodeWithRichNode\(found, pendingNode\)\)\s*pendingNavigationNodeRef\.current = null\s*return\s*\}/)
+  assert.match(source, /btnMenus: hasNonEmptyArray\(richNode\.btnMenus\) \? richNode\.btnMenus : treeNode\.btnMenus/)
+  assert.match(source, /coverMenus: hasNonEmptyArray\(richNode\.coverMenus\) \? richNode\.coverMenus : treeNode\.coverMenus/)
+  assert.match(source, /manager: hasNonEmptyArray\(richNode\.manager\) \? richNode\.manager : treeNode\.manager/)
 })
 
 test("useLocalStorage exposes stable setter callbacks", async () => {

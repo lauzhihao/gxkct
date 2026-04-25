@@ -3,6 +3,11 @@ FROM node:22.21.1-alpine AS builder
 
 WORKDIR /app
 
+ARG NEXT_PUBLIC_API_BASE_URL
+ARG NEXT_PUBLIC_ENVIRONMENT
+ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+ENV NEXT_PUBLIC_ENVIRONMENT=${NEXT_PUBLIC_ENVIRONMENT}
+
 # 复制 package.json 和依赖锁定文件
 COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* .npmrc* ./
 
@@ -17,6 +22,16 @@ RUN if [ -f pnpm-lock.yaml ]; then \
 
 # 复制源代码
 COPY . .
+
+# NEXT_PUBLIC_* 会在 next build 阶段写入客户端产物，必须在构建期显式传入。
+RUN if [ -z "$NEXT_PUBLIC_API_BASE_URL" ]; then \
+      echo "NEXT_PUBLIC_API_BASE_URL build arg is required"; \
+      exit 1; \
+    fi && \
+    if [ -z "$NEXT_PUBLIC_ENVIRONMENT" ]; then \
+      echo "NEXT_PUBLIC_ENVIRONMENT build arg is required"; \
+      exit 1; \
+    fi
 
 # 构建应用
 RUN if [ -f pnpm-lock.yaml ]; then \

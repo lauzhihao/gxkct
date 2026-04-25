@@ -141,7 +141,8 @@ export function CanvasCoursePointEditor({
   }, [])
 
   useEffect(() => {
-    if (draftCoursePointId === null) {
+    // [MOD] 显式判空：当 draftCoursePoint 尚未生成时直接退出，避免空引用
+    if (draftCoursePointId === null || draftCoursePoint === null) {
       return
     }
 

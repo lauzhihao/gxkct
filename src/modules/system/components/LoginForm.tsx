@@ -63,8 +63,9 @@ export function LoginForm() {
         })
       }
 
-      // 登录成功后跳转到首页
-      router.push('/')
+      // [MOD] 使用 replace 而不是 push：将登录页从历史栈中替换出去，
+      // 避免用户在主应用内误点浏览器返回键时回到登录页
+      router.replace('/')
     } catch (error) {
       console.error('Login failed:', error)
       setUsernameError('登录失败，请稍后重试')
