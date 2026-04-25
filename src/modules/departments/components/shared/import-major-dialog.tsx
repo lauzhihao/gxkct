@@ -1,8 +1,8 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import type { ReactElement } from "react"
-import { ArrowRight, CheckCircle2, Clock, Loader2, TriangleAlert, Upload, XCircle } from "lucide-react"
+import type { MouseEvent, ReactElement } from "react"
+import { ArrowRight, CheckCircle2, Clock, Loader2, Trash2, TriangleAlert, Upload, XCircle } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +24,7 @@ import {
 } from "@/shared/components/ui/dialog"
 import { OrganizationTreePanel } from "@/shared/components/organization-tree-panel"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/components/ui/tooltip"
+import { useToast } from "@/shared/hooks/use-toast"
 import {
   importMajorApi,
   type ImportMajorItemStatus,
@@ -31,6 +32,7 @@ import {
   type ImportMajorStreamEvent,
   type ImportMajorStreamItemPayload,
   type ImportMajorStreamRequest,
+  type ImportMajorTaskResult,
 } from "@/lib/api/import-major-api"
 import type { TreeNode } from "@/types"
 
@@ -39,6 +41,9 @@ const SOURCE_INITIAL_EXPANDED_IDS = ["root"]
 const ERROR_MESSAGE_CLASS_NAME =
   "rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 " +
   "text-sm text-destructive"
+const INLINE_ERROR_MESSAGE_CLASS_NAME =
+  "flex h-10 min-w-0 items-center overflow-hidden text-ellipsis whitespace-nowrap " +
+  "rounded-md border border-destructive/30 bg-destructive/10 px-3 text-sm text-destructive"
 
 interface ImportMajorDialogProps {
   open: boolean
@@ -59,11 +64,19 @@ type TargetTreeState =
       message: string
     }
 
-type ImportPhase = "selecting" | "importing" | "failed"
+type ImportPhase = "selecting" | "importing" | "completed" | "failed"
 type ImportNodeStatus = ImportMajorItemStatus
 interface ImportNodeProgress {
   status: ImportNodeStatus
   reason: string | null
+}
+
+interface ImportSummaryCounts {
+  completedCourseCount: number
+  failedCourseCount: number
+  warningCourseCount: number
+  pendingCourseCount: number
+  runningCourseCount: number
 }
 
 function getPanelNodeId(node: TreeNode): string {
@@ -183,6 +196,33 @@ function getImportStatusLabel(status: ImportNodeStatus): string {
   return "导入异常"
 }
 
+function buildImportResultMessage(result: ImportMajorTaskResult): string {
+  if (result.failedCount > 0) {
+    return `导入完成，${result.failedCount}个节点失败`
+  }
+  if (result.warningCount > 0) {
+    return `导入完成，${result.warningCount}个节点存在警告`
+  }
+  return "导入完成"
+}
+
+function buildCompletedImportSummary(counts: ImportSummaryCounts): string {
+  const parts: string[] = [`导入完成${counts.completedCourseCount}门课程`]
+  if (counts.failedCourseCount > 0) {
+    parts.push(`${counts.failedCourseCount}门课程失败`)
+  }
+  if (counts.warningCourseCount > 0) {
+    parts.push(`${counts.warningCourseCount}门课程存在警告`)
+  }
+  if (counts.runningCourseCount > 0) {
+    parts.push(`${counts.runningCourseCount}门课程状态未结束`)
+  }
+  if (counts.pendingCourseCount > 0) {
+    parts.push(`${counts.pendingCourseCount}门课程未开始`)
+  }
+  return parts.join("，")
+}
+
 function isImportNodeStatus(value: unknown): value is ImportNodeStatus {
   if (value === "pending") return true
   if (value === "running") return true
@@ -237,7 +277,24 @@ function getBusinessNumericId(node: TreeNode, label: string): number {
 }
 
 function getSourceNodeId(node: TreeNode): string {
-  return readNonEmptyString(node.nodeId, "来源节点缺少nodeId")
+  return String(getBusinessNumericId(node, "来源节点"))
+}
+
+function getSourceParentId(node: TreeNode): string {
+  const sourceParentId = readNonEmptyString(node.parentId, "来源父节点缺少ID")
+  const parsedId = parseNumericIdFromText(sourceParentId)
+  if (typeof parsedId !== "number") {
+    throw new Error("来源父节点缺少有效数字ID")
+  }
+  return String(parsedId)
+}
+
+function normalizeImportEventNodeId(nodeId: string): string {
+  const parsedId = parseNumericIdFromText(nodeId)
+  if (typeof parsedId !== "number") {
+    throw new Error("导入进度事件节点ID无效")
+  }
+  return String(parsedId)
 }
 
 function getSourceNodeName(node: TreeNode): string {
@@ -304,7 +361,7 @@ function buildImportPayloadItem(treeData: TreeNode | null, node: TreeNode): Impo
   }
 
   if (node.parentId) {
-    item.sourceParentId = node.parentId
+    item.sourceParentId = getSourceParentId(node)
   }
 
   if (nodeType === "course") {
@@ -375,9 +432,11 @@ function buildTargetTreeWithTransferredNodes(
 }
 
 export function ImportMajorDialog({ open, onOpenChange, treeData, currentDepartment }: ImportMajorDialogProps) {
+  const { toast } = useToast()
   const [selectedSourceIds, setSelectedSourceIds] = useState<Set<string>>(new Set())
   const [selectedSourceNodes, setSelectedSourceNodes] = useState<Map<string, TreeNode>>(new Map())
   const [transferredNodes, setTransferredNodes] = useState<TreeNode[]>([])
+  const [autoFilledMajorKeys, setAutoFilledMajorKeys] = useState<Set<string>>(new Set())
   const [isConfirmImportOpen, setIsConfirmImportOpen] = useState(false)
   const [importPhase, setImportPhase] = useState<ImportPhase>("selecting")
   const [importStatusByNodeId, setImportStatusByNodeId] = useState<Map<string, ImportNodeProgress>>(new Map())
@@ -387,6 +446,7 @@ export function ImportMajorDialog({ open, onOpenChange, treeData, currentDepartm
     setSelectedSourceIds(new Set())
     setSelectedSourceNodes(new Map())
     setTransferredNodes([])
+    setAutoFilledMajorKeys(new Set())
     setIsConfirmImportOpen(false)
     setImportPhase("selecting")
     setImportStatusByNodeId(new Map())
@@ -420,7 +480,42 @@ export function ImportMajorDialog({ open, onOpenChange, treeData, currentDepartm
   }, [currentDepartment])
 
   const isImporting = importPhase === "importing"
+  const isImportCompleted = importPhase === "completed"
   const shouldShowImportProgress = importPhase !== "selecting"
+
+  const importSummaryMessage = useMemo(() => {
+    if (importPhase !== "completed") {
+      return importErrorMessage
+    }
+
+    const counts: ImportSummaryCounts = {
+      completedCourseCount: 0,
+      failedCourseCount: 0,
+      warningCourseCount: 0,
+      pendingCourseCount: 0,
+      runningCourseCount: 0,
+    }
+
+    transferredNodes.forEach((node) => {
+      if (node.nodeType !== "course") return
+      const progress = importStatusByNodeId.get(getSourceNodeId(node))
+      if (!progress) return
+
+      if (progress.status === "completed") {
+        counts.completedCourseCount += 1
+      } else if (progress.status === "failed") {
+        counts.failedCourseCount += 1
+      } else if (progress.status === "warning") {
+        counts.warningCourseCount += 1
+      } else if (progress.status === "running") {
+        counts.runningCourseCount += 1
+      } else if (progress.status === "pending") {
+        counts.pendingCourseCount += 1
+      }
+    })
+
+    return buildCompletedImportSummary(counts)
+  }, [importErrorMessage, importPhase, importStatusByNodeId, transferredNodes])
 
   const handleToggleSource = (
     nodeId: string,
@@ -497,9 +592,11 @@ export function ImportMajorDialog({ open, onOpenChange, treeData, currentDepartm
       throw new Error("导入进度事件状态无效")
     }
 
+    const normalizedNodeId = normalizeImportEventNodeId(nodeId)
+
     setImportStatusByNodeId((prev) => {
       const next = new Map(prev)
-      next.set(nodeId, {
+      next.set(normalizedNodeId, {
         status,
         reason: typeof reason === "string" && reason.trim().length > 0 ? reason : null,
       })
@@ -509,22 +606,129 @@ export function ImportMajorDialog({ open, onOpenChange, treeData, currentDepartm
 
   const handleTransferToTarget = () => {
     if (isImporting) return
+    if (isImportCompleted) return
     const selectedNodes = Array.from(selectedSourceNodes.values()).filter((node) => {
       return selectedSourceIds.has(getNodeKey(node))
     })
-    const nodesToTransfer = collectNodesWithMajorContext(treeData, selectedNodes)
+    const selectedNodeKeys = new Set(selectedNodes.map((node) => getNodeKey(node)))
+    const nodesWithMajorContext = collectNodesWithMajorContext(treeData, selectedNodes)
+    const courseNodes = nodesWithMajorContext.filter((node) => node.nodeType === "course")
+    const nodesToTransfer = nodesWithMajorContext.filter((node) => {
+      if (node.nodeType !== "major") return true
+      const hasSelectedCourse = courseNodes.some((courseNode) => {
+        if (!courseNode.parentId) {
+          throw new Error("课程节点缺少所属专业ID")
+        }
+        return isCourseParentMatched(courseNode.parentId, getNodeKey(node), node)
+      })
+      if (selectedNodeKeys.has(getNodeKey(node)) && !hasSelectedCourse) {
+        return false
+      }
+      return true
+    })
+
+    if (nodesToTransfer.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "无法添加",
+        description: "所选专业下没有可导入课程",
+        duration: 3000,
+      })
+      return
+    }
+
+    const skippedMajorCount = nodesWithMajorContext.filter((node) => {
+      if (node.nodeType !== "major") return false
+      if (!selectedNodeKeys.has(getNodeKey(node))) return false
+      return !nodesToTransfer.some((targetNode) => getNodeKey(targetNode) === getNodeKey(node))
+    }).length
+
+    if (skippedMajorCount > 0) {
+      toast({
+        variant: "destructive",
+        title: "已跳过空专业",
+        description: "所选专业下没有可导入课程",
+        duration: 3000,
+      })
+    }
+
     setTransferredNodes((prev) => {
       const next = new Map<string, TreeNode>()
       prev.forEach((node) => next.set(getNodeKey(node), node))
       nodesToTransfer.forEach((node) => next.set(getNodeKey(node), node))
       return Array.from(next.values())
     })
+    setAutoFilledMajorKeys((prev) => {
+      const next = new Set(prev)
+      nodesToTransfer.forEach((node) => {
+        if (node.nodeType !== "major") return
+
+        const majorKey = getNodeKey(node)
+        if (selectedNodeKeys.has(majorKey)) {
+          next.delete(majorKey)
+        } else {
+          next.add(majorKey)
+        }
+      })
+      return next
+    })
     setSelectedSourceIds(new Set())
     setSelectedSourceNodes(new Map())
   }
 
+  const handleRemoveTransferredCourse = useCallback((node: TreeNode) => {
+    if (node.nodeType !== "course") return
+    const courseKey = getNodeKey(node)
+    if (!node.parentId) {
+      throw new Error("课程节点缺少所属专业ID")
+    }
+    const courseParentId = node.parentId
+
+    const parentMajor = transferredNodes.find((item) => {
+      if (item.nodeType !== "major") return false
+      return isCourseParentMatched(courseParentId, getNodeKey(item), item)
+    })
+
+    if (!parentMajor) {
+      setTransferredNodes((prev) => prev.filter((item) => getNodeKey(item) !== courseKey))
+      return
+    }
+
+    const parentMajorKey = getNodeKey(parentMajor)
+    const shouldRemoveAutoFilledMajor = autoFilledMajorKeys.has(parentMajorKey)
+      && !transferredNodes.some((item) => {
+        if (item.nodeType !== "course") return false
+        if (getNodeKey(item) === courseKey) return false
+        if (!item.parentId) {
+          throw new Error("课程节点缺少所属专业ID")
+        }
+        return isCourseParentMatched(item.parentId, parentMajorKey, parentMajor)
+      })
+
+    setTransferredNodes((prev) => {
+      return prev.filter((item) => {
+        const itemKey = getNodeKey(item)
+        if (itemKey === courseKey) return false
+        if (shouldRemoveAutoFilledMajor && itemKey === parentMajorKey) return false
+        return true
+      })
+    })
+
+    if (shouldRemoveAutoFilledMajor) {
+      setAutoFilledMajorKeys((prevKeys) => {
+        const nextKeys = new Set(prevKeys)
+        nextKeys.delete(parentMajorKey)
+        return nextKeys
+      })
+    }
+  }, [autoFilledMajorKeys, transferredNodes])
+
   const handleRequestConfirmImport = () => {
     if (isImporting) return
+    if (isImportCompleted) {
+      handleOpenChange(false)
+      return
+    }
     setIsConfirmImportOpen(true)
   }
 
@@ -546,10 +750,9 @@ export function ImportMajorDialog({ open, onOpenChange, treeData, currentDepartm
     try {
       const targetDepartmentId = getBusinessNumericId(currentDepartment, "目标院系")
       const payload = buildImportPayload(treeData, transferredNodes)
-      await importMajorApi.importMajorStream(targetDepartmentId, payload, applyImportStreamEvent)
-      setTransferredNodes([])
-      setImportStatusByNodeId(new Map())
-      setImportPhase("selecting")
+      const result = await importMajorApi.importMajorStream(targetDepartmentId, payload, applyImportStreamEvent)
+      setImportErrorMessage(buildImportResultMessage(result))
+      setImportPhase("completed")
     } catch (error) {
       const message = error instanceof Error ? error.message : "导入专业失败"
       setImportErrorMessage(message)
@@ -626,6 +829,35 @@ export function ImportMajorDialog({ open, onOpenChange, treeData, currentDepartm
     )
   }, [importStatusByNodeId])
 
+  const renderTargetNodeSuffix = useCallback((node: TreeNode): ReactElement | null => {
+    if (shouldShowImportProgress) {
+      return renderImportStatusSuffix(node)
+    }
+    if (node.nodeType !== "course") return null
+
+    const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault()
+      event.stopPropagation()
+      handleRemoveTransferredCourse(node)
+    }
+
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label="移除课程"
+            onClick={handleClick}
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top">移除课程</TooltipContent>
+      </Tooltip>
+    )
+  }, [handleRemoveTransferredCourse, renderImportStatusSuffix, shouldShowImportProgress])
+
   const isConfirmDisabled = targetTreeState.status === "error" ? true : transferredNodes.length === 0
 
   return (
@@ -648,11 +880,6 @@ export function ImportMajorDialog({ open, onOpenChange, treeData, currentDepartm
             </div>
           ) : (
             <>
-              {importErrorMessage && (
-                <div className={ERROR_MESSAGE_CLASS_NAME}>
-                  {importErrorMessage}
-                </div>
-              )}
               <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
                 <section className="flex min-h-0 flex-col gap-3">
                   <div>
@@ -664,7 +891,7 @@ export function ImportMajorDialog({ open, onOpenChange, treeData, currentDepartm
                     selectedIds={selectedSourceIds}
                     onToggleSelect={handleToggleSource}
                     selectable
-                    disabled={isImporting}
+                    disabled={isImporting || isImportCompleted}
                     showRoot={false}
                     isNodeSelectable={isImportableSourceNode}
                     cascadeSelection
@@ -679,7 +906,7 @@ export function ImportMajorDialog({ open, onOpenChange, treeData, currentDepartm
                     size="icon"
                     variant="outline"
                     onClick={handleTransferToTarget}
-                    disabled={isImporting || selectedSourceIds.size === 0}
+                    disabled={isImporting || isImportCompleted || selectedSourceIds.size === 0}
                     className="h-10 w-10 rounded-full border-primary/30 bg-primary/10 text-primary hover:bg-primary/20"
                   >
                     <ArrowRight className="h-5 w-5 rotate-90 lg:rotate-0" />
@@ -691,6 +918,11 @@ export function ImportMajorDialog({ open, onOpenChange, treeData, currentDepartm
                     <h3 className="text-base font-semibold text-foreground">To</h3>
                     <p className="mt-1 text-sm text-muted-foreground">已存在的专业/课程将被忽略。</p>
                   </div>
+                  {importSummaryMessage && (
+                    <div className={INLINE_ERROR_MESSAGE_CLASS_NAME} title={importSummaryMessage}>
+                      {importSummaryMessage}
+                    </div>
+                  )}
                   <OrganizationTreePanel
                     treeData={targetTree}
                     selectedIds={EMPTY_SELECTED_IDS}
@@ -699,7 +931,7 @@ export function ImportMajorDialog({ open, onOpenChange, treeData, currentDepartm
                     showSearch={false}
                     enableDynamicLoading={false}
                     initialExpandedIds={targetExpandedIds}
-                    renderNodeSuffix={shouldShowImportProgress ? renderImportStatusSuffix : undefined}
+                    renderNodeSuffix={renderTargetNodeSuffix}
                     emptyText="暂无目标院系"
                   />
                 </section>
@@ -715,13 +947,18 @@ export function ImportMajorDialog({ open, onOpenChange, treeData, currentDepartm
             )}
             <Button
               onClick={handleRequestConfirmImport}
-              disabled={isImporting || isConfirmDisabled}
+              disabled={isImporting || (!isImportCompleted && isConfirmDisabled)}
               className="gap-2"
             >
               {isImporting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   正在导入
+                </>
+              ) : isImportCompleted ? (
+                <>
+                  <CheckCircle2 className="h-4 w-4" />
+                  导入完成
                 </>
               ) : (
                 <>
