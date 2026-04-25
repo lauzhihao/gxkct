@@ -198,7 +198,7 @@ export function CourseBasicInfo({
       {/* 新增字段显示 */}
       <Divider spacing="lg" className="mt-6" />
       <div className="pt-2">
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-4 gap-6">
           {/* 授课班级 */}
           {courseDetail?.teachingClass && (
             <div className="flex flex-row items-center gap-3">
@@ -221,9 +221,31 @@ export function CourseBasicInfo({
             </div>
           )}
 
+          {/* 学生人数 */}
+          {courseDetail?.studentCount !== undefined && courseDetail?.studentCount !== null && (
+            <div className="flex flex-row items-center gap-3">
+              <div className="flex items-center gap-1 text-sm text-muted-foreground flex-shrink-0">
+                <FileText className="w-3 h-3" />
+                <span>学生人数</span>
+              </div>
+              <div className="text-base font-medium text-foreground">{courseDetail.studentCount}</div>
+            </div>
+          )}
+
+          {/* 学分 */}
+          {courseDetail?.credits !== undefined && courseDetail?.credits !== null && (
+            <div className="flex flex-row items-center gap-3">
+              <div className="flex items-center gap-1 text-sm text-muted-foreground flex-shrink-0">
+                <FileText className="w-3 h-3" />
+                <span>学分</span>
+              </div>
+              <div className="text-base font-medium text-foreground">{courseDetail.credits}</div>
+            </div>
+          )}
+
           {/* 授课时间 */}
           {courseDetail?.teachingTime !== undefined && courseDetail?.teachingTime !== null && (
-            <div className="col-span-3">
+            <div className="col-span-4">
               <div className="flex items-center gap-2 mb-3">
                 <Clock className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground font-medium">授课时间</span>
@@ -287,28 +309,6 @@ export function CourseBasicInfo({
                   )
                 }
               })()}
-            </div>
-          )}
-
-          {/* 学生人数 */}
-          {courseDetail?.studentCount !== undefined && courseDetail?.studentCount !== null && (
-            <div className="flex flex-row items-center gap-3">
-              <div className="flex items-center gap-1 text-sm text-muted-foreground flex-shrink-0">
-                <FileText className="w-3 h-3" />
-                <span>学生人数</span>
-              </div>
-              <div className="text-base font-medium text-foreground">{courseDetail.studentCount}</div>
-            </div>
-          )}
-
-          {/* 学分 */}
-          {courseDetail?.credits !== undefined && courseDetail?.credits !== null && (
-            <div className="flex flex-row items-center gap-3">
-              <div className="flex items-center gap-1 text-sm text-muted-foreground flex-shrink-0">
-                <FileText className="w-3 h-3" />
-                <span>学分</span>
-              </div>
-              <div className="text-base font-medium text-foreground">{courseDetail.credits}</div>
             </div>
           )}
         </div>

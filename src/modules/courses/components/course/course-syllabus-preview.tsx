@@ -3,11 +3,12 @@
 import type { ReactNode } from "react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { ArrowLeft, FileText, Loader2 } from "lucide-react"
-import { exportReport, getAdditionalInfo, getCourseIntro, getGraduateRequires, getMajorMatrix, getPointMatrix, getProjectList, getProjectMatrix, getTaskGoal } from "@/modules/courses/report/api"
+import { exportReport, getCourseMatrixGoals, getCourseMatrixItems, getGraduateRequires, getMajorMatrix, getPointMatrix, getProjectList, getProjectMatrix, getTaskGoal } from "@/modules/courses/report/api"
 import { ReportChapter } from "@/modules/courses/report/components/ReportChapter"
 import { ReportRevisableTable } from "@/modules/courses/report/components/ReportRevisableTable"
 import { ReportTable } from "@/modules/courses/report/components/ReportTable"
-import type { AdditionalInfoResponse, ColumnOption, GraduateRequireNode, PointMatrixItem, ProjectListItem, ProjectMatrixItem, RevisableCell, RevisableRow, RevisableTableValue, TableOption, TaskGoalGroup } from "@/modules/courses/report/types"
+import type { ColumnOption, GraduateRequireNode, PointMatrixItem, ProjectListItem, ProjectMatrixItem, RevisableCell, RevisableTableValue, TableOption, TaskGoalGroup } from "@/modules/courses/report/types"
+import { getStoredSemesterContext } from "@/lib/api/auth-config"
 import { Button } from "@/shared/components/ui/button"
 import { SafeRichTextContent } from "@/shared/components/ui/safe-rich-text-content"
 import { showError, showSuccess } from "@/shared/utils/toast-utils"
@@ -39,12 +40,20 @@ interface CourseSyllabusPreviewProps {
     otherSuggestions?: string | null
     assessmentMethod?: string | null
     assessmentForm?: string | null
+    scoreTable?: ScoreTableData | null
     assessmentDescription?: string | null
     // 开课学期字段
     openingSemesterId?: number | null
     openingSemesterDisplay?: string | null
   }
   onBack: () => void
+}
+
+type ScoreTableRow = Record<string, string | number | null | undefined>
+
+interface ScoreTableData {
+  headers?: string[]
+  rows?: ScoreTableRow[]
 }
 
 const LOCAL_EXAM_FIVE = "90-100分为优秀，80-89分为良好，70-79分为中等，60-69分为及格，60分以下为不及格（详细列示五级分制的考核标准和具体要求）。"
@@ -60,12 +69,12 @@ function InlineCheckText({ title, options }: { title: string; options: Array<{ l
   )
 }
 
-function BasicInfoField({ label, value }: { label: string; value: string }) {
+function BasicInfoField({ label, value, valueNoWrap = false }: { label: string; value: string; valueNoWrap?: boolean }) {
   return (
     <div className="grid min-w-0 grid-cols-[auto_2ch_minmax(0,1fr)] items-start text-[12pt] leading-[22pt]">
       <span className="whitespace-pre-wrap font-medium text-slate-700">{`${label}:`}</span>
       <span aria-hidden="true" />
-      <span className="min-w-0 whitespace-pre-wrap text-slate-900">{value}</span>
+      <span className={valueNoWrap ? "min-w-0 whitespace-nowrap text-slate-900" : "min-w-0 whitespace-pre-wrap text-slate-900"}>{value}</span>
     </div>
   )
 }
@@ -131,12 +140,52 @@ function normalizeText(value: string | null | undefined): string {
     .trim()
 }
 
-function pickRichContent(primary: string | null | undefined, fallback: string | null | undefined): string {
-  if (primary && primary.trim().length > 0) {
-    return primary
+function resolveOptionalContent(value: string | null | undefined): string {
+  if (value === null || value === undefined) {
+    return ""
   }
 
-  return fallback ?? ""
+  return value
+}
+
+function formatOptionalNumber(value: number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return ""
+  }
+
+  return String(value)
+}
+
+function resolveCurrentSemesterName(): string {
+  const semesterContext = getStoredSemesterContext()
+  if (semesterContext === null) {
+    return ""
+  }
+
+  const currentSemesterId = semesterContext.currentSemesterId
+  if (typeof currentSemesterId !== "number" || !Number.isFinite(currentSemesterId)) {
+    return ""
+  }
+
+  const currentSemester = semesterContext.semesterList.find((semester) => semester.id === currentSemesterId)
+  if (currentSemester === undefined) {
+    return ""
+  }
+
+  const currentSemesterName = currentSemester.name
+  if (typeof currentSemesterName !== "string") {
+    return ""
+  }
+
+  return currentSemesterName
+}
+
+function formatScoreTableCell(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return ""
+  }
+
+  return String(value)
 }
 
 type TeachingTimeScheduleRow = Record<string, string | number | null | undefined>
@@ -341,18 +390,18 @@ function buildMajorMatrixData(courseName: string, requires: GraduateRequireNode[
   return [{ data: row }]
 }
 
-function buildProjectMatrixOptions(requires: GraduateRequireNode[]): TableOption {
+function buildProjectMatrixOptions(courseGoalIndicators: GraduateRequireNode[]): TableOption {
   return {
     name: "projectmatrix",
     header: { text: "门课矩阵", format: "" },
     footer: { text: "注：其中★为强支撑，☆为弱支撑" },
     style: { dataAlign: "left" },
-    column: requires.flatMap((requirement) => requirement.children
+    column: courseGoalIndicators
       .filter((indicator) => indicator.children.length > 0)
       .map((indicator) => ({
         label: indicator.description,
         children: indicator.children.map((child) => ({ label: child.description, id: child.id, children: null })),
-      }))),
+      })),
   }
 }
 
@@ -460,37 +509,6 @@ function buildScheduleOptions(): TableOption {
   }
 }
 
-function buildExamPercentOptions(): TableOption {
-  return {
-    name: "percent",
-    header: { text: "", format: "", show: false },
-    footer: { text: "", show: false },
-    column: [],
-    style: { dataAlign: "center" },
-    showHeader: false,
-    rowDataCoverter: (value) => {
-      const max = value.reduce((result, item) => Math.max(result, item.data.length), 0)
-      return Array.from({ length: max + 1 }, (_, rowIndex): RevisableRow => {
-        const cells: RevisableCell[] = [
-          { label: "总分100分", revisableType: "none", marker: [] },
-          ...value.map((group, groupIndex) => (rowIndex === 0
-            ? { label: group.label, revisableType: "column" as const, marker: [0, groupIndex] }
-            : { label: rowIndex > group.data.length ? "{$hold}" : group.data[rowIndex - 1].label, revisableType: "row" as const, marker: [1, groupIndex, rowIndex - 1] })),
-        ]
-        return { data: cells }
-      })
-    },
-    spanFormat: (value) => {
-      const max = value.reduce((result, item) => Math.max(result, item.data.length), 0)
-      return [{
-        location: [0, 0] as [number, number],
-        status: [max + 1, 1] as [number, number],
-        covers: Array.from({ length: max }, (_, index) => [index + 1, 0] as [number, number]),
-      }]
-    },
-  }
-}
-
 function formatTodayDate(): string {
   const today = new Date()
   const year = String(today.getFullYear())
@@ -511,9 +529,6 @@ export function CourseSyllabusPreview({
   const [isLoading, setIsLoading] = useState(true)
   const [isExporting, setIsExporting] = useState<0 | 1 | null>(null)
   const [errorMessage, setErrorMessage] = useState("")
-  const [courseIntro, setCourseIntro] = useState("")
-  const [additionalInfo, setAdditionalInfo] = useState<AdditionalInfoResponse | null>(null)
-  const [totalPeriodData, setTotalPeriodData] = useState<[number, number, number]>([0, 0, 0])
   const [majorMatrixData, setMajorMatrixData] = useState<Array<{ data: string[] }>>([])
   const [majorMatrixOptions, setMajorMatrixOptions] = useState<TableOption | null>(null)
   const [majorMatrixExplanations, setMajorMatrixExplanations] = useState<MajorMatrixExplanationItem[]>([])
@@ -522,7 +537,6 @@ export function CourseSyllabusPreview({
   const [pointMatrixTables, setPointMatrixTables] = useState<Array<{ options: TableOption; data: Array<{ data: string[] }> }>>([])
 
   const scheduleOptions = useMemo(() => buildScheduleOptions(), [])
-  const examPercentOptions = useMemo(() => buildExamPercentOptions(), [])
   const todayDate = useMemo(() => formatTodayDate(), [])
 
   useEffect(() => {
@@ -531,29 +545,33 @@ export function CourseSyllabusPreview({
       setIsLoading(true)
       setErrorMessage("")
       try {
-        const [intro, info, requires, majorMatrixItems, projectList, projectMatrixItems, pointMatrixItems, taskGoals] = await Promise.all([
-          getCourseIntro(courseId),
-          getAdditionalInfo(courseId),
+        const [
+          requires,
+          majorMatrixItems,
+          projectList,
+          courseGoalIndicators,
+          courseMatrixItems,
+          projectMatrixItems,
+          pointMatrixItems,
+          taskGoals,
+        ] = await Promise.all([
           getGraduateRequires(courseId),
           getMajorMatrix(courseId),
           getProjectList(courseId),
+          getCourseMatrixGoals(courseId),
+          getCourseMatrixItems(courseId),
           getProjectMatrix(courseId),
           getPointMatrix(courseId),
           getTaskGoal(courseId),
         ])
         if (!mounted) return
-        setCourseIntro(intro)
-        setAdditionalInfo(info)
         const nextMajorOptions = buildMajorMatrixOptions(requires)
         setMajorMatrixOptions(nextMajorOptions)
         setMajorMatrixData(buildMajorMatrixData(courseName, requires, majorMatrixItems))
         setMajorMatrixExplanations(buildMajorMatrixExplanations(requires, majorMatrixItems))
-        const nextProjectOptions = buildProjectMatrixOptions(requires)
+        const nextProjectOptions = buildProjectMatrixOptions(courseGoalIndicators)
         setProjectMatrixOptions(nextProjectOptions)
-        setProjectMatrixData(buildProjectMatrixData(projectList, projectMatrixItems, nextProjectOptions))
-        const theory = projectList.reduce((sum, item) => sum + Number(item.theoryPeriod || 0), 0)
-        const practice = projectList.reduce((sum, item) => sum + Number(item.practicePeriod || 0), 0)
-        setTotalPeriodData([theory + practice, theory, practice])
+        setProjectMatrixData(buildProjectMatrixData(projectList, courseMatrixItems, nextProjectOptions))
         setPointMatrixTables(buildPointMatrixTables(projectList, projectMatrixItems, pointMatrixItems, taskGoals))
       } catch (error) {
         console.error("[CourseSyllabusPreview] load failed", error)
@@ -583,42 +601,43 @@ export function CourseSyllabusPreview({
   }, [courseId, courseName])
 
   if (isLoading) return <div className="flex min-h-[360px] items-center justify-center text-muted-foreground"><Loader2 className="mr-2 h-5 w-5 animate-spin" />正在加载开课说明...</div>
-  if (errorMessage || !additionalInfo || !majorMatrixOptions || !projectMatrixOptions) return <div className="flex min-h-[360px] items-center justify-center text-sm text-destructive">{errorMessage || "开课说明数据缺失"}</div>
+  if (errorMessage || !majorMatrixOptions || !projectMatrixOptions) return <div className="flex min-h-[360px] items-center justify-center text-sm text-destructive">{errorMessage || "开课说明数据缺失"}</div>
 
   const fallbackScheduleData = buildTeachingTimeFallbackSchedule(courseDetail?.teachingTime)
-  const scheduleData = additionalInfo.schedule?.data?.length
-    ? additionalInfo.schedule
-    : fallbackScheduleData
-  const examPercentType = normalizeText(additionalInfo.exampercent?.label) || normalizeText(courseDetail?.scoreType)
-  const mergedCourseIntro = pickRichContent(courseIntro, courseDetail?.introduction)
-  const mergedCredits = additionalInfo.score || String(courseDetail?.credits ?? "")
-  const mergedLecturer = normalizeText(additionalInfo.lecturer) || instructorNames.filter(Boolean).join("、")
-  const mergedDepartment = normalizeText(additionalInfo.department) || departmentName
-  const mergedTeachingClass = additionalInfo.classname || normalizeText(courseDetail?.teachingClass)
-  const mergedTeachingLocation = additionalInfo.classroom || normalizeText(courseDetail?.teachingLocation)
+  const scheduleData = fallbackScheduleData
+  const examPercentType = normalizeText(courseDetail?.scoreType)
+  const mergedCourseIntro = resolveOptionalContent(courseDetail?.introduction)
+  const mergedCredits = formatOptionalNumber(courseDetail?.credits)
+  const mergedLecturer = instructorNames.filter(Boolean).join("、")
+  const mergedDepartment = departmentName
+  const mergedTeachingClass = normalizeText(courseDetail?.teachingClass)
+  const mergedTeachingLocation = normalizeText(courseDetail?.teachingLocation)
   const mergedTeachingTime = scheduleData.data.length > 0
     ? "详见下方授课时间表"
     : resolveTeachingTimeDisplay(courseDetail?.teachingTime)
-  const mergedStudentCount = additionalInfo.students || String(courseDetail?.studentCount ?? "")
-  const mergedTextbooks = pickRichContent(additionalInfo.textbooks, courseDetail?.mainTextbook)
-  const mergedReferences = pickRichContent(additionalInfo.textreferences, courseDetail?.referenceResources)
-  const mergedAttend = pickRichContent(additionalInfo.attend, courseDetail?.attendancePolicy)
-  const mergedAssignment = pickRichContent(additionalInfo.assignment, courseDetail?.assignmentPolicy)
-  const mergedCriterion = pickRichContent(
-    additionalInfo.criterion,
-    courseDetail?.conductRequirements ? courseDetail.conductRequirements : courseDetail?.criterion,
-  )
-  const mergedPractice = pickRichContent(additionalInfo.practice, courseDetail?.practiceRequirements)
-  const mergedGroup = pickRichContent(additionalInfo.textgroup, courseDetail?.teamworkRequirements)
-  const mergedPaper = pickRichContent(additionalInfo.paper, courseDetail?.bonusRequirements)
-  const mergedOthers = pickRichContent(additionalInfo.others, courseDetail?.otherSuggestions)
-  const mergedExamWay = pickRichContent(additionalInfo.examway, courseDetail?.assessmentForm)
-  const mergedExamDetail = pickRichContent(additionalInfo.examdetail, courseDetail?.assessmentDescription)
-  const fallbackTheory = Number(courseDetail?.theoryPeriod ?? 0)
-  const fallbackPractice = Number(courseDetail?.practicePeriod ?? 0)
-  const mergedTotalPeriodData = totalPeriodData[0] > 0 ? totalPeriodData : [fallbackTheory + fallbackPractice, fallbackTheory, fallbackPractice]
-  // [MOD] 开课学期：优先使用外面传进来的 courseDetail 数据，再用 API 查询的数据
-  const mergedOpeningSemester = normalizeText(courseDetail?.openingSemesterDisplay) || normalizeText(additionalInfo.year)
+  const mergedStudentCount = formatOptionalNumber(courseDetail?.studentCount)
+  const mergedTextbooks = resolveOptionalContent(courseDetail?.mainTextbook)
+  const mergedReferences = resolveOptionalContent(courseDetail?.referenceResources)
+  const mergedAttend = resolveOptionalContent(courseDetail?.attendancePolicy)
+  const mergedAssignment = resolveOptionalContent(courseDetail?.assignmentPolicy)
+  const mergedCriterion = resolveOptionalContent(courseDetail?.conductRequirements)
+  const mergedPractice = resolveOptionalContent(courseDetail?.practiceRequirements)
+  const mergedGroup = resolveOptionalContent(courseDetail?.teamworkRequirements)
+  const mergedPaper = resolveOptionalContent(courseDetail?.bonusRequirements)
+  const mergedOthers = resolveOptionalContent(courseDetail?.otherSuggestions)
+  const mergedExamWay = resolveOptionalContent(courseDetail?.assessmentForm)
+  const mergedExamDetail = resolveOptionalContent(courseDetail?.assessmentDescription)
+  const theoryPeriod = courseDetail?.theoryPeriod
+  const practicePeriod = courseDetail?.practicePeriod
+  const hasTheoryPeriod = theoryPeriod !== null && theoryPeriod !== undefined
+  const hasPracticePeriod = practicePeriod !== null && practicePeriod !== undefined
+  const mergedTotalPeriodText = hasTheoryPeriod && hasPracticePeriod
+    ? `${Number(theoryPeriod) + Number(practicePeriod)}(${theoryPeriod}/${practicePeriod})`
+    : ""
+  const mergedOpeningSemester = resolveCurrentSemesterName()
+  const scoreTableHeaders = Array.isArray(courseDetail?.scoreTable?.headers) ? courseDetail.scoreTable.headers : []
+  const scoreTableRows = Array.isArray(courseDetail?.scoreTable?.rows) ? courseDetail.scoreTable.rows : []
+  const hasScoreTable = scoreTableHeaders.length > 0 && scoreTableRows.length > 0
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#f5f1e8]">
@@ -628,7 +647,7 @@ export function CourseSyllabusPreview({
         </Button>
         <div className="flex flex-wrap items-center gap-3">
           <Button onClick={() => void handleExport()} disabled={isExporting !== null} className="bg-primary text-primary-foreground hover:bg-primary/90">
-            <FileText className="mr-2 h-4 w-4" />{isExporting === 1 ? "导出中..." : "下载 WORD 格式"}
+            <FileText className="mr-2 h-4 w-4" />{isExporting === 1 ? "导出中..." : "另存为 docx"}
           </Button>
         </div>
       </div>
@@ -641,7 +660,7 @@ export function CourseSyllabusPreview({
             <div className="space-y-3">
               <div className="grid grid-cols-1 gap-x-8 gap-y-3 md:grid-cols-3">
                 <div className="md:col-span-1">
-                  <BasicInfoField label="总学时数" value={`${mergedTotalPeriodData[0]}(${mergedTotalPeriodData[1]}/${mergedTotalPeriodData[2]})`} />
+                  <BasicInfoField label="总学时数" value={mergedTotalPeriodText} />
                 </div>
                 <div className="md:col-span-1">
                   <BasicInfoField label="学分" value={mergedCredits} />
@@ -649,7 +668,7 @@ export function CourseSyllabusPreview({
                 <div className="hidden md:block" />
 
                 <div className="md:col-span-1">
-                  <BasicInfoField label="开课学期" value={mergedOpeningSemester} />
+                  <BasicInfoField label="开课学期" value={mergedOpeningSemester} valueNoWrap />
                 </div>
                 <div className="hidden md:block" />
                 <div className="hidden md:block" />
@@ -658,10 +677,10 @@ export function CourseSyllabusPreview({
                   <BasicInfoField label="授课教师" value={mergedLecturer} />
                 </div>
                 <div className="md:col-span-1">
-                  <BasicInfoField label="联系电话" value={additionalInfo.phone ?? ""} />
+                  <BasicInfoField label="联系电话" value="" />
                 </div>
                 <div className="md:col-span-1">
-                  <BasicInfoField label="Email" value={additionalInfo.email ?? ""} />
+                  <BasicInfoField label="Email" value="" />
                 </div>
 
                 <div className="md:col-span-3">
@@ -739,8 +758,8 @@ export function CourseSyllabusPreview({
             <InlineCheckText
               title="1.考核方式"
               options={[
-                { label: "考试", checked: String(additionalInfo.examtype ?? "") === "0" || normalizeText(courseDetail?.assessmentMethod) === "考试" },
-                { label: "考查", checked: String(additionalInfo.examtype ?? "") === "1" || normalizeText(courseDetail?.assessmentMethod) === "考查" },
+                { label: "考试", checked: normalizeText(courseDetail?.assessmentMethod) === "考试" },
+                { label: "考查", checked: normalizeText(courseDetail?.assessmentMethod) === "考查" },
               ]}
             />
             <LongTextSection title="2.具体形式" content={mergedExamWay} />
@@ -751,7 +770,32 @@ export function CourseSyllabusPreview({
                 { label: "五级分制", checked: examPercentType === "五级分制" },
               ]}
             />
-            {additionalInfo.exampercent ? <ReportRevisableTable data={additionalInfo.exampercent} options={examPercentOptions} /> : null}
+            {hasScoreTable ? (
+              <div className="overflow-hidden border border-black text-[10pt] leading-[18pt]">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr>
+                      {scoreTableHeaders.map((header, index) => (
+                        <th key={`${header}-${index}`} className="border border-black px-2 py-1 text-center font-medium">
+                          {header}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scoreTableRows.map((row, rowIndex) => (
+                      <tr key={`score-row-${rowIndex}`}>
+                        {scoreTableHeaders.map((header, columnIndex) => (
+                          <td key={`${header}-${columnIndex}`} className="border border-black px-2 py-1 text-center">
+                            {formatScoreTableCell(row[header])}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
             <blockquote className="border-l-4 border-slate-300 bg-slate-100 px-4 py-3 text-[12pt] leading-[22pt] text-slate-700">
               总成绩为五级分制的，成绩等级与分值对应如下：
               <div className="mt-1 whitespace-pre-wrap pl-[2em]">{LOCAL_EXAM_FIVE}</div>

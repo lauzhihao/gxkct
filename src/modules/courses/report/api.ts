@@ -100,6 +100,22 @@ export async function getProjectMatrix(courseId: number): Promise<ProjectMatrixI
   })
 }
 
+export async function getCourseMatrixGoals(courseId: number): Promise<GraduateRequireNode[]> {
+  const url = buildApiUrl(`/api/v5/matrix/course-goals/${courseId}`)
+  return requestJson<GraduateRequireNode[]>(url, {
+    method: "GET",
+    headers: createHeaders(),
+  })
+}
+
+export async function getCourseMatrixItems(courseId: number): Promise<ProjectMatrixItem[]> {
+  const url = buildApiUrl(`/api/v5/matrix/course-matrix/${courseId}`)
+  return requestJson<ProjectMatrixItem[]>(url, {
+    method: "GET",
+    headers: createHeaders(),
+  })
+}
+
 export async function getPointMatrix(courseId: number): Promise<PointMatrixItem[]> {
   const url = withQuery("/api/beginreport/getpointmatrix", { courseid: courseId })
   return requestJson<PointMatrixItem[]>(url, {
