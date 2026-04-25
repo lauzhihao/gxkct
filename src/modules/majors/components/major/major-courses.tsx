@@ -2,28 +2,18 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/shared/components/ui/button"
-import { BookMarked, Plus, Search, FileText, User, X, Trash2 } from "lucide-react"
+import { BookMarked, Plus, Search, FileText, User, X, Settings } from "lucide-react"
 import { LoadingState } from "@/shared/components/ui/loading-state"
 import { cn } from "@/shared/utils/utils"
 import { usePermission } from "@/shared/hooks/use-permission"
 import type { PermissionAction } from "@/shared/permissions/types"
-import type { TreeNode } from "@/types"
+import type { TreeNode, TreeNodeManager } from "@/types"
 import { useMajorCoursePreferences } from "@/modules/majors/hooks/use-major-course-preferences"
 import { api } from "@/lib/api"
 import { setCourseCacheBatch, type CourseCacheItem } from "@/shared/utils/course-cache"
 import { useSemesterStore } from "@/shared/stores/semester-store"
 import { useSemesterReadonly } from "@/shared/hooks/use-semester-readonly"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/shared/components/ui/alert-dialog"
-import { showError, showSuccess } from "@/shared/utils/toast-utils"
+import { CourseSettingsDialog } from "@/modules/majors/components/dialogs/course-settings-dialog"
 
 const MANAGE_MAJOR_COURSE_ACTION: PermissionAction = "major.course.create"
 const MANAGE_MAJOR_COURSE_CONTEXT = { scope: "major" as const }
@@ -38,10 +28,22 @@ interface MajorCoursesProps {
   refreshKey?: number
   // [MOD] 从父组件传入权限控制，与编辑专业按钮保持一致
   canManageCourse?: boolean
+  onUpdateNode?: (nodeId: string, updates: Partial<TreeNode>) => void
+  onDeleteNode?: (nodeId: string) => void
 }
 
 export function MajorCourses(props: MajorCoursesProps) {
-  const { node, currentUser, onNodeSelect, onAddCourse, refreshKey, canManageCourse } = props
+  const {
+    node,
+    currentUser,
+    onNodeSelect,
+    onAddCourse,
+    departmentId,
+    refreshKey,
+    canManageCourse,
+    onUpdateNode,
+    onDeleteNode,
+  } = props
   const [courseSearchTerm, setCourseSearchTerm] = useState("")
   const { showMyCourses, setShowMyCourses } = useMajorCoursePreferences()
   // [MOD] 优先使用从父组件传入的权限，保持与编辑专业按钮一致
@@ -53,9 +55,7 @@ export function MajorCourses(props: MajorCoursesProps) {
   // 右侧组件内部独立获取课程数据，与左侧树完全隔离
   const [courses, setCourses] = useState<TreeNode[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  // [MOD] 删除课程相关状态
-  const [confirmDeleteCourseId, setConfirmDeleteCourseId] = useState<string | null>(null)
-  const [deletingCourseId, setDeletingCourseId] = useState<string | null>(null)
+  const [settingsCourse, setSettingsCourse] = useState<TreeNode | null>(null)
 
   const setCourseCacheFromItems = useCallback((courseItems: TreeNode[]) => {
     const cacheItems: CourseCacheItem[] = courseItems.map((course) => ({
@@ -100,40 +100,21 @@ export function MajorCourses(props: MajorCoursesProps) {
     fetchCourses()
   }, [node?.id, refreshKey, selectedSemesterId, setCourseCacheFromItems])
 
-  // [MOD] 删除课程处理函数
-  const handleConfirmDeleteCourse = async () => {
-    if (!confirmDeleteCourseId || !selectedSemesterId) {
-      showError("参数缺失，无法删除课程", "删除失败")
-      return
-    }
-
-    setDeletingCourseId(confirmDeleteCourseId)
-    try {
-      const response = await api.courseDetail.deleteCourse(selectedSemesterId, confirmDeleteCourseId)
-
-      if (response.error) {
-        showError(response.error, "删除课程失败")
-        return
-      }
-
-      showSuccess("课程已删除", "删除成功")
-      setConfirmDeleteCourseId(null)
-      // 刷新课程列表
-      setCourses((prev) => prev.filter((course) => course.id !== confirmDeleteCourseId))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "删除课程失败"
-      console.error('[MajorCourses] 删除课程失败:', error)
-      showError(message, "删除课程失败")
-    } finally {
-      setDeletingCourseId(null)
-    }
-  }
-
   // 获取课程ID
   const getCourseId = (course: TreeNode) => course.id || ''
 
   // 获取课程名称
   const getCourseName = (course: TreeNode) => course.nodeName
+
+  const getMajorName = (majorNode: TreeNode) => {
+    if (typeof majorNode.nodeName === "string" && majorNode.nodeName.trim().length > 0) {
+      return majorNode.nodeName
+    }
+    if (typeof majorNode.name === "string" && majorNode.name.trim().length > 0) {
+      return majorNode.name
+    }
+    throw new Error("专业名称缺失，无法打开课程设置")
+  }
 
   // 获取讲师数组（从 manager 字段提取 label）
   const getInstructors = (course: TreeNode) => {
@@ -161,11 +142,64 @@ export function MajorCourses(props: MajorCoursesProps) {
     onAddCourse()
   }
 
+  const handleOpenCourseSettings = (course: TreeNode) => {
+    if (!canManageMajorCourse) return
+    setSettingsCourse(course)
+  }
+
+  const handleCourseSettingsOpenChange = (open: boolean) => {
+    if (!open) {
+      setSettingsCourse(null)
+    }
+  }
+
+  const handleCourseSettingsSaved = (courseId: string, updates: { courseName?: string; managers?: TreeNodeManager[] }) => {
+    setCourses((prev) => {
+      const next = prev.map((course) => {
+        if (getCourseId(course) !== courseId) {
+          return course
+        }
+
+        const updatedCourse = {
+          ...course,
+        }
+
+        if (updates.courseName !== undefined) {
+          updatedCourse.nodeName = updates.courseName
+          updatedCourse.name = updates.courseName
+        }
+        if (updates.managers !== undefined) {
+          updatedCourse.manager = updates.managers
+        }
+
+        return updatedCourse
+      })
+      setCourseCacheFromItems(next)
+      return next
+    })
+
+    if (updates.courseName !== undefined) {
+      onUpdateNode?.(`course_${courseId}`, {
+        nodeName: updates.courseName,
+        name: updates.courseName,
+      })
+    }
+  }
+
+  const handleCourseSettingsDeleted = (courseId: string) => {
+    setCourses((prev) => {
+      const next = prev.filter((course) => getCourseId(course) !== courseId)
+      setCourseCacheFromItems(next)
+      return next
+    })
+    onDeleteNode?.(`course_${courseId}`)
+  }
+
   // [MOD] 处理卡片容器的键盘交互（支持 Enter 和 Space 键触发选择）
   const handleCourseCardKeyDown = (course: TreeNode, e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
-      if (confirmDeleteCourseId) return
+      if (settingsCourse !== null) return
       if (onNodeSelect) {
         onNodeSelect({
           ...course,
@@ -188,7 +222,7 @@ export function MajorCourses(props: MajorCoursesProps) {
 
   // [MOD] 处理卡片容器的点击事件
   const handleCourseCardClick = (course: TreeNode) => {
-    if (confirmDeleteCourseId) return
+    if (settingsCourse !== null) return
     if (onNodeSelect) {
       onNodeSelect({
         ...course,
@@ -349,24 +383,24 @@ export function MajorCourses(props: MajorCoursesProps) {
                 ))}
               </div>
 
-              {/* [MOD] 删除按钮 - hover时显示，仅有权限时渲染 */}
+              {/* 课程设置按钮 - hover时显示，仅有权限时渲染 */}
               {canManageMajorCourse && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
-                    setConfirmDeleteCourseId(getCourseId(course))
+                    handleOpenCourseSettings(course)
                   }}
                   className={cn(
                     "absolute bottom-3 right-3 p-1.5 rounded-lg",
-                    "bg-white/50 backdrop-blur-sm border border-destructive/30",
-                    "text-destructive transition-[opacity,background-color,border-color] duration-200",
+                    "bg-white/50 backdrop-blur-sm border border-primary/30",
+                    "text-primary transition-[opacity,background-color,border-color] duration-200",
                     "invisible opacity-0 pointer-events-none group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto",
                     "focus-visible:visible focus-visible:opacity-100 focus-visible:pointer-events-auto",
-                    "hover:bg-destructive/20 hover:border-destructive/60",
+                    "hover:bg-primary/10 hover:border-primary/60",
                   )}
-                  title="删除课程"
+                  title="课程设置"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Settings className="w-4 h-4" />
                 </button>
               )}
             </div>
@@ -374,29 +408,16 @@ export function MajorCourses(props: MajorCoursesProps) {
         </div>
       )}
 
-      {/* [MOD] 删除课程确认对话框 */}
-      <AlertDialog open={confirmDeleteCourseId !== null} onOpenChange={(open) => {
-        if (!open) setConfirmDeleteCourseId(null)
-      }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>删除课程</AlertDialogTitle>
-            <AlertDialogDescription>
-              您确定要删除课程"<span className="font-semibold text-foreground">{courses.find((c) => getCourseId(c) === confirmDeleteCourseId)?.nodeName || "未命名"}</span>"吗？此操作无法撤销。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deletingCourseId !== null}>取消</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDeleteCourse}
-              disabled={deletingCourseId !== null}
-              className="bg-red-500 hover:bg-red-600"
-            >
-              {deletingCourseId !== null ? "删除中..." : "确认删除"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <CourseSettingsDialog
+        open={settingsCourse !== null}
+        onOpenChange={handleCourseSettingsOpenChange}
+        course={settingsCourse}
+        majorName={getMajorName(node)}
+        departmentId={departmentId}
+        selectedSemesterId={selectedSemesterId}
+        onSaved={handleCourseSettingsSaved}
+        onDeleted={handleCourseSettingsDeleted}
+      />
     </>
   )
 }

@@ -158,6 +158,12 @@ export interface SaveCourseUnitRequest {
   }
 }
 
+export interface UpdateCourseSettingsRequest {
+  courseId: number
+  name?: string
+  teacherIds?: number[]
+}
+
 export class CourseDetailApi {
   private storage = new StorageAdapter()
 
@@ -346,6 +352,66 @@ export class CourseDetailApi {
    */
   async createCourse(data: SaveCourseUnitRequest): Promise<ApiResponse<any>> {
     return this.saveCourseUnit(data)
+  }
+
+  /**
+   * 更新课程卡片设置
+   * @param data 课程设置数据
+   */
+  async updateCourseSettings(data: UpdateCourseSettingsRequest): Promise<ApiResponse<unknown>> {
+    try {
+      if (!Number.isFinite(data.courseId) || data.courseId <= 0) {
+        throw new Error("课程ID无效")
+      }
+      if (data.name !== undefined && data.name.trim().length === 0) {
+        throw new Error("课程名称不能为空")
+      }
+      if (data.teacherIds !== undefined && (!Array.isArray(data.teacherIds) || data.teacherIds.length === 0)) {
+        throw new Error("任课老师不能为空")
+      }
+      if (data.name === undefined && data.teacherIds === undefined) {
+        throw new Error("没有需要保存的课程设置")
+      }
+
+      const payload: {
+        courseId: number
+        name?: string
+        teacherIds?: number[]
+      } = {
+        courseId: data.courseId,
+      }
+
+      if (data.name !== undefined) {
+        payload.name = data.name.trim()
+      }
+      if (data.teacherIds !== undefined) {
+        payload.teacherIds = data.teacherIds
+      }
+
+      const response = await this.storage.putToApi<unknown>("/api/v5/tree/course", payload)
+
+      if (response.error) {
+        console.error("[CourseDetailApi] 更新课程设置失败:", response.error)
+        return {
+          data: null,
+          error: response.error,
+          status: response.status,
+        }
+      }
+
+      return {
+        data: response.data,
+        error: null,
+        status: 200,
+      }
+    } catch (error) {
+      console.error("[CourseDetailApi] 更新课程设置失败:", error)
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : String(error),
+        status: 500,
+      }
+    }
   }
 
   /**

@@ -104,6 +104,7 @@ export function MajorDetail(props: MajorDetailProps) {
     node,
     onAddCourse,
     onUpdateNode,
+    onDeleteNode,
     onNodeSelect,
     currentUser,
     majorCourses,
@@ -340,6 +341,8 @@ export function MajorDetail(props: MajorDetailProps) {
                 departmentId={departmentId}
                 refreshKey={coursesRefreshKey}
                 canManageCourse={canEditMajor}
+                onUpdateNode={onUpdateNode}
+                onDeleteNode={onDeleteNode}
               />
             </TabsContent>
 

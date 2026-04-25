@@ -1,6 +1,6 @@
 "use client"
 
-import { GraduationCap, Pencil, Plus } from "lucide-react"
+import { GraduationCap, Pencil, Plus, Upload } from "lucide-react"
 import { extractNumericId } from "@/shared/utils/utils"
 import { api } from "@/lib/api"
 import { useToast } from "@/shared/hooks/use-toast"
@@ -23,6 +23,7 @@ import { StatisticsCards } from "./shared/statistics-cards"
 import { Members } from "@/shared/components/members"
 import { TeachingQualityStats } from "@/modules/majors/components/shared/teaching-quality-stats"
 import { QuickCreateMajorDialog } from "@/modules/departments/components/shared/quick-create-major-dialog"
+import { ImportMajorDialog } from "@/modules/departments/components/shared/import-major-dialog"
 import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
 import { PermissionGate } from "@/shared/components/permission-gate"
 import { usePermission } from "@/shared/hooks/use-permission"
@@ -42,12 +43,22 @@ const CREATE_MAJOR_ACTION: PermissionAction = "department.major.create"
 type DepartmentTabKey = keyof typeof DEPARTMENT_TABS
 const DEFAULT_DEPARTMENT_TAB: DepartmentTabKey = "overview"
 
-export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode, currentUser, onTreeRefresh }: DetailPanelProps) {
+export function DepartmentDetail({
+  node,
+  treeData,
+  onNodeSelect,
+  onAddMajor,
+  onUpdateNode,
+  onDeleteNode,
+  currentUser,
+  onTreeRefresh,
+}: DetailPanelProps) {
   const [newDeptName, setNewDeptName] = useState("")
   const [newDeptDesc, setNewDeptDesc] = useState("")
   const [newDeptDirector, setNewDeptDirector] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isQuickCreateMajorOpen, setIsQuickCreateMajorOpen] = useState(false)
+  const [isImportMajorOpen, setIsImportMajorOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   // 用于创建专业后自动填充搜索框
   const [majorSearchFilter, setMajorSearchFilter] = useState<string | undefined>(undefined)
@@ -145,6 +156,12 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
     setIsQuickCreateMajorOpen(true)
   }
 
+  const handleOpenImportMajor = () => {
+    if (isSemesterReadonly) return
+    if (!can(CREATE_MAJOR_ACTION, { scope: "department" })) return
+    setIsImportMajorOpen(true)
+  }
+
   return (
     <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl overflow-hidden">
       {/* Header */}
@@ -192,17 +209,31 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
                 currentUser={currentUser}
                 initialMajorSearch={majorSearchFilter}
                 refreshKey={refreshMajorsKey}
+                onUpdateNode={onUpdateNode}
+                onDeleteNode={onDeleteNode}
+                onTreeRefresh={onTreeRefresh}
                 headerAction={
                   <PermissionGate action={CREATE_MAJOR_ACTION} context={{ scope: "department" }}>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={handleOpenQuickCreateMajor}
-                      className="gap-2 hover:bg-primary/10"
-                    >
-                      <Plus className="w-4 h-4 text-primary" />
-                      <span className="text-primary font-medium">开设专业</span>
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={handleOpenQuickCreateMajor}
+                        className="gap-2 hover:bg-primary/10"
+                      >
+                        <Plus className="w-4 h-4 text-primary" />
+                        <span className="text-primary font-medium">新开专业</span>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={handleOpenImportMajor}
+                        className="gap-2 hover:bg-primary/10"
+                      >
+                        <Upload className="w-4 h-4 text-primary" />
+                        <span className="text-primary font-medium">导入专业</span>
+                      </Button>
+                    </div>
                   </PermissionGate>
                 }
               />
@@ -272,6 +303,15 @@ export function DepartmentDetail({ node, onNodeSelect, onAddMajor, onUpdateNode,
           onOpenChange={setIsQuickCreateMajorOpen}
           onSubmit={handleQuickCreateMajor}
           departmentId={extractNumericId(node.nodeId).toString()}
+        />
+      )}
+
+      {node && (
+        <ImportMajorDialog
+          open={isImportMajorOpen}
+          onOpenChange={setIsImportMajorOpen}
+          treeData={treeData}
+          currentDepartment={node}
         />
       )}
     </div>

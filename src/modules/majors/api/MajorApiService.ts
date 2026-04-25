@@ -45,6 +45,12 @@ export interface QuickCreateMajorRequest {
   managerIds: number[]
 }
 
+export interface UpdateMajorSettingsRequest {
+  majorId: number
+  name?: string
+  managerIds?: number[]
+}
+
 class MajorApiService {
   private static instance: MajorApiService
   private httpAdapter: HttpAdapter
@@ -81,6 +87,14 @@ class MajorApiService {
    */
   async quickCreateMajor(data: QuickCreateMajorRequest): Promise<ApiResponse<any>> {
     return this.httpAdapter.post('/api/v5/tree/major', data)
+  }
+
+  /**
+   * 更新专业卡片设置
+   * PUT /api/v5/tree/major
+   */
+  async updateMajorSettings(data: UpdateMajorSettingsRequest): Promise<ApiResponse<unknown>> {
+    return this.httpAdapter.put('/api/v5/tree/major', data)
   }
 
   /**

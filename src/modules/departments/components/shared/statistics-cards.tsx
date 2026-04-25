@@ -6,14 +6,15 @@ import { Card, CardContent } from "@/shared/components/ui/card"
 import { Badge } from "@/shared/components/ui/badge"
 import { Checkbox } from "@/shared/components/ui/checkbox"
 import { Label } from "@/shared/components/ui/label"
-import type { TreeNode } from "@/types"
+import type { TreeNode, TreeNodeManager } from "@/types"
 import { LoadingState } from "@/shared/components/ui/loading-state"
-import { Building2, GraduationCap, BookOpen, FileText, Search, User } from "lucide-react"
+import { Building2, GraduationCap, BookOpen, FileText, Search, User, Settings } from "lucide-react"
 import cn from "classnames"
 import { useDepartmentMajorsPreferences } from "@/modules/departments/hooks/use-department-majors-preferences"
 import { api } from "@/lib/api"
-import { syncMajorCacheForDepartment, type MajorCacheItem } from "@/shared/utils/major-cache"
+import { removeMajorCache, syncMajorCacheForDepartment, type MajorCacheItem } from "@/shared/utils/major-cache"
 import { useSemesterStore } from "@/shared/stores/semester-store"
+import { MajorSettingsDialog } from "@/modules/departments/components/dialogs/major-settings-dialog"
 
 interface StatisticsCardsProps {
   node: TreeNode
@@ -24,9 +25,22 @@ interface StatisticsCardsProps {
   initialMajorSearch?: string
   // 用于触发重新获取专业列表
   refreshKey?: number
+  onUpdateNode?: (nodeId: string, updates: Partial<TreeNode>) => void
+  onDeleteNode?: (nodeId: string) => void
+  onTreeRefresh?: () => Promise<boolean> | boolean
 }
 
-export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser, initialMajorSearch, refreshKey }: StatisticsCardsProps) {
+export function StatisticsCards({
+  node,
+  onNodeSelect,
+  headerAction,
+  currentUser,
+  initialMajorSearch,
+  refreshKey,
+  onUpdateNode,
+  onDeleteNode,
+  onTreeRefresh,
+}: StatisticsCardsProps) {
   const [departmentSearch, setDepartmentSearch] = useState("")
   const [majorSearch, setMajorSearch] = useState("")
   const selectedSemesterId = useSemesterStore((state) => state.selectedSemesterId)
@@ -41,6 +55,7 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
   // 院系详情独立获取的专业列表数据
   const [majors, setMajors] = useState<TreeNode[]>([])
   const [isLoadingMajors, setIsLoadingMajors] = useState(false)
+  const [settingsMajor, setSettingsMajor] = useState<TreeNode | null>(null)
 
   const setMajorCacheFromItems = useCallback((majorItems: TreeNode[], departmentId: string, semesterId: number | null) => {
     const cacheItems = majorItems
@@ -128,6 +143,101 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
 
   // 获取管理员数组
   const getManagers = (major: TreeNode) => major.manager || []
+
+  const getDepartmentId = (departmentNode: TreeNode) => {
+    if (typeof departmentNode.id === "string" && departmentNode.id.trim().length > 0) {
+      return departmentNode.id
+    }
+    if (typeof departmentNode.nodeId === "string" && departmentNode.nodeId.trim().length > 0) {
+      const match = departmentNode.nodeId.match(/\d+/)
+      if (match && match[0].trim().length > 0) {
+        return match[0]
+      }
+    }
+    throw new Error("院系ID缺失，无法打开专业设置")
+  }
+
+  const getDepartmentName = (departmentNode: TreeNode) => {
+    if (typeof departmentNode.nodeName === "string" && departmentNode.nodeName.trim().length > 0) {
+      return departmentNode.nodeName
+    }
+    if (typeof departmentNode.name === "string" && departmentNode.name.trim().length > 0) {
+      return departmentNode.name
+    }
+    throw new Error("院系名称缺失，无法打开专业设置")
+  }
+
+  const hasMajorMenuPermission = (major: TreeNode, target: string) => {
+    return Array.isArray(major.btnMenus) && major.btnMenus.some((menu) => menu.value === target)
+  }
+
+  const handleOpenMajorSettings = (major: TreeNode) => {
+    if (!hasMajorMenuPermission(major, "majoredit")) return
+    setSettingsMajor(major)
+  }
+
+  const handleMajorSettingsOpenChange = (open: boolean) => {
+    if (!open) {
+      setSettingsMajor(null)
+    }
+  }
+
+  const handleMajorSettingsSaved = (majorId: string, updates: { majorName?: string; managers?: TreeNodeManager[] }) => {
+    setMajors((prev) => {
+      const next = prev.map((major) => {
+        if (getMajorId(major) !== majorId) {
+          return major
+        }
+
+        const updatedMajor = { ...major }
+        if (updates.majorName !== undefined) {
+          updatedMajor.nodeName = updates.majorName
+          updatedMajor.name = updates.majorName
+        }
+        if (updates.managers !== undefined) {
+          updatedMajor.manager = updates.managers
+          const existingMetadata = updatedMajor.metadata
+          if (existingMetadata === undefined) {
+            updatedMajor.metadata = {
+              managers: updates.managers,
+            }
+            return updatedMajor
+          }
+          updatedMajor.metadata = {
+            ...existingMetadata,
+            managers: updates.managers,
+          }
+        }
+        return updatedMajor
+      })
+
+      if (node.id) {
+        setMajorCacheFromItems(next, node.id, selectedSemesterId)
+      }
+      return next
+    })
+
+    if (updates.majorName !== undefined) {
+      onUpdateNode?.(`major_${majorId}`, {
+        nodeName: updates.majorName,
+        name: updates.majorName,
+      })
+    }
+    void onTreeRefresh?.()
+  }
+
+  const handleMajorSettingsDeleted = (majorId: string) => {
+    setMajors((prev) => {
+      const next = prev.filter((major) => getMajorId(major) !== majorId)
+      if (node.id) {
+        setMajorCacheFromItems(next, node.id, selectedSemesterId)
+      }
+      return next
+    })
+    removeMajorCache(majorId)
+    onDeleteNode?.(`major_${majorId}`)
+    void onTreeRefresh?.()
+  }
 
   // Filter departments by search
   const filteredDepartments = departments.filter((dept) =>
@@ -358,39 +468,51 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
                   const majorId = getMajorId(major)
                   const majorName = getMajorName(major)
                   const managers = getManagers(major)
-                   const isVirtualMajor = (major.metadata as { source?: string } | null)?.source === "course-level-switchDpt"
-                   const prefetchedCourses = (major.metadata as { prefetchedCourses?: TreeNode[] } | null)?.prefetchedCourses || []
+                  const isVirtualMajor = (major.metadata as { source?: string } | null)?.source === "course-level-switchDpt"
+                  const prefetchedCourses = (major.metadata as { prefetchedCourses?: TreeNode[] } | null)?.prefetchedCourses || []
+                  const canEditMajor = !isVirtualMajor && hasMajorMenuPermission(major, "majoredit")
+                  const handleSelectMajor = () => {
+                    if (!node.id) {
+                      throw new Error("Department node id is required before selecting a major card")
+                    }
 
-                    return (
-                      <button
-                       key={majorId}
-                       onClick={() => {
-                         if (!node.id) {
-                           throw new Error("Department node id is required before selecting a major card")
-                         }
+                    setMajorCacheFromItems([major], node.id, selectedSemesterId)
+                    // 构造节点对象，硬编码 nodeType 为 major
+                    onNodeSelect?.({
+                      ...major,
+                      id: majorId,
+                      nodeId: `major_${majorId}`,
+                      name: majorName,
+                      nodeName: majorName,
+                      type: "major",
+                      nodeType: "major",
+                      btnMenus: major.btnMenus,
+                      coverMenus: major.coverMenus,
+                      manager: isVirtualMajor ? [] : managers,
+                      metadata: {
+                        ...(major.metadata || {}),
+                        managers: isVirtualMajor ? [] : managers,
+                        prefetchedCourses,
+                        btnMenus: major.btnMenus,
+                        coverMenus: major.coverMenus,
+                      },
+                    })
+                  }
 
-                         setMajorCacheFromItems([major], node.id, selectedSemesterId)
-                         // 构造节点对象，硬编码 nodeType 为 major
-                          onNodeSelect?.({
-                            ...major,
-                            id: majorId,
-                            nodeId: `major_${majorId}`,
-                            name: majorName,
-                            nodeName: majorName,
-                            type: 'major',
-                            nodeType: 'major',
-                            btnMenus: major.btnMenus,
-                            coverMenus: major.coverMenus,
-                            manager: isVirtualMajor ? [] : managers,
-                            metadata: {
-                              ...(major.metadata || {}),
-                              managers: isVirtualMajor ? [] : managers,
-                              prefetchedCourses,
-                              btnMenus: major.btnMenus,
-                              coverMenus: major.coverMenus,
-                            },
-                         })
-                       }}
+                  return (
+                    <div
+                      key={majorId}
+                      role="button"
+                      tabIndex={0}
+                      onClick={handleSelectMajor}
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter" && event.key !== " ") {
+                          return
+                        }
+
+                        event.preventDefault()
+                        handleSelectMajor()
+                      }}
                       className={cn(
                         "relative flex flex-col p-5 rounded-xl border transition-all duration-200 min-h-[165px]",
                         "bg-white/40 backdrop-blur-md border-primary/20",
@@ -428,7 +550,7 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
                       </div>
 
                       {!isVirtualMajor && managers.length > 0 && (
-                        <div className="absolute bottom-3 left-3 right-3 flex flex-wrap gap-2" data-card-decoration="true">
+                        <div className="absolute bottom-3 left-3 flex max-w-[calc(100%-24px)] flex-wrap gap-2" data-card-decoration="true">
                           {managers.map((manager, index) => (
                             <div key={index} className="flex items-center gap-[6px] px-[8px] py-[2px] rounded bg-primary border border-primary">
                               <User className="w-[13px] h-[13px] text-white" />
@@ -437,7 +559,34 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
                           ))}
                         </div>
                       )}
-                    </button>
+                      {canEditMajor && (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            handleOpenMajorSettings(major)
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key !== "Enter" && event.key !== " ") return
+                            event.preventDefault()
+                            event.stopPropagation()
+                            handleOpenMajorSettings(major)
+                          }}
+                          className={cn(
+                            "absolute bottom-3 right-3 p-1.5 rounded-lg",
+                            "bg-white/50 backdrop-blur-sm border border-primary/30",
+                            "text-primary transition-[opacity,background-color,border-color] duration-200",
+                            "invisible opacity-0 pointer-events-none group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto",
+                            "focus-visible:visible focus-visible:opacity-100 focus-visible:pointer-events-auto",
+                            "hover:bg-primary/10 hover:border-primary/60",
+                          )}
+                          title="专业设置"
+                        >
+                          <Settings className="w-4 h-4" />
+                        </span>
+                      )}
+                    </div>
                   )
                 })}
               </div>
@@ -445,6 +594,19 @@ export function StatisticsCards({ node, onNodeSelect, headerAction, currentUser,
           </div>
         )}
       </div>
+      {isDepartment && (
+        <MajorSettingsDialog
+          open={settingsMajor !== null}
+          onOpenChange={handleMajorSettingsOpenChange}
+          major={settingsMajor}
+          departmentId={getDepartmentId(node)}
+          departmentName={getDepartmentName(node)}
+          selectedSemesterId={selectedSemesterId}
+          canDeleteMajor={settingsMajor !== null && hasMajorMenuPermission(settingsMajor, "majordel")}
+          onSaved={handleMajorSettingsSaved}
+          onDeleted={handleMajorSettingsDeleted}
+        />
+      )}
     </div>
   )
 }
