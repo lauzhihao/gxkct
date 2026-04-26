@@ -2,7 +2,7 @@
 
 import { GraduationCap, Pencil, Plus, Upload } from "lucide-react"
 import { extractNumericId } from "@/shared/utils/utils"
-import { api, getCurrentUserId } from "@/lib/api"
+import { api } from "@/lib/api"
 import { useToast } from "@/shared/hooks/use-toast"
 import { Button } from "@/shared/components/ui/button"
 import {
@@ -39,7 +39,6 @@ const DEPARTMENT_TABS = {
 
 const EDIT_DEPARTMENT_ACTION: PermissionAction = "college.department.create"
 const CREATE_MAJOR_ACTION: PermissionAction = "department.major.create"
-const IMPORT_MAJOR_ALLOWED_USER_ID = 40
 
 type DepartmentTabKey = keyof typeof DEPARTMENT_TABS
 const DEFAULT_DEPARTMENT_TAB: DepartmentTabKey = "overview"
@@ -60,7 +59,6 @@ export function DepartmentDetail({
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isQuickCreateMajorOpen, setIsQuickCreateMajorOpen] = useState(false)
   const [isImportMajorOpen, setIsImportMajorOpen] = useState(false)
-  const [canViewImportMajor, setCanViewImportMajor] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   // 用于创建专业后自动填充搜索框
   const [majorSearchFilter, setMajorSearchFilter] = useState<string | undefined>(undefined)
@@ -75,10 +73,6 @@ export function DepartmentDetail({
     if (!node) return
     setActivePage(DEFAULT_DEPARTMENT_TAB, DEPARTMENT_TABS[DEFAULT_DEPARTMENT_TAB])
   }, [node, setActivePage])
-
-  useEffect(() => {
-    setCanViewImportMajor(getCurrentUserId() === IMPORT_MAJOR_ALLOWED_USER_ID)
-  }, [])
 
   const handleTabChange = (value: string) => {
     const tabKey = value as DepartmentTabKey
@@ -164,7 +158,6 @@ export function DepartmentDetail({
 
   const handleOpenImportMajor = () => {
     if (isSemesterReadonly) return
-    if (getCurrentUserId() !== IMPORT_MAJOR_ALLOWED_USER_ID) return
     if (!can(CREATE_MAJOR_ACTION, { scope: "department" })) return
     setIsImportMajorOpen(true)
   }
@@ -231,17 +224,15 @@ export function DepartmentDetail({
                         <Plus className="w-4 h-4 text-primary" />
                         <span className="text-primary font-medium">新开专业</span>
                       </Button>
-                      {canViewImportMajor && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={handleOpenImportMajor}
-                          className="gap-2 hover:bg-primary/10"
-                        >
-                          <Upload className="w-4 h-4 text-primary" />
-                          <span className="text-primary font-medium">导入专业</span>
-                        </Button>
-                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={handleOpenImportMajor}
+                        className="gap-2 hover:bg-primary/10"
+                      >
+                        <Upload className="w-4 h-4 text-primary" />
+                        <span className="text-primary font-medium">导入专业</span>
+                      </Button>
                     </div>
                   </PermissionGate>
                 }
