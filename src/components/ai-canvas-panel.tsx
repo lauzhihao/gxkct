@@ -873,6 +873,18 @@ function AiCanvasPanelInner({
     })
   }, [flowNodes])
 
+  const courseReportNodeId = useMemo(() => {
+    return flowNodes.find((node) => node.type === FlowNodeType.COURSE_REPORT)?.id ?? null
+  }, [flowNodes])
+
+  const handleOpenCourseReportFromControls = useCallback(() => {
+    if (!courseReportNodeId) {
+      return
+    }
+
+    handleCourseReportEdit(courseReportNodeId)
+  }, [courseReportNodeId, handleCourseReportEdit])
+
   // 使用 useProcessedNodes hook 处理节点数据
   const processedNodes = useProcessedNodes({
     flowNodes,
@@ -993,6 +1005,8 @@ function AiCanvasPanelInner({
                 isLoading={isRegenerating}
                 layoutMode={layoutMode}
                 onLayoutModeChange={onLayoutModeChange}
+                hasCourseReportNode={courseReportNodeId !== null}
+                onCourseReportEdit={handleOpenCourseReportFromControls}
               />
             )}
 

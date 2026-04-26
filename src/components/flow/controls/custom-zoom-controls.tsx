@@ -1,14 +1,28 @@
 "use client"
 
-import { useCallback, useState, useEffect, useRef } from "react"
+import { useCallback, useState, useEffect, useRef, type ReactNode } from "react"
 import { Panel, useReactFlow, useOnViewportChange, type Viewport } from "@xyflow/react"
-import { Plus, Minus, Maximize, Check } from "lucide-react"
+import { Plus, Minus, Maximize, Check, Save } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/components/ui/tooltip"
 import type { CanvasLayoutMode } from "@/components/flow/utils/canvas-layout"
 
 /**
  * 缩放步长（百分比）
  */
 const ZOOM_STEP = 5
+
+function ControlTooltip({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="inline-flex">{children}</span>
+      </TooltipTrigger>
+      <TooltipContent side="top">
+        <p>{label}</p>
+      </TooltipContent>
+    </Tooltip>
+  )
+}
 
 /**
  * 同步状态指示器组件
@@ -37,31 +51,28 @@ function SyncStatusIndicator({ isUploading, isLoading }: { isUploading: boolean;
   // 上传中或加载中：闪烁的绿点
   if (isUploading || isLoading) {
     return (
-      <div
-        className="w-3 h-3 rounded-full bg-green-500 canvas-sync-pulse"
-        title={isLoading ? "正在加载..." : "正在同步..."}
-      />
+      <ControlTooltip label={isLoading ? "正在加载" : "正在同步"}>
+        <div className="w-3 h-3 rounded-full bg-green-500 canvas-sync-pulse" />
+      </ControlTooltip>
     )
   }
 
   if (justCompleted) {
     // 刚完成：绿色对勾
     return (
-      <div
-        className="w-4 h-4 flex items-center justify-center text-green-500"
-        title="已同步"
-      >
-        <Check className="w-3.5 h-3.5" strokeWidth={3} />
-      </div>
+      <ControlTooltip label="已同步">
+        <div className="w-4 h-4 flex items-center justify-center text-green-500">
+          <Check className="w-3.5 h-3.5" strokeWidth={3} />
+        </div>
+      </ControlTooltip>
     )
   }
 
   // 空闲：静态绿点
   return (
-    <div
-      className="w-3 h-3 rounded-full bg-green-500"
-      title="已同步"
-    />
+    <ControlTooltip label="已同步">
+      <div className="w-3 h-3 rounded-full bg-green-500" />
+    </ControlTooltip>
   )
 }
 
@@ -74,6 +85,10 @@ export interface CustomZoomControlsProps {
   layoutMode?: CanvasLayoutMode
   /** 切换布局模式回调 */
   onLayoutModeChange?: (mode: CanvasLayoutMode) => void
+  /** 开课报告节点是否存在 */
+  hasCourseReportNode?: boolean
+  /** 打开开课报告编辑抽屉 */
+  onCourseReportEdit?: () => void
 }
 
 function HorizontalLayoutIcon() {
@@ -105,6 +120,8 @@ export function CustomZoomControls({
   isLoading = false,
   layoutMode = "horizontal",
   onLayoutModeChange,
+  hasCourseReportNode = false,
+  onCourseReportEdit,
 }: CustomZoomControlsProps) {
   const { fitView, getZoom, zoomTo } = useReactFlow()
   const [zoom, setZoom] = useState(1)
@@ -144,53 +161,75 @@ export function CustomZoomControls({
   }, [getZoom, zoomTo])
 
   return (
-    <Panel position="bottom-right" className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg shadow-sm p-1">
-      <button
-        onClick={handleZoomOut}
-        className="p-1.5 rounded canvas-zoom-btn"
-        title="缩小"
-      >
-        <Minus className="h-4 w-4 text-gray-600" />
-      </button>
-      <span className="min-w-[48px] text-center text-sm text-gray-600 font-medium select-none canvas-zoom-text">
-        {zoomPercentage}%
-      </span>
-      <button
-        onClick={handleZoomIn}
-        className="p-1.5 rounded canvas-zoom-btn"
-        title="放大"
-      >
-        <Plus className="h-4 w-4 text-gray-600" />
-      </button>
-      <div className="w-px h-5 bg-gray-200 mx-1" />
-      <button
-        onClick={() => fitView({ padding: 0.2, maxZoom: 1 })}
-        className="p-1.5 rounded canvas-zoom-btn"
-        title="适应视图"
-      >
-        <Maximize className="h-4 w-4 text-gray-600" />
-      </button>
-      {/* 同步状态指示器 */}
-      <div className="w-px h-5 bg-gray-200 mx-1" />
-      <div className="px-1.5 flex items-center justify-center">
-        <SyncStatusIndicator isUploading={isUploading} isLoading={isLoading} />
-      </div>
-      <div className="w-px h-5 bg-gray-200 mx-1" />
-      <button
-        onClick={() => onLayoutModeChange?.("horizontal")}
-        className={`p-1.5 rounded canvas-zoom-btn ${layoutMode === "horizontal" ? "bg-gray-100" : ""}`}
-        title="水平布局"
-      >
-        <HorizontalLayoutIcon />
-      </button>
-      <button
-        onClick={() => onLayoutModeChange?.("vertical")}
-        className={`p-1.5 rounded canvas-zoom-btn ${layoutMode === "vertical" ? "bg-gray-100" : ""}`}
-        title="垂直布局"
-      >
-        <VerticalLayoutIcon />
-      </button>
-    </Panel>
+    <TooltipProvider delayDuration={0}>
+      <Panel position="bottom-right" className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg shadow-sm p-1">
+        <ControlTooltip label="缩小">
+          <button
+            onClick={handleZoomOut}
+            className="p-1.5 rounded canvas-zoom-btn"
+            aria-label="缩小"
+          >
+            <Minus className="h-4 w-4 text-gray-600" />
+          </button>
+        </ControlTooltip>
+        <span className="min-w-[48px] text-center text-sm text-gray-600 font-medium select-none canvas-zoom-text">
+          {zoomPercentage}%
+        </span>
+        <ControlTooltip label="放大">
+          <button
+            onClick={handleZoomIn}
+            className="p-1.5 rounded canvas-zoom-btn"
+            aria-label="放大"
+          >
+            <Plus className="h-4 w-4 text-gray-600" />
+          </button>
+        </ControlTooltip>
+        <div className="w-px h-5 bg-gray-200 mx-1" />
+        <ControlTooltip label="适应视图">
+          <button
+            onClick={() => fitView({ padding: 0.2, maxZoom: 1 })}
+            className="p-1.5 rounded canvas-zoom-btn"
+            aria-label="适应视图"
+          >
+            <Maximize className="h-4 w-4 text-gray-600" />
+          </button>
+        </ControlTooltip>
+        <ControlTooltip label={hasCourseReportNode ? "更新课程数据" : "请先完成课程设计/优化"}>
+          <button
+            onClick={onCourseReportEdit}
+            disabled={!hasCourseReportNode}
+            className="p-1.5 rounded canvas-zoom-btn disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:hover:bg-transparent"
+            aria-label={hasCourseReportNode ? "更新课程数据" : "请先完成课程设计/优化"}
+          >
+            <Save className="h-4 w-4 text-gray-600" />
+          </button>
+        </ControlTooltip>
+        {/* 同步状态指示器 */}
+        <div className="w-px h-5 bg-gray-200 mx-1" />
+        <div className="px-1.5 flex items-center justify-center">
+          <SyncStatusIndicator isUploading={isUploading} isLoading={isLoading} />
+        </div>
+        <div className="w-px h-5 bg-gray-200 mx-1" />
+        <ControlTooltip label="水平布局">
+          <button
+            onClick={() => onLayoutModeChange?.("horizontal")}
+            className={`p-1.5 rounded canvas-zoom-btn ${layoutMode === "horizontal" ? "bg-gray-100" : ""}`}
+            aria-label="水平布局"
+          >
+            <HorizontalLayoutIcon />
+          </button>
+        </ControlTooltip>
+        <ControlTooltip label="垂直布局">
+          <button
+            onClick={() => onLayoutModeChange?.("vertical")}
+            className={`p-1.5 rounded canvas-zoom-btn ${layoutMode === "vertical" ? "bg-gray-100" : ""}`}
+            aria-label="垂直布局"
+          >
+            <VerticalLayoutIcon />
+          </button>
+        </ControlTooltip>
+      </Panel>
+    </TooltipProvider>
   )
 }
 

@@ -17,6 +17,138 @@ import type {
   GraduationSupportData,
 } from "@/components/canvas-elements/types"
 
+interface CoursePointReferenceLookup {
+  byCanvasId: Map<string, CoursePointCardData>
+  byOriginalId: Map<string, CoursePointCardData>
+}
+
+function normalizePositiveId(value: unknown): string | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) && value > 0 ? String(value) : null
+  }
+
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const trimmedValue = value.trim()
+  if (!/^\d+$/.test(trimmedValue)) {
+    return null
+  }
+
+  const numericValue = Number(trimmedValue)
+  return Number.isFinite(numericValue) && numericValue > 0 ? String(numericValue) : null
+}
+
+function buildCoursePointReferenceLookup(coursePoints: CoursePointCardData[]): CoursePointReferenceLookup {
+  const byCanvasId = new Map<string, CoursePointCardData>()
+  const byOriginalId = new Map<string, CoursePointCardData>()
+
+  coursePoints.forEach((coursePoint) => {
+    const canvasId = typeof coursePoint.id === "string" ? coursePoint.id.trim() : ""
+    if (canvasId.length > 0) {
+      byCanvasId.set(canvasId, coursePoint)
+    }
+
+    const originalId = normalizePositiveId(coursePoint.originalId)
+    if (originalId !== null) {
+      byOriginalId.set(originalId, coursePoint)
+    }
+  })
+
+  return { byCanvasId, byOriginalId }
+}
+
+function resolveReferencedCoursePoint(
+  lookup: CoursePointReferenceLookup,
+  referenceId?: string,
+  referenceOriginalId?: number
+): CoursePointCardData | null {
+  const normalizedReferenceId = typeof referenceId === "string" ? referenceId.trim() : ""
+  if (normalizedReferenceId.length > 0) {
+    const matchedByCanvasId = lookup.byCanvasId.get(normalizedReferenceId)
+    if (matchedByCanvasId) {
+      return matchedByCanvasId
+    }
+
+    const referenceIdAsOriginalId = normalizePositiveId(normalizedReferenceId)
+    if (referenceIdAsOriginalId !== null) {
+      const matchedByOriginalId = lookup.byOriginalId.get(referenceIdAsOriginalId)
+      if (matchedByOriginalId) {
+        return matchedByOriginalId
+      }
+    }
+  }
+
+  const normalizedOriginalId = normalizePositiveId(referenceOriginalId)
+  if (normalizedOriginalId !== null) {
+    return lookup.byOriginalId.get(normalizedOriginalId) ?? null
+  }
+
+  return null
+}
+
+function syncCourseMatrixCoursePointReferences(
+  matrixData: CourseMatrixData,
+  lookup: CoursePointReferenceLookup
+): CourseMatrixData {
+  return {
+    ...matrixData,
+    rows: matrixData.rows.map((row) => ({
+      ...row,
+      supports: row.supports.map((support) => ({
+        ...support,
+        course_points: support.course_points.flatMap((coursePoint) => {
+          const latestCoursePoint = resolveReferencedCoursePoint(lookup, coursePoint.id)
+          if (!latestCoursePoint) {
+            return []
+          }
+
+          return [{
+            ...coursePoint,
+            id: latestCoursePoint.id,
+            name: latestCoursePoint.name,
+            description: latestCoursePoint.description,
+          }]
+        }),
+      })),
+    })),
+  }
+}
+
+function syncProjectMatrixCoursePointReferences(
+  matrixData: ProjectMatrixData,
+  lookup: CoursePointReferenceLookup
+): ProjectMatrixData {
+  return {
+    ...matrixData,
+    rows: matrixData.rows.flatMap((row) => {
+      const latestCoursePoint = resolveReferencedCoursePoint(
+        lookup,
+        row.course_point_id,
+        row.course_point_original_id
+      )
+
+      if (!latestCoursePoint) {
+        return []
+      }
+
+      const shouldPreserveProjectMatrixRowId =
+        typeof row.project_matrix_id === "number"
+        && row.project_matrix_id > 0
+        && row.course_point_id.startsWith("project_matrix_")
+
+      return [{
+        ...row,
+        course_point_id: shouldPreserveProjectMatrixRowId ? row.course_point_id : latestCoursePoint.id,
+        course_point_name: latestCoursePoint.name,
+        course_point_description: latestCoursePoint.description,
+        course_point_original_id: latestCoursePoint.originalId,
+      }]
+    }),
+  }
+}
+
 /**
  * 编辑弹窗状态类型
  */
@@ -408,7 +540,27 @@ export function useCanvasDrawers({
       setUpdatingPanelIds(prev => new Set(prev).add(panelId))
 
       try {
+        const coursePointLookup = buildCoursePointReferenceLookup(coursePoints)
+
         onCoursePointsUpdate?.(panelId, coursePoints)
+
+        flowNodes.forEach((node) => {
+          if (node.type === FlowNodeType.COURSE_MATRIX) {
+            onCourseMatrixUpdate?.(
+              node.id,
+              syncCourseMatrixCoursePointReferences(node.data as CourseMatrixData, coursePointLookup)
+            )
+            return
+          }
+
+          if (node.type === FlowNodeType.PROJECT_MATRIX) {
+            onProjectMatrixUpdate?.(
+              node.id,
+              syncProjectMatrixCoursePointReferences(node.data as ProjectMatrixData, coursePointLookup)
+            )
+          }
+        })
+
         await onEnsureLatestCanvasOssKey?.()
 
         setCoursePointDrawer({
@@ -430,7 +582,14 @@ export function useCanvasDrawers({
         }, 300)
       }
     },
-    [coursePointDrawer.panelId, onCoursePointsUpdate, onEnsureLatestCanvasOssKey]
+    [
+      coursePointDrawer.panelId,
+      flowNodes,
+      onCourseMatrixUpdate,
+      onCoursePointsUpdate,
+      onEnsureLatestCanvasOssKey,
+      onProjectMatrixUpdate,
+    ]
   )
 
   // 关闭课点编辑抽屉

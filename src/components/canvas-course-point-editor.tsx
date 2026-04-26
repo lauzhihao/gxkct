@@ -8,11 +8,12 @@
 import { useState, useMemo, useCallback, useEffect, useRef, type SetStateAction } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
+import { Textarea } from "@/shared/components/ui/textarea"
 import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 import { SortableOrderTag } from "@/shared/components/ui/sortable-order-tag"
 import { useSortableRowReorder } from "@/shared/hooks/use-sortable-row-reorder"
 import { cn } from "@/shared/utils/utils"
-import { Check, Loader2, Plus, Search, Trash2, X } from "lucide-react"
+import { Check, Loader2, Plus, Search, Sparkles, Trash2, X } from "lucide-react"
 import type { CoursePointCardData } from "./canvas-elements/types"
 
 interface CanvasCoursePointEditorProps {
@@ -28,6 +29,11 @@ interface CanvasCoursePointEditorProps {
   onClose: () => void
   /** 是否正在保存 */
   isSaving?: boolean
+}
+
+interface FooterMessage {
+  text: string
+  tone: "default" | "error"
 }
 
 function renameCoursePointNames(coursePoints: CoursePointCardData[]): CoursePointCardData[] {
@@ -80,6 +86,13 @@ function createDraftCoursePoint(id: string, index: number): CoursePointCardData 
   }
 }
 
+function parseBatchCoursePointInput(input: string): string[] {
+  return input
+    .split(/[\n;；]+/)
+    .map((value) => value.trim())
+    .filter(Boolean)
+}
+
 function focusFieldAtEnd(field: HTMLInputElement | HTMLTextAreaElement): void {
   field.scrollIntoView({ behavior: "smooth", block: "center" })
   field.focus()
@@ -107,6 +120,10 @@ export function CanvasCoursePointEditor({
   const [draftCoursePoint, setDraftCoursePoint] = useState<CoursePointCardData | null>(null)
   const [hasChanges, setHasChanges] = useState(false)
   const [searchKeyword, setSearchKeyword] = useState("")
+  const [selectedCoursePointIds, setSelectedCoursePointIds] = useState<Set<string>>(() => new Set())
+  const [isBatchAddExpanded, setIsBatchAddExpanded] = useState(false)
+  const [batchAddInput, setBatchAddInput] = useState("")
+  const [footerMessage, setFooterMessage] = useState<FooterMessage | null>(null)
   const descriptionInputRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
   const draftDescriptionInputRef = useRef<HTMLTextAreaElement | null>(null)
   const draftCoursePointId = draftCoursePoint ? draftCoursePoint.id : null
@@ -127,6 +144,11 @@ export function CanvasCoursePointEditor({
     setLocalCoursePoints(renameCoursePointNames(coursePoints))
     setDraftCoursePoint(null)
     setHasChanges(false)
+    setSearchKeyword("")
+    setSelectedCoursePointIds(new Set())
+    setIsBatchAddExpanded(false)
+    setBatchAddInput("")
+    setFooterMessage(null)
   }, [coursePoints])
 
   const setLocalCoursePointsWithSnapshot = useCallback((value: SetStateAction<CoursePointCardData[]>) => {
@@ -139,6 +161,19 @@ export function CanvasCoursePointEditor({
       return nextCoursePoints
     })
   }, [])
+
+  useEffect(() => {
+    setSelectedCoursePointIds((prevSelectedIds) => {
+      const availableIds = new Set(localCoursePoints.map((coursePoint) => coursePoint.id))
+      const nextSelectedIds = new Set(Array.from(prevSelectedIds).filter((id) => availableIds.has(id)))
+
+      if (nextSelectedIds.size === prevSelectedIds.size) {
+        return prevSelectedIds
+      }
+
+      return nextSelectedIds
+    })
+  }, [localCoursePoints])
 
   useEffect(() => {
     // [MOD] 显式判空：当 draftCoursePoint 尚未生成时直接退出，避免空引用
@@ -247,6 +282,8 @@ export function CanvasCoursePointEditor({
     }
 
     const nextIndex = getMaxCoursePointIndex(localCoursePoints) + 1
+    setIsBatchAddExpanded(false)
+    setFooterMessage(null)
     setDraftCoursePoint(createDraftCoursePoint(generateId(), nextIndex))
   }, [draftCoursePoint, generateId, localCoursePoints])
 
@@ -277,6 +314,7 @@ export function CanvasCoursePointEditor({
 
     setLocalCoursePointsWithSnapshot((prev) => renameCoursePointNames([...prev, draftCoursePoint]))
     setDraftCoursePoint(null)
+    setFooterMessage({ text: "已新增 1 个课点，点击暂存到画布后生效。", tone: "default" })
   }, [draftCoursePoint, setLocalCoursePointsWithSnapshot])
 
   const handleCancelDraftCoursePoint = useCallback(() => {
@@ -286,8 +324,105 @@ export function CanvasCoursePointEditor({
   // 删除课点
   const handleDelete = useCallback((id: string) => {
     setLocalCoursePointsWithSnapshot((prev) => renameCoursePointNames(prev.filter((cp) => cp.id !== id)))
+    setSelectedCoursePointIds((prev) => {
+      const next = new Set(prev)
+      next.delete(id)
+      return next
+    })
+    setFooterMessage({ text: "已删除课点，点击暂存到画布后生效。", tone: "default" })
   }, [setLocalCoursePointsWithSnapshot])
+
+  const toggleSelectAll = useCallback((checked: boolean) => {
+    if (checked) {
+      setSelectedCoursePointIds(new Set(filteredCoursePoints.map((coursePoint) => coursePoint.id)))
+      return
+    }
+
+    setSelectedCoursePointIds(new Set())
+  }, [filteredCoursePoints])
+
+  const toggleSelectCoursePoint = useCallback((id: string, checked: boolean) => {
+    setSelectedCoursePointIds((prev) => {
+      const next = new Set(prev)
+
+      if (checked) {
+        next.add(id)
+      } else {
+        next.delete(id)
+      }
+
+      return next
+    })
+  }, [])
+
+  const handleDeleteSelected = useCallback(() => {
+    if (selectedCoursePointIds.size === 0) {
+      return
+    }
+
+    const deleteCount = selectedCoursePointIds.size
+    setLocalCoursePointsWithSnapshot((prev) =>
+      renameCoursePointNames(prev.filter((coursePoint) => !selectedCoursePointIds.has(coursePoint.id)))
+    )
+    setSelectedCoursePointIds(new Set())
+    setFooterMessage({ text: `已删除 ${deleteCount} 个课点，点击暂存到画布后生效。`, tone: "default" })
+  }, [selectedCoursePointIds, setLocalCoursePointsWithSnapshot])
+
+  const handleBatchAddCoursePoints = useCallback(() => {
+    const parsedDescriptions = parseBatchCoursePointInput(batchAddInput)
+
+    if (parsedDescriptions.length === 0) {
+      setFooterMessage({ text: "请输入需要新增的课点描述。", tone: "error" })
+      return
+    }
+
+    const existingDescriptions = new Set(
+      localCoursePoints
+        .map((coursePoint) => (typeof coursePoint.description === "string" ? coursePoint.description.trim().toLowerCase() : ""))
+        .filter(Boolean)
+    )
+    const seenDescriptions = new Set<string>()
+    const descriptionsToAdd = parsedDescriptions.filter((description) => {
+      const normalizedDescription = description.toLowerCase()
+
+      if (existingDescriptions.has(normalizedDescription) || seenDescriptions.has(normalizedDescription)) {
+        return false
+      }
+
+      seenDescriptions.add(normalizedDescription)
+      return true
+    })
+
+    if (descriptionsToAdd.length === 0) {
+      setFooterMessage({
+        text: `本次共解析 ${parsedDescriptions.length} 个课点，新增 0 个，重复 ${parsedDescriptions.length} 个。`,
+        tone: "error",
+      })
+      return
+    }
+
+    const startIndex = getMaxCoursePointIndex(localCoursePoints) + 1
+    const nextCoursePoints = descriptionsToAdd.map((description, index) => ({
+      id: generateId(),
+      index: startIndex + index,
+      name: `课点${startIndex + index}`,
+      description,
+    }))
+
+    setLocalCoursePointsWithSnapshot((prev) => renameCoursePointNames([...prev, ...nextCoursePoints]))
+    setBatchAddInput("")
+    setIsBatchAddExpanded(false)
+    setFooterMessage({
+      text: `本次共解析 ${parsedDescriptions.length} 个课点，新增 ${descriptionsToAdd.length} 个，重复 ${parsedDescriptions.length - descriptionsToAdd.length} 个。`,
+      tone: "default",
+    })
+  }, [batchAddInput, generateId, localCoursePoints, setLocalCoursePointsWithSnapshot])
+
   const hasDraftCoursePoint = draftCoursePoint !== null
+  const selectedCount = selectedCoursePointIds.size
+  const isAllFilteredSelected = filteredCoursePoints.length > 0
+    && filteredCoursePoints.every((coursePoint) => selectedCoursePointIds.has(coursePoint.id))
+  const isEditingLocked = isSaving || hasDraftCoursePoint || isBatchAddExpanded
   const canReorder = localCoursePoints.length > 1 && !isSaving && searchKeyword.trim().length === 0 && !hasDraftCoursePoint
   const reorderTitle = searchKeyword.trim().length > 0
     ? "搜索结果中不可拖动排序"
@@ -342,7 +477,8 @@ export function CanvasCoursePointEditor({
               placeholder="搜索课点..."
               value={searchKeyword}
               onChange={(e) => setSearchKeyword(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+              disabled={isBatchAddExpanded}
+              className="w-full pl-10 pr-4 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
           <Button
@@ -350,21 +486,77 @@ export function CanvasCoursePointEditor({
             variant="outline"
             className="gap-2 flex-shrink-0"
             onClick={handleAddNew}
+            disabled={isSaving || isBatchAddExpanded}
           >
             <Plus className="w-4 h-4" />
-            新增
+            新增课点
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-2 flex-shrink-0"
+            onClick={() => {
+              setDraftCoursePoint(null)
+              setIsBatchAddExpanded((prev) => !prev)
+              setFooterMessage(null)
+            }}
+            disabled={isSaving}
+          >
+            <Sparkles className="w-4 h-4" />
+            批量新增
           </Button>
         </div>
       </div>
 
       {/* 课点列表 */}
       <div className="flex-1 overflow-hidden flex flex-col">
+        {isBatchAddExpanded ? (
+          <div className="flex-1 px-6 pb-6 pt-3">
+            <div className="flex h-full flex-col gap-3 rounded-lg border border-dashed border-border p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">按换行符、英文分号或中文分号分隔，系统会按输入顺序自动生成新的课点序号。</p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setBatchAddInput("")
+                      setIsBatchAddExpanded(false)
+                    }}
+                    disabled={isSaving}
+                  >
+                    返回列表
+                  </Button>
+                  <Button size="sm" onClick={handleBatchAddCoursePoints} disabled={isSaving || !batchAddInput.trim()}>
+                    解析并新增
+                  </Button>
+                </div>
+              </div>
+              <Textarea
+                value={batchAddInput}
+                onChange={(event) => setBatchAddInput(event.target.value)}
+                placeholder="请输入课点描述，每行一个。"
+                className="min-h-[280px] flex-1 resize-none"
+                disabled={isSaving}
+              />
+            </div>
+          </div>
+        ) : (
         <div className="flex flex-col overflow-hidden flex-1">
           {/* 表头 */}
           <div className="overflow-x-auto border-b border-border flex-shrink-0">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-secondary/30">
+                  <th className="px-4 py-3 text-center text-sm font-medium text-foreground w-12">
+                    <input
+                      type="checkbox"
+                      checked={isAllFilteredSelected}
+                      onChange={(event) => toggleSelectAll(event.target.checked)}
+                      className="w-4 h-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={isEditingLocked || filteredCoursePoints.length === 0}
+                    />
+                  </th>
                   <th className="px-4 py-3 text-center text-sm font-medium text-foreground w-16">
                     序号
                   </th>
@@ -392,6 +584,7 @@ export function CanvasCoursePointEditor({
                 <tbody>
                   {draftCoursePoint ? (
                     <tr className="border-b border-primary/20 bg-primary/5">
+                      <td className="px-4 py-3 text-center w-12" />
                       <td className="px-4 py-3 text-center text-sm font-medium text-primary w-16">
                         <div className="flex items-center justify-center">
                           <span className="inline-flex min-w-10 items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-sm font-semibold text-primary tabular-nums shadow-sm">
@@ -455,6 +648,15 @@ export function CanvasCoursePointEditor({
                         dragOverIndex === index && draggedItemId !== null ? "bg-primary/10" : "",
                       )}
                     >
+                      <td className="px-4 py-3 text-center w-12">
+                        <input
+                          type="checkbox"
+                          checked={selectedCoursePointIds.has(coursePoint.id)}
+                          onChange={(event) => toggleSelectCoursePoint(coursePoint.id, event.target.checked)}
+                          disabled={isEditingLocked}
+                          className="w-4 h-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                      </td>
                       <td className="px-4 py-3 text-center text-sm font-medium text-green-600 w-16">
                         <div className="flex items-center justify-center">
                           <SortableOrderTag
@@ -506,10 +708,28 @@ export function CanvasCoursePointEditor({
             )}
           </div>
         </div>
+        )}
       </div>
 
       {/* 底部按钮 */}
-      <div className="flex-shrink-0 px-6 py-4 border-t border-border flex justify-end gap-3">
+      <div className="flex-shrink-0 px-6 py-4 border-t border-border flex items-center justify-between gap-3">
+        <Button
+          size="sm"
+          variant="destructive"
+          onClick={handleDeleteSelected}
+          disabled={selectedCount === 0 || isEditingLocked}
+          className="gap-2"
+        >
+          <Trash2 className="w-4 h-4" />
+          删除 ({selectedCount})
+        </Button>
+        <div className="flex-1 px-4 text-center text-sm">
+          {footerMessage ? (
+            <span className={footerMessage.tone === "error" ? "text-destructive" : "text-primary"}>
+              {footerMessage.text}
+            </span>
+          ) : null}
+        </div>
         <Button variant="outline" onClick={onClose} disabled={isSaving}>
           取消
         </Button>
@@ -520,7 +740,7 @@ export function CanvasCoursePointEditor({
               保存中...
             </>
           ) : (
-            "保存"
+            "暂存到画布"
           )}
         </Button>
       </div>

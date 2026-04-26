@@ -7,7 +7,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react"
 import { Button } from "@/shared/components/ui/button"
-import { Loader2, Plus, X } from "lucide-react"
+import { Loader2, Plus } from "lucide-react"
 import type { CourseMatrixData, CourseMatrixCoursePoint } from "./canvas-elements/types"
 import { SupportLabel } from "@/shared/components/support-label"
 import { buildSupportLabelDisplay } from "@/shared/utils/support-label-display"
@@ -129,30 +129,16 @@ function CoursePointTag({
   })
 
   return (
-    <div className="inline-flex items-center gap-1">
-      <button
-        type="button"
-        onClick={onToggleLevel}
-        className="inline-flex"
-        title="点击切换支撑强度"
-      >
-        <SupportLabel
-          title={display.title}
-          desc={display.desc}
-          type={item.level}
-          size="sm"
-          tipsPosition="top"
-        />
-      </button>
-      <button
-        type="button"
-        onClick={onRemove}
-        className="ml-0.5 p-0.5 hover:bg-black/10 rounded transition-colors"
-        title="移除"
-      >
-        <X className="w-3 h-3" />
-      </button>
-    </div>
+    <SupportLabel
+      title={display.title}
+      desc={display.desc}
+      type={item.level}
+      size="sm"
+      tipsPosition="top"
+      showRemoveButton
+      onRemove={onRemove}
+      onClick={onToggleLevel}
+    />
   )
 }
 

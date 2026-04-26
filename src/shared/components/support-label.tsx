@@ -10,6 +10,7 @@ interface SupportLabelProps {
   type: "strong" | "weak"
   showRemoveButton?: boolean
   onRemove?: () => void
+  onClick?: () => void
   size?: "sm" | "md"
   tipsPosition?: "top" | "bottom" | "left" | "right"
   disableInnerTruncate?: boolean
@@ -21,6 +22,7 @@ export function SupportLabel({
   type,
   showRemoveButton = false,
   onRemove,
+  onClick,
   size = "md",
   tipsPosition = "bottom",
   disableInnerTruncate = false,
@@ -47,6 +49,16 @@ export function SupportLabel({
 
   const labelContent = (
     <span
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (!onClick || (event.key !== "Enter" && event.key !== " ")) {
+          return
+        }
+        event.preventDefault()
+        onClick()
+      }}
       className={cn(
         // 基础样式
         "inline-flex items-center gap-1 rounded font-medium cursor-pointer",

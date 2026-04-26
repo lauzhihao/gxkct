@@ -582,9 +582,9 @@ export const CanvasDrawers = memo(function CanvasDrawers({
           }
         }}
       >
-        <SheetContent side="right" className="w-[700px] sm:max-w-[700px] p-0 flex flex-col">
+        <SheetContent side="right" className="w-[720px] sm:max-w-[720px] p-0 flex flex-col">
           <SheetHeader className="px-6 pt-6 pb-4 border-b border-border flex-shrink-0">
-            <SheetTitle>编辑课点列表</SheetTitle>
+            <SheetTitle>课点管理</SheetTitle>
           </SheetHeader>
           <div className="flex-1 overflow-hidden">
             <CanvasCoursePointEditor
@@ -608,9 +608,9 @@ export const CanvasDrawers = memo(function CanvasDrawers({
           }
         }}
       >
-        <SheetContent side="right" className="w-[900px] sm:max-w-[900px] p-0 flex flex-col">
+        <SheetContent side="right" className="w-[75vw] sm:max-w-[75vw] p-0 flex flex-col">
           <SheetHeader className="px-6 pt-6 pb-4 border-b border-border flex-shrink-0">
-            <SheetTitle>编辑KSA列表</SheetTitle>
+            <SheetTitle>KSA管理</SheetTitle>
           </SheetHeader>
           <div className="flex-1 overflow-hidden">
             <CanvasKsaEditor

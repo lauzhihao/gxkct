@@ -6,6 +6,16 @@ import Image from "next/image"
 import { Plus, Copy, Check, FileText } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/shared/components/ui/sheet"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/shared/components/ui/alert-dialog"
 import { AiCanvasPanel } from "./ai-canvas-panel"
 import {
   CanvasAction,
@@ -115,6 +125,41 @@ const PROGRESS_STAGE_ROUTE_MAP: Record<string, FillProgressType> = {
   fill_project_matrix: "projectMatrix",
   fill_matrix: "matrix",
   fill_course_matrix: "matrix",
+}
+
+type CourseCanvasSaveState = "unchanged" | "changed_unsaved" | "changed_saved"
+
+const CANVAS_CHANGE_UI_ONLY_DATA_KEYS = new Set([
+  "highlighted",
+  "isDeleting",
+  "onDelete",
+  "selected",
+  "isSelected",
+  "isHovered",
+  "isDragging",
+  "dragging",
+])
+
+function normalizeCanvasDataForChangeSignature(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeCanvasDataForChangeSignature(item))
+  }
+
+  if (!value || typeof value !== "object") {
+    return value
+  }
+
+  const normalized: Record<string, unknown> = {}
+  Object.keys(value as Record<string, unknown>)
+    .sort()
+    .forEach((key) => {
+      if (CANVAS_CHANGE_UI_ONLY_DATA_KEYS.has(key)) return
+      const currentValue = (value as Record<string, unknown>)[key]
+      if (typeof currentValue === "function") return
+      normalized[key] = normalizeCanvasDataForChangeSignature(currentValue)
+    })
+
+  return normalized
 }
 
 function normalizeIndicatorText(rawText: string | undefined): string {
@@ -332,6 +377,10 @@ export function AiAssistantDrawer({
   const [isRegenerating, setIsRegenerating] = useState(false)
   // 重做标签状态（用于 UI 显示）
   const [regenerateTag, setRegenerateTag] = useState<RegenerateTag | null>(null)
+  const [courseCanvasSaveState, setCourseCanvasSaveState] = useState<CourseCanvasSaveState>("unchanged")
+  const [isUnsavedExitConfirmOpen, setIsUnsavedExitConfirmOpen] = useState(false)
+  const courseCanvasSaveStateRef = useRef<CourseCanvasSaveState>("unchanged")
+  const courseCanvasBaselineSignatureRef = useRef<string | null>(null)
 
   // 填充进度状态（合并课程矩阵、项目矩阵、课点、KSA 四种进度）
   const [fillProgress, setFillProgress] = useState<FillProgress>({})
@@ -445,6 +494,71 @@ export function AiAssistantDrawer({
     canvasSelectedIdRef.current = canvasSelectedId
   }, [canvasSelectedId])
 
+  useEffect(() => {
+    courseCanvasSaveStateRef.current = courseCanvasSaveState
+  }, [courseCanvasSaveState])
+
+  const createCanvasChangeSignature = useCallback(() => {
+    return JSON.stringify({
+      elements: canvasElementsRef.current.map((element) => ({
+        id: element.id,
+        type: element.type,
+        parentId: element.parentId,
+        data: normalizeCanvasDataForChangeSignature(element.data),
+      })),
+      edges: canvasEdgesRef.current.map((edge) => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+      })),
+      specialComponents: normalizeCanvasDataForChangeSignature(canvasSpecialComponentsRef.current),
+    })
+  }, [])
+
+  const resetCourseCanvasSaveMonitor = useCallback(() => {
+    courseCanvasBaselineSignatureRef.current = null
+    courseCanvasSaveStateRef.current = "unchanged"
+    setCourseCanvasSaveState("unchanged")
+  }, [])
+
+  const markCourseCanvasSaved = useCallback(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        courseCanvasBaselineSignatureRef.current = createCanvasChangeSignature()
+        courseCanvasSaveStateRef.current = "changed_saved"
+        setCourseCanvasSaveState("changed_saved")
+      })
+    })
+  }, [createCanvasChangeSignature])
+
+  const closeDrawerAndRefreshIfNeeded = useCallback((shouldRefresh: boolean) => {
+    onOpenChange(false)
+    if (shouldRefresh && typeof window !== "undefined") {
+      window.setTimeout(() => {
+        window.location.reload()
+      }, 80)
+    }
+  }, [onOpenChange])
+
+  const handleDrawerOpenChange = useCallback((nextOpen: boolean) => {
+    if (nextOpen) {
+      onOpenChange(true)
+      return
+    }
+
+    if (courseCanvasSaveStateRef.current === "changed_unsaved") {
+      setIsUnsavedExitConfirmOpen(true)
+      return
+    }
+
+    closeDrawerAndRefreshIfNeeded(courseCanvasSaveStateRef.current === "changed_saved")
+  }, [closeDrawerAndRefreshIfNeeded, onOpenChange])
+
+  const handleConfirmExitWithoutSaving = useCallback(() => {
+    setIsUnsavedExitConfirmOpen(false)
+    closeDrawerAndRefreshIfNeeded(false)
+  }, [closeDrawerAndRefreshIfNeeded])
+
   const waitForCanvasStateFlush = useCallback(async () => {
     await new Promise<void>((resolve) => {
       requestAnimationFrame(() => {
@@ -548,6 +662,7 @@ export function AiAssistantDrawer({
       streamingControllerRef.current?.abort()
       clearCanvas()
       clearCanvasPersistence()
+      resetCourseCanvasSaveMonitor()
 
       // 3. 重置聊天消息为课程专用欢迎消息
       // 从课程详情页进入时，使用定制的欢迎语
@@ -625,6 +740,7 @@ export function AiAssistantDrawer({
     clearCanvas,
     clearCanvasPersistence,
     loadCanvasData,
+    resetCourseCanvasSaveMonitor,
     updateCanvasBuildProgressWithEta,
   ])
 
@@ -633,8 +749,9 @@ export function AiAssistantDrawer({
     if (!open) {
       initialCanvasDataProcessedRef.current = false
       setIsCanvasInteractionLocked(false)
+      resetCourseCanvasSaveMonitor()
     }
-  }, [open])
+  }, [open, resetCourseCanvasSaveMonitor])
 
   // 监听画布数据变化，更新持久化数据
   // 重要：必须在画布加载完成后才能保存，否则会用空数据覆盖已保存的数据
@@ -646,6 +763,36 @@ export function AiAssistantDrawer({
       updateCanvasData(canvasElements, canvasEdges, canvasSpecialComponents, selectedIds)
     }
   }, [sessionId, canvasElements, canvasEdges, canvasSpecialComponents, canvasSelectedId, isCanvasHydrating, updateCanvasData])
+
+  useEffect(() => {
+    if (!open || !sessionId || hasLoadedCanvasRef.current !== sessionId || isCanvasHydrating) {
+      return
+    }
+
+    const currentSignature = createCanvasChangeSignature()
+    if (courseCanvasBaselineSignatureRef.current === null) {
+      courseCanvasBaselineSignatureRef.current = currentSignature
+      courseCanvasSaveStateRef.current = "unchanged"
+      setCourseCanvasSaveState("unchanged")
+      return
+    }
+
+    if (
+      currentSignature !== courseCanvasBaselineSignatureRef.current &&
+      courseCanvasSaveStateRef.current !== "changed_unsaved"
+    ) {
+      courseCanvasSaveStateRef.current = "changed_unsaved"
+      setCourseCanvasSaveState("changed_unsaved")
+    }
+  }, [
+    open,
+    sessionId,
+    isCanvasHydrating,
+    canvasElements,
+    canvasEdges,
+    canvasSpecialComponents,
+    createCanvasChangeSignature,
+  ])
 
   // SSE 流式处理 Hook（提供统一的流处理能力）
   const {
@@ -691,6 +838,7 @@ export function AiAssistantDrawer({
     clearCanvas()
     // 清除画布持久化数据
     clearCanvasPersistence()
+    resetCourseCanvasSaveMonitor()
     // 重置画布加载标志，允许新会话加载其画布数据
     hasLoadedCanvasRef.current = null
     // 重置SSE事件状态
@@ -709,7 +857,7 @@ export function AiAssistantDrawer({
         method: 'DELETE',
       }).catch(() => {})
     }
-  }, [sessionId, clearCanvas, clearCanvasPersistence, clearAttachedFiles])
+  }, [sessionId, clearCanvas, clearCanvasPersistence, clearAttachedFiles, resetCourseCanvasSaveMonitor])
 
   // 上传文件到OSS
   const uploadFileToOss = useCallback(async (file: File): Promise<{ url: string; ossKey: string } | null> => {
@@ -2016,7 +2164,7 @@ export function AiAssistantDrawer({
   }, [handleFillCoursePoints])
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={handleDrawerOpenChange}>
       <SheetContent
         side="right"
         className={`ai-drawer-content p-0 bg-background border-border/40 transition-[width] duration-500 ease-out ${
@@ -2069,7 +2217,11 @@ export function AiAssistantDrawer({
                       if (!showGeminiEntry) {
                         return
                       }
-                      onOpenChange(false)
+                      if (courseCanvasSaveStateRef.current === "changed_unsaved") {
+                        handleDrawerOpenChange(false)
+                        return
+                      }
+                      handleDrawerOpenChange(false)
                       setIsGeminiDemoOpen(true)
                     }}
                     title="切换到 Gemini 助手"
@@ -2291,6 +2443,7 @@ export function AiAssistantDrawer({
                     treeData={treeData}
                     onSaveSuccess={(majorId, courseId) => {
                       console.log("[AI助手] 课程保存成功, majorId:", majorId, "courseId:", courseId)
+                      markCourseCanvasSaved()
                     }}
                     onEnsureLatestCanvasOssKey={ensureLatestCanvasOssKey}
 	                    onUpdateCourseInfo={(updates) => {
@@ -2347,6 +2500,32 @@ export function AiAssistantDrawer({
         </div>
 
       </SheetContent>
+      <AlertDialog open={isUnsavedExitConfirmOpen} onOpenChange={setIsUnsavedExitConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认退出</AlertDialogTitle>
+            <AlertDialogDescription className="whitespace-pre-line">
+              {"您的课程设计/优化稿尚未保存，现在退出可能会丢失。\n请确认是否退出？"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction asChild>
+              <Button
+                variant="outline"
+                className="bg-white text-primary border-primary/30 hover:bg-primary/5 hover:text-primary"
+                onClick={handleConfirmExitWithoutSaving}
+              >
+                仍要退出
+              </Button>
+            </AlertDialogAction>
+            <AlertDialogCancel asChild>
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
+                继续编辑
+              </Button>
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <GeminiDemoDrawer
         open={isGeminiDemoOpen}
         onOpenChange={setIsGeminiDemoOpen}
