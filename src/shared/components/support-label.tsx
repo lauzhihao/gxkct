@@ -1,6 +1,6 @@
 "use client"
 
-import { Star } from "lucide-react"
+import { Star, X } from "lucide-react"
 import { cn } from "@/shared/utils/utils"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/components/ui/tooltip"
 
@@ -63,10 +63,15 @@ export function SupportLabel({
       <span className={cn("inline-block", !disableInnerTruncate && "max-w-[80px] truncate")}>{title}</span>
       {showRemoveButton && (
         <button
-          onClick={onRemove}
-          className="hover:text-red-600 transition-colors ml-1"
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation()
+            onRemove?.()
+          }}
+          className="ml-1 p-0.5 hover:bg-black/10 rounded transition-colors"
+          title="移除"
         >
-          ✕
+          <X className="w-3 h-3" />
         </button>
       )}
     </span>

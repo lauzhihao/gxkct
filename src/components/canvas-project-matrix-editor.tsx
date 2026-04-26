@@ -825,6 +825,22 @@ export function CanvasProjectMatrixEditor({
     []
   )
 
+  const handleUpdateNonNegativeNumberField = useCallback(
+    (coursePointId: string, field: "theory_hours" | "practice_hours", inputValue: string) => {
+      if (inputValue.trim() === "") {
+        return
+      }
+
+      const parsedValue = Number(inputValue)
+      if (!Number.isFinite(parsedValue) || parsedValue < 0) {
+        return
+      }
+
+      handleUpdateRowField(coursePointId, field, parsedValue)
+    },
+    [handleUpdateRowField]
+  )
+
   // 更新任务目标
   const handleUpdateTaskObjectives = useCallback(
     (objectives: ProjectMatrixTaskObjective[]) => {
@@ -1027,12 +1043,14 @@ export function CanvasProjectMatrixEditor({
                 <td className="px-2 py-2 border border-gray-200 bg-white">
                   <input
                     type="number"
-                    value={row.theory_hours ?? ""}
+                    min={0}
+                    step={0.5}
+                    value={typeof row.theory_hours === "number" ? row.theory_hours : ""}
                     onChange={(e) =>
-                      handleUpdateRowField(
+                      handleUpdateNonNegativeNumberField(
                         row.course_point_id,
                         "theory_hours",
-                        parseInt(e.target.value) || 0
+                        e.target.value
                       )
                     }
                     className="w-full px-1 py-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-teal-500/50 text-center"
@@ -1043,12 +1061,14 @@ export function CanvasProjectMatrixEditor({
                 <td className="px-2 py-2 border border-gray-200 bg-white">
                   <input
                     type="number"
-                    value={row.practice_hours ?? ""}
+                    min={0}
+                    step={0.5}
+                    value={typeof row.practice_hours === "number" ? row.practice_hours : ""}
                     onChange={(e) =>
-                      handleUpdateRowField(
+                      handleUpdateNonNegativeNumberField(
                         row.course_point_id,
                         "practice_hours",
-                        parseInt(e.target.value) || 0
+                        e.target.value
                       )
                     }
                     className="w-full px-1 py-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-teal-500/50 text-center"

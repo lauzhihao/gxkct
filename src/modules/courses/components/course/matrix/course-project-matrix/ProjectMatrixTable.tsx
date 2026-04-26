@@ -29,6 +29,7 @@ interface ProjectMatrixTableProps {
   ) => void
   onOpenTaskObjectivesDialog: (projectId: string, goals: ProjectMatrixGoal[]) => void
   onOpenKsaDialog: (chapterId: string, coursePointId: string, taskId: string) => void
+  onRemoveKsaSupport: (courseMatrixId: number | undefined, taskGoalId: number, ksaId: number) => void
   onFocusCell: (cellId: string | null) => void
 }
 
@@ -40,6 +41,7 @@ export function ProjectMatrixTable({
   onUpdateCourseMatrixField,
   onOpenTaskObjectivesDialog,
   onOpenKsaDialog,
+  onRemoveKsaSupport,
   onFocusCell,
 }: ProjectMatrixTableProps) {
   const canManageProjectMatrix = courseEditable
@@ -81,6 +83,16 @@ export function ProjectMatrixTable({
   const handleOpenKsaDialogWithPermission = (projectId: string, coursePointId: string, taskId: string) => {
     if (!canManageProjectMatrix) return
     onOpenKsaDialog(projectId, coursePointId, taskId)
+  }
+
+  const handleRemoveKsaSupportWithPermission = (
+    courseMatrixId: number | undefined,
+    taskGoalId: number,
+    ksaId: number | undefined,
+  ) => {
+    if (!canManageProjectMatrix) return
+    if (typeof ksaId !== "number" || !Number.isInteger(ksaId) || ksaId <= 0) return
+    onRemoveKsaSupport(courseMatrixId, taskGoalId, ksaId)
   }
 
   if (!projectMatrixData?.projects || projectMatrixData.projects.length === 0) {
@@ -233,10 +245,13 @@ export function ProjectMatrixTable({
                               </td>
                               {goals.map((goal: ProjectMatrixGoal, goalIdx: number) => {
                                 // 查找该教学目标对应的所有projectMatrix
-                                const goalProjectMatrices =
-                                  item.projectMatrices?.filter(
-                                    (pm: ProjectMatrixItemProjectMatrix) => String(pm.taskGoalId) === String(goal.id)
-                                  ) || []
+                                let goalProjectMatrices: ProjectMatrixItemProjectMatrix[] = []
+                                if (item.projectMatrices !== undefined) {
+                                  goalProjectMatrices = item.projectMatrices.filter(
+                                    (pm: ProjectMatrixItemProjectMatrix) =>
+                                      String(pm.taskGoalId) === String(goal.id) && pm.id >= 0
+                                  )
+                                }
 
                                 return (
                                   <td
@@ -255,6 +270,14 @@ export function ProjectMatrixTable({
                                             title={`${pm.ksa?.title}${pm.ksa?.level}`}
                                             desc={pm.ksa?.description}
                                             type={pm.relate?.relate === 0 ? "strong" : "weak"}
+                                            showRemoveButton={canManageProjectMatrix}
+                                            onRemove={() =>
+                                              handleRemoveKsaSupportWithPermission(
+                                                item.courseMatrix?.id,
+                                                goal.id,
+                                                pm.ksa?.id
+                                              )
+                                            }
                                             size="md"
                                           />
                                         ))}
