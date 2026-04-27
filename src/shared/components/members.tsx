@@ -526,7 +526,7 @@ export function Members({ node }: MembersProps) {
             collegeId,
             permissionId,
             relativeId,
-            userName: newUserAccount,
+            userName: newUserName,
             email: newUserAccount,
           },
         ]
