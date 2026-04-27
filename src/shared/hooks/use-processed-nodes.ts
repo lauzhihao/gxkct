@@ -4,7 +4,11 @@ import { useMemo } from "react"
 import type { Node } from "@xyflow/react"
 
 import { FlowNodeType } from "@/components/flow/utils/types"
-import { CanvasComponentType, type KsaItemData } from "@/components/canvas-elements/types"
+import {
+  CanvasComponentType,
+  type CourseMatrixData,
+  type KsaItemData,
+} from "@/components/canvas-elements/types"
 import type { HighlightState } from "./use-canvas-highlight"
 import type { FillProgress } from "@/types/ai-assistant"
 import { getKsaMatchIds } from "@/shared/utils/ksa"
@@ -56,6 +60,31 @@ const PANEL_BOTTOM_PADDING = 10
 const CARD_GAP_Y = 10
 const PANEL_MIN_HEIGHT = 200
 const COURSE_POINT_FOLD_BAR_HEIGHT = 34
+type CoursePointSupportLevel = "strong" | "weak"
+
+function buildCourseMatrixPointLevelKey(chapterId: string, pointId: string): string {
+  return `${chapterId}::${pointId}`
+}
+
+function setCoursePointSupportLevel(
+  map: Record<string, CoursePointSupportLevel>,
+  chapterId: string,
+  pointId: string,
+  level: CoursePointSupportLevel
+): void {
+  const normalizedPointId = pointId.trim()
+  if (chapterId.length === 0 || normalizedPointId.length === 0) {
+    return
+  }
+
+  const key = buildCourseMatrixPointLevelKey(chapterId, normalizedPointId)
+  const existingLevel = map[key]
+  if (existingLevel === "strong") {
+    return
+  }
+
+  map[key] = level === "strong" ? "strong" : "weak"
+}
 
 /**
  * useProcessedNodes hook 参数
@@ -224,11 +253,10 @@ export function useProcessedNodes({
         name?: string
         description?: string
         content?: string
+        originalId?: number
       }
 
-      const pointId = typeof pointData.id === "string" && pointData.id.trim().length > 0
-        ? pointData.id
-        : node.id
+      const pointId = typeof pointData.id === "string" ? pointData.id.trim() : ""
 
       const pointName = typeof pointData.name === "string" ? pointData.name.trim() : ""
       const pointDescription = typeof pointData.description === "string"
@@ -236,12 +264,76 @@ export function useProcessedNodes({
         : typeof pointData.content === "string"
           ? pointData.content.trim()
           : ""
+      const pointMeta = {
+        name: pointName.length > 0 ? pointName : undefined,
+        description: pointDescription.length > 0 ? pointDescription : undefined,
+      }
 
-      map[pointId] = {
-        name: pointName || undefined,
-        description: pointDescription || undefined,
+      map[node.id] = pointMeta
+
+      if (pointId.length > 0) {
+        map[pointId] = pointMeta
+      }
+
+      if (typeof pointData.originalId === "number") {
+        map[String(pointData.originalId)] = pointMeta
       }
     }
+
+    return map
+  }, [flowNodes])
+
+  const courseMatrixPointLevelMap = useMemo(() => {
+    const map: Record<string, CoursePointSupportLevel> = {}
+    const courseMatrixNode = flowNodes.find(
+      node => node.type === FlowNodeType.COURSE_MATRIX
+    )
+
+    if (!courseMatrixNode?.data) {
+      return map
+    }
+
+    const courseMatrixData = courseMatrixNode.data as unknown as CourseMatrixData
+    if (!Array.isArray(courseMatrixData.rows)) {
+      return map
+    }
+
+    courseMatrixData.rows.forEach((row) => {
+      if (!Array.isArray(row.supports)) {
+        return
+      }
+
+      row.supports.forEach((support) => {
+        if (!Array.isArray(support.course_points)) {
+          return
+        }
+
+        support.course_points.forEach((coursePoint) => {
+          setCoursePointSupportLevel(
+            map,
+            row.chapter_id,
+            coursePoint.id,
+            coursePoint.level
+          )
+
+          if (typeof coursePoint.originalMatrixId === "number") {
+            const originalMatrixId = String(coursePoint.originalMatrixId)
+            setCoursePointSupportLevel(
+              map,
+              row.chapter_id,
+              originalMatrixId,
+              coursePoint.level
+            )
+            setCoursePointSupportLevel(
+              map,
+              row.chapter_id,
+              `project_matrix_${originalMatrixId}`,
+              coursePoint.level
+            )
+          }
+        })
+      })
+    })
 
     return map
   }, [flowNodes])
@@ -404,6 +496,10 @@ export function useProcessedNodes({
             progressMessage: isRegenerating ? fillProgress.projectMatrix : null,
             // 注入 KSA 卡片数据映射，用于通过 id 匹配获取完整 KSA 信息
             ksaItemsMap,
+            // 注入课点面板实时数据，用于首列课点 hover 展示最新内容
+            coursePointMetaMap,
+            // 注入课程矩阵支撑强弱，用于项目矩阵首列课点标签颜色同步
+            courseMatrixPointLevelMap,
           },
         }
       }
@@ -574,6 +670,7 @@ export function useProcessedNodes({
     ksaItemsMap,
     ksaPanelStatsMap,
     coursePointMetaMap,
+    courseMatrixPointLevelMap,
     coursePointPanelFoldState,
   ])
 }

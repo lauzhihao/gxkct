@@ -13,6 +13,9 @@ import type {
 import { FlowNodeType } from "@/components/flow/utils/types"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip"
 import { SupportLabel } from "@/shared/components/support-label"
+import { buildSupportLabelDisplay } from "@/shared/utils/support-label-display"
+
+type CoursePointSupportLevel = "strong" | "weak"
 
 /**
  * 项目矩阵节点扩展数据类型
@@ -30,8 +33,16 @@ export interface ProjectMatrixNodeData extends ProjectMatrixData {
   onEdit?: (nodeId: string) => void
   /** KSA 卡片数据映射（从 KSA 面板注入），用于通过 id 匹配获取完整信息 */
   ksaItemsMap?: Record<string, KsaItemData>
+  /** 课点卡片数据映射（从课点面板注入），用于 hover 展示最新课点内容 */
+  coursePointMetaMap?: Record<string, { name?: string; description?: string }>
+  /** 课程矩阵课点支撑强弱映射，用于同步首列课点标签颜色 */
+  courseMatrixPointLevelMap?: Record<string, CoursePointSupportLevel>
   /** 允许额外的未知属性 */
   [key: string]: unknown
+}
+
+function buildCourseMatrixPointLevelKey(chapterId: string, pointId: string): string {
+  return `${chapterId}::${pointId}`
 }
 
 /**
@@ -86,9 +97,9 @@ function KsaLabel({
         </span>
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-[300px]">
-        <div className={`flex items-start gap-1.5 ${isStrong ? "text-orange-700" : "text-green-700"}`}>
-          <Star className={`w-3 h-3 flex-shrink-0 mt-0.5 ${isStrong ? "fill-current" : ""}`} />
-          <span className="leading-relaxed">{tooltipContent}</span>
+        <div className={`flex items-center gap-1.5 ${isStrong ? "text-orange-700" : "text-green-700"}`}>
+          <Star className={`w-3 h-3 flex-shrink-0 ${isStrong ? "fill-current" : ""}`} />
+          <span className="min-w-0 leading-relaxed">{tooltipContent}</span>
         </div>
       </TooltipContent>
     </Tooltip>
@@ -106,6 +117,45 @@ export const ProjectMatrixNodeComponent = memo(function ProjectMatrixNodeCompone
   const highlighted = data.highlighted ?? false
   const taskObjectives = data.task_objectives || []
   const rows = useMemo(() => data.rows ?? [], [data.rows])
+
+  const getCoursePointMeta = useCallback((row: ProjectMatrixData["rows"][number]) => {
+    const pointMetaById = data.coursePointMetaMap?.[row.course_point_id]
+    if (pointMetaById) {
+      return pointMetaById
+    }
+
+    if (typeof row.course_point_original_id === "number") {
+      return data.coursePointMetaMap?.[String(row.course_point_original_id)]
+    }
+
+    return undefined
+  }, [data.coursePointMetaMap])
+
+  const getCoursePointLevel = useCallback((row: ProjectMatrixData["rows"][number]): CoursePointSupportLevel => {
+    const levelMap = data.courseMatrixPointLevelMap
+    if (!levelMap) {
+      return "strong"
+    }
+
+    const candidatePointIds = [row.course_point_id]
+    if (typeof row.course_point_original_id === "number") {
+      candidatePointIds.push(String(row.course_point_original_id))
+    }
+    if (typeof row.project_matrix_id === "number") {
+      const matrixId = String(row.project_matrix_id)
+      candidatePointIds.push(matrixId)
+      candidatePointIds.push(`project_matrix_${matrixId}`)
+    }
+
+    for (const pointId of candidatePointIds) {
+      const level = levelMap[buildCourseMatrixPointLevelKey(data.chapter_id, pointId)]
+      if (level === "strong" || level === "weak") {
+        return level
+      }
+    }
+
+    return "strong"
+  }, [data.chapter_id, data.courseMatrixPointLevelMap])
 
   const supportIndex = useMemo(() => {
     const rowSupportMap: Record<string, Record<string, ProjectMatrixObjectiveSupport>> = {}
@@ -220,22 +270,36 @@ export const ProjectMatrixNodeComponent = memo(function ProjectMatrixNodeCompone
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
-                  <tr
-                    key={row.course_point_id}
-                    onClick={() => handleCoursePointClick(row.course_point_id)}
-                    className="border-t border-slate-100 cursor-pointer canvas-table-row"
-                  >
-                    {/* 课点名称 - 使用 SupportLabel 标签渲染 */}
-                    <td className="px-3 py-2 text-gray-700 border-r border-slate-200">
-                      <SupportLabel
-                        title={row.course_point_name}
-                        desc={row.course_point_description}
-                        type="strong"
-                        size="sm"
-                        tipsPosition="right"
-                      />
-                    </td>
+                {rows.map((row) => {
+                  const coursePointMeta = getCoursePointMeta(row)
+                  const coursePointDescription =
+                    typeof coursePointMeta?.description === "string" &&
+                    coursePointMeta.description.length > 0
+                      ? coursePointMeta.description
+                      : row.course_point_description
+                  const coursePointDisplay = buildSupportLabelDisplay({
+                    title: coursePointMeta?.name,
+                    fallbackTitle: row.course_point_name,
+                    description: coursePointDescription,
+                  })
+                  const coursePointLevel = getCoursePointLevel(row)
+
+                  return (
+                    <tr
+                      key={row.course_point_id}
+                      onClick={() => handleCoursePointClick(row.course_point_id)}
+                      className="border-t border-slate-100 cursor-pointer canvas-table-row"
+                    >
+                      {/* 课点名称 - 使用 SupportLabel 标签渲染 */}
+                      <td className="px-3 py-2 text-gray-700 border-r border-slate-200">
+                        <SupportLabel
+                          title={coursePointDisplay.title}
+                          desc={coursePointDisplay.desc}
+                          type={coursePointLevel}
+                          size="sm"
+                          tipsPosition="right"
+                        />
+                      </td>
                     {/* 任务目标交叉单元格 - 显示KSA支撑 */}
                     {taskObjectives.map((obj) => {
                       const support = supportIndex[row.course_point_id]?.[obj.id]
@@ -283,11 +347,12 @@ export const ProjectMatrixNodeComponent = memo(function ProjectMatrixNodeCompone
                       {row.theory_hours ?? "-"}
                     </td>
                     {/* 实践学时 */}
-                    <td className="px-3 py-2 text-center text-gray-500">
-                      {row.practice_hours ?? "-"}
-                    </td>
-                  </tr>
-                ))}
+                      <td className="px-3 py-2 text-center text-gray-500">
+                        {row.practice_hours ?? "-"}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

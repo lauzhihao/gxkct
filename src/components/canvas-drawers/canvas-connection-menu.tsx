@@ -2,9 +2,16 @@
 
 import { memo } from "react"
 import type { Node } from "@xyflow/react"
-import { Plus, Grid3X3, Table, FileText, BookOpen } from "lucide-react"
+import { Plus, Grid3X3, Table, FileText, BookOpen, X } from "lucide-react"
 import { FlowNodeType } from "../flow/utils/types"
-import type { GraduationSupportData } from "@/components/canvas-elements/types"
+import type {
+  GraduationSupportData,
+  KsaItemData,
+  ProjectMatrixData,
+  ProjectMatrixKsaItem,
+} from "@/components/canvas-elements/types"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/components/ui/tooltip"
+import { getKsaMatchIds } from "@/shared/utils/ksa"
 
 /**
  * 连接菜单选项类型
@@ -32,6 +39,222 @@ export interface CanvasConnectionMenuProps {
   flowNodes: Node[]
   /** 菜单选择回调 */
   onMenuSelect: (option: ConnectionMenuOption) => void
+  /** 菜单关闭回调 */
+  onClose: () => void
+}
+
+interface ProjectMatrixValidationIssue {
+  matrixLabel: string
+  rowLabel?: string
+  reason: string
+}
+
+type KsaCategory = "K" | "S" | "A"
+type KsaLookupMap = Record<string, KsaItemData>
+
+function addKsaLookupItem(
+  map: KsaLookupMap,
+  key: string,
+  item: KsaItemData
+): void {
+  const normalizedKey = key.trim()
+  if (normalizedKey.length === 0) {
+    return
+  }
+
+  map[normalizedKey] = item
+}
+
+function getProjectMatrixLabel(matrixData: ProjectMatrixData): string {
+  const chapterName = typeof matrixData.chapter_name === "string"
+    ? matrixData.chapter_name.trim()
+    : ""
+
+  if (typeof matrixData.chapter_index === "number" && chapterName.length > 0) {
+    return `第${matrixData.chapter_index}章 项目矩阵 - ${chapterName}`
+  }
+
+  if (typeof matrixData.chapter_index === "number") {
+    return `第${matrixData.chapter_index}章 项目矩阵`
+  }
+
+  if (chapterName.length > 0) {
+    return `项目矩阵 - ${chapterName}`
+  }
+
+  return "项目矩阵"
+}
+
+function getProjectMatrixRowLabel(
+  row: ProjectMatrixData["rows"][number],
+  rowIndex: number
+): string {
+  const coursePointName = typeof row.course_point_name === "string"
+    ? row.course_point_name.trim()
+    : ""
+
+  if (coursePointName.length > 0) {
+    return coursePointName
+  }
+
+  const coursePointId = typeof row.course_point_id === "string"
+    ? row.course_point_id.trim()
+    : ""
+
+  if (coursePointId.length > 0) {
+    return coursePointId
+  }
+
+  return `第${rowIndex + 1}行`
+}
+
+function resolveProjectMatrixKsaCategory(
+  item: ProjectMatrixKsaItem,
+  ksaItemsMap: KsaLookupMap
+): KsaCategory | null {
+  if (item.category === "K" || item.category === "S" || item.category === "A") {
+    return item.category
+  }
+
+  const matchedById = ksaItemsMap[item.id]
+  if (matchedById) {
+    return matchedById.category
+  }
+
+  const matchedByName = ksaItemsMap[item.name]
+  if (matchedByName) {
+    return matchedByName.category
+  }
+
+  const nameText = typeof item.name === "string" ? item.name.trim().toUpperCase() : ""
+  if (nameText.startsWith("K")) {
+    return "K"
+  }
+  if (nameText.startsWith("S")) {
+    return "S"
+  }
+  if (nameText.startsWith("A")) {
+    return "A"
+  }
+
+  const idText = typeof item.id === "string" ? item.id.trim().toUpperCase() : ""
+  if (idText.startsWith("K")) {
+    return "K"
+  }
+  if (idText.startsWith("S")) {
+    return "S"
+  }
+  if (idText.startsWith("A")) {
+    return "A"
+  }
+
+  return null
+}
+
+function getProjectMatrixValidationIssues(
+  matrixData: ProjectMatrixData,
+  ksaItemsMap: KsaLookupMap
+): ProjectMatrixValidationIssue[] {
+  const matrixLabel = getProjectMatrixLabel(matrixData)
+  const issues: ProjectMatrixValidationIssue[] = []
+
+  if (!Array.isArray(matrixData.rows)) {
+    issues.push({
+      matrixLabel,
+      reason: "缺少课点行",
+    })
+    return issues
+  }
+
+  if (matrixData.rows.length === 0) {
+    issues.push({
+      matrixLabel,
+      reason: "缺少课点行",
+    })
+  }
+
+  if (!Array.isArray(matrixData.task_objectives)) {
+    issues.push({
+      matrixLabel,
+      reason: "缺少任务目标",
+    })
+  } else if (matrixData.task_objectives.length === 0) {
+    issues.push({
+      matrixLabel,
+      reason: "缺少任务目标",
+    })
+  }
+
+  matrixData.rows.forEach((row, rowIndex) => {
+    if (!Array.isArray(row.objective_supports)) {
+      issues.push({
+        matrixLabel,
+        rowLabel: getProjectMatrixRowLabel(row, rowIndex),
+        reason: "缺少K或S支撑和A支撑",
+      })
+      return
+    }
+
+    // 按课点行汇总所有任务目标单元格的 KSA，只要求整行满足 K/S + A。
+    const ksaItems = row.objective_supports.flatMap((support) => {
+      if (!Array.isArray(support.ksa_items)) {
+        return []
+      }
+
+      return support.ksa_items
+    })
+    const ksaCategories = ksaItems.map((item) =>
+      resolveProjectMatrixKsaCategory(item, ksaItemsMap)
+    )
+    const hasKnowledgeOrSkill = ksaCategories.some((category) =>
+      category === "K" ? true : category === "S"
+    )
+    const hasAttitude = ksaCategories.some((category) => category === "A")
+
+    if (hasKnowledgeOrSkill && hasAttitude) {
+      return
+    }
+
+    const reasonParts: string[] = []
+    if (!hasKnowledgeOrSkill) {
+      reasonParts.push("缺少K或S支撑")
+    }
+    if (!hasAttitude) {
+      reasonParts.push("缺少A支撑")
+    }
+
+    issues.push({
+      matrixLabel,
+      rowLabel: getProjectMatrixRowLabel(row, rowIndex),
+      reason: reasonParts.join("，"),
+    })
+  })
+
+  return issues
+}
+
+function formatProjectMatrixValidationTitle(
+  issues: ProjectMatrixValidationIssue[]
+): string {
+  if (issues.length === 0) {
+    return ""
+  }
+
+  const visibleIssues = issues.slice(0, 5)
+  const issueLines = visibleIssues.map((issue) => {
+    if (typeof issue.rowLabel === "string" && issue.rowLabel.length > 0) {
+      return `${issue.matrixLabel} / ${issue.rowLabel}：${issue.reason}`
+    }
+
+    return `${issue.matrixLabel}：${issue.reason}`
+  })
+  const hiddenCount = issues.length - visibleIssues.length
+
+  if (hiddenCount > 0) {
+    issueLines.push(`还有${hiddenCount}项问题`)
+  }
+
+  return issueLines.join("\n")
 }
 
 /**
@@ -42,6 +265,7 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
   connectionMenu,
   flowNodes,
   onMenuSelect,
+  onClose,
 }: CanvasConnectionMenuProps) {
   if (!connectionMenu.visible) {
     return null
@@ -56,6 +280,40 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
   const hasKsaPanel = flowNodes.some(n => n.type === FlowNodeType.KSA_PANEL)
   const hasCourseMatrix = flowNodes.some(n => n.type === FlowNodeType.COURSE_MATRIX)
   const hasCourseReport = flowNodes.some(n => n.type === FlowNodeType.COURSE_REPORT)
+  const ksaItemsMap: KsaLookupMap = {}
+  flowNodes.forEach((node) => {
+    if (node.type !== FlowNodeType.KSA || !node.data) {
+      return
+    }
+
+    const ksaData = node.data as unknown as KsaItemData
+    addKsaLookupItem(ksaItemsMap, node.id, ksaData)
+    getKsaMatchIds(ksaData).forEach((matchId) => {
+      addKsaLookupItem(ksaItemsMap, matchId, ksaData)
+    })
+    addKsaLookupItem(ksaItemsMap, ksaData.content, ksaData)
+  })
+  const projectMatrixNodes = flowNodes.filter(
+    n => n.type === FlowNodeType.PROJECT_MATRIX
+  )
+  const hasProjectMatrix = projectMatrixNodes.length > 0
+  const projectMatrixValidationIssues = projectMatrixNodes.flatMap((node) =>
+    getProjectMatrixValidationIssues(node.data as ProjectMatrixData, ksaItemsMap)
+  )
+  const areAllProjectMatricesComplete =
+    hasProjectMatrix &&
+    projectMatrixValidationIssues.length === 0
+  const isCourseReportDisabled = hasCourseReport
+    ? true
+    : !areAllProjectMatricesComplete
+  const projectMatrixValidationTitle = formatProjectMatrixValidationTitle(
+    projectMatrixValidationIssues
+  )
+  const courseReportTitle = hasCourseReport
+    ? "画布中已存在开课说明"
+    : areAllProjectMatricesComplete
+      ? ""
+      : projectMatrixValidationTitle
 
   // 获取源节点类型
   const sourceNode = flowNodes.find(n => n.id === connectionMenu.sourceNodeId)
@@ -132,21 +390,43 @@ export const CanvasConnectionMenu = memo(function CanvasConnectionMenu({
         </>
       ) : /* 从项目矩阵拖出时只显示开课说明选项 */
       sourceNodeType === FlowNodeType.PROJECT_MATRIX ? (
-        <>
-          <button
-            className={`group flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm canvas-menu-item ${
-              hasCourseReport
-                ? "text-muted-foreground/50 cursor-not-allowed"
-                : "hover:bg-accent hover:text-accent-foreground"
-            }`}
-            onClick={() => !hasCourseReport && onMenuSelect("courseReport")}
-            disabled={hasCourseReport}
-            title={hasCourseReport ? "画布中已存在开课说明" : ""}
-          >
-            <FileText className={`h-4 w-4 transition-colors ${hasCourseReport ? "text-rose-300" : "text-rose-500 group-hover:text-accent-foreground"}`} />
-            <span>+ 开课说明</span>
-          </button>
-        </>
+        <div className="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex-1">
+                <button
+                  className={`group flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm canvas-menu-item ${
+                    isCourseReportDisabled
+                      ? "text-muted-foreground/50 cursor-not-allowed"
+                      : "hover:bg-accent hover:text-accent-foreground"
+                  }`}
+                  onClick={() => !isCourseReportDisabled && onMenuSelect("courseReport")}
+                  disabled={isCourseReportDisabled}
+                  title={isCourseReportDisabled ? "" : courseReportTitle}
+                >
+                  <FileText className={`h-4 w-4 transition-colors ${isCourseReportDisabled ? "text-rose-300" : "text-rose-500 group-hover:text-accent-foreground"}`} />
+                  <span>+ 开课说明</span>
+                </button>
+              </span>
+            </TooltipTrigger>
+            {isCourseReportDisabled && courseReportTitle.length > 0 ? (
+              <TooltipContent side="right" align="start" className="max-w-[420px] whitespace-pre-line">
+                {courseReportTitle}
+              </TooltipContent>
+            ) : null}
+          </Tooltip>
+          {isCourseReportDisabled ? (
+            <button
+              type="button"
+              aria-label="关闭菜单"
+              title="关闭"
+              onClick={onClose}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
       ) : sourceNodeType === FlowNodeType.COURSE_MATRIX ? (
         /* 从课程矩阵拖出时只显示 KSA 选项 */
         <>

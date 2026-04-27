@@ -111,9 +111,9 @@ function KsaTag({
         </span>
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-[300px]">
-        <div className={`flex items-start gap-1.5 ${isStrong ? "text-orange-700" : "text-green-700"}`}>
-          <Star className={`w-3 h-3 flex-shrink-0 mt-0.5 ${isStrong ? "fill-current" : ""}`} />
-          <span className="leading-relaxed">{tooltipContent}</span>
+        <div className={`flex items-center gap-1.5 ${isStrong ? "text-orange-700" : "text-green-700"}`}>
+          <Star className={`w-3 h-3 flex-shrink-0 ${isStrong ? "fill-current" : ""}`} />
+          <span className="min-w-0 leading-relaxed">{tooltipContent}</span>
         </div>
       </TooltipContent>
     </Tooltip>

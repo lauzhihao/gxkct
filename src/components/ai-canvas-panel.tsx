@@ -1056,6 +1056,7 @@ function AiCanvasPanelInner({
         connectionMenu={connectionMenu}
         flowNodes={flowNodes}
         onMenuSelect={handleMenuSelect}
+        onClose={closeMenu}
       />
 
       {/* 画布抽屉组件集合 */}
