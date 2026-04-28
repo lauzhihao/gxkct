@@ -155,6 +155,13 @@ export function MajorDetail(props: MajorDetailProps) {
   const canEditMajor = !isSemesterReadonly && !isVirtualMajorFromSwitchDpt && hasMenuPermission(resolvedBtnMenus, "majoredit")
   const canDeleteMajor = !isSemesterReadonly && !isVirtualMajorFromSwitchDpt && hasMenuPermission(resolvedBtnMenus, "majordel")
   const canManageMajorCourse = can(MANAGE_MAJOR_COURSE_ACTION, { scope: "major" })
+  const canCreateCourseInMajor =
+    !isSemesterReadonly &&
+    !isVirtualMajorFromSwitchDpt &&
+    [
+      hasMenuPermission(resolvedBtnMenus, "majoredit"),
+      canManageMajorCourse,
+    ].some(Boolean)
   const departmentId = useMemo(() => resolveDepartmentId(node, treeData), [node, treeData])
 
   useEffect(() => {
@@ -210,7 +217,7 @@ export function MajorDetail(props: MajorDetailProps) {
   }
 
   const handleAddCourseSubmit = (data: any) => {
-    if (!canManageMajorCourse) return
+    if (!canCreateCourseInMajor) return
     const currentNodeId = node.id ?? node.nodeId
     if (onAddCourse && currentNodeId) {
       onAddCourse(currentNodeId, data)
@@ -231,12 +238,12 @@ export function MajorDetail(props: MajorDetailProps) {
   }
 
   const handleOpenQuickCreateCourse = () => {
-    if (!canManageMajorCourse) return
+    if (!canCreateCourseInMajor) return
     setIsQuickCreateCourseOpen(true)
   }
 
   const handleQuickCreateCourseOpenChange = (open: boolean) => {
-    if (open && !canManageMajorCourse) return
+    if (open && !canCreateCourseInMajor) return
     setIsQuickCreateCourseOpen(open)
   }
 
@@ -340,7 +347,7 @@ export function MajorDetail(props: MajorDetailProps) {
                 majorCourses={majorCourses}
                 departmentId={departmentId}
                 refreshKey={coursesRefreshKey}
-                canManageCourse={canEditMajor}
+                canManageCourse={canCreateCourseInMajor}
                 onUpdateNode={onUpdateNode}
                 onDeleteNode={onDeleteNode}
               />

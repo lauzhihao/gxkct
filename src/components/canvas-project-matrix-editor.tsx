@@ -72,18 +72,34 @@ function KsaTag({
   const fullKsaData = findKsaByReference(availableKsaItems, item.id)
 
   // 生成序号标签，如 K1, S2, A3
-  // 优先级：item自带 → availableKsaItems匹配 → 降级显示name或id
+  // 优先级：item自带 → availableKsaItems匹配 → 已有名称
   let label: string
   if (item.category && item.index != null) {
     label = `${item.category}${item.index}`
   } else if (fullKsaData) {
     label = `${fullKsaData.category}${fullKsaData.index}`
+  } else if (item.name.trim().length > 0) {
+    label = item.name
   } else {
-    label = item.name || item.id
+    throw new Error(`KSA item is missing display label: ${item.id}`)
   }
 
-  // Tooltip展示的内容：优先item.description → fullKsaData.description → item.name → 标签+支撑类型
-  const tooltipContent = item.description || fullKsaData?.description || item.name || `${label} - ${isStrong ? "强支撑" : "弱支撑"}`
+  let tooltipContent: string
+  if (
+    typeof item.description === "string" &&
+    item.description.trim().length > 0
+  ) {
+    tooltipContent = item.description
+  } else if (
+    typeof fullKsaData?.description === "string" &&
+    fullKsaData.description.trim().length > 0
+  ) {
+    tooltipContent = fullKsaData.description
+  } else if (item.name.trim().length > 0) {
+    tooltipContent = item.name
+  } else {
+    tooltipContent = `${label} - ${isStrong ? "强支撑" : "弱支撑"}`
+  }
 
   return (
     <Tooltip>
@@ -399,7 +415,8 @@ function KsaSelectionDialog({
       const initialSelections: Record<string, "strong" | "weak"> = {}
       currentCellKsaItems.forEach((item) => {
         const matchedKsa = findKsaByReference(availableKsaItems, item.id)
-        initialSelections[matchedKsa?.id || item.id] = item.level
+        const selectionId = matchedKsa ? matchedKsa.id : item.id
+        initialSelections[selectionId] = item.level
       })
       setLocalSelections(initialSelections)
       setSearchK("")
@@ -435,19 +452,53 @@ function KsaSelectionDialog({
   const handleConfirm = useCallback(() => {
     const selections = Object.entries(localSelections).map(([id, level]) => {
       const ksa = findKsaByReference(availableKsaItems, id)
+
+      if (ksa) {
+        return {
+          id: ksa.id,
+          name: ksa.name,
+          level,
+          description: ksa.description,
+          // 传递 category 和 index 用于序号标签显示
+          category: ksa.category,
+          index: ksa.index,
+        }
+      }
+
+      const currentItem = currentCellKsaItems.find((item) => {
+        const matchedKsa = findKsaByReference(availableKsaItems, item.id)
+        const selectionId = matchedKsa ? matchedKsa.id : item.id
+        return selectionId === id
+      })
+      if (!currentItem) {
+        throw new Error(`KSA item not found: ${id}`)
+      }
+      if (!currentItem.category || currentItem.index == null) {
+        throw new Error(`KSA item is missing category or index: ${id}`)
+      }
+      if (currentItem.name.trim().length === 0) {
+        throw new Error(`KSA item is missing name: ${id}`)
+      }
+
       return {
-        id: ksa?.id || id,
-        name: ksa?.name || id,
+        id: currentItem.id,
+        name: currentItem.name,
         level,
-        description: ksa?.description,
+        description: currentItem.description,
         // 传递 category 和 index 用于序号标签显示
-        category: ksa?.category || "K",
-        index: ksa?.index ?? 1,
+        category: currentItem.category,
+        index: currentItem.index,
       }
     })
     onConfirm(selections)
     onOpenChange(false)
-  }, [localSelections, availableKsaItems, onConfirm, onOpenChange])
+  }, [
+    localSelections,
+    availableKsaItems,
+    currentCellKsaItems,
+    onConfirm,
+    onOpenChange,
+  ])
 
   // 按类别分组并过滤（不再过滤已选中的，显示所有可用KSA）
   const groupedKsaItems = useMemo(() => {
@@ -677,7 +728,10 @@ export function CanvasProjectMatrixEditor({
       const support = row.objective_supports?.find(
         (s) => s.task_objective_id === taskObjectiveId
       )
-      return support?.ksa_items || []
+      if (!support) {
+        return []
+      }
+      return support.ksa_items
     },
     [localMatrixData]
   )
@@ -711,7 +765,7 @@ export function CanvasProjectMatrixEditor({
         const newRows = prev.rows.map((row) => {
           if (row.course_point_id !== coursePointId) return row
 
-          const existingSupports = row.objective_supports || []
+          const existingSupports = row.objective_supports
           const supportIndex = existingSupports.findIndex(
             (s) => s.task_objective_id === taskObjectiveId
           )
@@ -764,7 +818,7 @@ export function CanvasProjectMatrixEditor({
           if (row.course_point_id !== coursePointId) return row
           return {
             ...row,
-            objective_supports: (row.objective_supports || []).map((support) => {
+            objective_supports: row.objective_supports.map((support) => {
               if (support.task_objective_id !== taskObjectiveId) return support
               return {
                 ...support,
@@ -787,7 +841,7 @@ export function CanvasProjectMatrixEditor({
           if (row.course_point_id !== coursePointId) return row
           return {
             ...row,
-            objective_supports: (row.objective_supports || []).map((support) => {
+            objective_supports: row.objective_supports.map((support) => {
               if (support.task_objective_id !== taskObjectiveId) return support
               return {
                 ...support,
@@ -826,7 +880,11 @@ export function CanvasProjectMatrixEditor({
   )
 
   const handleUpdateNonNegativeNumberField = useCallback(
-    (coursePointId: string, field: "theory_hours" | "practice_hours", inputValue: string) => {
+    (
+      coursePointId: string,
+      field: "theory_hours" | "practice_hours",
+      inputValue: string
+    ) => {
       if (inputValue.trim() === "") {
         return
       }
@@ -837,6 +895,22 @@ export function CanvasProjectMatrixEditor({
       }
 
       handleUpdateRowField(coursePointId, field, parsedValue)
+    },
+    [handleUpdateRowField]
+  )
+
+  const handleUpdateOptionalWeek = useCallback(
+    (coursePointId: string, inputValue: string) => {
+      if (inputValue.trim() === "") {
+        return
+      }
+
+      const parsedValue = Number.parseInt(inputValue, 10)
+      if (!Number.isFinite(parsedValue) || parsedValue < 0) {
+        return
+      }
+
+      handleUpdateRowField(coursePointId, "week", parsedValue)
     },
     [handleUpdateRowField]
   )
@@ -863,7 +937,9 @@ export function CanvasProjectMatrixEditor({
     return getCellKsaItems(coursePointId, taskObjectiveId)
   }, [selectionDialog, getCellKsaItems])
 
-  const taskObjectives = localMatrixData.task_objectives || []
+  const taskObjectives = localMatrixData.task_objectives
+  const matrixTableMinWidth =
+    120 + taskObjectives.length * 140 + 100 + 120 + 160 + 70 + 70 + 70
 
   return (
     <div className="flex flex-col h-full">
@@ -879,206 +955,270 @@ export function CanvasProjectMatrixEditor({
       </div>
 
       {/* 矩阵表格 */}
-      <div className="flex-1 overflow-auto p-4">
-        <table className="w-full border-collapse text-sm">
-          <thead className="bg-gray-50 sticky top-0 z-10">
-            <tr>
-              {/* 课点列 */}
-              <th className="px-3 py-3 text-left font-medium text-gray-600 border border-gray-200 bg-gray-100 min-w-[120px]">
-                课点
-              </th>
-              {/* 动态任务目标列 */}
+      <div className="flex-1 overflow-auto">
+        <div className="min-w-max p-4">
+          <table
+            className="min-w-full border-collapse text-sm table-fixed"
+            style={{ minWidth: `${matrixTableMinWidth}px` }}
+          >
+            <colgroup>
+              <col className="w-[120px]" />
               {taskObjectives.map((obj) => (
-                <th
-                  key={obj.id}
-                  className="px-3 py-3 text-center font-medium text-gray-600 border border-gray-200 bg-gray-100 min-w-[140px]"
-                >
-                  <div className="text-teal-600 text-xs leading-tight line-clamp-2">
-                    {obj.description}
-                  </div>
-                </th>
+                <col key={`task-objective-column-${obj.id}`} className="w-[140px]" />
               ))}
-              {/* 固定列 */}
-              <th className="px-3 py-3 text-center font-medium text-gray-600 border border-gray-200 bg-gray-100 w-[100px]">
-                学法
-              </th>
-              <th className="px-3 py-3 text-center font-medium text-gray-600 border border-gray-200 bg-gray-100 w-[120px]">
-                教法
-              </th>
-              <th className="px-3 py-3 text-center font-medium text-gray-600 border border-gray-200 bg-gray-100 min-w-[160px]">
-                学习产出
-              </th>
-              <th className="px-3 py-3 text-center font-medium text-gray-600 border border-gray-200 bg-gray-100 w-[70px]">
-                周次
-              </th>
-              <th className="px-3 py-3 text-center font-medium text-gray-600 border border-gray-200 bg-gray-100 w-[70px]">
-                理论
-              </th>
-              <th className="px-3 py-3 text-center font-medium text-gray-600 border border-gray-200 bg-gray-100 w-[70px]">
-                实践
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {localMatrixData.rows.map((row) => (
-              <tr key={row.course_point_id} className="hover:bg-gray-50">
-                {/* 课点名称 */}
-                <td className="px-3 py-3 text-gray-700 border border-gray-200 bg-white font-medium">
-                  <SupportLabel
-                    title={row.course_point_name}
-                    desc={row.course_point_description}
-                    type="strong"
-                    size="sm"
-                    tipsPosition="right"
-                  />
+              <col className="w-[100px]" />
+              <col className="w-[120px]" />
+              <col className="w-[160px]" />
+              <col className="w-[70px]" />
+              <col className="w-[70px]" />
+              <col className="w-[70px]" />
+            </colgroup>
+            <thead className="bg-gray-100">
+              <tr>
+                {/* 课点列 */}
+                <th className="sticky top-0 z-20 px-3 py-3 text-left font-medium text-gray-600 border border-gray-200 bg-gray-100">
+                  课点
+                </th>
+                {/* 动态任务目标列 */}
+                {taskObjectives.map((obj) => (
+                  <th
+                    key={obj.id}
+                    className="sticky top-0 z-20 px-3 py-3 text-center font-medium text-gray-600 border border-gray-200 bg-gray-100"
+                  >
+                    <div className="text-teal-600 text-xs leading-tight line-clamp-2">
+                      {obj.description}
+                    </div>
+                  </th>
+                ))}
+                {/* 固定列 */}
+                <th className="sticky top-0 z-20 px-3 py-3 text-center font-medium text-gray-600 border border-gray-200 bg-gray-100">
+                  学法
+                </th>
+                <th className="sticky top-0 z-20 px-3 py-3 text-center font-medium text-gray-600 border border-gray-200 bg-gray-100">
+                  教法
+                </th>
+                <th className="sticky top-0 z-20 px-3 py-3 text-center font-medium text-gray-600 border border-gray-200 bg-gray-100">
+                  学习产出
+                </th>
+                <th className="sticky top-0 z-20 px-3 py-3 text-center font-medium text-gray-600 border border-gray-200 bg-gray-100">
+                  周次
+                </th>
+                <th className="sticky top-0 z-20 px-3 py-3 text-center font-medium text-gray-600 border border-gray-200 bg-gray-100">
+                  理论
+                </th>
+                <th className="sticky top-0 z-20 px-3 py-3 text-center font-medium text-gray-600 border border-gray-200 bg-gray-100">
+                  实践
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {localMatrixData.rows.map((row) => (
+                <tr key={row.course_point_id} className="hover:bg-gray-50">
+                  {/* 课点名称 */}
+                  <td className="px-3 py-3 text-gray-700 border border-gray-200 bg-white font-medium">
+                    <SupportLabel
+                      title={row.course_point_name}
+                      desc={row.course_point_description}
+                      type="strong"
+                      size="sm"
+                      tipsPosition="right"
+                    />
+                  </td>
+                  {/* 任务目标交叉单元格 */}
+                  {taskObjectives.map((obj) => {
+                    const ksaItems = getCellKsaItems(row.course_point_id, obj.id)
+                    return (
+                      <td
+                        key={obj.id}
+                        className="px-2 py-2 border border-gray-200 bg-white align-middle"
+                      >
+                        <div className="flex flex-wrap gap-1.5 justify-center items-center">
+                          {ksaItems.map((ksa) => (
+                            <KsaTag
+                              key={ksa.id}
+                              item={ksa}
+                              availableKsaItems={availableKsaItems}
+                              onRemove={() =>
+                                handleRemoveKsaItem(
+                                  row.course_point_id,
+                                  obj.id,
+                                  ksa.id
+                                )
+                              }
+                              onToggleLevel={() =>
+                                handleToggleKsaLevel(
+                                  row.course_point_id,
+                                  obj.id,
+                                  ksa.id
+                                )
+                              }
+                            />
+                          ))}
+                          <button
+                            onClick={() =>
+                              handleOpenSelection(row.course_point_id, obj.id)
+                            }
+                            className="w-6 h-6 flex-shrink-0 rounded-full border-2 border-dashed border-teal-300 hover:border-teal-500 hover:bg-teal-50 flex items-center justify-center transition-all group"
+                            title="添加KSA"
+                          >
+                            <Plus className="w-3 h-3 text-teal-400 group-hover:text-teal-600" />
+                          </button>
+                        </div>
+                      </td>
+                    )
+                  })}
+                  {/* 学法 */}
+                  <td className="px-2 py-2 border border-gray-200 bg-white align-top">
+                    <ExpandableTextarea
+                      value={
+                        typeof row.learning_method === "string"
+                          ? row.learning_method
+                          : ""
+                      }
+                      onChange={(value) =>
+                        handleUpdateRowField(
+                          row.course_point_id,
+                          "learning_method",
+                          value
+                        )
+                      }
+                      placeholder="输入学法"
+                      rows={1}
+                      maxLength={200}
+                    />
+                  </td>
+                  {/* 教法 */}
+                  <td className="px-2 py-2 border border-gray-200 bg-white align-top">
+                    <ExpandableTextarea
+                      value={
+                        typeof row.teaching_method === "string"
+                          ? row.teaching_method
+                          : ""
+                      }
+                      onChange={(value) =>
+                        handleUpdateRowField(
+                          row.course_point_id,
+                          "teaching_method",
+                          value
+                        )
+                      }
+                      placeholder="输入教法"
+                      rows={1}
+                      maxLength={200}
+                    />
+                  </td>
+                  {/* 学习产出 */}
+                  <td className="px-2 py-2 border border-gray-200 bg-white align-top">
+                    <ExpandableTextarea
+                      value={
+                        typeof row.learning_output === "string"
+                          ? row.learning_output
+                          : ""
+                      }
+                      onChange={(value) =>
+                        handleUpdateRowField(
+                          row.course_point_id,
+                          "learning_output",
+                          value
+                        )
+                      }
+                      placeholder="输入学习产出"
+                      rows={2}
+                      maxLength={500}
+                    />
+                  </td>
+                  {/* 周次 */}
+                  <td className="px-2 py-2 border border-gray-200 bg-white">
+                    <input
+                      type="number"
+                      value={typeof row.week === "number" ? row.week : ""}
+                      onChange={(e) =>
+                        handleUpdateOptionalWeek(
+                          row.course_point_id,
+                          e.target.value
+                        )
+                      }
+                      className="w-full px-1 py-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-teal-500/50 text-center"
+                      placeholder="周"
+                    />
+                  </td>
+                  {/* 理论学时 */}
+                  <td className="px-2 py-2 border border-gray-200 bg-white">
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      value={
+                        typeof row.theory_hours === "number"
+                          ? row.theory_hours
+                          : ""
+                      }
+                      onChange={(e) =>
+                        handleUpdateNonNegativeNumberField(
+                          row.course_point_id,
+                          "theory_hours",
+                          e.target.value
+                        )
+                      }
+                      className="w-full px-1 py-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-teal-500/50 text-center"
+                      placeholder="学时"
+                    />
+                  </td>
+                  {/* 实践学时 */}
+                  <td className="px-2 py-2 border border-gray-200 bg-white">
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      value={
+                        typeof row.practice_hours === "number"
+                          ? row.practice_hours
+                          : ""
+                      }
+                      onChange={(e) =>
+                        handleUpdateNonNegativeNumberField(
+                          row.course_point_id,
+                          "practice_hours",
+                          e.target.value
+                        )
+                      }
+                      className="w-full px-1 py-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-teal-500/50 text-center"
+                      placeholder="学时"
+                    />
+                  </td>
+                </tr>
+              ))}
+              <tr className="bg-teal-50/60 font-medium">
+                <td className="px-3 py-4 text-left align-top text-gray-700 border border-gray-200 bg-teal-50">
+                  <span>教学目标的学习产出</span>
+                  <br />
+                  <span>及测量评价标准</span>
                 </td>
-                {/* 任务目标交叉单元格 */}
                 {taskObjectives.map((obj) => {
-                  const ksaItems = getCellKsaItems(row.course_point_id, obj.id)
+                  const productText =
+                    typeof obj.product === "string" ? obj.product : ""
+
                   return (
                     <td
-                      key={obj.id}
-                      className="px-2 py-2 border border-gray-200 bg-white align-middle"
+                      key={`task-objective-product-${obj.id}`}
+                      className="px-3 py-4 text-left align-top text-gray-700 border border-gray-200 bg-teal-50/60"
                     >
-                      <div className="flex flex-wrap gap-1.5 justify-center items-center">
-                        {ksaItems.map((ksa) => (
-                          <KsaTag
-                            key={ksa.id}
-                            item={ksa}
-                            availableKsaItems={availableKsaItems}
-                            onRemove={() =>
-                              handleRemoveKsaItem(
-                                row.course_point_id,
-                                obj.id,
-                                ksa.id
-                              )
-                            }
-                            onToggleLevel={() =>
-                              handleToggleKsaLevel(
-                                row.course_point_id,
-                                obj.id,
-                                ksa.id
-                              )
-                            }
-                          />
-                        ))}
-                        <button
-                          onClick={() =>
-                            handleOpenSelection(row.course_point_id, obj.id)
-                          }
-                          className="w-6 h-6 flex-shrink-0 rounded-full border-2 border-dashed border-teal-300 hover:border-teal-500 hover:bg-teal-50 flex items-center justify-center transition-all group"
-                          title="添加KSA"
-                        >
-                          <Plus className="w-3 h-3 text-teal-400 group-hover:text-teal-600" />
-                        </button>
+                      <div className="whitespace-normal break-words leading-relaxed [overflow-wrap:anywhere]">
+                        {productText}
                       </div>
                     </td>
                   )
                 })}
-                {/* 学法 */}
-                <td className="px-2 py-2 border border-gray-200 bg-white align-top">
-                  <ExpandableTextarea
-                    value={row.learning_method || ""}
-                    onChange={(value) =>
-                      handleUpdateRowField(
-                        row.course_point_id,
-                        "learning_method",
-                        value
-                      )
-                    }
-                    placeholder="输入学法"
-                    rows={1}
-                    maxLength={200}
-                  />
-                </td>
-                {/* 教法 */}
-                <td className="px-2 py-2 border border-gray-200 bg-white align-top">
-                  <ExpandableTextarea
-                    value={row.teaching_method || ""}
-                    onChange={(value) =>
-                      handleUpdateRowField(
-                        row.course_point_id,
-                        "teaching_method",
-                        value
-                      )
-                    }
-                    placeholder="输入教法"
-                    rows={1}
-                    maxLength={200}
-                  />
-                </td>
-                {/* 学习产出 */}
-                <td className="px-2 py-2 border border-gray-200 bg-white align-top">
-                  <ExpandableTextarea
-                    value={row.learning_output || ""}
-                    onChange={(value) =>
-                      handleUpdateRowField(
-                        row.course_point_id,
-                        "learning_output",
-                        value
-                      )
-                    }
-                    placeholder="输入学习产出"
-                    rows={2}
-                    maxLength={500}
-                  />
-                </td>
-                {/* 周次 */}
-                <td className="px-2 py-2 border border-gray-200 bg-white">
-                  <input
-                    type="number"
-                    value={row.week || ""}
-                    onChange={(e) =>
-                      handleUpdateRowField(
-                        row.course_point_id,
-                        "week",
-                        parseInt(e.target.value) || 0
-                      )
-                    }
-                    className="w-full px-1 py-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-teal-500/50 text-center"
-                    placeholder="周"
-                  />
-                </td>
-                {/* 理论学时 */}
-                <td className="px-2 py-2 border border-gray-200 bg-white">
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.5}
-                    value={typeof row.theory_hours === "number" ? row.theory_hours : ""}
-                    onChange={(e) =>
-                      handleUpdateNonNegativeNumberField(
-                        row.course_point_id,
-                        "theory_hours",
-                        e.target.value
-                      )
-                    }
-                    className="w-full px-1 py-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-teal-500/50 text-center"
-                    placeholder="学时"
-                  />
-                </td>
-                {/* 实践学时 */}
-                <td className="px-2 py-2 border border-gray-200 bg-white">
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.5}
-                    value={typeof row.practice_hours === "number" ? row.practice_hours : ""}
-                    onChange={(e) =>
-                      handleUpdateNonNegativeNumberField(
-                        row.course_point_id,
-                        "practice_hours",
-                        e.target.value
-                      )
-                    }
-                    className="w-full px-1 py-1 text-xs border border-gray-200 rounded bg-white focus:outline-none focus:ring-1 focus:ring-teal-500/50 text-center"
-                    placeholder="学时"
-                  />
-                </td>
+                <td className="px-3 py-4 border border-gray-200 bg-teal-50/60" />
+                <td className="px-3 py-4 border border-gray-200 bg-teal-50/60" />
+                <td className="px-3 py-4 border border-gray-200 bg-teal-50/60" />
+                <td className="px-3 py-4 border border-gray-200 bg-teal-50/60" />
+                <td className="px-3 py-4 border border-gray-200 bg-teal-50/60" />
+                <td className="px-3 py-4 border border-gray-200 bg-teal-50/60" />
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* 底部按钮 */}
