@@ -938,8 +938,21 @@ export function CanvasProjectMatrixEditor({
   }, [selectionDialog, getCellKsaItems])
 
   const taskObjectives = localMatrixData.task_objectives
-  const matrixTableMinWidth =
-    120 + taskObjectives.length * 140 + 100 + 120 + 160 + 70 + 70 + 70
+  const pointColumnWidth = 120
+  const taskObjectiveColumnWidth = 140
+  const studyColumnWidth = 100
+  const teachColumnWidth = 120
+  const outputColumnWidth = 160
+  const scheduleColumnWidth = 70
+  const matrixTablePreferredWidth =
+    pointColumnWidth +
+    taskObjectives.length * taskObjectiveColumnWidth +
+    studyColumnWidth +
+    teachColumnWidth +
+    outputColumnWidth +
+    scheduleColumnWidth * 3
+  const getColumnWidthPercent = (width: number) =>
+    `${(width / matrixTablePreferredWidth) * 100}%`
 
   return (
     <div className="flex flex-col h-full">
@@ -956,22 +969,28 @@ export function CanvasProjectMatrixEditor({
 
       {/* 矩阵表格 */}
       <div className="flex-1 overflow-auto">
-        <div className="min-w-max p-4">
+        <div className="w-full p-4">
           <table
-            className="min-w-full border-collapse text-sm table-fixed"
-            style={{ minWidth: `${matrixTableMinWidth}px` }}
+            className="border-collapse text-sm table-fixed"
+            style={{
+              minWidth: "100%",
+              width: `max(100%, ${matrixTablePreferredWidth}px)`,
+            }}
           >
             <colgroup>
-              <col className="w-[120px]" />
+              <col style={{ width: getColumnWidthPercent(pointColumnWidth) }} />
               {taskObjectives.map((obj) => (
-                <col key={`task-objective-column-${obj.id}`} className="w-[140px]" />
+                <col
+                  key={`task-objective-column-${obj.id}`}
+                  style={{ width: getColumnWidthPercent(taskObjectiveColumnWidth) }}
+                />
               ))}
-              <col className="w-[100px]" />
-              <col className="w-[120px]" />
-              <col className="w-[160px]" />
-              <col className="w-[70px]" />
-              <col className="w-[70px]" />
-              <col className="w-[70px]" />
+              <col style={{ width: getColumnWidthPercent(studyColumnWidth) }} />
+              <col style={{ width: getColumnWidthPercent(teachColumnWidth) }} />
+              <col style={{ width: getColumnWidthPercent(outputColumnWidth) }} />
+              <col style={{ width: getColumnWidthPercent(scheduleColumnWidth) }} />
+              <col style={{ width: getColumnWidthPercent(scheduleColumnWidth) }} />
+              <col style={{ width: getColumnWidthPercent(scheduleColumnWidth) }} />
             </colgroup>
             <thead className="bg-gray-100">
               <tr>
