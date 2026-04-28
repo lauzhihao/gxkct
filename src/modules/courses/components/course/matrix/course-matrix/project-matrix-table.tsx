@@ -75,17 +75,26 @@ export const ProjectMatrixTable = ({ courseEditable }: ProjectMatrixTableProps) 
     return count + children.length
   }, 0)
 
-  const secondLevelColWidth = 500
-  const totalWidth = 60 + secondLevelColWidth * secondLevelHeaderCount
+  const sequenceColWidth = 60
+  const projectColMinWidth = 300
+  const secondLevelColMinWidth = 240
+  const contentMinWidth = sequenceColWidth + projectColMinWidth + secondLevelColMinWidth * secondLevelHeaderCount
 
   return (
-    <div className="overflow-x-auto">
-      <table className="text-base border-collapse" style={{ width: totalWidth, tableLayout: "auto" }}>
+    <div className="w-full overflow-x-auto">
+      <table className="w-full table-fixed text-base border-collapse" style={{ minWidth: `${contentMinWidth}px` }}>
+        <colgroup>
+          <col style={{ width: `${sequenceColWidth}px` }} />
+          <col style={{ width: `${projectColMinWidth}px` }} />
+          {Array.from({ length: secondLevelHeaderCount }).map((_, idx) => (
+            <col key={`course-point-col-${idx}`} style={{ width: `${secondLevelColMinWidth}px` }} />
+          ))}
+        </colgroup>
         <thead>
           <tr className="border-b border-border bg-primary/10">
             <th
               className="text-center p-3 text-muted-foreground font-medium border-r border-border whitespace-nowrap"
-              style={{ width: "60px" }}
+              style={{ width: `${sequenceColWidth}px` }}
               rowSpan={2}
             >
               序号
@@ -93,7 +102,7 @@ export const ProjectMatrixTable = ({ courseEditable }: ProjectMatrixTableProps) 
             <th
               className="text-center p-3 text-muted-foreground font-medium border-r border-border whitespace-nowrap"
               rowSpan={2}
-              style={{ minWidth: "300px" }}
+              style={{ minWidth: `${projectColMinWidth}px` }}
             >
               项目/章节
             </th>
@@ -104,7 +113,7 @@ export const ProjectMatrixTable = ({ courseEditable }: ProjectMatrixTableProps) 
                   key={goal.id || idx}
                   colSpan={children.length}
                   className="text-center p-3 text-muted-foreground font-medium border-r border-border bg-primary/10"
-                  style={{ width: `${secondLevelColWidth * children.length}px` }}
+                  style={{ minWidth: `${secondLevelColMinWidth * children.length}px` }}
                 >
                   <div className="break-words">{goal.description || `目标${idx + 1}`}</div>
                 </th>
@@ -118,7 +127,7 @@ export const ProjectMatrixTable = ({ courseEditable }: ProjectMatrixTableProps) 
                 <th
                   key={`${goal.id}-${childIdx}`}
                   className="text-center p-3 text-muted-foreground font-medium border-r border-border bg-primary/5"
-                  style={{ width: `${secondLevelColWidth}px` }}
+                  style={{ minWidth: `${secondLevelColMinWidth}px` }}
                 >
                   <div className="text-sm leading-relaxed break-words">{child.description || `子目标${childIdx + 1}`}</div>
                 </th>
@@ -147,7 +156,7 @@ export const ProjectMatrixTable = ({ courseEditable }: ProjectMatrixTableProps) 
               )}
             >
               <td className="p-3 text-center border-r border-border bg-secondary/20 font-medium">{projectIdx + 1}</td>
-              <td className="p-3 border-r border-border bg-white/80 whitespace-nowrap" style={{ minWidth: "300px" }}>
+              <td className="p-3 border-r border-border bg-white/80 whitespace-nowrap" style={{ minWidth: `${projectColMinWidth}px` }}>
                 {isEditingCourseMatrix ? (
                   <div className="flex items-center gap-2">
                     <Input
@@ -194,7 +203,7 @@ export const ProjectMatrixTable = ({ courseEditable }: ProjectMatrixTableProps) 
                   const coursePoints = courseMatrixData[key] || []
 
                   return (
-                    <td key={`${goal.id}-${childIdx}`} className="p-3 text-center border-r border-border" style={{ width: "500px" }}>
+                    <td key={`${goal.id}-${childIdx}`} className="p-3 text-center border-r border-border" style={{ minWidth: `${secondLevelColMinWidth}px` }}>
                       {isEditingCourseMatrix ? (
                         <div className="flex flex-col items-center gap-2">
                           {coursePoints.length > 0 && (
@@ -252,8 +261,8 @@ export const ProjectMatrixTable = ({ courseEditable }: ProjectMatrixTableProps) 
           ))}
            {isEditingCourseMatrix && courseEditable && (
             <tr className="border-b border-border hover:bg-white/50 transition-colors">
-              <td className="p-3 text-center border-r border-border bg-secondary/20" style={{ width: "60px" }}></td>
-              <td className="p-3 text-center border-r border-border bg-white/80" style={{ minWidth: "300px" }}>
+              <td className="p-3 text-center border-r border-border bg-secondary/20" style={{ width: `${sequenceColWidth}px` }}></td>
+              <td className="p-3 text-center border-r border-border bg-white/80" style={{ minWidth: `${projectColMinWidth}px` }}>
                 <button
                   onClick={handleAddProjectWithPermission}
                   className="inline-flex items-center justify-center w-8 h-8 rounded-full border-2 border-dashed border-primary/40 hover:border-primary hover:bg-primary/10 transition-all group"
@@ -262,7 +271,7 @@ export const ProjectMatrixTable = ({ courseEditable }: ProjectMatrixTableProps) 
                 </button>
               </td>
               {Array.from({ length: secondLevelHeaderCount }).map((_, idx) => (
-                <td key={`add-row-${idx}`} className="p-3 text-center border-r border-border" style={{ width: "500px" }}></td>
+                <td key={`add-row-${idx}`} className="p-3 text-center border-r border-border" style={{ minWidth: `${secondLevelColMinWidth}px` }}></td>
               ))}
             </tr>
           )}
