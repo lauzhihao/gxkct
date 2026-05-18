@@ -1,0 +1,5 @@
+.env
+.cursor.json
+sync.log
+node_modules/
+tmp/

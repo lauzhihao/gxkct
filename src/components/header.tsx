@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { ChevronDown, Palette, Eye, EyeOff } from "lucide-react"
+import { ChevronDown, Palette, Eye, EyeOff, MessageSquareWarning } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import {
   DropdownMenu,
@@ -36,6 +36,13 @@ import type { InitialCanvasData } from "@/types/ai-assistant"
 import { IdentitySwitchDialog } from "./identity-switch-dialog"
 import { SemesterManagement } from "@/modules/universities/components/shared/semester-management"
 import { useLocalStorage } from "@/shared/hooks/use-local-storage"
+import { FeedbackDialog } from "./feedback-dialog"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/shared/components/ui/tooltip"
 
 const EMPTY_INITIAL_CANVAS_DATA: InitialCanvasData = {
   elements: [],
@@ -242,6 +249,7 @@ export function Header({ currentPath, treeData }: HeaderProps) {
   const [showResetPassword, setShowResetPassword] = useState(false)
   const [isResetPasswordLoading, setIsResetPasswordLoading] = useState(false)
   const [identitySwitchDialogOpen, setIdentitySwitchDialogOpen] = useState(false)
+  const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false)
   useActivePageTracker()
 
   // [MOD] 使用全局 loading 状态 (引用计数机制)
@@ -425,6 +433,24 @@ export function Header({ currentPath, treeData }: HeaderProps) {
             </div>
           ) : null}
 
+          {/* Feedback */}
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+                  onClick={() => setFeedbackDialogOpen(true)}
+                  aria-label="问题反馈"
+                >
+                  <MessageSquareWarning className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">问题反馈</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           {/* Color Palette */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -533,6 +559,13 @@ export function Header({ currentPath, treeData }: HeaderProps) {
         onOpenChange={setIdentitySwitchDialogOpen}
         userId={authUserId}
         onSchoolChange={setCurrentSchoolId}
+      />
+
+      <FeedbackDialog
+        open={feedbackDialogOpen}
+        onOpenChange={setFeedbackDialogOpen}
+        treeData={treeData ?? null}
+        currentSchoolId={activeCollegeId}
       />
 
       <AlertDialog

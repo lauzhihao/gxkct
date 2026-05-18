@@ -35,6 +35,7 @@ import { CoursePointsApi, type CoursePoint } from "./course-points-api"
 import { ProjectTeachGoalApi, type ProjectTeachGoalData, type Project, type ProjectTeachGoal, type TaskGoalItem } from "./project-teach-goal-api"
 import { SemesterApi } from "./semester-api"
 import { WorkshopApi } from "./workshop-api"
+import { MessageApi, type SubmitFeedbackPayload } from "./message-api"
 import { initializeMockData, resetMockData } from "./data-initializer"
 import { getApiConfig, buildApiUrl, type ApiConfig } from "./config"
 import { StorageAdapter } from "./storage-adapter"
@@ -72,10 +73,11 @@ export const api = {
   projectTeachGoal: new ProjectTeachGoalApi(),
   semesters: new SemesterApi(),
   workshop: new WorkshopApi(),
+  message: new MessageApi(),
 }
 
 // 导出API类
-export { TreeApi, UserApi, MatrixApi, ResourceApi, ConfigApi, PreferenceApi, TeachingTaskApi, CourseDetailApi, OccupationApi, SemesterApi, WorkshopApi }
+export { TreeApi, UserApi, MatrixApi, ResourceApi, ConfigApi, PreferenceApi, TeachingTaskApi, CourseDetailApi, OccupationApi, SemesterApi, WorkshopApi, MessageApi }
 
 // 导出类型
 export type {
@@ -118,6 +120,7 @@ export type {
   Project,
   ProjectTeachGoal,
   TaskGoalItem,
+  SubmitFeedbackPayload,
 }
 export type {
   CreateSemesterPayload,
