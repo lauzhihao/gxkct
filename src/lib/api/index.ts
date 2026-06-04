@@ -36,6 +36,7 @@ import { ProjectTeachGoalApi, type ProjectTeachGoalData, type Project, type Proj
 import { SemesterApi } from "./semester-api"
 import { WorkshopApi } from "./workshop-api"
 import { MessageApi, type SubmitFeedbackPayload } from "./message-api"
+import { EditHistoryApi, type EditHistoryListItem, type EditHistoryDetailItem } from "./edit-history-api"
 import { initializeMockData, resetMockData } from "./data-initializer"
 import { getApiConfig, buildApiUrl, type ApiConfig } from "./config"
 import { StorageAdapter } from "./storage-adapter"
@@ -74,6 +75,7 @@ export const api = {
   semesters: new SemesterApi(),
   workshop: new WorkshopApi(),
   message: new MessageApi(),
+  editHistory: new EditHistoryApi(),
 }
 
 // 导出API类
@@ -121,6 +123,8 @@ export type {
   ProjectTeachGoal,
   TaskGoalItem,
   SubmitFeedbackPayload,
+  EditHistoryListItem,
+  EditHistoryDetailItem,
 }
 export type {
   CreateSemesterPayload,

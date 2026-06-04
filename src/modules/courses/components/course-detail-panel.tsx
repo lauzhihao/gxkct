@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import type { DetailPanelProps } from "@/components/detail-panel/types"
 import { convertCourseToCanvasComplete } from "@/lib/utils/course-to-canvas"
-import { BookOpen, Calendar, Pencil, Trash2, User } from "lucide-react"
+import { BookOpen, Calendar, History, Pencil, Trash2, User } from "lucide-react"
 import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
 import { cn } from "@/shared/utils/utils"
@@ -33,6 +33,7 @@ import { CourseSyllabusPreview } from "@/modules/courses/components/course/cours
 import { CourseResources } from "@/modules/courses/components/course/resources/course-resources"
 import { CourseSupervision } from "@/modules/courses/components/course/supervision/course-supervision"
 import { CourseThreeLevelMatrix } from "@/modules/courses/components/course/matrix/course-three-level-matrix"
+import { EditHistoryDialog } from "@/modules/courses/components/dialogs/edit-history-dialog"
 import { TeachingObjectivesEditor } from "@/modules/courses/components/shared/teaching-objectives-editor"
 import type { TeachingObjectiveFilterData } from "@/modules/courses/model/course-matrix"
 import { getCourseCache } from "@/shared/utils/course-cache"
@@ -277,7 +278,13 @@ export function CourseDetail({
   const isSemesterReadonly = useSemesterReadonly()
   const courseEditable = hasCourseEditPermission && !isSemesterReadonly
   const courseNodeId = courseNode?.id
+  // 课程数字ID：用于修改记录查询（node.id 形如 "course_2334"）。
+  // 解析失败/非正整数时显式取 0，按钮不展示——不向接口传入非法ID。
+  const courseIdDigits = courseNodeId ? extractNumericId(courseNodeId) : ""
+  const parsedCourseId = Number.parseInt(courseIdDigits, 10)
+  const numericCourseId = Number.isInteger(parsedCourseId) && parsedCourseId > 0 ? parsedCourseId : 0
   const [isEditingCourse, setIsEditingCourse] = useState(false)
+  const [showEditHistory, setShowEditHistory] = useState(false)
   const [contentView, setContentView] = useState<"detail" | "syllabus">("detail")
   const [isEditingTeachingObjectives, setIsEditingTeachingObjectives] = useState(false)
   const [courseDetailData, setCourseDetailData] = useState<CombinedCourseDetail | null>(null)
@@ -1145,6 +1152,18 @@ export function CourseDetail({
           </div>
           <div className="flex flex-col gap-2 absolute top-6 right-6">
             <div className="flex flex-col gap-2 items-end">
+              {numericCourseId > 0 && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowEditHistory(true)}
+                  className="gap-2 px-3 whitespace-nowrap hover:bg-primary/10"
+                  title="查看课程修改记录"
+                >
+                  <History className="w-4 h-4 text-primary" />
+                  <span className="text-primary font-medium">修改记录</span>
+                </Button>
+              )}
               {onUpdateNode && courseEditable && (
                 <>
                   <Button
@@ -1173,6 +1192,15 @@ export function CourseDetail({
             </div>
           </div>
         </div>
+
+        {numericCourseId > 0 && (
+          <EditHistoryDialog
+            open={showEditHistory}
+            onOpenChange={setShowEditHistory}
+            courseId={numericCourseId}
+            courseName={courseNameData.name}
+          />
+        )}
 
         {/* Content */}
         <div>
