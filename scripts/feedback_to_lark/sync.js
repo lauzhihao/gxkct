@@ -26,6 +26,13 @@ const APP_TOKEN = process.env.LARK_APP_TOKEN
 const TABLE_ID = process.env.LARK_TABLE_ID
 const FETCH_LIMIT = Number(process.env.FETCH_LIMIT || 500)
 const CURSOR_FILE = path.join(__dirname, ".cursor.json")
+const DEAD_LETTER_FILE = path.join(__dirname, ".attachment-deadletter.json")
+// 单张附件最多尝试次数（含首次）。前 (MAX_ATTACH_ATTEMPTS-1) 次在 ATTACH_BACKOFF_MS
+// 退避表内进行；走完仍失败则在 dead-letter 中累计 attempts，到达上限标记 abandoned。
+const MAX_ATTACH_ATTEMPTS = 5
+const ATTACH_BACKOFF_MS = [1000, 3000, 8000]
+// tmp/ 中 mtime 早于该阈值的残留文件在主流程开头被清理（防止异常路径累积）
+const TMP_STALE_MS = 2 * 60 * 60 * 1000
 const FEEDBACK_TYPE_TO_LARK = {
   system_error: "使用过程问题",
   optimization: "基础功能建议",
@@ -54,6 +61,14 @@ function fail(message) {
 
 function logInfo(message) {
   console.log(`[INFO ${new Date().toISOString()}] ${message}`)
+}
+
+function logWarn(message) {
+  console.error(`[WARN ${new Date().toISOString()}] ${message}`)
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function assertEnv() {
@@ -103,6 +118,34 @@ function assertLarkOk(json, context) {
   }
 }
 
+// 不退出进程的 lark-cli 调用变体，用于附件路径——上传/挂载允许失败并落 dead-letter，
+// 不能像 runLark() 那样一遇错就 process.exit 把整轮同步拖死。
+function runLarkSafe(args) {
+  const result = spawnSync("lark-cli", args, { encoding: "utf-8", cwd: __dirname })
+  if (result.error) {
+    return { ok: false, error: `lark-cli spawn 失败: ${result.error.message}` }
+  }
+  const stdout = (result.stdout || "").trim()
+  const stderr = (result.stderr || "").trim()
+  if (result.status !== 0) {
+    return { ok: false, error: `lark-cli 退出码 ${result.status}: ${stderr || stdout || "(空)"}` }
+  }
+  if (!stdout) return { ok: true, json: null }
+  let json
+  try {
+    json = JSON.parse(stdout)
+  } catch (e) {
+    return { ok: false, error: `lark-cli 输出非 JSON: ${stdout.slice(0, 200)}` }
+  }
+  if (!json || typeof json.code !== "number") {
+    return { ok: false, error: `返回结构异常: ${JSON.stringify(json).slice(0, 200)}` }
+  }
+  if (json.code !== 0) {
+    return { ok: false, error: `业务码 ${json.code}: ${json.msg || ""}`, json }
+  }
+  return { ok: true, json }
+}
+
 function readCursor() {
   if (!fs.existsSync(CURSOR_FILE)) {
     const now = Date.now()
@@ -121,6 +164,58 @@ function writeCursor(lastCreateTime) {
   fs.writeFileSync(CURSOR_FILE, JSON.stringify({ lastCreateTime }, null, 2))
 }
 
+// ---------- dead-letter ----------
+function loadDeadLetter() {
+  if (!fs.existsSync(DEAD_LETTER_FILE)) return []
+  const raw = fs.readFileSync(DEAD_LETTER_FILE, "utf-8").trim()
+  if (!raw) return []
+  let parsed
+  try {
+    parsed = JSON.parse(raw)
+  } catch (e) {
+    fail(`${path.basename(DEAD_LETTER_FILE)} 解析失败：${e.message}（请人工修复或删除该文件）`)
+  }
+  if (!Array.isArray(parsed)) {
+    fail(`${path.basename(DEAD_LETTER_FILE)} 顶层应为数组`)
+  }
+  return parsed
+}
+
+function saveDeadLetter(list) {
+  fs.writeFileSync(DEAD_LETTER_FILE, JSON.stringify(list, null, 2))
+}
+
+function findDeadLetterIdx(list, recordId, url) {
+  return list.findIndex((it) => it.recordId === recordId && it.url === url)
+}
+
+function upsertDeadLetterEntry(list, { recordId, url, errorMessage }) {
+  const idx = findDeadLetterIdx(list, recordId, url)
+  const nowIso = new Date().toISOString()
+  if (idx === -1) {
+    list.push({
+      recordId,
+      url,
+      attempts: 1,
+      lastError: errorMessage,
+      firstFailedAt: nowIso,
+      lastFailedAt: nowIso,
+      abandoned: false,
+    })
+    return
+  }
+  const entry = list[idx]
+  entry.attempts = (entry.attempts || 0) + 1
+  entry.lastError = errorMessage
+  entry.lastFailedAt = nowIso
+  if (entry.attempts >= MAX_ATTACH_ATTEMPTS) entry.abandoned = true
+}
+
+function removeDeadLetterEntry(list, recordId, url) {
+  const idx = findDeadLetterIdx(list, recordId, url)
+  if (idx !== -1) list.splice(idx, 1)
+}
+
 /**
  * 从 description 中抽取 meta，并剥离注释返回纯净正文。
  */
@@ -136,6 +231,34 @@ function extractMeta(description) {
   }
   const body = description.replace(META_REGEX, "").replace(/\s+$/, "")
   return { body, meta }
+}
+
+// 清理 tmp/ 残留：仅删除 mtime 早于 TMP_STALE_MS 的文件，避免误删并发运行中的中间文件
+function cleanStaleTmp() {
+  if (!fs.existsSync(TMP_DIR)) return
+  let entries
+  try {
+    entries = fs.readdirSync(TMP_DIR)
+  } catch (e) {
+    logWarn(`读取 tmp 目录失败：${e.message}`)
+    return
+  }
+  const cutoff = Date.now() - TMP_STALE_MS
+  let removed = 0
+  for (const name of entries) {
+    const full = path.join(TMP_DIR, name)
+    try {
+      const st = fs.statSync(full)
+      if (!st.isFile()) continue
+      if (st.mtimeMs < cutoff) {
+        fs.unlinkSync(full)
+        removed += 1
+      }
+    } catch (e) {
+      logWarn(`清理 tmp 文件失败 ${name}: ${e.message}`)
+    }
+  }
+  if (removed > 0) logInfo(`tmp 清理：删除 ${removed} 个超过 ${TMP_STALE_MS / 60000} 分钟的残留文件`)
 }
 
 // HTML 转纯文本 + 抽取图片 URL
@@ -206,32 +329,39 @@ function getDepartmentOptionNames(fields) {
   return new Set(dept.property.options.map((o) => o.name))
 }
 
+// Number 字段的 is 操作符只接受单值；多值会报 1254018 InvalidFilter。
+// 故改为 conjunction:"or" 下每个 id 一条单值 is 条件，并按 SEARCH_FILTER_CHUNK
+// 分批（飞书 filter conditions 上限 50）以兼容单轮新增超过 50 条的情况。
+const SEARCH_FILTER_CHUNK = 50
+
 function findExistingDbIds(dbIds) {
   if (dbIds.length === 0) return new Set()
-  const filter = {
-    conjunction: "and",
-    conditions: [
-      {
+  const found = new Set()
+  for (let i = 0; i < dbIds.length; i += SEARCH_FILTER_CHUNK) {
+    const chunk = dbIds.slice(i, i + SEARCH_FILTER_CHUNK)
+    const filter = {
+      conjunction: "or",
+      conditions: chunk.map((id) => ({
         field_name: "db_feedback_id",
         operator: "is",
-        value: dbIds.map(String),
-      },
-    ],
-  }
-  const json = runLark([
-    "api",
-    "POST",
-    `/open-apis/bitable/v1/apps/${APP_TOKEN}/tables/${TABLE_ID}/records/search`,
-    "--data",
-    JSON.stringify({ field_names: ["db_feedback_id"], filter, page_size: 500 }),
-    "--as",
-    "bot",
-  ])
-  assertLarkOk(json, "record-search for dedup")
-  const found = new Set()
-  for (const item of json.data.items || []) {
-    const v = item.fields && item.fields.db_feedback_id
-    if (typeof v === "number") found.add(v)
+        value: [String(id)],
+      })),
+    }
+    const json = runLark([
+      "api",
+      "POST",
+      `/open-apis/bitable/v1/apps/${APP_TOKEN}/tables/${TABLE_ID}/records/search`,
+      "--data",
+      JSON.stringify({ field_names: ["db_feedback_id"], filter, page_size: 500 }),
+      "--as",
+      "bot",
+    ])
+    assertLarkOk(json, "record-search for dedup")
+    for (const item of json.data.items || []) {
+      const v = item.fields && item.fields.db_feedback_id
+      if (typeof v === "number") found.add(v)
+      else if (typeof v === "string" && /^\d+$/.test(v)) found.add(Number(v))
+    }
   }
   return found
 }
@@ -280,20 +410,16 @@ function downloadToTempFile(url) {
   })
 }
 
-// 直接调底层 drive upload_all，显式声明 parent_type=bitable_image，确保 file_token 与目标 Base 绑定。
-// lark-cli base +record-upload-attachment helper 在此场景下使用了不匹配的 parent_type，导致写入时报
-// "Attachment file_token is unavailable"，故绕过。
-function uploadAttachmentToRecord(recordId, relativeFilePath, fileName) {
+// 仅上传单文件得到 file_token；不与具体 record 交互。失败抛 Error。
+// 显式 parent_type=bitable_image：lark-cli 自带 helper 在此场景使用了不匹配的 parent_type，
+// 导致写入时报 "Attachment file_token is unavailable"，故绕过。
+function uploadFileToken(relativeFilePath, fileName) {
   const absPath = path.join(__dirname, relativeFilePath)
   const size = fs.statSync(absPath).size
-
-  const uploadJson = runLark([
-    "api",
-    "POST",
-    "/open-apis/drive/v1/medias/upload_all",
+  const res = runLarkSafe([
+    "api", "POST", "/open-apis/drive/v1/medias/upload_all",
     "--file", `file=${relativeFilePath}`,
-    "--data",
-    JSON.stringify({
+    "--data", JSON.stringify({
       file_name: fileName,
       parent_type: "bitable_image",
       parent_node: APP_TOKEN,
@@ -301,66 +427,195 @@ function uploadAttachmentToRecord(recordId, relativeFilePath, fileName) {
     }),
     "--as", "bot",
   ])
-  assertLarkOk(uploadJson, `drive.upload_all(${fileName})`)
-  const fileToken = uploadJson.data && uploadJson.data.file_token
-  if (!fileToken) {
-    fail(`drive.upload_all 未返回 file_token: ${JSON.stringify(uploadJson)}`)
-  }
+  if (!res.ok) throw new Error(`drive.upload_all(${fileName}) ${res.error}`)
+  const token = res.json && res.json.data && res.json.data.file_token
+  if (!token) throw new Error(`drive.upload_all(${fileName}) 未返回 file_token`)
+  return token
+}
 
-  // 把 file_token 追加到 record 的附件字段。先读取已有附件再合并，避免覆盖之前已挂的图。
-  const getJson = runLark([
-    "api",
-    "GET",
+// 校验 record 仍存在；用于 dead-letter 重投前的存活检查。
+// 返回 'exists' | 'gone' | 'unknown'。
+function checkRecordExists(recordId) {
+  const res = runLarkSafe([
+    "api", "GET",
     `/open-apis/bitable/v1/apps/${APP_TOKEN}/tables/${TABLE_ID}/records/${recordId}`,
     "--as", "bot",
   ])
-  assertLarkOk(getJson, `record-get(${recordId})`)
-  const existing = (getJson.data && getJson.data.record && getJson.data.record.fields
-    && getJson.data.record.fields[FIELD_NAMES.attachments]) || []
-  const merged = Array.isArray(existing) ? existing.slice() : []
-  merged.push({ file_token: fileToken })
+  if (res.ok) return "exists"
+  if (res.json && (res.json.code === 1254043 || res.json.code === 1254044 || res.json.code === 1254045)) {
+    return "gone"
+  }
+  return "unknown"
+}
 
+// 把若干 file_token 挂到 record 的附件字段。
+// merge=true 时先 GET 取已有附件合并后 PUT；merge=false 直接 PUT（用于 batch_create 紧随其后的初次挂载，
+// 此时 record 上必无附件，可省一次 GET）。失败抛 Error。
+function appendTokensToRecord(recordId, tokens, { merge }) {
+  let existing = []
+  if (merge) {
+    const getRes = runLarkSafe([
+      "api", "GET",
+      `/open-apis/bitable/v1/apps/${APP_TOKEN}/tables/${TABLE_ID}/records/${recordId}`,
+      "--as", "bot",
+    ])
+    if (!getRes.ok) throw new Error(`record-get(${recordId}) ${getRes.error}`)
+    const fieldsObj = getRes.json && getRes.json.data && getRes.json.data.record && getRes.json.data.record.fields
+    const cur = fieldsObj && fieldsObj[FIELD_NAMES.attachments]
+    if (Array.isArray(cur)) existing = cur.slice()
+  }
+  const merged = existing.concat(tokens.map((t) => ({ file_token: t })))
   const updateBody = { fields: {} }
   updateBody.fields[FIELD_NAMES.attachments] = merged
-  const updateJson = runLark([
-    "api",
-    "PUT",
+  const updateRes = runLarkSafe([
+    "api", "PUT",
     `/open-apis/bitable/v1/apps/${APP_TOKEN}/tables/${TABLE_ID}/records/${recordId}`,
     "--data", JSON.stringify(updateBody),
     "--as", "bot",
   ])
-  assertLarkOk(updateJson, `record-update(${recordId}) attach`)
+  if (!updateRes.ok) throw new Error(`record-update(${recordId}) ${updateRes.error}`)
 }
 
-/**
- * 对每条新建 record 上传其图片到「补充资料说明（可选）」字段
- * 单张失败不影响其它，失败的会通过 onFailure 回调记录到 record 的意见内容
- */
-async function attachImagesToRecords(pairs) {
-  const failures = []
-  for (const { record, imgs } of pairs) {
-    for (const url of imgs) {
-      let absPath = null
-      try {
-        const downloaded = await downloadToTempFile(url)
-        absPath = downloaded.absPath
-        uploadAttachmentToRecord(record.record_id, downloaded.relPath, downloaded.fileName)
-        logInfo(`附件已上传: ${record.record_id} <- ${downloaded.fileName}`)
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err)
-        console.error(`[WARN] 附件上传失败 record=${record.record_id} url=${url}: ${message}`)
-        failures.push({ recordId: record.record_id, url, message })
-      } finally {
-        if (absPath) fs.unlink(absPath, () => {})
+// 下载 + 上传单张图，得到 file_token。无论成败都会清理 tmp 文件。失败抛 Error。
+async function downloadAndUpload(url) {
+  let absPath = null
+  try {
+    const downloaded = await downloadToTempFile(url)
+    absPath = downloaded.absPath
+    const fileToken = uploadFileToken(downloaded.relPath, downloaded.fileName)
+    return { fileToken, fileName: downloaded.fileName }
+  } finally {
+    if (absPath) fs.unlink(absPath, () => {})
+  }
+}
+
+// 带退避的本轮内重试。返回 {fileToken, fileName} 或 throw 最后一次错误。
+async function uploadWithBackoff(url) {
+  let lastError = null
+  for (let attempt = 0; attempt <= ATTACH_BACKOFF_MS.length; attempt += 1) {
+    try {
+      return await downloadAndUpload(url)
+    } catch (e) {
+      lastError = e
+      if (attempt < ATTACH_BACKOFF_MS.length) {
+        await sleep(ATTACH_BACKOFF_MS[attempt])
       }
     }
   }
-  return failures
+  throw lastError
+}
+
+/**
+ * 把 imgs 挂到对应 record 上：
+ *   1) 逐 url 下载+上传（含本轮退避重试），收集成功的 file_token；
+ *   2) 单次 PUT 把所有成功的 token 合并写入附件字段；
+ *   3) 任何失败的（上传失败 或 PUT 失败）都落 dead-letter，不抛异常；
+ *   4) merge=true 时合并已有附件（dead-letter 重投场景），merge=false 直接写（初次挂载场景）。
+ * 返回 {ok, failed} 统计。
+ */
+async function attachImagesPerRecord(record, imgs, deadLetter, { merge }) {
+  const recordId = record.record_id
+  const succeeded = [] // {url, fileToken, fileName}
+  const uploadFailed = [] // {url, error}
+
+  for (const url of imgs) {
+    try {
+      const r = await uploadWithBackoff(url)
+      succeeded.push({ url, ...r })
+    } catch (e) {
+      uploadFailed.push({ url, error: e })
+    }
+  }
+
+  let appendError = null
+  if (succeeded.length > 0) {
+    try {
+      appendTokensToRecord(recordId, succeeded.map((s) => s.fileToken), { merge })
+      logInfo(`附件已挂到 ${recordId}: ${succeeded.length} 张（${succeeded.map((s) => s.fileName).join(", ")}）`)
+      for (const s of succeeded) removeDeadLetterEntry(deadLetter, recordId, s.url)
+    } catch (e) {
+      appendError = e
+    }
+  }
+
+  for (const { url, error } of uploadFailed) {
+    const msg = error instanceof Error ? error.message : String(error)
+    logWarn(`附件上传失败 record=${recordId} url=${url}: ${msg}`)
+    upsertDeadLetterEntry(deadLetter, { recordId, url, errorMessage: msg })
+  }
+  if (appendError) {
+    const msg = appendError instanceof Error ? appendError.message : String(appendError)
+    logWarn(`附件合并到 record=${recordId} 失败: ${msg}（已上传的 file_token 不复用，下次重新下载）`)
+    for (const s of succeeded) {
+      upsertDeadLetterEntry(deadLetter, { recordId, url: s.url, errorMessage: `append: ${msg}` })
+    }
+  }
+
+  return {
+    ok: appendError ? 0 : succeeded.length,
+    failed: uploadFailed.length + (appendError ? succeeded.length : 0),
+  }
+}
+
+async function attachImagesToRecords(pairs, deadLetter) {
+  let okTotal = 0
+  let failTotal = 0
+  for (const { record, imgs } of pairs) {
+    const { ok, failed } = await attachImagesPerRecord(record, imgs, deadLetter, { merge: false })
+    okTotal += ok
+    failTotal += failed
+  }
+  return { ok: okTotal, failed: failTotal }
+}
+
+// 重投 dead-letter 中未 abandoned 的项。对 record 已删除的条目直接清除。
+async function replayDeadLetter(deadLetter) {
+  if (deadLetter.length === 0) return { replayed: 0, ok: 0, failed: 0, abandoned: 0, gone: 0 }
+
+  const active = deadLetter.filter((it) => !it.abandoned)
+  const abandonedCount = deadLetter.length - active.length
+  if (active.length === 0) {
+    logInfo(`dead-letter 全部已 abandoned（${abandonedCount} 条），跳过重投`)
+    return { replayed: 0, ok: 0, failed: 0, abandoned: abandonedCount, gone: 0 }
+  }
+
+  const byRecord = new Map()
+  for (const it of active) {
+    if (!byRecord.has(it.recordId)) byRecord.set(it.recordId, [])
+    byRecord.get(it.recordId).push(it.url)
+  }
+  logInfo(`dead-letter 重投：${active.length} 条 / ${byRecord.size} 个 record（abandoned ${abandonedCount} 条不再重试）`)
+
+  let ok = 0
+  let failed = 0
+  let gone = 0
+  for (const [recordId, urls] of byRecord) {
+    const status = checkRecordExists(recordId)
+    if (status === "gone") {
+      for (const url of urls) {
+        removeDeadLetterEntry(deadLetter, recordId, url)
+        gone += 1
+      }
+      logWarn(`dead-letter 记录的 record ${recordId} 已不存在，清除其 ${urls.length} 条挂起附件`)
+      continue
+    }
+    // unknown 也尝试重投——可能是临时错误
+    const { ok: o, failed: f } = await attachImagesPerRecord(
+      { record_id: recordId },
+      urls,
+      deadLetter,
+      { merge: true },
+    )
+    ok += o
+    failed += f
+  }
+  return { replayed: active.length, ok, failed, abandoned: abandonedCount, gone }
 }
 
 // ---------- 主流程 ----------
 async function main() {
   assertEnv()
+  cleanStaleTmp()
 
   let fields = listFields()
   ensureDbFeedbackIdField(fields)
@@ -369,6 +624,17 @@ async function main() {
     fields = listFields()
   }
   const validDepartments = getDepartmentOptionNames(fields)
+
+  // dead-letter 在 DB 连接之前就先重投；与 RDS 连通性无关，独立失败也不影响主拉取
+  const deadLetter = loadDeadLetter()
+  try {
+    const replay = await replayDeadLetter(deadLetter)
+    if (replay.replayed > 0 || replay.abandoned > 0) {
+      logInfo(`dead-letter 重投结果：成功 ${replay.ok} / 失败 ${replay.failed} / 已弃 ${replay.abandoned} / 清除已删 ${replay.gone}`)
+    }
+  } finally {
+    saveDeadLetter(deadLetter)
+  }
 
   const conn = await mysql.createConnection({
     host: process.env.DB_HOST,
@@ -458,20 +724,41 @@ async function main() {
     if (createdRecords.length > 0) {
       logInfo(`已写入 ${createdRecords.length} 条到飞书`)
     }
-
-    // 二阶段：把图片附件挂到对应 record 上
     if (createdRecords.length !== buildRows.length) {
-      console.error(`[WARN] batch_create 返回 ${createdRecords.length} 条，期望 ${buildRows.length}，可能错位`)
+      logWarn(`batch_create 返回 ${createdRecords.length} 条，期望 ${buildRows.length}，按 db_feedback_id 对齐挂附件`)
     }
-    const pairs = createdRecords
-      .map((rec, idx) => ({ record: rec, imgs: buildRows[idx] ? buildRows[idx].imgs : [] }))
-      .filter((p) => p.imgs.length > 0)
-    if (pairs.length > 0) {
-      logInfo(`开始上传附件，涉及 ${pairs.length} 条 record，共 ${pairs.reduce((s, p) => s + p.imgs.length, 0)} 张图`)
-      const failures = await attachImagesToRecords(pairs)
-      if (failures.length > 0) {
-        logInfo(`附件上传失败 ${failures.length} 张（已记录到 stderr）`)
+
+    // 二阶段：按 db_feedback_id 把 createdRecords 对回 buildRows，避免位置错位
+    const recordByDbId = new Map()
+    for (const rec of createdRecords) {
+      const dbId = rec && rec.fields && rec.fields[FIELD_NAMES.dbFeedbackId]
+      if (typeof dbId === "number") recordByDbId.set(dbId, rec)
+      else if (typeof dbId === "string" && /^\d+$/.test(dbId)) recordByDbId.set(Number(dbId), rec)
+    }
+    const pairs = []
+    let missing = 0
+    for (const br of buildRows) {
+      if (br.imgs.length === 0) continue
+      const dbId = br.fields[FIELD_NAMES.dbFeedbackId]
+      const rec = recordByDbId.get(dbId)
+      if (!rec) {
+        missing += 1
+        logWarn(`db_feedback_id=${dbId} 未在 batch_create 返回中找到，跳过挂附件（下轮可手工补）`)
+        continue
       }
+      pairs.push({ record: rec, imgs: br.imgs })
+    }
+
+    try {
+      if (pairs.length > 0) {
+        const totalImgs = pairs.reduce((s, p) => s + p.imgs.length, 0)
+        logInfo(`开始上传附件，涉及 ${pairs.length} 条 record，共 ${totalImgs} 张图${missing ? `（另有 ${missing} 条因对齐失败跳过）` : ""}`)
+        const { ok, failed } = await attachImagesToRecords(pairs, deadLetter)
+        logInfo(`附件结果：成功 ${ok} 张 / 失败 ${failed} 张（失败已落 dead-letter）`)
+      }
+    } finally {
+      // 即使附件阶段中途异常，先把 dead-letter 落盘
+      saveDeadLetter(deadLetter)
     }
 
     const maxTs = rows.reduce((max, r) => Math.max(max, Number(r.ts)), cursor)

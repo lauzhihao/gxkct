@@ -1,5 +1,6 @@
 .env
 .cursor.json
+.attachment-deadletter.json
 sync.log
 node_modules/
 tmp/
