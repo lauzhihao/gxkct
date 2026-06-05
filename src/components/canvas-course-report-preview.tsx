@@ -72,19 +72,6 @@ interface CanvasCourseReportPreviewProps {
 }
 
 /**
- * 格式化日期显示
- */
-function formatDate(dateStr?: string): string {
-  if (!dateStr) return "-"
-  try {
-    const date = new Date(dateStr)
-    return date.toLocaleDateString("zh-CN")
-  } catch {
-    return dateStr
-  }
-}
-
-/**
  * 解析授课时间
  */
 function parseTeachingTime(teachingTime?: string): string {

@@ -678,7 +678,9 @@ function AiCanvasPanelInner({
     (nodeId: string) => {
       // 找出该节点及其所有子节点（parentId 指向该节点的节点）
       const idsToMark = new Set<string>([nodeId])
-      flowNodes.forEach(node => {
+      // [MOD] 改用 flowNodesRef.current 读取最新节点，避免把 flowNodes 写进依赖数组
+      // 导致回调随每次节点变化而重建（进而触发 ReactFlow 重订阅 / processedNodes 失效）
+      flowNodesRef.current.forEach(node => {
         if (node.parentId === nodeId) {
           idsToMark.add(node.id)
         }
@@ -702,7 +704,7 @@ function AiCanvasPanelInner({
         })
       })
     },
-    [onNodeDelete, flowNodes]
+    [onNodeDelete]
   )
 
   // 处理节点点击（高亮联动功能已移除）

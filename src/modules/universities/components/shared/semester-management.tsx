@@ -157,7 +157,6 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
     }
   }, [loadSemesters, resetTransientState])
 
-  const currentSemester = useMemo(() => getCurrentSemesterItem(semesterList), [semesterList])
   const selectedSemester = useMemo(() => globalSemesterList.find(s => Number(s.id) === Number(selectedSemesterId)) || null, [globalSemesterList, selectedSemesterId])
 
   useEffect(() => {
@@ -207,7 +206,7 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
     return () => {
       clearTimeout(timer)
     }
-  }, [isPolling, pollCount, isDialogOpen, loadSemesters])
+  }, [isPolling, pollCount, isDialogOpen, loadSemesters, updateSemesterList])
 
   const filteredSemesterList = useMemo(() => {
     const normalizedSearchTerm = searchTerm.trim().toLowerCase()
@@ -296,7 +295,7 @@ export function SemesterManagement({ collegeId, collegeName }: SemesterManagemen
         setIsSaving(false)
       }
     }
-  }, [collegeId, draft, loadSemesters])
+  }, [collegeId, draft, loadSemesters, updateSemesterList])
 
   const handleCancelDraft = useCallback(() => {
     setDraft(null)

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
@@ -178,7 +178,7 @@ export function Members({ node }: MembersProps) {
   const canToggleMember = !isSemesterReadonly && canPerformMemberAction(toggleMemberAction)
   const canResetMemberPassword = !isSemesterReadonly && canPerformMemberAction(resetPasswordMemberAction)
 
-  const resetAddUserFormState = () => {
+  const resetAddUserFormState = useCallback(() => {
     setNewUserAccount("")
     setAccountFieldError(null)
     setNewUserName("")
@@ -195,12 +195,12 @@ export function Members({ node }: MembersProps) {
     setSelectedOrganizationNodeId(null)
     setEditingRelativeId(null)
     setCreatedUserFeedback(null)
-  }
+  }, [roleConfig.defaultRole])
 
-  const resetDialogForm = () => {
+  const resetDialogForm = useCallback(() => {
     setIsAddUserDialogOpen(false)
     resetAddUserFormState()
-  }
+  }, [resetAddUserFormState])
 
   const handleAddUserDialogOpenChange = (open: boolean) => {
     if (!open) {
@@ -291,7 +291,7 @@ export function Members({ node }: MembersProps) {
     }
 
     resetDialogForm()
-  }, [isSemesterReadonly])
+  }, [isSemesterReadonly, resetDialogForm])
 
   useEffect(() => {
     setDepartmentSearch("")

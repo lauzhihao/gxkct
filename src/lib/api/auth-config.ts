@@ -106,11 +106,8 @@ function isSemesterBriefArray(value: unknown): value is SemesterBrief[] {
       return false
     }
 
-    const candidate = item as Record<string, unknown>
-    const schoolYear = candidate.schoolYear
-    const termType = candidate.termType
-
     // [MOD] 增强容错性：放宽对 isCurrent 和 status 的校验要求，支持数字和缺失情况
+    const candidate = item as Record<string, unknown>
     const hasId = typeof candidate.id === "number" || typeof candidate.id === "string"
     const hasName = typeof candidate.name === "string"
     

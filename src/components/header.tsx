@@ -196,46 +196,6 @@ interface HeaderProps {
   treeData?: import("@/types").TreeNode | null
 }
 
-interface Notification {
-  id: string
-  title: string
-  content: string
-  time: string
-  read: boolean
-}
-
-// Mock消息数据
-const mockNotifications: Notification[] = [
-  {
-    id: "1",
-    title: "系统通知",
-    content: "您有新的课程评分待审核",
-    time: "5分钟前",
-    read: false,
-  },
-  {
-    id: "2",
-    title: "资源更新",
-    content: "《数据结构》课程资源已更新",
-    time: "1小时前",
-    read: false,
-  },
-  {
-    id: "3",
-    title: "评分提醒",
-    content: "专业评分已完成，请查看",
-    time: "2小时前",
-    read: true,
-  },
-  {
-    id: "4",
-    title: "系统维护",
-    content: "系统将于今晚22:00进行维护",
-    time: "昨天",
-    read: true,
-  },
-]
-
 export function Header({ currentPath, treeData }: HeaderProps) {
   const router = useRouter()
   const { can } = usePermission()

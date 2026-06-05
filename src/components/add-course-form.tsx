@@ -19,7 +19,6 @@ import { RichTextEditor } from "@/shared/components/ui/rich-text-editor"
 import { usePermission } from "@/shared/hooks/use-permission"
 import type { PermissionAction } from "@/shared/permissions/types"
 import { useSemesterStore } from "@/shared/stores/semester-store"
-import type { SemesterBrief } from "@/types"
 
 const CREATE_COURSE_ACTION: PermissionAction = "major.course.create"
 const EDIT_COURSE_ACTION: PermissionAction = "course.detail.edit"

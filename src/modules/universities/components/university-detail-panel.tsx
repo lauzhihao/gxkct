@@ -40,7 +40,7 @@ const CREATE_DEPARTMENT_ACTION = "college.department.create"
 const CREATE_DEPARTMENT_CONTEXT = { scope: "college" } as const
 
 export function UniversityDetail({ node, onNodeSelect, onSetCurrentSchool, currentUser, onTreeRefresh }: DetailPanelProps) {
-  const { can, isSemesterReadonly } = usePermission()
+  const { can } = usePermission()
   const selectedSemesterId = useSemesterStore((state) => state.selectedSemesterId)
   const [newDeptName, setNewDeptName] = useState("")
   const [newDeptDesc, setNewDeptDesc] = useState("")

@@ -92,7 +92,6 @@ function AssessmentMethodOption({
 export function CourseBasicInfo({
   name,
   courseDetail,
-  createTime,
   semesterDisplay,
   courseEditable = false,
   onOpenCourseSyllabus,

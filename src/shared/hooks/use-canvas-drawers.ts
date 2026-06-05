@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef } from "react"
 import type { Node } from "@xyflow/react"
 
 import { FlowNodeType } from "@/components/flow/utils/types"
@@ -367,6 +367,13 @@ export function useCanvasDrawers({
   onGraduationSupportUpdate,
   onEnsureLatestCanvasOssKey,
 }: UseCanvasDrawersOptions): UseCanvasDrawersReturn {
+  // [MOD] 用 ref 持有最新 flowNodes，供各编辑回调在调用时读取当前帧数据。
+  // 原先这些回调把 flowNodes 写进依赖数组，导致 flowNodes 每次变化（含拖拽、SSE 填充）
+  // 都重建回调引用，进而使 useProcessedNodes 的 memo 失效、全量节点重渲。
+  // 改用 ref 后回调引用恒定，仅在被触发时按需读取最新节点。
+  const flowNodesRef = useRef(flowNodes)
+  flowNodesRef.current = flowNodes
+
   // 正在更新的面板ID集合（用于显示loading效果）
   const [updatingPanelIds, setUpdatingPanelIds] = useState<Set<string>>(new Set())
 
@@ -455,7 +462,7 @@ export function useCanvasDrawers({
   // 处理节点编辑按钮点击 - 打开编辑弹窗
   const handleNodeEdit = useCallback(
     (nodeId: string) => {
-      const node = flowNodes.find(n => n.id === nodeId)
+      const node = flowNodesRef.current.find(n => n.id === nodeId)
       if (node) {
         setEditDialog({
           open: true,
@@ -465,7 +472,7 @@ export function useCanvasDrawers({
         })
       }
     },
-    [flowNodes]
+    []
   )
 
   // 处理编辑抽屉保存（转换 AddCourseForm 数据为 CourseInfoData）
@@ -515,7 +522,7 @@ export function useCanvasDrawers({
   // 处理课点面板编辑图标点击
   const handleCoursePointPanelEdit = useCallback(
     (panelId: string, focusTarget?: { pointId?: string; pointIndex?: number }) => {
-      const childNodes = flowNodes.filter(n => n.parentId === panelId)
+      const childNodes = flowNodesRef.current.filter(n => n.parentId === panelId)
       const coursePoints: CoursePointCardData[] = childNodes.map(n => n.data as unknown as CoursePointCardData)
       coursePoints.sort((a, b) => (a.index || 0) - (b.index || 0))
 
@@ -527,7 +534,7 @@ export function useCanvasDrawers({
         focusPointIndex: typeof focusTarget?.pointIndex === "number" ? focusTarget.pointIndex : null,
       })
     },
-    [flowNodes]
+    []
   )
 
   // 处理课点编辑保存
@@ -544,7 +551,7 @@ export function useCanvasDrawers({
 
         onCoursePointsUpdate?.(panelId, coursePoints)
 
-        flowNodes.forEach((node) => {
+        flowNodesRef.current.forEach((node) => {
           if (node.type === FlowNodeType.COURSE_MATRIX) {
             onCourseMatrixUpdate?.(
               node.id,
@@ -584,7 +591,6 @@ export function useCanvasDrawers({
     },
     [
       coursePointDrawer.panelId,
-      flowNodes,
       onCourseMatrixUpdate,
       onCoursePointsUpdate,
       onEnsureLatestCanvasOssKey,
@@ -608,7 +614,7 @@ export function useCanvasDrawers({
   // 处理KSA面板编辑图标点击
   const handleKsaPanelEdit = useCallback(
     (panelId: string) => {
-      const childNodes = flowNodes.filter(n => n.parentId === panelId)
+      const childNodes = flowNodesRef.current.filter(n => n.parentId === panelId)
       const ksaItems: KsaItemData[] = childNodes.map(n => n.data as unknown as KsaItemData)
       ksaItems.sort((a, b) => (a.index || 0) - (b.index || 0))
 
@@ -618,7 +624,7 @@ export function useCanvasDrawers({
         ksaItems,
       })
     },
-    [flowNodes]
+    []
   )
 
   // 处理KSA编辑保存
@@ -656,7 +662,7 @@ export function useCanvasDrawers({
   // 处理章节面板编辑图标点击
   const handleChapterPanelEdit = useCallback(
     (panelId: string) => {
-      const childNodes = flowNodes.filter(n => n.parentId === panelId)
+      const childNodes = flowNodesRef.current.filter(n => n.parentId === panelId)
       const chapters: ChapterCardData[] = childNodes.map(n => n.data as unknown as ChapterCardData)
       chapters.sort((a, b) => (a.index || 0) - (b.index || 0))
 
@@ -666,7 +672,7 @@ export function useCanvasDrawers({
         chapters,
       })
     },
-    [flowNodes]
+    []
   )
 
   // 处理章节编辑保存
@@ -704,7 +710,7 @@ export function useCanvasDrawers({
   // 处理教学目标面板编辑图标点击
   const handleObjectivePanelEdit = useCallback(
     (panelId: string) => {
-      const childNodes = flowNodes.filter(n => n.parentId === panelId)
+      const childNodes = flowNodesRef.current.filter(n => n.parentId === panelId)
       const objectives: ObjectiveCardData[] = childNodes.map(n => n.data as unknown as ObjectiveCardData)
       objectives.sort((a, b) => (a.index || 0) - (b.index || 0))
 
@@ -714,7 +720,7 @@ export function useCanvasDrawers({
         objectives,
       })
     },
-    [flowNodes]
+    []
   )
 
   // 处理教学目标编辑保存
@@ -754,7 +760,7 @@ export function useCanvasDrawers({
   // 处理课程矩阵节点编辑图标点击
   const handleCourseMatrixEdit = useCallback(
     (nodeId: string) => {
-      const node = flowNodes.find(n => n.id === nodeId)
+      const node = flowNodesRef.current.find(n => n.id === nodeId)
       if (node && node.type === FlowNodeType.COURSE_MATRIX) {
         const matrixData = node.data as unknown as CourseMatrixData
         setCourseMatrixDrawer({
@@ -764,7 +770,7 @@ export function useCanvasDrawers({
         })
       }
     },
-    [flowNodes]
+    []
   )
 
   // 处理课程矩阵编辑保存
@@ -793,7 +799,7 @@ export function useCanvasDrawers({
   // 处理项目矩阵节点编辑图标点击
   const handleProjectMatrixEdit = useCallback(
     (nodeId: string) => {
-      const node = flowNodes.find(n => n.id === nodeId)
+      const node = flowNodesRef.current.find(n => n.id === nodeId)
       if (node && node.type === FlowNodeType.PROJECT_MATRIX) {
         const matrixData = node.data as unknown as ProjectMatrixData
         setProjectMatrixDrawer({
@@ -803,7 +809,7 @@ export function useCanvasDrawers({
         })
       }
     },
-    [flowNodes]
+    []
   )
 
   // 处理项目矩阵编辑保存
@@ -858,7 +864,7 @@ export function useCanvasDrawers({
   // 处理源文档卡片编辑按钮点击
   const handleSourceDocumentEdit = useCallback(
     (nodeId: string) => {
-      const node = flowNodes.find(n => n.id === nodeId)
+      const node = flowNodesRef.current.find(n => n.id === nodeId)
       if (node) {
         setSourceDocumentDrawer({
           open: true,
@@ -866,7 +872,7 @@ export function useCanvasDrawers({
         })
       }
     },
-    [flowNodes]
+    []
   )
 
   // 处理源文档编辑保存
@@ -902,7 +908,7 @@ export function useCanvasDrawers({
   // 处理专业矩阵面板编辑图标点击
   const handleGraduationSupportPanelEdit = useCallback(
     (panelId: string) => {
-      const node = flowNodes.find(n => n.id === panelId)
+      const node = flowNodesRef.current.find(n => n.id === panelId)
       const nodeData = node ? (node.data as unknown as GraduationSupportData) : null
 
       setGraduationSupportDrawer({
@@ -911,7 +917,7 @@ export function useCanvasDrawers({
         data: nodeData || { id: panelId },
       })
     },
-    [flowNodes]
+    []
   )
 
   // 处理专业矩阵编辑保存

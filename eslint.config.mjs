@@ -19,7 +19,13 @@ const config = [
     },
   },
   {
-    ignores: [".next/**", "node_modules/**"],
+    files: ["scripts/**/*.js"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
+  {
+    ignores: [".next/**", "node_modules/**", ".claude/**"],
   },
 ]
 

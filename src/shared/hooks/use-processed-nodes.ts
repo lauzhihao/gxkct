@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useRef } from "react"
 import type { Node } from "@xyflow/react"
 
 import { FlowNodeType } from "@/components/flow/utils/types"
@@ -176,6 +176,46 @@ function getNodeDisplayName(node: Node): string {
 }
 
 /**
+ * 浅比较两个对象（一层 key/value 严格相等）。null/undefined 视为相等的空对象。
+ */
+function shallowEqualObject(
+  a: Record<string, unknown> | null | undefined,
+  b: Record<string, unknown> | null | undefined
+): boolean {
+  if (a === b) return true
+  if (!a || !b) return !a && !b
+  const aKeys = Object.keys(a)
+  const bKeys = Object.keys(b)
+  if (aKeys.length !== bKeys.length) return false
+  for (const key of aKeys) {
+    if (a[key] !== b[key]) return false
+  }
+  return true
+}
+
+/**
+ * 判断两个「已处理节点」是否等价——用于跨渲染复用引用，让节点 memo 生效。
+ * 顶层字段逐项严格相等；position 按坐标值比较；style/data 做一层浅比较
+ * （style 与 data 在处理时每次都新建对象，但内容多数不变）。
+ */
+function areProcessedNodesEqual(a: Node, b: Node): boolean {
+  const aKeys = Object.keys(a)
+  const bKeys = Object.keys(b)
+  if (aKeys.length !== bKeys.length) return false
+  for (const key of aKeys) {
+    if (key === "data" || key === "style" || key === "position") continue
+    if ((a as Record<string, unknown>)[key] !== (b as Record<string, unknown>)[key]) {
+      return false
+    }
+  }
+  if (a.position?.x !== b.position?.x || a.position?.y !== b.position?.y) return false
+  if (!shallowEqualObject(a.style as Record<string, unknown>, b.style as Record<string, unknown>)) {
+    return false
+  }
+  return shallowEqualObject(a.data as Record<string, unknown>, b.data as Record<string, unknown>)
+}
+
+/**
  * 处理画布节点，注入高亮状态和回调函数
  * 将原始节点数据转换为带有交互功能的节点
  */
@@ -206,6 +246,10 @@ export function useProcessedNodes({
   onSourceDocumentEdit,
   onSourceDocumentRefresh,
 }: UseProcessedNodesOptions): Node[] {
+  // [MOD] 缓存上一帧的「已处理节点」，按 id 复用未变化节点的引用，使节点 memo 生效。
+  // 即使 useMemo 因 flowNodes 变化而全量重算，未变节点仍返回旧引用，避免全量重渲。
+  const previousProcessedRef = useRef<Map<string, Node>>(new Map())
+
   // 单独计算 KSA 映射，只在 KSA 数据变化时更新（避免 flowNodes 其他变化触发重建）
   const ksaItemsMap = useMemo(() => {
     const map: Record<string, KsaItemData> = {}
@@ -641,7 +685,23 @@ export function useProcessedNodes({
         },
       }
     })
-    return result
+
+    // [MOD] 按 id 与上一帧产出做结构比较，未变化节点复用旧引用，让节点 memo 生效。
+    // 仅当前存在的 id 写入 nextMap，自动淘汰已删除节点的缓存，无内存泄漏。
+    const prevMap = previousProcessedRef.current
+    const nextMap = new Map<string, Node>()
+    const reconciled = result.map((node) => {
+      const prev = prevMap.get(node.id)
+      if (prev && areProcessedNodesEqual(prev, node)) {
+        nextMap.set(node.id, prev)
+        return prev
+      }
+      nextMap.set(node.id, node)
+      return node
+    })
+    previousProcessedRef.current = nextMap
+
+    return reconciled
   }, [
     flowNodes,
     highlightState.highlightedIds,

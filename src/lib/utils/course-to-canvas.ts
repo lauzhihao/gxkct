@@ -927,11 +927,6 @@ function convertCourseMatrixToCanvasData(
 type ProjectDataItem = NonNullable<ProjectMatrixApiData["data"]>[number]
 
 /**
- * 项目矩阵的类型别名
- */
-type ProjectMatrix = NonNullable<ProjectDataItem["projectMatrices"]>[number]
-
-/**
  * 规范化 KSA 分类：确保使用有效的分类 (K/S/A)
  * 如果值不是有效分类，则默认为 K
  */

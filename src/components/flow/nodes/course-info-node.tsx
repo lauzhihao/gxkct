@@ -26,19 +26,6 @@ interface CourseInfoNodeData extends CourseInfoData {
 }
 
 /**
- * 格式化日期显示
- */
-function formatDate(dateStr?: string): string {
-  if (!dateStr) return ""
-  try {
-    const date = new Date(dateStr)
-    return date.toLocaleDateString("zh-CN")
-  } catch {
-    return dateStr
-  }
-}
-
-/**
  * 信息项组件 - 紧凑显示单个字段
  */
 function InfoItem({

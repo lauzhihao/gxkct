@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-/* eslint-disable no-console */
 /**
  * 反馈同步：course_feedback -> 飞书多维表格（课程通意见收集系统）
  *
@@ -103,7 +102,7 @@ function runLark(args) {
   }
   try {
     return JSON.parse(stdout)
-  } catch (e) {
+  } catch {
     fail(`lark-cli 输出非 JSON\nargs: ${args.join(" ")}\nstdout: ${stdout}`)
     return null
   }
@@ -134,7 +133,7 @@ function runLarkSafe(args) {
   let json
   try {
     json = JSON.parse(stdout)
-  } catch (e) {
+  } catch {
     return { ok: false, error: `lark-cli 输出非 JSON: ${stdout.slice(0, 200)}` }
   }
   if (!json || typeof json.code !== "number") {
@@ -226,7 +225,7 @@ function extractMeta(description) {
   let meta = {}
   try {
     meta = JSON.parse(m[1])
-  } catch (e) {
+  } catch {
     logInfo(`meta 解析失败，原始片段: ${m[1].slice(0, 200)}`)
   }
   const body = description.replace(META_REGEX, "").replace(/\s+$/, "")
