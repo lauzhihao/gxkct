@@ -99,6 +99,62 @@ function dedupeCourseMatrixCoursePoints(
   return Array.from(pointMap.values())
 }
 
+function readFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim()
+    if (!trimmed) {
+      return null
+    }
+    const parsed = Number(trimmed)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+
+  return null
+}
+
+function resolveCoursePeriodValue(
+  course: Record<string, unknown>,
+  chapters: unknown[],
+  period: "theory" | "practice"
+): number {
+  const directKeys =
+    period === "theory"
+      ? ["theoryPeriod", "theory_period"]
+      : ["practicePeriod", "practice_period"]
+  const chapterKeys =
+    period === "theory"
+      ? ["theoryPeriod", "theoryHours", "theory_period", "theory_hours"]
+      : ["practicePeriod", "practiceHours", "practice_period", "practice_hours"]
+
+  const directValues = directKeys
+    .map((key) => readFiniteNumber(course[key]))
+    .filter((value): value is number => value !== null)
+  const positiveDirectValues = directValues.filter((value) => value > 0)
+  if (positiveDirectValues.length > 0) {
+    return Math.max(...positiveDirectValues)
+  }
+
+  const chapterTotal = chapters.reduce((total, chapter) => {
+    if (!chapter || typeof chapter !== "object") {
+      return total
+    }
+    const chapterRecord = chapter as Record<string, unknown>
+    const value = chapterKeys
+      .map((key) => readFiniteNumber(chapterRecord[key]))
+      .find((numberValue) => numberValue !== null && numberValue > 0)
+    return total + (value ?? 0)
+  }, 0)
+  if (chapterTotal > 0) {
+    return chapterTotal
+  }
+
+  return directValues[0] ?? 0
+}
+
 // Panel 网格布局列数配置
 const PANEL_GRID_COLUMNS: Partial<Record<CanvasComponentType, number>> = {
   [CanvasComponentType.OBJECTIVE_PANEL]: 3,
@@ -408,18 +464,21 @@ function createCourseInfoElement(
   courseGoals?: CourseGoalWithChildren[]
 ): CanvasElementData {
   const course = courseDetail.courseDetailData.course
+  const courseRecord = course as Record<string, unknown>
   const courseNameData = courseDetail.courseNameData
   const pointksa = courseDetail.courseDetailData.pointksa
   const teachingObjectives = (courseGoals || []).flatMap((goal) => goal.children || [])
   const chapters = Array.isArray(course.courseMatrixVOS) ? course.courseMatrixVOS : []
   const coursePoints = Array.isArray(pointksa?.points) ? pointksa.points : []
+  const theoryPeriod = resolveCoursePeriodValue(courseRecord, chapters, "theory")
+  const practicePeriod = resolveCoursePeriodValue(courseRecord, chapters, "practice")
 
   const courseInfoData: CourseInfoData = {
     name: courseNameData.name,
     metadata: {
       introduction: course.introduction || undefined,
-      theoryPeriod: course.theoryPeriod,
-      practicePeriod: course.practicePeriod,
+      theoryPeriod,
+      practicePeriod,
       courseId: course.id,
       majorId: course.majorId,
       // 课程类型（必修/选修）和课程性质
