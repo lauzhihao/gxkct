@@ -1,7 +1,7 @@
 import { api } from "@/lib/api"
 import { HttpAdapter } from "@/lib/api/http-adapter"
 import type { ApiResponse } from "@/lib/api/types"
-import type { TeachingSupervisoryTask, Long, EvaluationCriterion } from "@/types"
+import type { TeachingSupervisoryTask, Long, EvaluationCriterion, TaskTargetType } from "@/types"
 
 const http = new HttpAdapter()
 
@@ -80,6 +80,36 @@ export interface EvaluationTypeSubmit {
 // 课程评价提交请求体
 export interface CourseEvaluationSubmitDTO {
   evaluations: EvaluationTypeSubmit[]
+}
+
+// 任务执行主体（任意层级）：院系/专业级任务的列表项
+export interface TaskTargetItem {
+  id: Long
+  taskId: Long
+  // 任务基本信息（按 target/node 维度查询时由 JOIN 带出）
+  title?: string | null
+  startDate?: string | null
+  endDate?: string | null
+  taskStatus?: string | null
+  targetType: TaskTargetType
+  targetId: Long
+  targetName: string | null
+  courseId: Long | null
+  courseName: string | null
+  majorId: Long | null
+  majorName: string | null
+  deptId: Long | null
+  deptName: string | null
+  collegeId: Long | null
+  collegeName: string | null
+  selfEvaluationStatus: string
+  deptEvaluationStatus: string
+  schoolEvaluationStatus: string
+  overallStatus: "not_started" | "in_progress" | "completed"
+  selfTotalScore: number | null
+  deptTotalScore: number | null
+  schoolTotalScore: number | null
+  finalScore: number | null
 }
 
 export interface CourseTeachingTaskResponse {
@@ -266,6 +296,48 @@ export const courseTeachingTasksApi = {
   ): Promise<ApiResponse<CollegeDeptEvaluationItem[] | null>> {
     return http.get<CollegeDeptEvaluationItem[]>(
       withSemesterId(`/api/v5/task-evaluation/tasks/${taskId}/colleges/${collegeId}/depts`, semesterId)
+    )
+  },
+
+  // 获取任务的执行主体列表（院系/专业级任务：每行即一个执行主体）
+  getTaskTargets(taskId: Long): Promise<ApiResponse<TaskTargetItem[] | null>> {
+    return http.get<TaskTargetItem[]>(`/api/v5/task-evaluation/tasks/${taskId}/targets`)
+  },
+
+  // 获取派发到某执行主体（院系/专业等）本层级的任务列表
+  getTasksByTarget(
+    targetType: TaskTargetType,
+    targetId: Long,
+    semesterId?: number | null,
+  ): Promise<ApiResponse<TaskTargetItem[] | null>> {
+    return http.get<TaskTargetItem[]>(
+      withSemesterId(`/api/v5/task-evaluation/targets/${targetType}/${targetId}/tasks`, semesterId)
+    )
+  },
+
+  // 获取执行主体（学校/院系/专业/课程）的评价详情
+  getTargetEvaluationDetail(
+    taskId: Long,
+    targetType: TaskTargetType,
+    targetId: Long,
+    semesterId?: number | null,
+  ): Promise<ApiResponse<CourseEvaluationDetailResponse | null>> {
+    return http.get<CourseEvaluationDetailResponse>(
+      withSemesterId(`/api/v5/task-evaluation/tasks/${taskId}/targets/${targetType}/${targetId}/evaluation`, semesterId)
+    )
+  },
+
+  // 提交执行主体（学校/院系/专业/课程）的评价
+  submitTargetEvaluation(
+    taskId: Long,
+    targetType: TaskTargetType,
+    targetId: Long,
+    submitDTO: CourseEvaluationSubmitDTO,
+    semesterId?: number | null,
+  ): Promise<ApiResponse<CourseEvaluationDetailResponse | null>> {
+    return http.post<CourseEvaluationDetailResponse>(
+      withSemesterId(`/api/v5/task-evaluation/tasks/${taskId}/targets/${targetType}/${targetId}/evaluation`, semesterId),
+      submitDTO
     )
   },
 }

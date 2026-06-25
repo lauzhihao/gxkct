@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import type { ResourceFolder, ResourcePagination } from "@/lib/api"
-import { courseResourcesApi } from "@/modules/courses/api/courseResourcesApi"
+import { courseResourcesApi, type ResourceOwnerType } from "@/modules/courses/api/courseResourcesApi"
 import { showError } from "@/shared/utils/toast-utils"
 
 // 后端返回的资源项类型（包含文件夹和文件）
@@ -62,7 +62,7 @@ interface UseCourseResourcesResult {
   initializeFolders: () => Promise<void>
 }
 
-export function useCourseResources(courseId?: string | null): UseCourseResourcesResult {
+export function useCourseResources(courseId?: string | null, ownerType?: ResourceOwnerType): UseCourseResourcesResult {
   const [directories, setDirectories] = useState<ResourceFolder[]>([])
   const [objects, setObjects] = useState<ResourceObject[]>([])
   const [objectsPagination, setObjectsPagination] = useState<ResourcePagination | null>(null)
@@ -83,7 +83,7 @@ export function useCourseResources(courseId?: string | null): UseCourseResources
       setIsLoading(true)
       setError(null)
       try {
-        const response = await courseResourcesApi.getFolders(courseId, parentId ?? undefined)
+        const response = await courseResourcesApi.getFolders(courseId, parentId ?? undefined, undefined, ownerType)
         if (response.error) {
           setError(response.error)
           showError(response.error)
@@ -138,7 +138,7 @@ export function useCourseResources(courseId?: string | null): UseCourseResources
         setIsLoading(false)
       }
     },
-    [courseId],
+    [courseId, ownerType],
   )
 
   const enterFolder = useCallback(
@@ -168,7 +168,7 @@ export function useCourseResources(courseId?: string | null): UseCourseResources
     setIsInitializing(true)
     setError(null)
     try {
-      const response = await courseResourcesApi.initializeFolders(courseId)
+      const response = await courseResourcesApi.initializeFolders(courseId, ownerType)
       if (response.error) {
         showError(response.error)
         setError(response.error)
@@ -183,7 +183,7 @@ export function useCourseResources(courseId?: string | null): UseCourseResources
     } finally {
       setIsInitializing(false)
     }
-  }, [courseId, isInitializing, loadFolders])
+  }, [courseId, ownerType, isInitializing, loadFolders])
 
   useEffect(() => {
     if (!courseId) {

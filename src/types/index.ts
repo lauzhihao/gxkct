@@ -63,6 +63,7 @@ export interface TeachingSupervisoryTask {
   status: "not_started" | "in_progress" | "completed"
   creator: string
   scoringType?: "percentage" | "five_level"
+  targetType?: TaskTargetType // 任务派发层级：决定 publishNodes 的粒度（单任务单层级）
   createdAt?: string
   updatedAt?: string
   archived?: boolean
@@ -100,9 +101,13 @@ export interface TeachingSupervisoryTask {
   notStartedCount?: number // 未开始数
 }
 
+// 任务派发层级（单任务单层级）
+export type TaskTargetType = "university" | "department" | "major" | "course"
+
 export interface PublishNode {
   nodeId: string  // 保留原始格式，如 'course_2334'
   nodeName?: string  // 用于UI回显
+  nodeType?: TaskTargetType  // 节点层级，须与任务 targetType 一致
 }
 
 // 条件表达式（用于系统指标）

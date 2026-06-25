@@ -9,7 +9,7 @@ import { Label } from "@/shared/components/ui/label"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/components/ui/tooltip"
 import { LoadingState } from "@/shared/components/ui/loading-state"
-import type { EvaluationLevel, Long } from "@/types"
+import type { EvaluationLevel, Long, TaskTargetType } from "@/types"
 import { courseTeachingTasksApi, type CourseEvaluationDetailResponse, type EvaluationItemDetail, type CourseEvaluationSubmitDTO, type EvaluationTypeSubmit } from "@/modules/courses/api/courseTeachingTasksApi"
 import { formatDate } from "@/shared/utils/date-utils"
 import { CourseResourcePickerDialog, type PickedResource } from "@/modules/courses/components/dialogs/course-resource-picker-dialog"
@@ -18,8 +18,16 @@ import { useSemesterReadonly } from "@/shared/hooks/use-semester-readonly"
 
 interface EvaluationDetailProps {
   taskId: Long
-  courseId: Long
+  /** 课程层级评价主体ID（课程层级必填；非课程层级可省略） */
+  courseId?: Long
   courseName?: string
+  /**
+   * 执行主体层级。缺省或 "course" 走课程评价接口；
+   * 其余层级（university/department/major）走 target 评价接口。
+   */
+  targetType?: TaskTargetType
+  /** 非课程层级时的执行主体ID（targetType 非 course 时必填） */
+  targetId?: Long
   semesterId?: number | null
   onBack: () => void
   breadcrumb?: React.ReactNode
@@ -34,7 +42,11 @@ interface ScoreItem {
 // 评价视图类型
 type EvaluationViewType = "self" | "dept" | "school"
 
-export function EvaluationDetail({ taskId, courseId, semesterId, onBack, breadcrumb, onSaveSuccess }: EvaluationDetailProps) {
+export function EvaluationDetail({ taskId, courseId, targetType, targetId, semesterId, onBack, breadcrumb, onSaveSuccess }: EvaluationDetailProps) {
+  // 课程层级与非课程层级共用同一套评分 UI，仅接口与主体ID不同
+  const isCourseLevel = !targetType || targetType === "course"
+  const effectiveTargetType: TaskTargetType = targetType || "course"
+  const effectiveId: Long | undefined = isCourseLevel ? courseId : targetId
   const [evaluationDetail, setEvaluationDetail] = useState<CourseEvaluationDetailResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   // 按视图类型分开存储评分数据
@@ -62,8 +74,9 @@ export function EvaluationDetail({ taskId, courseId, semesterId, onBack, breadcr
   const scores = scoresByType[activeViewType]
   const materialSelections = materialsByType.self
 
-  const courseResourceNodeId = courseId ? String(courseId) : null
-  const canEditMaterials = !isSemesterReadonly && activeViewType === "self" && evaluationDetail?.canSelfEvaluate === true
+  // 支撑材料来自课程资源，仅课程层级可附加
+  const courseResourceNodeId = isCourseLevel && courseId ? String(courseId) : null
+  const canEditMaterials = !isSemesterReadonly && isCourseLevel && activeViewType === "self" && evaluationDetail?.canSelfEvaluate === true
 
   // 判断当前是否可以编辑
   const canEdit = !isSemesterReadonly && ((activeViewType === "self" && evaluationDetail?.canSelfEvaluate) ||
@@ -141,7 +154,7 @@ export function EvaluationDetail({ taskId, courseId, semesterId, onBack, breadcr
 
   // 加载评分详情
   useEffect(() => {
-    if (typeof taskId !== "number" || typeof courseId !== "number") {
+    if (typeof taskId !== "number" || typeof effectiveId !== "number") {
       setIsLoading(false)
       return
     }
@@ -151,7 +164,9 @@ export function EvaluationDetail({ taskId, courseId, semesterId, onBack, breadcr
 
     const loadEvaluationDetail = async () => {
       try {
-        const response = await courseTeachingTasksApi.getEvaluationDetail(taskId, courseId, semesterId)
+        const response = isCourseLevel
+          ? await courseTeachingTasksApi.getEvaluationDetail(taskId, effectiveId, semesterId)
+          : await courseTeachingTasksApi.getTargetEvaluationDetail(taskId, effectiveTargetType, effectiveId, semesterId)
         if (!cancelled && response.data) {
           setEvaluationDetail(response.data)
           const { canSelfEvaluate, canDeptEvaluate, canSchoolEvaluate } = response.data
@@ -197,7 +212,7 @@ export function EvaluationDetail({ taskId, courseId, semesterId, onBack, breadcr
     return () => {
       cancelled = true
     }
-  }, [courseId, extractEvaluationData, semesterId, taskId])
+  }, [effectiveId, effectiveTargetType, isCourseLevel, extractEvaluationData, semesterId, taskId])
 
   // 计算总分
   useEffect(() => {
@@ -364,8 +379,8 @@ export function EvaluationDetail({ taskId, courseId, semesterId, onBack, breadcr
 
     const { canSelfEvaluate, canDeptEvaluate, canSchoolEvaluate } = evaluationDetail
 
-    if (typeof taskId !== "number" || typeof courseId !== "number") {
-      console.error("任务ID或课程ID无效")
+    if (typeof taskId !== "number" || typeof effectiveId !== "number") {
+      console.error("任务ID或评价主体ID无效")
       return false
     }
 
@@ -422,7 +437,9 @@ export function EvaluationDetail({ taskId, courseId, semesterId, onBack, breadcr
 
     setIsSaving(true)
     try {
-      const response = await courseTeachingTasksApi.submitEvaluation(taskId, courseId, submitDTO, semesterId)
+      const response = isCourseLevel
+        ? await courseTeachingTasksApi.submitEvaluation(taskId, effectiveId, submitDTO, semesterId)
+        : await courseTeachingTasksApi.submitTargetEvaluation(taskId, effectiveTargetType, effectiveId, submitDTO, semesterId)
       if (response.data) {
         showSuccess("评分保存成功")
         onSaveSuccess?.()

@@ -15,7 +15,22 @@ import type {
   EvaluationCriterion,
   PublishNode,
   TaskEvaluationCriteria,
+  TaskTargetType,
 } from "@/types"
+
+// 任务层级选项（单任务单层级）：决定发布范围可勾选的节点粒度
+const TARGET_TYPE_OPTIONS: { value: TaskTargetType; label: string }[] = [
+  { value: "department", label: "院系" },
+  { value: "major", label: "专业" },
+  { value: "course", label: "课程" },
+]
+
+const TARGET_TYPE_LABEL: Record<TaskTargetType, string> = {
+  university: "学校",
+  department: "院系",
+  major: "专业",
+  course: "课程",
+}
 import { api } from "@/lib/api"
 import { cn } from "@/shared/utils/utils"
 import { UniversalTreeSelector } from "@/shared/components/universal-tree-selector"
@@ -45,6 +60,7 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
     ...initialTask,
     description: normalizeEscapedNewlines(initialTask.description),
     scoringType: initialTask.scoringType || "percentage",
+    targetType: initialTask.targetType || "course",
     teacherSelfEvaluation: initialTask.teacherSelfEvaluation ?? true,
     juryMembers: initialTask.juryMembers || [],
     collegeJuryMembers: initialTask.collegeJuryMembers || [],
@@ -99,6 +115,7 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
         ...copiedData.task,
         description: normalizeEscapedNewlines(copiedData.task?.description),
         scoringType: copiedData.task?.scoringType || "percentage",
+        targetType: copiedData.task?.targetType || "course",
         teacherSelfEvaluation: copiedData.task?.teacherSelfEvaluation ?? true,
         juryMembers: copiedData.task?.juryMembers || [],
         collegeJuryMembers: copiedData.task?.collegeJuryMembers || [],
@@ -649,8 +666,38 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
                 </div>
               </div>
 
-              {/* Row 3: 发布范围 + 教师自评 */}
+              {/* Row 3: 任务层级 + 发布范围 + 教师自评 */}
               <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="targetType">
+                    任务层级 <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={formData.targetType || "course"}
+                    onValueChange={(value) => {
+                      // 切换层级会清空已选发布范围（粒度不同）
+                      setFormData({
+                        ...formData,
+                        targetType: value as TaskTargetType,
+                        publishNodes: [],
+                      })
+                    }}
+                  >
+                    <SelectTrigger id="targetType" className="h-10">
+                      <SelectValue placeholder="请选择任务派发层级" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TARGET_TYPE_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    选择后，发布范围只能勾选「{TARGET_TYPE_LABEL[formData.targetType || "course"]}」层级的节点
+                  </p>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="publishNodes">
                     发布范围 <span className="text-red-500">*</span>
@@ -911,12 +958,14 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
 
           onConfirm={(nodes) => {
             const selectedNodes = Array.isArray(nodes) ? nodes : nodes ? [nodes] : []
-            // 只返回nodeType为course的节点
+            const targetType = formData.targetType || "course"
+            // 仅返回与任务层级一致的节点（单任务单层级，不向下展开）
             const publishNodes: PublishNode[] = selectedNodes
-              .filter((node) => node.nodeType === "course")
+              .filter((node) => node.nodeType === targetType)
               .map((node) => ({
                 nodeId: node.nodeId,  // 保留原始格式，如 'course_2334'
                 nodeName: node.nodeName,
+                nodeType: targetType,
               }))
             setFormData({
               ...formData,
@@ -929,7 +978,8 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
           }}
           mode="multiple"
           title="选择发布范围"
-          description="请选择需要接收任务的组织节点"
+          description={`请选择需要接收任务的「${TARGET_TYPE_LABEL[formData.targetType || "course"]}」节点`}
+          selectableType={formData.targetType || "course"}
           initialSelectedIds={(formData.publishNodes || []).map((node) => String(node.nodeId))}
           rootType="university"
           rootId={String(formData.universityId || initialTask.universityId)}

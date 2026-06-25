@@ -22,6 +22,7 @@ import type { DetailPanelProps } from "@/components/detail-panel/types"
 import { StatisticsCards } from "./shared/statistics-cards"
 import { Members } from "@/shared/components/members"
 import { TeachingQualityStats } from "@/modules/majors/components/shared/teaching-quality-stats"
+import { CourseResources } from "@/modules/courses/components/course/resources/course-resources"
 import { QuickCreateMajorDialog } from "@/modules/departments/components/shared/quick-create-major-dialog"
 import { ImportMajorDialog } from "@/modules/departments/components/shared/import-major-dialog"
 import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
@@ -34,6 +35,7 @@ import { useSemesterStore } from "@/shared/stores/semester-store"
 const DEPARTMENT_TABS = {
   overview: "院系概览",
   members: "成员管理",
+  resources: "资源管理",
   "teaching-quality": "质量评价",
 } as const
 
@@ -196,6 +198,9 @@ export function DepartmentDetail({
             <TabsTrigger value="members" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
               成员管理
             </TabsTrigger>
+            <TabsTrigger value="resources" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
+              资源管理
+            </TabsTrigger>
             <TabsTrigger value="teaching-quality" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
               质量评价
             </TabsTrigger>
@@ -242,6 +247,16 @@ export function DepartmentDetail({
 
           <TabsContent value="members" className="space-y-6 p-6">
             {node && <Members node={node} />}
+          </TabsContent>
+
+          <TabsContent value="resources" className="space-y-4 mt-4 px-6">
+            {node && (
+              <CourseResources
+                nodeId={node.id || String(extractNumericId(node.nodeId))}
+                ownerType="department"
+                courseEditable={!isSemesterReadonly && can(EDIT_DEPARTMENT_ACTION, { scope: "college" })}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="teaching-quality" className="space-y-6 p-6">

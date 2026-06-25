@@ -11,6 +11,7 @@ import { MajorBasicInfo } from "@/modules/majors/components/major/major-basic-in
 import { MajorMatrix } from "@/modules/majors/components/major/major-matrix"
 import { MajorCourses } from "@/modules/majors/components/major/major-courses"
 import { TeachingQualityStats } from "@/modules/majors/components/shared/teaching-quality-stats"
+import { CourseResources } from "@/modules/courses/components/course/resources/course-resources"
 import { QuickCreateCourseDialog } from "@/modules/majors/components/dialogs/quick-create-course-dialog"
 import { majorApiService } from "@/modules/majors/api"
 import {
@@ -35,6 +36,7 @@ const MAJOR_TABS = {
   courses: "课程管理",
   details: "专业详情",
   matrix: "专业矩阵",
+  resources: "资源管理",
   "teaching-quality": "质量评价",
 } as const
 
@@ -325,6 +327,9 @@ export function MajorDetail(props: MajorDetailProps) {
               <TabsTrigger value="matrix" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
                 专业矩阵
               </TabsTrigger>
+              <TabsTrigger value="resources" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
+                资源管理
+              </TabsTrigger>
               <TabsTrigger value="teaching-quality" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
                 质量评价
               </TabsTrigger>
@@ -351,6 +356,10 @@ export function MajorDetail(props: MajorDetailProps) {
                 onUpdateNode={onUpdateNode}
                 onDeleteNode={onDeleteNode}
               />
+            </TabsContent>
+
+            <TabsContent value="resources" className="space-y-4 mt-4 px-6">
+              <CourseResources nodeId={currentMajorId || null} ownerType="major" courseEditable={canEditMajor} />
             </TabsContent>
 
             <TabsContent value="teaching-quality" className="space-y-6 p-6">

@@ -32,6 +32,12 @@ interface UniversalTreeSelectorProps {
   description?: string
   treeData?: TreeNode | null
   filterTypes?: NodeType[]
+  /**
+   * 仅允许勾选指定层级的节点，且选择不级联到子节点。
+   * 用于"任务层级"派发：选院系即派给院系本身，不自动勾选其下课程。
+   * 其余层级节点仍可展开用于导航，但不可勾选。
+   */
+  selectableType?: NodeType
   initialSelectedIds?: string[]
   rootType?: "university" | "department" | "major"
   rootId?: string | number
@@ -102,6 +108,7 @@ export function UniversalTreeSelector({
   description = "请选择一个或多个组织节点",
   treeData,
   filterTypes,
+  selectableType,
   initialSelectedIds = [],
   rootId = DEFAULT_ROOT_ID,
 }: UniversalTreeSelectorProps) {
@@ -277,6 +284,23 @@ export function UniversalTreeSelector({
   }, [collectDescendantIds])
 
   const handleSelect = (node: TreeNode) => {
+    // 限定层级时：非目标层级节点不可勾选，且选择不级联
+    if (selectableType) {
+      if (node.nodeType !== selectableType) {
+        return
+      }
+      if (mode === "single") {
+        setSelectedIds([node.nodeId])
+        return
+      }
+      setSelectedIds((prev) =>
+        prev.includes(node.nodeId)
+          ? prev.filter((id) => id !== node.nodeId)
+          : [...prev, node.nodeId],
+      )
+      return
+    }
+
     if (mode === "single") {
       setSelectedIds([node.nodeId])
       return
@@ -385,8 +409,17 @@ export function UniversalTreeSelector({
             <span className="w-4" />
           )}
 
-          {mode === "single" ? (
+          {selectableType && node.nodeType !== selectableType ? (
+            // 非目标层级节点不可勾选，仅占位用于导航
+            <span className="w-4" />
+          ) : mode === "single" ? (
             <RadioGroupItem value={node.nodeId} id={`node-${node.nodeId}`} onClick={() => handleSelect(node)} />
+          ) : selectableType ? (
+            <Checkbox
+              id={`node-${node.nodeId}`}
+              checked={selectedIds.includes(node.nodeId)}
+              onCheckedChange={() => handleSelect(node)}
+            />
           ) : (
             <Checkbox
               id={`node-${node.nodeId}`}

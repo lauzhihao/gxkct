@@ -13,12 +13,14 @@ import { ResourceSearchBar } from "./ResourceSearchBar"
 import { ResourceObjectList } from "./ResourceObjectList"
 import type { ResourceEntry, TemporaryUploadItem } from "./types"
 import { useCourseResources } from "@/modules/courses/hooks/use-course-resources"
-import { courseResourcesApi } from "@/modules/courses/api/courseResourcesApi"
+import { courseResourcesApi, type ResourceOwnerType } from "@/modules/courses/api/courseResourcesApi"
 import { showError, showSuccess } from "@/shared/utils/toast-utils"
 
 interface CourseResourcesContainerProps {
   nodeId: string | null
   courseEditable?: boolean
+  /** 资源归属层级；缺省按课程处理 */
+  ownerType?: ResourceOwnerType
 }
 
 const MAX_RESOURCE_UPLOAD_SIZE = 1024 * 1024 * 1024
@@ -67,7 +69,7 @@ const createUploadHeaders = (
   }
 }
 
-export function CourseResourcesContainer({ nodeId, courseEditable = false }: CourseResourcesContainerProps) {
+export function CourseResourcesContainer({ nodeId, courseEditable = false, ownerType }: CourseResourcesContainerProps) {
   const canManageCourseResource = courseEditable
 
   const {
@@ -88,7 +90,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
     goToBreadcrumb,
     refreshCurrentLevel,
     initializeFolders,
-  } = useCourseResources(nodeId)
+  } = useCourseResources(nodeId, ownerType)
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [isDeleting, setIsDeleting] = useState(false)
@@ -158,7 +160,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
         action: "delete",
         sourceFolderId: currentParentId,
         objectIds: Array.from(selectedIds),
-      })
+      }, ownerType)
       if (response.error) {
         showError(response.error)
         return
@@ -172,7 +174,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
     } finally {
       setIsDeleting(false)
     }
-  }, [courseEditable, nodeId, currentParentId, selectedIds, refreshCurrentLevel])
+  }, [courseEditable, nodeId, currentParentId, selectedIds, refreshCurrentLevel, ownerType])
 
   const calculateChecksum = useCallback(async (file: File) => {
     const buffer = await file.arrayBuffer()
@@ -222,7 +224,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
           fileName: file.name,
           mimeType: resolvedMimeType,
           size: file.size,
-        })
+        }, ownerType)
         if (signatureResponse.error || !signatureResponse.data) {
           const message = signatureResponse.error ?? "获取上传签名失败"
           throw new Error(message)
@@ -297,7 +299,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
           size: file.size,
           mimeType: resolvedMimeType,
           checksum,
-        })
+        }, ownerType)
         if (confirmResponse.error) {
           throw new Error(confirmResponse.error)
         }
@@ -321,7 +323,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
         }))
       }
     },
-    [calculateChecksum, courseEditable, currentParentId, nodeId, refreshCurrentLevel, removeTemporaryUpload, updateTemporaryUpload],
+    [calculateChecksum, courseEditable, currentParentId, nodeId, refreshCurrentLevel, removeTemporaryUpload, updateTemporaryUpload, ownerType],
   )
 
   const enqueueUploads = useCallback(
@@ -494,7 +496,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
     try {
       const response = await courseResourcesApi.createFolder(nodeId, currentParentId, {
         name: newFolderName.trim(),
-      })
+      }, ownerType)
       if (response.error) {
         setFolderNameError(response.error)
         showError(response.error)
@@ -510,7 +512,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false }: Cou
     } finally {
       setIsCreatingFolder(false)
     }
-  }, [courseEditable, currentParentId, newFolderName, nodeId, refreshCurrentLevel, resetFolderForm, validateFolderName])
+  }, [courseEditable, currentParentId, newFolderName, nodeId, refreshCurrentLevel, resetFolderForm, validateFolderName, ownerType])
 
   const handleInitializeFoldersWithPermission = useCallback(() => {
     if (!courseEditable) return

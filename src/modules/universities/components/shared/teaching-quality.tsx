@@ -23,7 +23,7 @@ import { TeachingTaskList } from "./shared/teaching-task-list"
 import { TeachingTaskEvaluation } from "./teaching-task-evaluation"
 import { TeachingTaskFormPage } from "./teaching-task-form-page"
 import { useTeachingTasks } from "@/modules/universities/hooks/use-teaching-tasks"
-import { DeptEvaluationList } from "@/shared/components/supervision"
+import { DeptEvaluationList, TargetEvaluationList } from "@/shared/components/supervision"
 import { usePermission } from "@/shared/hooks/use-permission"
 import { useSemesterReadonly } from "@/shared/hooks/use-semester-readonly"
 import { useSemesterStore } from "@/shared/stores/semester-store"
@@ -242,21 +242,35 @@ export function TeachingQuality({ node }: TeachingQualityProps) {
     )
   }
 
-  // 显示院系评估列表
+  // 显示评估列表：课程级任务走院系→专业→课程下钻；院系/专业级任务直接列执行主体
   if (pageState === "depts" && selectedTask) {
+    const isCourseLevelTask = (selectedTask.targetType || "course") === "course"
     return (
       <div className="flex-1 overflow-auto p-6">
-        <DeptEvaluationList
-          task={selectedTask}
-          collegeId={universityLongId}
-          collegeName={node.nodeName || node.name}
-          semesterId={selectedSemesterId}
-          onBack={() => {
-            setSelectedTask(null)
-            setPageState("list")
-          }}
-          onSaveSuccess={refetch}
-        />
+        {isCourseLevelTask ? (
+          <DeptEvaluationList
+            task={selectedTask}
+            collegeId={universityLongId}
+            collegeName={node.nodeName || node.name}
+            semesterId={selectedSemesterId}
+            onBack={() => {
+              setSelectedTask(null)
+              setPageState("list")
+            }}
+            onSaveSuccess={refetch}
+          />
+        ) : (
+          <TargetEvaluationList
+            task={selectedTask}
+            rootName={node.nodeName || node.name}
+            semesterId={selectedSemesterId}
+            onBack={() => {
+              setSelectedTask(null)
+              setPageState("list")
+            }}
+            onSaveSuccess={refetch}
+          />
+        )}
       </div>
     )
   }

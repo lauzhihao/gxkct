@@ -118,11 +118,25 @@ export class ResourceApi {
     return queryString ? `?${queryString}` : ""
   }
 
+  // 归属层级查询值：course 层级返回 undefined（保持既有 URL 不变），其余层级透传
+  private ownerParam(ownerType?: string): string | undefined {
+    return ownerType && ownerType !== "course" ? ownerType : undefined
+  }
+
+  // 为无 query 的 endpoint 追加 ownerType
+  private withOwner(endpoint: string, ownerType?: string): string {
+    const owner = this.ownerParam(ownerType)
+    if (!owner) return endpoint
+    return `${endpoint}${endpoint.includes("?") ? "&" : "?"}ownerType=${owner}`
+  }
+
   getFolders(
     courseId: string,
     params?: { parentId?: string | null; includeEmpty?: boolean },
+    ownerType?: string,
   ): Promise<ApiResponse<ResourceFolder[] | null>> {
     const endpoint = `${this.getBasePath(courseId)}/resource-folders${this.buildQuery({
+      ownerType: this.ownerParam(ownerType),
       parentId: params?.parentId ?? undefined,
       includeEmpty:
         typeof params?.includeEmpty === "boolean" ? Number(params.includeEmpty) : undefined,
@@ -130,13 +144,13 @@ export class ResourceApi {
     return this.http.get<ResourceFolder[]>(endpoint)
   }
 
-  initializeCourseFolders(courseId: string): Promise<ApiResponse<InitializeFoldersResponse | null>> {
-    const endpoint = `${this.getBasePath(courseId)}/resource-folders/init`
+  initializeCourseFolders(courseId: string, ownerType?: string): Promise<ApiResponse<InitializeFoldersResponse | null>> {
+    const endpoint = this.withOwner(`${this.getBasePath(courseId)}/resource-folders/init`, ownerType)
     return this.http.post<InitializeFoldersResponse>(endpoint)
   }
 
-  createFolder(courseId: string, parentId: string, payload: CreateFolderPayload): Promise<ApiResponse<ResourceFolder | null>> {
-    const endpoint = `${this.getBasePath(courseId)}/resource-folders/${parentId}`
+  createFolder(courseId: string, parentId: string, payload: CreateFolderPayload, ownerType?: string): Promise<ApiResponse<ResourceFolder | null>> {
+    const endpoint = this.withOwner(`${this.getBasePath(courseId)}/resource-folders/${parentId}`, ownerType)
     return this.http.post<ResourceFolder>(endpoint, payload)
   }
 
@@ -144,8 +158,9 @@ export class ResourceApi {
     courseId: string,
     parentId: string,
     payload: UploadSignatureRequest,
+    ownerType?: string,
   ): Promise<ApiResponse<UploadSignatureResponse | null>> {
-    const endpoint = `${this.getBasePath(courseId)}/resource-folders/${parentId}/objects/presign`
+    const endpoint = this.withOwner(`${this.getBasePath(courseId)}/resource-folders/${parentId}/objects/presign`, ownerType)
     return this.http.post<UploadSignatureResponse>(endpoint, payload)
   }
 
@@ -153,16 +168,19 @@ export class ResourceApi {
     courseId: string,
     parentId: string,
     payload: ConfirmUploadRequest,
+    ownerType?: string,
   ): Promise<ApiResponse<ResourceObjectSummary | null>> {
-    const endpoint = `${this.getBasePath(courseId)}/resource-folders/${parentId}/objects/confirm`
+    const endpoint = this.withOwner(`${this.getBasePath(courseId)}/resource-folders/${parentId}/objects/confirm`, ownerType)
     return this.http.post<ResourceObjectSummary>(endpoint, payload)
   }
 
   getObjects(
     courseId: string,
     params: ListResourceObjectsParams,
+    ownerType?: string,
   ): Promise<ApiResponse<ResourceObjectsResponse | null>> {
     const endpoint = `${this.getBasePath(courseId)}/resource-objects${this.buildQuery({
+      ownerType: this.ownerParam(ownerType),
       folderId: params.folderId,
       keyword: params.keyword,
       offset: typeof params.offset === "number" ? params.offset : undefined,
@@ -175,34 +193,36 @@ export class ResourceApi {
     return this.http.get<ResourceObjectsResponse>(endpoint)
   }
 
-  getObjectDetail(courseId: string, objectId: string): Promise<ApiResponse<ResourceObjectDetail | null>> {
-    const endpoint = `${this.getBasePath(courseId)}/resource-objects/${objectId}`
+  getObjectDetail(courseId: string, objectId: string, ownerType?: string): Promise<ApiResponse<ResourceObjectDetail | null>> {
+    const endpoint = this.withOwner(`${this.getBasePath(courseId)}/resource-objects/${objectId}`, ownerType)
     return this.http.get<ResourceObjectDetail>(endpoint)
   }
 
-  deleteObject(courseId: string, objectId: string): Promise<ApiResponse<null>> {
-    const endpoint = `${this.getBasePath(courseId)}/resource-objects/${objectId}`
+  deleteObject(courseId: string, objectId: string, ownerType?: string): Promise<ApiResponse<null>> {
+    const endpoint = this.withOwner(`${this.getBasePath(courseId)}/resource-objects/${objectId}`, ownerType)
     return this.http.delete<null>(endpoint)
   }
 
-  batchDelete(courseId: string, objectIds: string[]): Promise<ApiResponse<{ deleted: number } | null>> {
-    const endpoint = `${this.getBasePath(courseId)}/resource-objects/batch-delete`
+  batchDelete(courseId: string, objectIds: string[], ownerType?: string): Promise<ApiResponse<{ deleted: number } | null>> {
+    const endpoint = this.withOwner(`${this.getBasePath(courseId)}/resource-objects/batch-delete`, ownerType)
     return this.http.post<{ deleted: number }>(endpoint, { objectIds })
   }
 
   batchAction(
     courseId: string,
     payload: ResourceBatchActionRequest,
+    ownerType?: string,
   ): Promise<ApiResponse<ResourceBatchActionResult | null>> {
-    const endpoint = `${this.getBasePath(courseId)}/resource-objects/batch-action`
+    const endpoint = this.withOwner(`${this.getBasePath(courseId)}/resource-objects/batch-action`, ownerType)
     return this.http.post<ResourceBatchActionResult>(endpoint, payload)
   }
 
   createBatchDownload(
     courseId: string,
     objectIds: string[],
+    ownerType?: string,
   ): Promise<ApiResponse<{ taskId: string; status: string; downloadUrl: string | null } | null>> {
-    const endpoint = `${this.getBasePath(courseId)}/resource-objects/batch-download`
+    const endpoint = this.withOwner(`${this.getBasePath(courseId)}/resource-objects/batch-download`, ownerType)
     return this.http.post(endpoint, { objectIds })
   }
 }

@@ -5,9 +5,9 @@ import { Card } from "@/shared/components/ui/card"
 import { Badge } from "@/shared/components/ui/badge"
 import { LoadingState } from "@/shared/components/ui/loading-state"
 import { api } from "@/lib/api"
-import type { TeachingSupervisoryTask, TreeNode, Long } from "@/types"
-import { CourseEvaluationList, MajorEvaluationList } from "@/shared/components/supervision"
-import { courseTeachingTasksApi } from "@/modules/courses/api/courseTeachingTasksApi"
+import type { TeachingSupervisoryTask, TreeNode, Long, TaskTargetType } from "@/types"
+import { CourseEvaluationList, MajorEvaluationList, EvaluationDetail } from "@/shared/components/supervision"
+import { courseTeachingTasksApi, type TaskTargetItem } from "@/modules/courses/api/courseTeachingTasksApi"
 import { useSemesterStore } from "@/shared/stores/semester-store"
 
 interface TeachingQualityStatsProps {
@@ -18,8 +18,11 @@ interface TeachingQualityStatsProps {
 
 export function TeachingQualityStats({ node, nodeType, treeData }: TeachingQualityStatsProps) {
   const [tasks, setTasks] = useState<TeachingSupervisoryTask[]>([])
+  // 派发到本层级（院系/专业本身）的任务，执行主体即本节点
+  const [targetTasks, setTargetTasks] = useState<TaskTargetItem[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [selectedTask, setSelectedTask] = useState<TeachingSupervisoryTask | null>(null)
+  const [selectedTargetTask, setSelectedTargetTask] = useState<TaskTargetItem | null>(null)
   const selectedSemesterId = useSemesterStore((state) => state.selectedSemesterId)
 
   // 从 node.nodeId 中提取数字部分（处理 "major_123" 格式）
@@ -40,6 +43,17 @@ export function TeachingQualityStats({ node, nodeType, treeData }: TeachingQuali
     const fetchTasks = async () => {
       try {
         setIsLoading(true)
+
+        // 并行加载"派发到本层级"的任务（院系/专业本身作为执行主体）
+        const currentTargetId = nodeType === "major" ? getMajorId() : getDeptId()
+        if (currentTargetId) {
+          courseTeachingTasksApi
+            .getTasksByTarget(nodeType as TaskTargetType, currentTargetId, selectedSemesterId)
+            .then((res) => setTargetTasks(res.data || []))
+            .catch(() => setTargetTasks([]))
+        } else {
+          setTargetTasks([])
+        }
 
         if (nodeType === "major") {
           // 专业使用专业 API
@@ -114,11 +128,26 @@ export function TeachingQualityStats({ node, nodeType, treeData }: TeachingQuali
     return colorMap[status] || "bg-gray-100 text-gray-800"
   }
 
+  const currentTargetId = nodeType === "major" ? getMajorId() : getDeptId()
+
+  // 选中"派发到本层级"的任务后，直接进入该层级评价详情（不再下钻课程）
+  if (selectedTargetTask && currentTargetId) {
+    return (
+      <EvaluationDetail
+        taskId={(selectedTargetTask.taskId ?? selectedTargetTask.id) as Long}
+        targetType={nodeType as TaskTargetType}
+        targetId={currentTargetId}
+        semesterId={selectedSemesterId}
+        onBack={() => setSelectedTargetTask(null)}
+      />
+    )
+  }
+
   if (isLoading) {
     return <LoadingState variant="card" />
   }
 
-  if (tasks.length === 0) {
+  if (tasks.length === 0 && targetTasks.length === 0) {
       return (
         <div className="flex items-center justify-center py-12">
           <p className="text-muted-foreground">{selectedSemesterId === null ? "暂无进行中的任务" : "该学期暂无任务数据"}</p>
@@ -158,8 +187,51 @@ export function TeachingQualityStats({ node, nodeType, treeData }: TeachingQuali
     }
   }
 
+  const targetLevelLabel = nodeType === "major" ? "专业级" : "院系级"
+
   return (
     <div className="space-y-4">
+      {/* 派发到本层级的任务（执行主体即本节点，直接评价） */}
+      {targetTasks.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {targetTasks.map((task) => {
+            const taskKey = `target-${task.taskId ?? task.id}`
+            return (
+              <Card
+                key={taskKey}
+                className="p-6 hover:shadow-md transition-shadow border-border bg-card/50 backdrop-blur-sm flex flex-col cursor-pointer hover:border-primary/50"
+                onClick={() => setSelectedTargetTask(task)}
+              >
+                <div className="space-y-4 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <h4 className="font-semibold text-foreground text-sm line-clamp-2 flex-1">{task.title}</h4>
+                    <Badge className="text-xs whitespace-nowrap bg-primary/10 text-primary">{targetLevelLabel}</Badge>
+                  </div>
+                  <div className="py-4 grid grid-cols-3 gap-4">
+                    <div className="flex flex-col items-center justify-center">
+                      <div className="text-2xl font-bold text-primary">{task.selfTotalScore ?? "-"}</div>
+                      <div className="text-xs text-muted-foreground mt-1">自评</div>
+                    </div>
+                    <div className="flex flex-col items-center justify-center">
+                      <div className="text-2xl font-bold text-primary">{task.deptTotalScore ?? "-"}</div>
+                      <div className="text-xs text-muted-foreground mt-1">专业</div>
+                    </div>
+                    <div className="flex flex-col items-center justify-center">
+                      <div className="text-2xl font-bold text-primary">{task.schoolTotalScore ?? "-"}</div>
+                      <div className="text-xs text-muted-foreground mt-1">院校</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground text-right border-t border-border flex items-center justify-end min-h-8">
+                  {getStatusLabel(task.taskStatus || task.overallStatus)}
+                </div>
+              </Card>
+            )
+          })}
+        </div>
+      )}
+
+      {/* 课程级任务的层级化统计 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {tasks.map((task) => {
           const taskKey = task.taskId ?? task.id
