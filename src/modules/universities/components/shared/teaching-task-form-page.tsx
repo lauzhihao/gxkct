@@ -683,7 +683,7 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
                       })
                     }}
                   >
-                    <SelectTrigger id="targetType" className="h-10">
+                    <SelectTrigger id="targetType" className="h-10 w-[calc(50%_-_0.25rem)]">
                       <SelectValue placeholder="请选择任务派发层级" />
                     </SelectTrigger>
                     <SelectContent>
