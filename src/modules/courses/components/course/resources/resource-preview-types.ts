@@ -62,7 +62,12 @@ function readSafeUrl(
     throw new Error(`资源详情字段 ${field} 缺失或无效`)
   }
 
-  if (value.startsWith("/")) {
+  const secondCharacter = value.charAt(1)
+  if (
+    value.startsWith("/") &&
+    secondCharacter !== "/" &&
+    secondCharacter !== "\\"
+  ) {
     return value
   }
 
