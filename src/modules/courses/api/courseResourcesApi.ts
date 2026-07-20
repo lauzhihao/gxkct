@@ -9,6 +9,7 @@ import {
   type ResourceBatchActionResult,
   type ListResourceObjectsParams,
   type CreateFolderPayload,
+  type RenameObjectPayload,
   type UploadSignatureRequest,
   type UploadSignatureResponse,
   type ConfirmUploadRequest,
@@ -41,6 +42,15 @@ export const courseResourcesApi = {
 
   getObjectDetail(courseId: string, objectId: string, ownerType?: ResourceOwnerType): Promise<ApiResponse<ResourceObjectDetail | null>> {
     return api.resources.getObjectDetail(courseId, objectId, ownerType)
+  },
+
+  renameObject(
+    courseId: string,
+    objectId: string,
+    payload: RenameObjectPayload,
+    ownerType?: ResourceOwnerType,
+  ): Promise<ApiResponse<ResourceFolder | ResourceObjectSummary | null>> {
+    return api.resources.renameObject(courseId, objectId, payload, ownerType)
   },
 
   deleteObject(courseId: string, objectId: string, ownerType?: ResourceOwnerType): Promise<ApiResponse<null>> {

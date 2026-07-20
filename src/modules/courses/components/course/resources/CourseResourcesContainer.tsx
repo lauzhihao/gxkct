@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ResourceBreadcrumb } from "./ResourceBreadcrumb"
 import { ResourceSearchBar } from "./ResourceSearchBar"
 import { ResourceObjectList } from "./ResourceObjectList"
-import type { ResourceEntry, TemporaryUploadItem } from "./types"
+import type { ResourceEntry, ResourceRenameTarget, TemporaryUploadItem } from "./types"
 import { useCourseResources } from "@/modules/courses/hooks/use-course-resources"
 import { courseResourcesApi, type ResourceOwnerType } from "@/modules/courses/api/courseResourcesApi"
 import { showError, showSuccess } from "@/shared/utils/toast-utils"
@@ -34,6 +34,20 @@ class UploadCanceledError extends Error {
 }
 
 const MAX_RESOURCE_UPLOAD_COUNT = 20
+
+const validateResourceName = (value: string, resourceLabel: "文件夹" | "文件"): string | null => {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return `${resourceLabel}名称不能为空`
+  }
+  if (trimmed.length > 64) {
+    return `${resourceLabel}名称不能超过64个字符`
+  }
+  if (!/^[\u4e00-\u9fa5a-zA-Z0-9\s]+$/.test(trimmed)) {
+    return `${resourceLabel}名称包含特殊符号，请重新输入`
+  }
+  return null
+}
 
 const resolveUploadMimeType = (file: File): string => {
   if (typeof file.type !== "string") {
@@ -101,12 +115,20 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
   const [isCreatingFolder, setIsCreatingFolder] = useState(false)
   const [temporaryUploads, setTemporaryUploads] = useState<TemporaryUploadItem[]>([])
   const [isDropActive, setIsDropActive] = useState(false)
+  const [renameTarget, setRenameTarget] = useState<ResourceRenameTarget | null>(null)
+  const [renameName, setRenameName] = useState("")
+  const [renameNameError, setRenameNameError] = useState<string | null>(null)
+  const [isRenaming, setIsRenaming] = useState(false)
   const uploadInputRef = useRef<HTMLInputElement | null>(null)
   const uploadXhrMapRef = useRef(new Map<string, XMLHttpRequest>())
   const canceledUploadIdsRef = useRef(new Set<string>())
 
   useEffect(() => {
     setSelectedIds(new Set())
+    setRenameTarget(null)
+    setRenameName("")
+    setRenameNameError(null)
+    setIsRenaming(false)
   }, [currentParentId])
 
   useEffect(() => {
@@ -460,31 +482,17 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
     setIsCreateFolderOpen(true)
   }, [courseEditable, resetFolderForm])
 
-  const validateFolderName = useCallback((value: string) => {
-    const trimmed = value.trim()
-    if (!trimmed) {
-      return "文件夹名称不能为空"
-    }
-    if (trimmed.length > 64) {
-      return "文件夹名称不能超过64个字符"
-    }
-    if (!/^[\u4e00-\u9fa5a-zA-Z0-9\s]+$/.test(trimmed)) {
-      return "文件夹名称包含特殊符号，请重新输入"
-    }
-    return null
-  }, [])
-
   const handleFolderNameChange = useCallback(
     (value: string) => {
       setNewFolderName(value)
-      setFolderNameError(validateFolderName(value))
+      setFolderNameError(validateResourceName(value, "文件夹"))
     },
-    [validateFolderName],
+    [],
   )
 
   const handleCreateFolderConfirm = useCallback(async () => {
     if (!courseEditable) return
-    const error = validateFolderName(newFolderName)
+    const error = validateResourceName(newFolderName, "文件夹")
     if (error) {
       setFolderNameError(error)
       return
@@ -512,7 +520,81 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
     } finally {
       setIsCreatingFolder(false)
     }
-  }, [courseEditable, currentParentId, newFolderName, nodeId, refreshCurrentLevel, resetFolderForm, validateFolderName, ownerType])
+  }, [courseEditable, currentParentId, newFolderName, nodeId, refreshCurrentLevel, resetFolderForm, ownerType])
+
+  const resetRenameForm = useCallback(() => {
+    setRenameTarget(null)
+    setRenameName("")
+    setRenameNameError(null)
+    setIsRenaming(false)
+  }, [])
+
+  const handleOpenRename = useCallback((target: ResourceRenameTarget) => {
+    if (!courseEditable || isRootLevel) return
+    const resourceLabel = target.type === "folder" ? "文件夹" : "文件"
+    setRenameTarget(target)
+    setRenameName(target.name)
+    setRenameNameError(validateResourceName(target.name, resourceLabel))
+    setIsRenaming(false)
+  }, [courseEditable, isRootLevel])
+
+  const handleRenameNameChange = useCallback((value: string) => {
+    setRenameName(value)
+    if (!renameTarget) {
+      setRenameNameError("未找到要重命名的资源")
+      return
+    }
+    const resourceLabel = renameTarget.type === "folder" ? "文件夹" : "文件"
+    setRenameNameError(validateResourceName(value, resourceLabel))
+  }, [renameTarget])
+
+  const handleRenameConfirm = useCallback(async () => {
+    if (!courseEditable || isRootLevel) {
+      showError("当前目录不允许重命名资源")
+      return
+    }
+    if (!renameTarget) {
+      showError("未找到要重命名的资源")
+      return
+    }
+    const resourceLabel = renameTarget.type === "folder" ? "文件夹" : "文件"
+    const validationError = validateResourceName(renameName, resourceLabel)
+    if (validationError) {
+      setRenameNameError(validationError)
+      return
+    }
+    if (!nodeId) {
+      showError("无法确定资源归属，重命名失败")
+      return
+    }
+
+    setIsRenaming(true)
+    try {
+      const response = await courseResourcesApi.renameObject(nodeId, renameTarget.id, {
+        name: renameName.trim(),
+      }, ownerType)
+      if (response.error) {
+        setRenameNameError(response.error)
+        showError(response.error)
+        return
+      }
+      showSuccess(`${resourceLabel}重命名成功`)
+      resetRenameForm()
+      refreshCurrentLevel()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "重命名失败"
+      setRenameNameError(message)
+      showError(message)
+    } finally {
+      setIsRenaming(false)
+    }
+  }, [courseEditable, isRootLevel, nodeId, ownerType, refreshCurrentLevel, renameName, renameTarget, resetRenameForm])
+
+  const handleRenameOpenChange = useCallback((open: boolean) => {
+    if (!open) {
+      resetRenameForm()
+    }
+  }, [resetRenameForm])
 
   const handleInitializeFoldersWithPermission = useCallback(() => {
     if (!courseEditable) return
@@ -561,6 +643,8 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
   const isCreateFolderDisabled = isLoading
   const isCreateFolderConfirmDisabled =
     isCreatingFolder || Boolean(folderNameError) || newFolderName.trim().length === 0
+  const isRenameConfirmDisabled =
+    isRenaming || Boolean(renameNameError) || renameName.trim().length === 0 || renameName.trim() === renameTarget?.name
 
   if (!nodeId) {
     return (
@@ -709,6 +793,8 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
               onCancelUpload={handleCancelUpload}
               onRetryUpload={handleRetryUpload}
               isRootLevel={isRootLevel}
+              canRename={canManageCourseResource && !isRootLevel}
+              onRename={handleOpenRename}
             />
           </div>
         </div>
@@ -739,6 +825,50 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
                 className="transition-colors hover:bg-primary hover:text-white"
               >
                 {isCreatingFolder && <Spinner className="mr-2" />}
+                确认
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={renameTarget !== null} onOpenChange={handleRenameOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>重命名{renameTarget?.type === "folder" ? "文件夹" : "文件"}</DialogTitle>
+            <DialogDescription>请输入新名称，最多64个字符且不可包含特殊符号。</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Input
+              value={renameName}
+              onChange={(event) => handleRenameNameChange(event.target.value)}
+              maxLength={64}
+              placeholder="资源名称"
+              autoFocus
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !isRenameConfirmDisabled) {
+                  event.preventDefault()
+                  void handleRenameConfirm()
+                }
+              }}
+            />
+            {renameNameError && <p className="text-xs text-destructive">{renameNameError}</p>}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={resetRenameForm}
+              disabled={isRenaming}
+              className="transition-colors hover:bg-primary hover:text-white"
+            >
+              取消
+            </Button>
+            {canManageCourseResource && !isRootLevel && (
+              <Button
+                onClick={() => void handleRenameConfirm()}
+                disabled={isRenameConfirmDisabled}
+                className="transition-colors hover:bg-primary hover:text-white"
+              >
+                {isRenaming && <Spinner className="mr-2" />}
                 确认
               </Button>
             )}

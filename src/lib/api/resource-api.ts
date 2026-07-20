@@ -67,6 +67,10 @@ export interface CreateFolderPayload {
   name: string
 }
 
+export interface RenameObjectPayload {
+  name: string
+}
+
 export interface UploadSignatureRequest {
   fileName: string
   mimeType?: string
@@ -196,6 +200,16 @@ export class ResourceApi {
   getObjectDetail(courseId: string, objectId: string, ownerType?: string): Promise<ApiResponse<ResourceObjectDetail | null>> {
     const endpoint = this.withOwner(`${this.getBasePath(courseId)}/resource-objects/${objectId}`, ownerType)
     return this.http.get<ResourceObjectDetail>(endpoint)
+  }
+
+  renameObject(
+    courseId: string,
+    objectId: string,
+    payload: RenameObjectPayload,
+    ownerType?: string,
+  ): Promise<ApiResponse<ResourceFolder | ResourceObjectSummary | null>> {
+    const endpoint = this.withOwner(`${this.getBasePath(courseId)}/resource-objects/${objectId}/name`, ownerType)
+    return this.http.patch<ResourceFolder | ResourceObjectSummary>(endpoint, payload)
   }
 
   deleteObject(courseId: string, objectId: string, ownerType?: string): Promise<ApiResponse<null>> {

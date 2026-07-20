@@ -48,6 +48,12 @@ export type ResourceEntry =
       upload: TemporaryUploadItem
     }
 
+export interface ResourceRenameTarget {
+  id: string
+  name: string
+  type: "folder" | "file"
+}
+
 export interface ResourceObjectListProps {
   entries: ResourceEntry[]
   viewMode: "grid" | "list"
@@ -57,6 +63,8 @@ export interface ResourceObjectListProps {
   onCancelUpload?: (uploadId: string) => void
   onRetryUpload?: (uploadId: string) => void
   isRootLevel?: boolean
+  canRename?: boolean
+  onRename?: (target: ResourceRenameTarget) => void
 }
 
 export interface FileListItem {
