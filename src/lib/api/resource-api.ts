@@ -26,11 +26,15 @@ export interface ResourceObjectSummary {
   downloadUrl: string
 }
 
+export type ResourcePreviewStatus = "NONE" | "PENDING" | "PROCESSING" | "READY" | "FAILED"
+
 export interface ResourceObjectDetail extends ResourceObjectSummary {
   etag?: string
   checksum?: string | null
   storageClass?: string | null
   metadata?: Record<string, string>
+  previewStatus: ResourcePreviewStatus
+  previewUrl?: string | null
 }
 
 export interface ResourcePagination {

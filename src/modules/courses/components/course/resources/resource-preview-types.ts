@@ -1,12 +1,12 @@
+import type { ResourcePreviewStatus } from "@/lib/api"
+
 export const RESOURCE_PREVIEW_STATUSES = [
   "NONE",
   "PENDING",
   "PROCESSING",
   "READY",
   "FAILED",
-] as const
-
-export type ResourcePreviewStatus = (typeof RESOURCE_PREVIEW_STATUSES)[number]
+] as const satisfies readonly ResourcePreviewStatus[]
 
 export type DirectResourcePreviewKind =
   | "pdf"

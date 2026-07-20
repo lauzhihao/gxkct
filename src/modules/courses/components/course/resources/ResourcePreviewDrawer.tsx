@@ -21,13 +21,13 @@ import {
   DrawerTitle,
 } from "@/shared/components/ui/drawer"
 import { Spinner } from "@/shared/components/ui/spinner"
+import type { ResourcePreviewStatus } from "@/lib/api"
 import { ResourcePreviewContent } from "./ResourcePreviewContent"
 import {
   parseResourcePreviewDetail,
   resolveDirectResourcePreviewKind,
   type DirectResourcePreviewKind,
   type ResourcePreviewDetail,
-  type ResourcePreviewStatus,
 } from "./resource-preview-types"
 
 const PREVIEW_POLL_INTERVAL_MS = 2_000

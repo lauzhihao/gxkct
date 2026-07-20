@@ -8,10 +8,21 @@ import { Input } from "@/shared/components/ui/input"
 import { Spinner } from "@/shared/components/ui/spinner"
 import { LoadingState } from "@/shared/components/ui/loading-state"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/shared/components/ui/alert-dialog"
 import { ResourceBreadcrumb } from "./ResourceBreadcrumb"
 import { ResourceSearchBar } from "./ResourceSearchBar"
 import { ResourceObjectList } from "./ResourceObjectList"
-import type { ResourceEntry, ResourceRenameTarget, TemporaryUploadItem } from "./types"
+import { ResourcePreviewDrawer } from "./ResourcePreviewDrawer"
+import type { ResourceEntry, ResourcePreviewTarget, ResourceRenameTarget, TemporaryUploadItem } from "./types"
 import { useCourseResources } from "@/modules/courses/hooks/use-course-resources"
 import { courseResourcesApi, type ResourceOwnerType } from "@/modules/courses/api/courseResourcesApi"
 import { showError, showSuccess } from "@/shared/utils/toast-utils"
@@ -119,6 +130,10 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
   const [renameName, setRenameName] = useState("")
   const [renameNameError, setRenameNameError] = useState<string | null>(null)
   const [isRenaming, setIsRenaming] = useState(false)
+  const [previewTarget, setPreviewTarget] = useState<ResourcePreviewTarget | null>(null)
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<ResourceRenameTarget | null>(null)
+  const [isDeletingTarget, setIsDeletingTarget] = useState(false)
   const uploadInputRef = useRef<HTMLInputElement | null>(null)
   const uploadXhrMapRef = useRef(new Map<string, XMLHttpRequest>())
   const canceledUploadIdsRef = useRef(new Set<string>())
@@ -129,7 +144,11 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
     setRenameName("")
     setRenameNameError(null)
     setIsRenaming(false)
-  }, [currentParentId])
+    setPreviewTarget(null)
+    setIsPreviewOpen(false)
+    setDeleteTarget(null)
+    setIsDeletingTarget(false)
+  }, [currentParentId, nodeId])
 
   useEffect(() => {
     setSelectedIds((prev) => {
@@ -596,6 +615,79 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
     }
   }, [resetRenameForm])
 
+  const handleOpenPreview = useCallback((target: ResourcePreviewTarget) => {
+    setPreviewTarget(target)
+    setIsPreviewOpen(true)
+  }, [])
+
+  const handlePreviewOpenChange = useCallback((open: boolean) => {
+    setIsPreviewOpen(open)
+  }, [])
+
+  const loadPreviewDetail = useCallback(async (resourceId: string): Promise<unknown> => {
+    if (!nodeId) {
+      throw new Error("无法确定资源归属，预览加载失败")
+    }
+    const response = await courseResourcesApi.getObjectDetail(nodeId, resourceId, ownerType)
+    if (response.error !== null) {
+      throw new Error(response.error)
+    }
+    if (response.data === null) {
+      throw new Error("资源详情响应为空")
+    }
+    return response.data
+  }, [nodeId, ownerType])
+
+  const handleOpenDelete = useCallback((target: ResourceRenameTarget) => {
+    if (!courseEditable || isRootLevel) {
+      return
+    }
+    setDeleteTarget(target)
+  }, [courseEditable, isRootLevel])
+
+  const handleDeleteTargetOpenChange = useCallback((open: boolean) => {
+    if (!open && !isDeletingTarget) {
+      setDeleteTarget(null)
+    }
+  }, [isDeletingTarget])
+
+  const handleDeleteTargetConfirm = useCallback(async () => {
+    if (!courseEditable || isRootLevel) {
+      showError("当前目录不允许删除资源")
+      return
+    }
+    if (!nodeId || deleteTarget === null) {
+      showError("未找到要删除的资源")
+      return
+    }
+
+    setIsDeletingTarget(true)
+    try {
+      const response = await courseResourcesApi.deleteObject(nodeId, deleteTarget.id, ownerType)
+      if (response.error !== null) {
+        showError(response.error)
+        return
+      }
+      showSuccess(`${deleteTarget.type === "folder" ? "文件夹" : "文件"}删除成功`)
+      setSelectedIds((currentIds) => {
+        const nextIds = new Set(currentIds)
+        nextIds.delete(deleteTarget.id)
+        return nextIds
+      })
+      if (previewTarget !== null && previewTarget.id === deleteTarget.id) {
+        setIsPreviewOpen(false)
+        setPreviewTarget(null)
+      }
+      setDeleteTarget(null)
+      refreshCurrentLevel()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "删除失败"
+      showError(message)
+    } finally {
+      setIsDeletingTarget(false)
+    }
+  }, [courseEditable, deleteTarget, isRootLevel, nodeId, ownerType, previewTarget, refreshCurrentLevel])
+
   const handleInitializeFoldersWithPermission = useCallback(() => {
     if (!courseEditable) return
     initializeFolders()
@@ -795,6 +887,9 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
               isRootLevel={isRootLevel}
               canRename={canManageCourseResource && !isRootLevel}
               onRename={handleOpenRename}
+              canDelete={canManageCourseResource && !isRootLevel}
+              onDelete={handleOpenDelete}
+              onPreview={handleOpenPreview}
             />
           </div>
         </div>
@@ -875,6 +970,41 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {deleteTarget === null ? null : (
+        <AlertDialog open onOpenChange={handleDeleteTargetOpenChange}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>确认删除{deleteTarget.type === "folder" ? "文件夹" : "文件"}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {`“${deleteTarget.name}”删除后无法恢复，请确认是否继续。`}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeletingTarget}>取消</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={isDeletingTarget}
+                className="bg-destructive text-white hover:bg-destructive/90"
+                onClick={(event) => {
+                  event.preventDefault()
+                  void handleDeleteTargetConfirm()
+                }}
+              >
+                {isDeletingTarget ? <Spinner className="mr-2" /> : null}
+                确认删除
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+      {previewTarget === null ? null : (
+        <ResourcePreviewDrawer
+          open={isPreviewOpen}
+          resourceId={previewTarget.id}
+          initialDisplayName={previewTarget.name}
+          onOpenChange={handlePreviewOpenChange}
+          loadDetail={loadPreviewDetail}
+        />
+      )}
     </>
   )
 }
