@@ -1,7 +1,14 @@
 "use client"
 
-import { Folder, Image, FileSpreadsheet, Presentation, FileText, FileCode2, File, X, Upload } from "lucide-react"
+import { Folder, Image, FileSpreadsheet, Presentation, FileText, FileCode2, File, MoreHorizontal, PencilLine, X, Upload } from "lucide-react"
 import { cn } from "@/shared/utils/utils"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/shared/components/ui/dropdown-menu"
+import { Button } from "@/shared/components/ui/button"
 import type { ResourceObjectListProps } from "./types"
 
 function getObjectIcon(mimeType?: string, name?: string) {
@@ -28,6 +35,36 @@ function getObjectIcon(mimeType?: string, name?: string) {
 const gridClass = "grid grid-cols-3 gap-3 pb-[15px]"
 const baseTileClass = "relative flex flex-col items-center gap-2 rounded-lg border border-border bg-card/60 px-4 py-6 text-center transition-all"
 
+interface ResourceTileMenuProps {
+  name: string
+  onRename: () => void
+}
+
+function ResourceTileMenu({ name, onRename }: ResourceTileMenuProps) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="absolute right-2 top-2 z-10 h-8 w-8 rounded-full bg-background/90 text-muted-foreground opacity-0 shadow-sm ring-1 ring-border/70 backdrop-blur-sm transition-all hover:bg-background hover:text-foreground focus-visible:opacity-100 group-hover/tile:opacity-100 data-[state=open]:opacity-100"
+          aria-label={`打开${name}的操作菜单`}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-32">
+        <DropdownMenuItem onSelect={onRename}>
+          <PencilLine className="h-4 w-4" />
+          重命名
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 export function ResourceObjectList({
   entries,
   selectedIds,
@@ -36,7 +73,11 @@ export function ResourceObjectList({
   onCancelUpload,
   onRetryUpload,
   isRootLevel,
+  canRename = false,
+  onRename,
 }: ResourceObjectListProps) {
+  const shouldShowRename = canRename && !isRootLevel && typeof onRename === "function"
+
   const handleFolderTileClick = (onClick: () => void) => {
     onClick()
   }
@@ -48,22 +89,29 @@ export function ResourceObjectList({
   const renderFolderTile = (id: string, name: string, onClick: () => void, filesCount?: number, showFilesCount?: boolean) => {
     const safeFilesCount = typeof filesCount === "number" && filesCount >= 0 ? filesCount : 0
     return (
-    <button
-      type="button"
-      key={id}
-      onClick={() => handleFolderTileClick(onClick)}
-      className={cn(baseTileClass, "hover:border-primary hover:bg-primary/80 group")}
-    >
-      {showFilesCount ? (
-        <span className="absolute right-2 top-2 rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
-          {safeFilesCount}
-        </span>
-      ) : null}
-      <Folder className="h-10 w-10 text-primary transition-colors group-hover:text-white" />
-      <span className="text-sm font-medium text-foreground transition-colors group-hover:text-white truncate w-full">
-        {name}
-      </span>
-    </button>
+      <div className="group/tile relative" key={id}>
+        <button
+          type="button"
+          onClick={() => handleFolderTileClick(onClick)}
+          className={cn(baseTileClass, "group w-full hover:border-primary hover:bg-primary/80")}
+        >
+          {showFilesCount ? (
+            <span className="absolute right-2 top-2 rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
+              {safeFilesCount}
+            </span>
+          ) : null}
+          <Folder className="h-10 w-10 text-primary transition-colors group-hover:text-white" />
+          <span className="w-full truncate text-sm font-medium text-foreground transition-colors group-hover:text-white">
+            {name}
+          </span>
+        </button>
+        {shouldShowRename ? (
+          <ResourceTileMenu
+            name={name}
+            onRename={() => onRename({ id, name, type: "folder" })}
+          />
+        ) : null}
+      </div>
     )
   }
 
@@ -172,22 +220,29 @@ export function ResourceObjectList({
         const checked = selectedIds.has(entry.object.id)
         const Icon = getObjectIcon(entry.object.mimeType, entry.object.name)
         return (
-          <button
-            type="button"
-            key={entry.object.id}
-            onClick={() => handleObjectToggleSelect(entry.object.id)}
-            className={cn(
-              baseTileClass,
-              "group",
-              checked
-                ? "border-primary bg-primary/80 text-white"
-                : "hover:border-primary hover:bg-primary/70 hover:text-white",
-            )}
-            title={entry.object.name}
-          >
-            <Icon className={cn("h-10 w-10", checked ? "text-white" : "text-primary group-hover:text-white")} />
-            <span className={cn("text-sm font-medium truncate w-full", checked ? "text-white" : "text-foreground group-hover:text-white")}>{entry.object.name}</span>
-          </button>
+          <div className="group/tile relative" key={entry.object.id}>
+            <button
+              type="button"
+              onClick={() => handleObjectToggleSelect(entry.object.id)}
+              className={cn(
+                baseTileClass,
+                "group w-full",
+                checked
+                  ? "border-primary bg-primary/80 text-white"
+                  : "hover:border-primary hover:bg-primary/70 hover:text-white",
+              )}
+              title={entry.object.name}
+            >
+              <Icon className={cn("h-10 w-10", checked ? "text-white" : "text-primary group-hover:text-white")} />
+              <span className={cn("w-full truncate text-sm font-medium", checked ? "text-white" : "text-foreground group-hover:text-white")}>{entry.object.name}</span>
+            </button>
+            {shouldShowRename ? (
+              <ResourceTileMenu
+                name={entry.object.name}
+                onRename={() => onRename({ id: entry.object.id, name: entry.object.name, type: "file" })}
+              />
+            ) : null}
+          </div>
         )
       })}
     </div>
