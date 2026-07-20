@@ -54,6 +54,11 @@ export interface ResourceRenameTarget {
   type: "folder" | "file"
 }
 
+export interface ResourcePreviewTarget {
+  id: string
+  name: string
+}
+
 export interface ResourceObjectListProps {
   entries: ResourceEntry[]
   viewMode: "grid" | "list"
@@ -65,6 +70,9 @@ export interface ResourceObjectListProps {
   isRootLevel?: boolean
   canRename?: boolean
   onRename?: (target: ResourceRenameTarget) => void
+  canDelete?: boolean
+  onDelete?: (target: ResourceRenameTarget) => void
+  onPreview?: (target: ResourcePreviewTarget) => void
 }
 
 export interface FileListItem {

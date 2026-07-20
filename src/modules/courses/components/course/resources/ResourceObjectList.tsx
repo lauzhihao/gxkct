@@ -1,11 +1,12 @@
 "use client"
 
-import { Folder, Image, FileSpreadsheet, Presentation, FileText, FileCode2, File, MoreHorizontal, PencilLine, X, Upload } from "lucide-react"
+import { Folder, Image, FileSpreadsheet, Presentation, FileText, FileCode2, File, Eye, MoreHorizontal, PencilLine, Trash2, X, Upload } from "lucide-react"
 import { cn } from "@/shared/utils/utils"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu"
 import { Button } from "@/shared/components/ui/button"
@@ -37,10 +38,14 @@ const baseTileClass = "relative flex flex-col items-center gap-2 rounded-lg bord
 
 interface ResourceTileMenuProps {
   name: string
-  onRename: () => void
+  onPreview?: () => void
+  onRename?: () => void
+  onDelete?: () => void
 }
 
-function ResourceTileMenu({ name, onRename }: ResourceTileMenuProps) {
+function ResourceTileMenu({ name, onPreview, onRename, onDelete }: ResourceTileMenuProps) {
+  const hasManagementActions = typeof onRename === "function" || typeof onDelete === "function"
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -56,10 +61,25 @@ function ResourceTileMenu({ name, onRename }: ResourceTileMenuProps) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-32">
-        <DropdownMenuItem onSelect={onRename}>
-          <PencilLine className="h-4 w-4" />
-          重命名
-        </DropdownMenuItem>
+        {typeof onPreview === "function" ? (
+          <DropdownMenuItem onSelect={onPreview}>
+            <Eye className="h-4 w-4" />
+            预览
+          </DropdownMenuItem>
+        ) : null}
+        {typeof onPreview === "function" && hasManagementActions ? <DropdownMenuSeparator /> : null}
+        {typeof onRename === "function" ? (
+          <DropdownMenuItem onSelect={onRename}>
+            <PencilLine className="h-4 w-4" />
+            重命名
+          </DropdownMenuItem>
+        ) : null}
+        {typeof onDelete === "function" ? (
+          <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+            <Trash2 className="h-4 w-4" />
+            删除
+          </DropdownMenuItem>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -75,8 +95,12 @@ export function ResourceObjectList({
   isRootLevel,
   canRename = false,
   onRename,
+  canDelete = false,
+  onDelete,
+  onPreview,
 }: ResourceObjectListProps) {
   const shouldShowRename = canRename && !isRootLevel && typeof onRename === "function"
+  const shouldShowDelete = canDelete && !isRootLevel && typeof onDelete === "function"
 
   const handleFolderTileClick = (onClick: () => void) => {
     onClick()
@@ -105,10 +129,11 @@ export function ResourceObjectList({
             {name}
           </span>
         </button>
-        {shouldShowRename ? (
+        {shouldShowRename || shouldShowDelete ? (
           <ResourceTileMenu
             name={name}
-            onRename={() => onRename({ id, name, type: "folder" })}
+            onRename={shouldShowRename ? () => onRename({ id, name, type: "folder" }) : undefined}
+            onDelete={shouldShowDelete ? () => onDelete({ id, name, type: "folder" }) : undefined}
           />
         ) : null}
       </div>
@@ -236,10 +261,24 @@ export function ResourceObjectList({
               <Icon className={cn("h-10 w-10", checked ? "text-white" : "text-primary group-hover:text-white")} />
               <span className={cn("w-full truncate text-sm font-medium", checked ? "text-white" : "text-foreground group-hover:text-white")}>{entry.object.name}</span>
             </button>
-            {shouldShowRename ? (
+            {typeof onPreview === "function" || shouldShowRename || shouldShowDelete ? (
               <ResourceTileMenu
                 name={entry.object.name}
-                onRename={() => onRename({ id: entry.object.id, name: entry.object.name, type: "file" })}
+                onPreview={
+                  typeof onPreview === "function"
+                    ? () => onPreview({ id: entry.object.id, name: entry.object.name })
+                    : undefined
+                }
+                onRename={
+                  shouldShowRename
+                    ? () => onRename({ id: entry.object.id, name: entry.object.name, type: "file" })
+                    : undefined
+                }
+                onDelete={
+                  shouldShowDelete
+                    ? () => onDelete({ id: entry.object.id, name: entry.object.name, type: "file" })
+                    : undefined
+                }
               />
             ) : null}
           </div>
