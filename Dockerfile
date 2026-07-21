@@ -45,21 +45,21 @@ FROM node:22.21.1-alpine
 
 WORKDIR /app
 
-# 只复制必要的运行时文件
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/static ./.next/static
-
 # 创建非 root 用户（安全最佳实践）
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001
+
+# 只复制必要的运行时文件
+COPY --from=builder /app/package.json ./
+COPY --chown=nextjs:nodejs --from=builder /app/.next/standalone ./
+COPY --chown=nextjs:nodejs --from=builder /app/public ./public
+COPY --chown=nextjs:nodejs --from=builder /app/.next/static ./.next/static
 
 USER nextjs
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD wget --quiet --tries=1 --spider http://localhost:3000/ || exit 1
+    CMD wget --quiet --tries=1 --spider http://127.0.0.1:3000/ || exit 1
 
 # 对外暴露 3000 端口
 EXPOSE 3000

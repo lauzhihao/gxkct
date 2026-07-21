@@ -108,7 +108,7 @@ docker run -d \
   -e NEXT_PUBLIC_API_BASE_URL="\$API_BASE_URL" \
   -e NEXT_PUBLIC_ENVIRONMENT="\$ENVIRONMENT" \
   --restart unless-stopped \
-  --health-cmd="wget --quiet --tries=1 --spider http://localhost:3000/ || exit 1" \
+  --health-cmd="wget --quiet --tries=1 --spider http://127.0.0.1:3000/ || exit 1" \
   --health-interval=30s \
   --health-timeout=5s \
   --health-retries=3 \
