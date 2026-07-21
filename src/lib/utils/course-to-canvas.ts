@@ -130,29 +130,64 @@ function resolveCoursePeriodValue(
       ? ["theoryPeriod", "theoryHours", "theory_period", "theory_hours"]
       : ["practicePeriod", "practiceHours", "practice_period", "practice_hours"]
 
-  const directValues = directKeys
-    .map((key) => readFiniteNumber(course[key]))
-    .filter((value): value is number => value !== null)
+  const directValues = directKeys.map((key) => {
+    const rawValue = course[key]
+    if (rawValue === undefined || rawValue === null) {
+      return null
+    }
+
+    const value = readFiniteNumber(rawValue)
+    if (value === null || value < 0) {
+      throw new Error(`课程${period === "theory" ? "理论" : "实践"}学时无效`)
+    }
+    return value
+  }).filter((value): value is number => value !== null)
   const positiveDirectValues = directValues.filter((value) => value > 0)
   if (positiveDirectValues.length > 0) {
     return Math.max(...positiveDirectValues)
   }
 
-  const chapterTotal = chapters.reduce((total, chapter) => {
-    if (!chapter || typeof chapter !== "object") {
-      return total
+  let hasValidChapterPeriod = false
+  const chapterTotal = chapters.reduce<number>((total, chapter) => {
+    if (chapter === null || typeof chapter !== "object" || Array.isArray(chapter)) {
+      throw new Error("课程章节数据无效")
     }
     const chapterRecord = chapter as Record<string, unknown>
-    const value = chapterKeys
-      .map((key) => readFiniteNumber(chapterRecord[key]))
-      .find((numberValue) => numberValue !== null && numberValue > 0)
-    return total + (value ?? 0)
+    const chapterValues = chapterKeys.map((key) => {
+      const rawValue = chapterRecord[key]
+      if (rawValue === undefined || rawValue === null) {
+        return null
+      }
+
+      const value = readFiniteNumber(rawValue)
+      if (value === null || value < 0) {
+        throw new Error(`课程章节${period === "theory" ? "理论" : "实践"}学时无效`)
+      }
+      return value
+    }).filter((value): value is number => value !== null)
+
+    if (chapterValues.length === 0) {
+      throw new Error(`课程章节${period === "theory" ? "理论" : "实践"}学时缺失`)
+    }
+    hasValidChapterPeriod = true
+
+    const positiveValue = chapterValues.find((value) => value > 0)
+    if (positiveValue === undefined) {
+      return total
+    }
+    return total + positiveValue
   }, 0)
   if (chapterTotal > 0) {
     return chapterTotal
   }
 
-  return directValues[0] ?? 0
+  if (directValues.length > 0) {
+    return directValues[0]
+  }
+  if (hasValidChapterPeriod) {
+    return 0
+  }
+  throw new Error(`课程${period === "theory" ? "理论" : "实践"}学时缺失`)
 }
 
 // Panel 网格布局列数配置
