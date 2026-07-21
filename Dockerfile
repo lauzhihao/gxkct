@@ -14,7 +14,7 @@ COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* .npmrc* ./
 # 根据 pnpm-lock.yaml 使用 pnpm，否则使用 npm
 # （如果项目中同时存在多个锁定文件，优先使用 pnpm）
 RUN if [ -f pnpm-lock.yaml ]; then \
-      npm install -g pnpm && \
+      npm install -g pnpm@10.26.1 && \
       pnpm install --frozen-lockfile; \
     else \
       npm ci; \
