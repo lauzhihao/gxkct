@@ -2,11 +2,13 @@
 
 import { Search, X, LayoutGrid, Rows, Download, Plus, Upload } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
+import { Spinner } from "@/shared/components/ui/spinner"
 import { cn } from "@/shared/utils/utils"
 import type { ResourceSearchBarProps } from "./types"
 
 export function ResourceSearchBar({
   courseEditable = false,
+  selectedCount,
   searchTerm,
   onSearchChange,
   placeholder,
@@ -17,6 +19,9 @@ export function ResourceSearchBar({
   disableUpload,
   onCreateFolderClick,
   disableCreateFolder,
+  onBatchDownload,
+  disableBatchDownload,
+  isBatchDownloading,
 }: ResourceSearchBarProps) {
   const canManageCourseResource = courseEditable
   const buttonHoverClass = "transition-colors hover:bg-primary hover:text-white hover:[&>svg]:text-white"
@@ -29,6 +34,11 @@ export function ResourceSearchBar({
   const handleSelectFiles = () => {
     if (!courseEditable) return
     onSelectFiles?.()
+  }
+
+  const handleBatchDownload = () => {
+    if (!courseEditable || selectedCount <= 0 || disableBatchDownload || isBatchDownloading) return
+    onBatchDownload?.()
   }
 
   return (
@@ -82,9 +92,23 @@ export function ResourceSearchBar({
         </Button>
       )}
       {canManageCourseResource && (
-        <Button size="sm" className={cn("gap-2", buttonHoverClass)} disabled>
-          <Download className="h-4 w-4" />
-          批量下载
+        <Button
+          size="sm"
+          className={cn("gap-2", buttonHoverClass)}
+          onClick={handleBatchDownload}
+          disabled={selectedCount <= 0 || disableBatchDownload || isBatchDownloading || !onBatchDownload}
+        >
+          {isBatchDownloading ? (
+            <>
+              <Spinner className="h-4 w-4" />
+              正在准备
+            </>
+          ) : (
+            <>
+              <Download className="h-4 w-4" />
+              批量下载
+            </>
+          )}
         </Button>
       )}
       {canManageCourseResource && (
