@@ -1,0 +1,12 @@
+--- src/lib/api/tree-api.ts
++++ src/lib/api/tree-api.ts
+@@ -112,7 +112,8 @@
+   parentNodeId: string,
+ ): TreeNode {
+   const rawId = item.self?.value
+-  const rawName = item.self?.label || item.nodeName || item.name
++  const record = item as any
++  const rawName = item.self?.label || record.nodeName || record.name || record.self?.name
+ 
+   if (typeof rawId !== "string" || rawId.trim() === "") {
+     throw new Error(`${nodeType} 列表项缺少 self.value`)

@@ -1,0 +1,146 @@
+import { useCallback, useEffect, useState } from "react"
+import { api } from "@/lib/api"
+import type { TeachingSupervisoryTask, Long } from "@/types"
+import { courseTeachingTasksApi } from "@/modules/courses/api/courseTeachingTasksApi"
+
+type TeachingStatus = "not_started" | "in_progress" | "completed"
+type TeachingTaskInput = Omit<TeachingSupervisoryTask, "id" | "createdAt" | "updatedAt">
+
+interface UseTeachingTasksResult {
+  tasks: TeachingSupervisoryTask[]
+  isLoading: boolean
+  refetch: () => Promise<void>
+  createTask: (taskData: TeachingTaskInput) => Promise<TeachingSupervisoryTask | null>
+  updateTask: (task: TeachingSupervisoryTask) => Promise<TeachingSupervisoryTask | null>
+  autoSaveTask: (task: TeachingSupervisoryTask) => Promise<void>
+  updateTaskStatus: (taskId: Long, status: TeachingStatus) => Promise<TeachingSupervisoryTask | null>
+  archiveTask: (taskId: Long) => Promise<TeachingSupervisoryTask | null>
+}
+
+function mapCollegeTaskToTeachingTask(task: {
+  taskId: Long
+  title: string
+  startDate: string
+  endDate: string
+  status: "not_started" | "in_progress" | "completed"
+  collegeId: Long
+  collegeName: string
+  majorCount: number
+  courseCount: number
+}): TeachingSupervisoryTask {
+  return {
+    id: task.taskId,
+    taskId: task.taskId,
+    universityId: task.collegeId,
+    title: task.title,
+    description: "",
+    startDate: task.startDate,
+    endDate: task.endDate,
+    status: task.status,
+    creator: task.collegeName,
+    majorCount: task.majorCount,
+    courseCount: task.courseCount,
+  }
+}
+
+export function useTeachingTasks(universityId: Long, semesterId?: number | null): UseTeachingTasksResult {
+  const [tasks, setTasks] = useState<TeachingSupervisoryTask[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  const fetchTasks = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      const response = await courseTeachingTasksApi.getTasksByCollege(universityId, semesterId)
+      if (response.data) {
+        setTasks(response.data.map((task) => mapCollegeTaskToTeachingTask(task)))
+      } else {
+        setTasks([])
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }, [semesterId, universityId])
+
+  useEffect(() => {
+    fetchTasks()
+  }, [fetchTasks])
+
+  const updateTaskState = useCallback((updated: TeachingSupervisoryTask) => {
+    setTasks((prev) => prev.map((task) => (task.id === updated.id ? updated : task)))
+  }, [])
+
+  const createTask = useCallback(
+    async (taskData: TeachingTaskInput) => {
+      const response = await api.teachingTasks.createTask(universityId, taskData)
+      if (response.data) {
+        setTasks((prev) => [...prev, response.data!])
+        return response.data
+      }
+      return null
+    },
+    [universityId],
+  )
+
+  const updateTask = useCallback(
+    async (task: TeachingSupervisoryTask) => {
+      if (typeof task.id !== "number") {
+        return null
+      }
+      const response = await api.teachingTasks.updateTask(universityId, task.id, task)
+      if (response.data) {
+        updateTaskState(response.data)
+        return response.data
+      }
+      return null
+    },
+    [universityId, updateTaskState],
+  )
+
+  const autoSaveTask = useCallback(
+    async (task: TeachingSupervisoryTask) => {
+      if (typeof task.id !== "number") {
+        return
+      }
+      const response = await api.teachingTasks.updateTask(universityId, task.id, task)
+      if (response.data) {
+        updateTaskState(response.data)
+      }
+    },
+    [universityId, updateTaskState],
+  )
+
+  const updateTaskStatus = useCallback(
+    async (taskId: Long, status: TeachingStatus) => {
+      const response = await api.teachingTasks.updateTaskStatus(universityId, taskId, status)
+      if (response.data) {
+        updateTaskState(response.data)
+        return response.data
+      }
+      return null
+    },
+    [universityId, updateTaskState],
+  )
+
+  const archiveTask = useCallback(
+    async (taskId: Long) => {
+      const response = await api.teachingTasks.archiveTask(universityId, taskId)
+      if (response.data) {
+        updateTaskState(response.data)
+        return response.data
+      }
+      return null
+    },
+    [universityId, updateTaskState],
+  )
+
+  return {
+    tasks,
+    isLoading,
+    refetch: fetchTasks,
+    createTask,
+    updateTask,
+    autoSaveTask,
+    updateTaskStatus,
+    archiveTask,
+  }
+}

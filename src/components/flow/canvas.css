@@ -1,0 +1,575 @@
+/**
+ * 画布组件专用样式
+ * Canvas component styles for ReactFlow nodes, edges, handles, etc.
+ */
+
+/* 画布虚线网格背景 - 通过 patternClassName 设置 */
+.canvas-dashed-pattern line {
+  stroke-dasharray: 4 4;
+}
+
+/* ============ 画布节点交互样式 ============ */
+
+/* 节点基础过渡效果 - 应用于所有画布节点 */
+.canvas-node-base {
+  transition: transform 0.1s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.1s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.1s ease;
+  /* 添加微妙的背景纹理感 */
+  background-image: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.8) 0%,
+    rgba(255, 255, 255, 0.95) 50%,
+    rgba(255, 255, 255, 0.85) 100%
+  );
+}
+
+/* 节点悬停效果 - 仅增强阴影，不发生位移 */
+.canvas-node-base:hover {
+  box-shadow:
+    0 12px 28px -8px rgba(0, 0, 0, 0.12),
+    0 6px 12px -6px rgba(0, 0, 0, 0.06),
+    0 2px 4px -2px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* 节点选中状态 - 发光效果 */
+.canvas-node-selected {
+  box-shadow:
+    0 0 0 2.5px var(--primary),
+    0 0 24px -4px var(--primary),
+    0 0 40px -8px color-mix(in srgb, var(--primary) 40%, transparent),
+    0 10px 30px -8px rgba(0, 0, 0, 0.18);
+  transform: translateY(-2px) scale(1.005);
+}
+
+/* 选中状态节点的悬停效果 - 保持发光边框，不被普通hover覆盖 */
+.canvas-node-base.canvas-node-selected:hover {
+  box-shadow:
+    0 0 0 2.5px var(--primary),
+    0 0 24px -4px var(--primary),
+    0 0 40px -8px color-mix(in srgb, var(--primary) 40%, transparent),
+    0 10px 30px -8px rgba(0, 0, 0, 0.18);
+}
+
+/* 节点拖动状态 */
+.canvas-node-dragging {
+  transform: scale(1.025) rotate(0.5deg);
+  box-shadow:
+    0 24px 48px -12px rgba(0, 0, 0, 0.22),
+    0 12px 24px -8px rgba(0, 0, 0, 0.12),
+    0 0 0 2px var(--primary),
+    0 0 32px -8px var(--primary);
+  z-index: 100;
+}
+
+/* ============ 画布节点高亮样式 ============ */
+
+/* 基础高亮效果 - 柔和蓝色边框+平滑脉冲动画 */
+.canvas-node-highlighted {
+  box-shadow:
+    0 0 0 3px rgba(0, 112, 243, 0.45),
+    0 0 16px -2px rgba(0, 112, 243, 0.25),
+    0 0 32px -4px rgba(0, 112, 243, 0.15),
+    0 6px 16px rgba(0, 0, 0, 0.1);
+  animation: canvas-highlight-pulse 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes canvas-highlight-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 3px rgba(0, 112, 243, 0.45),
+      0 0 16px -2px rgba(0, 112, 243, 0.25),
+      0 0 32px -4px rgba(0, 112, 243, 0.15),
+      0 6px 16px rgba(0, 0, 0, 0.1);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow:
+      0 0 0 4px rgba(0, 112, 243, 0.55),
+      0 0 24px -2px rgba(0, 112, 243, 0.35),
+      0 0 48px -4px rgba(0, 112, 243, 0.2),
+      0 8px 20px rgba(0, 0, 0, 0.12);
+    transform: scale(1.008);
+  }
+}
+
+/* 彩虹边框高亮效果（可选） */
+.canvas-node-rainbow-highlight {
+  position: relative;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  animation: canvas-rainbow-rotate 3s linear infinite;
+}
+
+.canvas-node-rainbow-highlight::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  padding: 3px;
+  background: linear-gradient(
+    90deg,
+    #f79533,
+    #f37055,
+    #ef4e7b,
+    #a166ab,
+    #5073b8,
+    #1098ad,
+    #07b39b,
+    #f79533
+  );
+  background-size: 200% 100%;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: canvas-rainbow-flow 2s linear infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@keyframes canvas-rainbow-flow {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes canvas-rainbow-rotate {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.01);
+  }
+}
+
+/* ============ 画布连接点（Handle）样式 ============ */
+
+/* 连接点基础过渡 */
+.react-flow__handle {
+  transition: scale 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 0.15s ease-out,
+              background-color 0.15s ease;
+}
+
+/* 连接点悬停效果 - 使用独立 scale 属性，不覆盖 React Flow 的 transform 定位 */
+.react-flow__handle:hover {
+  scale: 1.25;
+  box-shadow:
+    0 0 0 5px rgba(0, 112, 243, 0.15),
+    0 0 12px rgba(0, 112, 243, 0.25);
+}
+
+/* 连接点连接中状态 */
+.react-flow__handle.connecting {
+  animation: handle-pulse 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes handle-pulse {
+  0%, 100% {
+    scale: 1;
+    box-shadow: 0 0 0 0 rgba(0, 112, 243, 0.5);
+  }
+  50% {
+    scale: 1.15;
+    box-shadow:
+      0 0 0 8px rgba(0, 112, 243, 0.08),
+      0 0 16px rgba(0, 112, 243, 0.2);
+  }
+}
+
+/* ============ 画布节点操作按钮样式 ============ */
+
+/* 节点操作按钮容器 */
+.canvas-node-actions {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.95);
+  transition: opacity 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 悬停时显示操作按钮 */
+.group:hover .canvas-node-actions {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* 当操作按钮区域内有 Popover/Tooltip 打开时，保持容器可见且位置稳定 */
+.canvas-node-actions:has([data-state="open"]) {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* 操作按钮悬停效果 */
+.canvas-action-btn {
+  transition: background-color 0.15s ease,
+              transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.15s ease;
+  border-radius: 6px;
+}
+
+.canvas-action-btn:hover {
+  transform: scale(1.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.canvas-action-btn:active {
+  transform: scale(0.92);
+  box-shadow: none;
+}
+
+/* ============ 画布加载遮罩样式 ============ */
+
+/* 加载遮罩 - 带动态波浪扫描效果 */
+.canvas-loading-overlay {
+  animation: canvas-loading-fade-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  /* 基础半透明深色背景 */
+  background-color: rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+/* 波浪扫描动画层 - 使用伪元素 + transform 实现对角线移动 */
+.canvas-loading-overlay::before {
+  content: "";
+  position: absolute;
+  /* 放大伪元素尺寸以覆盖对角线移动范围 */
+  width: 200%;
+  height: 200%;
+  top: -50%;
+  left: -100%;
+  /* 波浪渐变：透明 -> 亮色 -> 透明，形成波浪带 */
+  background: linear-gradient(
+    135deg,
+    transparent 0%,
+    transparent 40%,
+    rgba(255, 255, 255, 0.08) 44%,
+    rgba(255, 255, 255, 0.15) 47%,
+    rgba(255, 255, 255, 0.25) 50%,
+    rgba(255, 255, 255, 0.15) 53%,
+    rgba(255, 255, 255, 0.08) 56%,
+    transparent 60%,
+    transparent 100%
+  );
+  animation: canvas-wave-sweep 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events: none;
+}
+
+/* 波浪扫描动画 - 从左上角到右下角对角线移动 */
+@keyframes canvas-wave-sweep {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(100%, 100%);
+  }
+}
+
+/* 遮罩淡入动画 */
+@keyframes canvas-loading-fade-in {
+  0% {
+    opacity: 0;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 加载进度文字样式 - 彩虹渐变流动效果 */
+.canvas-loading-text {
+  position: relative;
+  z-index: 1;
+  /* [MOD] 字号增加到 1.575rem（原始尺寸的 1.5 倍） */
+  font-size: 1.575rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  background: linear-gradient(
+    90deg,
+    #f79533,
+    #f37055,
+    #ef4e7b,
+    #a166ab,
+    #5073b8,
+    #1098ad,
+    #07b39b,
+    #f79533
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: canvas-text-rainbow 3s linear infinite;
+  /* [MOD] 增强白色辉光，提升文字在深色遮罩上的可见性 */
+  filter:
+    drop-shadow(0 0 10px rgba(255, 255, 255, 1))
+    drop-shadow(0 0 20px rgba(255, 255, 255, 0.8))
+    drop-shadow(0 0 36px rgba(255, 255, 255, 0.5));
+}
+
+@keyframes canvas-text-rainbow {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ============ 画布控制栏样式 ============ */
+
+/* 缩放控件按钮 */
+.canvas-zoom-btn {
+  transition: background-color 0.15s ease,
+              transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.15s ease;
+  border-radius: 6px;
+}
+
+.canvas-zoom-btn:hover {
+  background-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.canvas-zoom-btn:active {
+  transform: scale(0.92);
+  background-color: rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* 缩放百分比文字 */
+.canvas-zoom-text {
+  transition: color 0.15s ease,
+              transform 0.15s ease;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* ============ 画布连接菜单样式 ============ */
+
+/* 连接菜单出现动画 */
+.canvas-connection-menu {
+  animation: canvas-menu-appear 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  transform-origin: top left;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.12),
+    0 2px 4px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+  background: rgba(255, 255, 255, 0.98);
+}
+
+@keyframes canvas-menu-appear {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* 连接菜单项悬停效果 */
+.canvas-menu-item {
+  transition: background-color 0.15s ease,
+              color 0.15s ease;
+}
+
+/* ============ 画布表格行悬停样式 ============ */
+
+/* 矩阵表格行悬停效果 */
+.canvas-table-row {
+  transition: background-color 0.18s ease,
+              box-shadow 0.18s ease;
+}
+
+.canvas-table-row:hover {
+  background-color: rgba(20, 184, 166, 0.1);
+  box-shadow: inset 3px 0 0 rgba(20, 184, 166, 0.5);
+}
+
+/* KSA标签悬停效果 */
+.canvas-ksa-tag {
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+              background-color 0.15s ease,
+              border-color 0.15s ease;
+}
+
+.canvas-ksa-tag:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.12),
+    0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.canvas-ksa-tag:active {
+  transform: translateY(-1px) scale(0.98);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* ============ 画布视觉增强样式 ============ */
+
+/* React Flow 画布容器背景 */
+.react-flow {
+  background-color: #fafbfc;
+}
+
+/* MiniMap 视觉增强 */
+.react-flow__minimap {
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+/* 画布边框节点标题区域增强 */
+.canvas-node-header-gradient {
+  background-image: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.2) 0%,
+    transparent 50%
+  );
+}
+
+/* Panel 节点虚线边框增强 */
+.canvas-panel-border-glow {
+  position: relative;
+}
+
+.canvas-panel-border-glow::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+}
+
+/* ============ 画布节点头部渐变优化 ============ */
+
+/* 通用节点头部玻璃态基础样式 */
+.canvas-node-header-glass {
+  position: relative;
+  overflow: hidden;
+}
+
+.canvas-node-header-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+/* ============ 画布交互状态增强 ============ */
+
+/* 画布节点获得焦点时的轮廓 */
+.canvas-node-base:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent),
+    0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+/* 禁用状态的节点样式 */
+.canvas-node-disabled {
+  opacity: 0.6;
+  pointer-events: none;
+  filter: grayscale(0.3);
+}
+
+/* ============ 画布边缘（Edge）视觉增强 ============ */
+
+/* 边悬停效果 */
+.react-flow__edge:hover .react-flow__edge-path {
+  filter: drop-shadow(0 0 4px rgba(0, 112, 243, 0.4));
+}
+
+/* 选中的边 */
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke-width: 3;
+  filter: drop-shadow(0 0 6px rgba(0, 112, 243, 0.5));
+}
+
+/* ============ 画布滚动区域优化 ============ */
+
+/* 节点内滚动区域样式 */
+.canvas-node-base [data-scrollable] {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+.canvas-node-base [data-scrollable]::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.canvas-node-base [data-scrollable]::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.canvas-node-base [data-scrollable]::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+
+.canvas-node-base [data-scrollable]::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* ============ 画布空状态按钮增强 ============ */
+
+/* Panel 空状态添加按钮增强 */
+.canvas-empty-add-btn {
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.2s ease,
+              border-color 0.2s ease,
+              background-color 0.2s ease;
+}
+
+.canvas-empty-add-btn:hover {
+  transform: scale(1.15);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.12),
+    0 4px 8px rgba(0, 0, 0, 0.08);
+}
+
+.canvas-empty-add-btn:active {
+  transform: scale(1.05);
+}
+
+/* ============ 画布同步状态指示器样式 ============ */
+
+/* 同步中闪烁动画 */
+.canvas-sync-pulse {
+  animation: canvas-sync-pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes canvas-sync-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.85);
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0);
+  }
+}

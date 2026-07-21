@@ -1,0 +1,234 @@
+{
+  "version": "1.0",
+  "sessionId": "session_1769138633100_9f6qwk5",
+  "timestamp": 1769139254152,
+  "elements": [
+    {
+      "id": "doc_001",
+      "type": "source_document_card",
+      "position": {
+        "x": -533,
+        "y": 350
+      },
+      "size": {
+        "width": 280,
+        "height": 100
+      },
+      "selected": false,
+      "data": {
+        "id": "doc_001",
+        "index": 1,
+        "filename": "新媒体营销_教学大纲2025.9.28_16学时_改.docx",
+        "ossKey": "gxkct/course_ai_files/parsed/20260123/16cddfdd_新媒体营销_教学大纲2025.9.28_16学时_改_parsed.txt",
+        "originalFileOssKey": "gxkct/course_ai_files/20260123/session_1769138633100_9f6qwk5_1769138677335_1-_新媒体营销_教学大纲2025.9.28_16学时_改.docx",
+        "fileType": "docx",
+        "createdAt": "2026-01-23T03:24:38.175977+00:00",
+        "createdBy": null,
+        "cdnHost": "https://prod-gxkct.oss-cn-beijing.aliyuncs.com/"
+      }
+    },
+    {
+      "id": "course_info_1769138780936",
+      "type": "course_info",
+      "position": {
+        "x": -633,
+        "y": 887.5
+      },
+      "size": {
+        "width": 480,
+        "height": 300
+      },
+      "selected": false,
+      "data": {
+        "id": "course_info_1769138780936",
+        "name": "新媒体营销",
+        "metadata": {
+          "openingDate": "2025-09-28",
+          "courseType": "必修",
+          "courseNatureId": 3,
+          "courseNatureName": "专业课",
+          "introduction": "《新媒体营销》课程旨在培养学生的高素质应用型人才，通过系统学习新媒体营销的基础知识和实践技能，提升学生在数字时代的生存能力和就业竞争力。课程内容包括新媒体营销基础与整合应用、短视频营销、软文创作与AI工具运用、直播营销等。通过真实环境下的实际操作，学生将掌握新媒体营销的核心技能，具备合规创作意识和数据思维，为创新创业赋能，并打造个人品牌，积累自媒体资产。",
+          "theoryPeriod": 16,
+          "practicePeriod": 16,
+          "teachingClass": "本科学生",
+          "teachingLocation": "多媒体教室及实训室",
+          "teachingTime": "每周4学时，共4周",
+          "studentCount": 0,
+          "credits": 2,
+          "mainTextbook": "严志华，贾丽. 新媒体营销与运营（微课版第2版）[M]. 中国工信出版集团人民邮电出版社, 2023.",
+          "referenceResources": [
+            "王旋，李坤婧. 短视频与直播电商（全彩微课版）[M]. 中国工信出版集团人民邮电出版社, 2024.",
+            "傅宛菊，陈彤，李华. 新媒体写作与传播[M]. 中国工信出版集团人民邮电出版社, 2023.",
+            "同婉婷. 短视频与直播电商实战[M]. 中国工信出版集团人民邮电出版社, 2022."
+          ],
+          "attendancePolicy": "本课程要求学生按时出勤，缺勤超过总学时1/3者不得参加期末考核。",
+          "assignmentPolicy": "作业应在规定时间内独立完成并提交，迟交作业按比例扣分。",
+          "conductRequirements": "遵守课堂纪律，尊重他人，禁止抄袭等学术不端行为。",
+          "practiceRequirements": "学生需在真实环境中进行短视频拍摄、剪辑、发布及直播模拟等实践操作，确保设备使用安全、数据备份安全、内容合规与版权安全。",
+          "teamworkRequirements": "小组实训时需明确分工，避免多人同时操作同一设备，确保团队协作安全。",
+          "bonusRequirements": "发表相关论文、获得专利或参与竞赛获奖可获得额外加分。",
+          "otherSuggestions": "建议学生多关注行业动态，积极参与实践活动，提升实际操作能力。",
+          "assessmentMethod": "考试",
+          "assessmentForm": "过程性考核（线上学习通任务、MOOC学习心得、线下课堂表现）占70%，期末项目作业占30%。",
+          "scoreType": "百分制",
+          "scoreTable": {
+            "headers": [
+              "考核项目",
+              "比例",
+              "备注"
+            ],
+            "rows": [
+              {
+                "考核项目": "平时成绩",
+                "比例": "70%",
+                "备注": "出勤+作业+课堂表现"
+              },
+              {
+                "考核项目": "期末项目作业",
+                "比例": "30%",
+                "备注": "项目作业"
+              }
+            ]
+          },
+          "assessmentDescription": "本课程考核由过程性考核和期末项目作业构成。过程性考核包括线上学习通任务、MOOC学习心得和线下课堂表现，占比70%；期末项目作业占比30%。"
+        }
+      }
+    },
+    {
+      "id": "objective_panel_1769138841222",
+      "type": "objective_panel",
+      "position": {
+        "x": 640,
+        "y": 60
+      },
+      "size": {
+        "width": 910,
+        "height": 355
+      },
+      "selected": false,
+      "data": {
+        "id": "objective_panel_1769138841222"
+      }
+    },
+    {
+      "id": "obj_001",
+      "type": "objective_card",
+      "position": {
+        "x": 20,
+        "y": 75
+      },
+      "size": {
+        "width": 280,
+        "height": 130
+      },
+      "selected": false,
+      "data": {
+        "id": "obj_001",
+        "index": 1,
+        "content": "掌握新媒体营销的基础知识和整合应用，包括新媒体的定义、特点以及新媒体营销的定义、特点及变现逻辑。"
+      },
+      "parentId": "objective_panel_1769138841222",
+      "extent": "parent"
+    },
+    {
+      "id": "obj_002",
+      "type": "objective_card",
+      "position": {
+        "x": 315,
+        "y": 75
+      },
+      "size": {
+        "width": 280,
+        "height": 130
+      },
+      "selected": false,
+      "data": {
+        "id": "obj_002",
+        "index": 2,
+        "content": "具备短视频营销的实际操作能力，包括短视频创作基础技巧、发布流程及效果评估方法，并树立合规创作意识与数据思维。"
+      },
+      "parentId": "objective_panel_1769138841222",
+      "extent": "parent"
+    },
+    {
+      "id": "obj_003",
+      "type": "objective_card",
+      "position": {
+        "x": 610,
+        "y": 75
+      },
+      "size": {
+        "width": 280,
+        "height": 130
+      },
+      "selected": false,
+      "data": {
+        "id": "obj_003",
+        "index": 3,
+        "content": "能够运用AI工具完成软文创作并优化内容，提升内容创作效率，为创新创业赋能。"
+      },
+      "parentId": "objective_panel_1769138841222",
+      "extent": "parent"
+    },
+    {
+      "id": "obj_004",
+      "type": "objective_card",
+      "position": {
+        "x": 20,
+        "y": 215
+      },
+      "size": {
+        "width": 280,
+        "height": 130
+      },
+      "selected": false,
+      "data": {
+        "id": "obj_004",
+        "index": 4,
+        "content": "熟悉直播营销基础知识，能够完成直播营销全流程基础操作，树立诚信营销与团队协作意识，助力打造自媒体资产，提升个人品牌影响力。"
+      },
+      "parentId": "objective_panel_1769138841222",
+      "extent": "parent"
+    },
+    {
+      "id": "chapter_panel_1769138866532",
+      "type": "chapter_panel",
+      "position": {
+        "x": 640,
+        "y": 455
+      },
+      "size": {
+        "width": 910,
+        "height": 355
+      },
+      "selected": true,
+      "data": {
+        "id": "chapter_panel_1769138866532"
+      }
+    },
+    {
+      "id": "ch_001",
+      "type": "chapter_card",
+      "position": {
+        "x": 20,
+        "y": 75
+      },
+      "size": {
+        "width": 280,
+        "height": 130
+      },
+      "selected": false,
+      "data": {
+        "id": "ch_001",
+        "index": 1,
+        "name": "新媒体营销基础与整合应用",
+        "theory_hours": 4,
+        "practice_hours": 4
+      },
+      "parentId": "chapter_panel_1769138866532",
+      "extent": "parent"
+    },
+    {
+      "id": "ch_002",
+      "type": "chapter_card",
+      "position":

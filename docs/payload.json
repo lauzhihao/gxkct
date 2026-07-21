@@ -1,0 +1,2433 @@
+[
+  {
+    "courseMatrix": {
+      "id": 270311,
+      "courseUnitId": 12543,
+      "projectId": 42862,
+      "graduateRequireId": 30668,
+      "point": {
+        "id": 329339,
+        "title": "课点1 ",
+        "description": "课程概述"
+      },
+      "relate": {
+        "name": "弱支撑",
+        "code": "success",
+        "relate": 1
+      },
+      "study": "自我学习 实践动手 合作学习",
+      "teach": "项目教学 实操教学",
+      "product": "学生能够在2分钟内独立完成项目的打开、新建、保存到指定位置，操作无误，合格。",
+      "week": "1",
+      "period": "1",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558735,
+        "projectMatrixId": 270311,
+        "taskGoalId": 52039,
+        "ksa": {
+          "id": 746830,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "了解AutoCAD软件的操作界面",
+          "level": 1
+        },
+        "relate": {
+          "name": "弱支撑",
+          "code": "success",
+          "relate": 1
+        },
+        "valid": true
+      },
+      {
+        "id": 558736,
+        "projectMatrixId": 270311,
+        "taskGoalId": 52039,
+        "ksa": {
+          "id": 746831,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "掌握计算机辅助设计发展方向",
+          "level": 2
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558737,
+        "projectMatrixId": 270311,
+        "taskGoalId": 52039,
+        "ksa": {
+          "id": 746909,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "A",
+          "description": "家国情怀",
+          "level": 1
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270312,
+      "courseUnitId": 12543,
+      "projectId": 42862,
+      "graduateRequireId": 30668,
+      "point": {
+        "id": 329340,
+        "title": "课点2",
+        "description": "AUTOCAD基础知识"
+      },
+      "relate": {
+        "name": "强支撑",
+        "code": "primary",
+        "relate": 0
+      },
+      "study": "自我学习 实践动手 合作学习",
+      "teach": "项目教学 实操教学",
+      "product": "学生能够在2分钟内独立完成项目的打开、新建、保存到指定位置，操作无误，合格。",
+      "week": "1",
+      "period": "1",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558738,
+        "projectMatrixId": 270312,
+        "taskGoalId": 52039,
+        "ksa": {
+          "id": 746832,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "了解AutoCAD软件的操作界面",
+          "level": 3
+        },
+        "relate": {
+          "name": "弱支撑",
+          "code": "success",
+          "relate": 1
+        },
+        "valid": true
+      },
+      {
+        "id": 558739,
+        "projectMatrixId": 270312,
+        "taskGoalId": 52039,
+        "ksa": {
+          "id": 746859,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "新建、打开、保存等基本文件操作",
+          "level": 1
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558740,
+        "projectMatrixId": 270312,
+        "taskGoalId": 52039,
+        "ksa": {
+          "id": 746860,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "能够进行视图窗口的缩放、平移操作",
+          "level": 2
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270313,
+      "courseUnitId": 12543,
+      "projectId": 42862,
+      "graduateRequireId": 30668,
+      "point": {
+        "id": 329341,
+        "title": "课点3 ",
+        "description": "绘制直线几何图形"
+      },
+      "relate": {
+        "name": "强支撑",
+        "code": "primary",
+        "relate": 0
+      },
+      "study": "自我学习 实践动手",
+      "teach": "项目教学 实操教学",
+      "product": "学生独立使用CAD绘制五星红旗中的五角星，了解五星红旗的来历和历史背景，培养学生热爱祖国、尊重国旗的思想，无抄袭现象，尺寸正确，错误不超过2处，合格。",
+      "week": "2",
+      "period": "1",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558741,
+        "projectMatrixId": 270313,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746833,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "掌握直线、多段线、矩形等命令的使用方法",
+          "level": 4
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558742,
+        "projectMatrixId": 270313,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746861,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "能够熟练绘制直线几何图形",
+          "level": 3
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558743,
+        "projectMatrixId": 270313,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746862,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "使用删除命令删除图形",
+          "level": 4
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558744,
+        "projectMatrixId": 270313,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746863,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "应用对象捕捉与正交功能进行图形绘制",
+          "level": 5
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558745,
+        "projectMatrixId": 270313,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746909,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "A",
+          "description": "家国情怀",
+          "level": 1
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270314,
+      "courseUnitId": 12543,
+      "projectId": 42862,
+      "graduateRequireId": 30668,
+      "point": {
+        "id": 329342,
+        "title": "课点4",
+        "description": "绘制曲线几何图形"
+      },
+      "relate": {
+        "name": "强支撑",
+        "code": "primary",
+        "relate": 0
+      },
+      "study": "自我学习 实践动手",
+      "teach": "项目教学 实操教学",
+      "product": "学生独立使用CAD绘制五星红旗中的五角星，了解五星红旗的来历和历史背景，培养学生热爱祖国、尊重国旗的思想，无抄袭现象，尺寸正确，错误不超过2处，合格。",
+      "week": "2",
+      "period": "1",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558746,
+        "projectMatrixId": 270314,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746834,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "掌握圆、圆弧等命令的使用方法",
+          "level": 5
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558747,
+        "projectMatrixId": 270314,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746864,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "能够熟练绘制曲线几何图形",
+          "level": 6
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270315,
+      "courseUnitId": 12543,
+      "projectId": 42862,
+      "graduateRequireId": 30668,
+      "point": {
+        "id": 329343,
+        "title": "课点5",
+        "description": "编辑图形"
+      },
+      "relate": {
+        "name": "强支撑",
+        "code": "primary",
+        "relate": 0
+      },
+      "study": "自我学习 实践动手 合作学习",
+      "teach": "项目教学 实操教学",
+      "product": "学生独立完成几何图形绘制，无抄袭现象，尺寸正确，熟练应用复制、镜像等命令错误不超过2处，合格。  ",
+      "week": "3",
+      "period": "1",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558748,
+        "projectMatrixId": 270315,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746835,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "明确基本编辑命令的使用方法",
+          "level": 6
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558749,
+        "projectMatrixId": 270315,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746865,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "使用图案填命令进行图形编辑",
+          "level": 7
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558750,
+        "projectMatrixId": 270315,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746866,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "使用复制、镜像等命令图形对象进行编辑",
+          "level": 8
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558751,
+        "projectMatrixId": 270315,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746867,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "改变图形大小和位置",
+          "level": 9
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558752,
+        "projectMatrixId": 270315,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746909,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "A",
+          "description": "家国情怀",
+          "level": 1
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270316,
+      "courseUnitId": 12543,
+      "projectId": 42862,
+      "graduateRequireId": 30668,
+      "point": {
+        "id": 329344,
+        "title": "课点6",
+        "description": "创建图层和块"
+      },
+      "relate": {
+        "name": "强支撑",
+        "code": "primary",
+        "relate": 0
+      },
+      "study": "自我学习 实践动手 合作学习",
+      "teach": "项目教学 实操教学",
+      "product": "学生独立完成几何图形绘制，无抄袭现象，尺寸正确，熟练应用复制、镜像等命令错误不超过2处，合格。  ",
+      "week": "3",
+      "period": "1",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558753,
+        "projectMatrixId": 270316,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746836,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "掌握创建图层的方法",
+          "level": 7
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558754,
+        "projectMatrixId": 270316,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746837,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "明确创建块的方法",
+          "level": 8
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558755,
+        "projectMatrixId": 270316,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746868,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "能够根据需要运用图层特性管理器对图层状态进行设置和编辑",
+          "level": 10
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558756,
+        "projectMatrixId": 270316,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746869,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "进行块的创建及编辑",
+          "level": 11
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270317,
+      "courseUnitId": 12543,
+      "projectId": 42862,
+      "graduateRequireId": 30668,
+      "point": {
+        "id": 329345,
+        "title": "课点7",
+        "description": "建筑设计说明撰写"
+      },
+      "relate": {
+        "name": "强支撑",
+        "code": "primary",
+        "relate": 0
+      },
+      "study": "自我学习 实践动手 合作学习",
+      "teach": "项目教学 实操教学",
+      "product": "学生独立完成门窗表的创建，表格表头绘制，表格里内容准确，门窗表创建规范，错误不超过2处，合格。",
+      "week": "4",
+      "period": "1",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558757,
+        "projectMatrixId": 270317,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746838,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "掌握文字编辑技巧",
+          "level": 9
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558758,
+        "projectMatrixId": 270317,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746870,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "创建文字样式",
+          "level": 12
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558759,
+        "projectMatrixId": 270317,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746871,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "输入单行或多行文字",
+          "level": 13
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558760,
+        "projectMatrixId": 270317,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746872,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "创建表格并根据需要进行编辑",
+          "level": 14
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270318,
+      "courseUnitId": 12543,
+      "projectId": 42862,
+      "graduateRequireId": 30668,
+      "point": {
+        "id": 329346,
+        "title": "课点8",
+        "description": "独立基础平面图绘制"
+      },
+      "relate": {
+        "name": "强支撑",
+        "code": "primary",
+        "relate": 0
+      },
+      "study": "自我学习 实践动手 合作学习",
+      "teach": "项目教学 实操教学",
+      "product": "学生独立完成门窗表的创建，表格表头绘制，表格里内容准确，门窗表创建规范，错误不超过2处，合格。",
+      "week": "4",
+      "period": "1",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558761,
+        "projectMatrixId": 270318,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746839,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "掌握标注样式的设置方法",
+          "level": 10
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558762,
+        "projectMatrixId": 270318,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746840,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "掌握尺寸标注的规则和组成的方法和快捷方式",
+          "level": 11
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558763,
+        "projectMatrixId": 270318,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746873,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "新建及修改尺寸标注样式",
+          "level": 15
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558764,
+        "projectMatrixId": 270318,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746874,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "标注线性、角度、直径、半径尺寸，根据绘图需要对参数进行调整",
+          "level": 16
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558765,
+        "projectMatrixId": 270318,
+        "taskGoalId": 52040,
+        "ksa": {
+          "id": 746909,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "A",
+          "description": "家国情怀",
+          "level": 1
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270319,
+      "courseUnitId": 12543,
+      "projectId": 42863,
+      "graduateRequireId": 30668,
+      "point": {
+        "id": 329347,
+        "title": "课点9",
+        "description": "建筑平面图的基础知识"
+      },
+      "relate": {
+        "name": "弱支撑",
+        "code": "success",
+        "relate": 1
+      },
+      "study": "自我学习 实践动手 合作学习",
+      "teach": "项目教学 实操教学",
+      "product": "学生独立完成图层的设置，并绘制轴线、轴号，完成尺寸标注，图形对象线型正确、轴线间距准确，符合建筑制图规范要求，错误不超过2处，合格。",
+      "week": "5",
+      "period": "0.5",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558766,
+        "projectMatrixId": 270319,
+        "taskGoalId": 52050,
+        "ksa": {
+          "id": 746841,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "了解CAD绘制建筑平面图的流程",
+          "level": 12
+        },
+        "relate": {
+          "name": "弱支撑",
+          "code": "success",
+          "relate": 1
+        },
+        "valid": true
+      },
+      {
+        "id": 558767,
+        "projectMatrixId": 270319,
+        "taskGoalId": 52050,
+        "ksa": {
+          "id": 746842,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "掌握建筑平面图绘制的规范要求",
+          "level": 13
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270320,
+      "courseUnitId": 12543,
+      "projectId": 42863,
+      "graduateRequireId": 30668,
+      "point": {
+        "id": 329348,
+        "title": "课点10",
+        "description": "设置绘图环境"
+      },
+      "relate": {
+        "name": "强支撑",
+        "code": "primary",
+        "relate": 0
+      },
+      "study": "自我学习 实践动手 合作学习",
+      "teach": "项目教学 实操教学",
+      "product": "学生独立完成图层的设置，并绘制轴线、轴号，完成尺寸标注，图形对象线型正确、轴线间距准确，符合建筑制图规范要求，错误不超过2处，合格。",
+      "week": "5",
+      "period": "0.5",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558768,
+        "projectMatrixId": 270320,
+        "taskGoalId": 52050,
+        "ksa": {
+          "id": 746843,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "了解建筑平面图设置的内容及要求",
+          "level": 14
+        },
+        "relate": {
+          "name": "弱支撑",
+          "code": "success",
+          "relate": 1
+        },
+        "valid": true
+      },
+      {
+        "id": 558769,
+        "projectMatrixId": 270320,
+        "taskGoalId": 52050,
+        "ksa": {
+          "id": 746875,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "能够根据建筑图制图规范设置图层",
+          "level": 17
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558770,
+        "projectMatrixId": 270320,
+        "taskGoalId": 52050,
+        "ksa": {
+          "id": 746876,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "能够设置建筑图标注样式",
+          "level": 18
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270321,
+      "courseUnitId": 12543,
+      "projectId": 42863,
+      "graduateRequireId": 30668,
+      "point": {
+        "id": 329349,
+        "title": "课点11",
+        "description": "绘制轴网"
+      },
+      "relate": {
+        "name": "强支撑",
+        "code": "primary",
+        "relate": 0
+      },
+      "study": "自我学习 实践动手 合作学习",
+      "teach": "项目教学 实操教学",
+      "product": "学生独立完成图层的设置，并绘制轴线、轴号，完成尺寸标注，图形对象线型正确、轴线间距准确，符合建筑制图规范要求，错误不超过2处，合格。",
+      "week": "5",
+      "period": "1",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558771,
+        "projectMatrixId": 270321,
+        "taskGoalId": 52050,
+        "ksa": {
+          "id": 746844,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "明确轴线绘制流程",
+          "level": 15
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558772,
+        "projectMatrixId": 270321,
+        "taskGoalId": 52050,
+        "ksa": {
+          "id": 746877,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "能够进行轴线网格的绘制",
+          "level": 19
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558773,
+        "projectMatrixId": 270321,
+        "taskGoalId": 52050,
+        "ksa": {
+          "id": 746878,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "能够“块”相关命令绘制轴号",
+          "level": 20
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558774,
+        "projectMatrixId": 270321,
+        "taskGoalId": 52050,
+        "ksa": {
+          "id": 746910,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "A",
+          "description": "规范意识",
+          "level": 2
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270322,
+      "courseUnitId": 12543,
+      "projectId": 42863,
+      "graduateRequireId": 30668,
+      "point": {
+        "id": 329350,
+        "title": "课点12",
+        "description": "绘制墙体、框架柱"
+      },
+      "relate": {
+        "name": "强支撑",
+        "code": "primary",
+        "relate": 0
+      },
+      "study": "自我学习 实践动手 合作学习",
+      "teach": "项目教学 实操教学",
+      "product": "学生独立完成墙体、门、窗的绘制，图形对象线型正确、墙体厚度、门窗尺寸正确，符合建筑制图规范要求，错误不超过3处，合格。",
+      "week": "6",
+      "period": "1",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558775,
+        "projectMatrixId": 270322,
+        "taskGoalId": 52050,
+        "ksa": {
+          "id": 746845,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "明确墙体的绘制流程",
+          "level": 16
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558776,
+        "projectMatrixId": 270322,
+        "taskGoalId": 52050,
+        "ksa": {
+          "id": 746879,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "利用多线命令绘制墙体",
+          "level": 21
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558777,
+        "projectMatrixId": 270322,
+        "taskGoalId": 52050,
+        "ksa": {
+          "id": 746880,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "修剪门窗洞口",
+          "level": 22
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558778,
+        "projectMatrixId": 270322,
+        "taskGoalId": 52050,
+        "ksa": {
+          "id": 746910,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "A",
+          "description": "规范意识",
+          "level": 2
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558779,
+        "projectMatrixId": 270322,
+        "taskGoalId": 52051,
+        "ksa": {
+          "id": 746881,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "熟练应用绘图及编辑命令绘制框架柱",
+          "level": 23
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270323,
+      "courseUnitId": 12543,
+      "projectId": 42863,
+      "graduateRequireId": 30668,
+      "point": {
+        "id": 329351,
+        "title": "课点13",
+        "description": "绘制平面门窗"
+      },
+      "relate": {
+        "name": "强支撑",
+        "code": "primary",
+        "relate": 0
+      },
+      "study": "自我学习 实践动手 合作学习",
+      "teach": "项目教学 实操教学",
+      "product": "学生独立完成墙体、门、窗的绘制，图形对象线型正确、墙体厚度、门窗尺寸正确，符合建筑制图规范要求，错误不超过3处，合格。",
+      "week": "6",
+      "period": "1",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558780,
+        "projectMatrixId": 270323,
+        "taskGoalId": 52050,
+        "ksa": {
+          "id": 746846,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "掌握门窗平面图的绘制流程",
+          "level": 17
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558781,
+        "projectMatrixId": 270323,
+        "taskGoalId": 52050,
+        "ksa": {
+          "id": 746882,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "绘制门平面图",
+          "level": 24
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558782,
+        "projectMatrixId": 270323,
+        "taskGoalId": 52050,
+        "ksa": {
+          "id": 746883,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "绘制窗平面图",
+          "level": 25
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270324,
+      "courseUnitId": 12543,
+      "projectId": 42863,
+      "graduateRequireId": 30668,
+      "point": {
+        "id": 329352,
+        "title": "课点14",
+        "description": "绘制楼梯"
+      },
+      "relate": {
+        "name": "强支撑",
+        "code": "primary",
+        "relate": 0
+      },
+      "study": "团队学习 任务驱动",
+      "teach": "项目教学 先学后教",
+      "product": "学生独立完成楼梯平面图的绘制，并能够导出建筑图纸，导出的图纸清晰，图幅合理，楼梯梯段、平台、踏步等尺寸正确，符合建筑制图规范要求，错误不超过3处，合格。",
+      "week": "7",
+      "period": "1",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558783,
+        "projectMatrixId": 270324,
+        "taskGoalId": 52050,
+        "ksa": {
+          "id": 746847,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "掌握平面楼梯的绘制流程",
+          "level": 18
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558784,
+        "projectMatrixId": 270324,
+        "taskGoalId": 52050,
+        "ksa": {
+          "id": 746884,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "利用阵列、复制等命令绘制楼梯平面图",
+          "level": 26
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270325,
+      "courseUnitId": 12543,
+      "projectId": 42863,
+      "graduateRequireId": 30668,
+      "point": {
+        "id": 329353,
+        "title": "课点15",
+        "description": "建筑平面图标注"
+      },
+      "relate": {
+        "name": "强支撑",
+        "code": "primary",
+        "relate": 0
+      },
+      "study": "团队学习 任务驱动",
+      "teach": "项目教学 先学后教",
+      "product": "学生独立完成楼梯平面图的绘制，并能够导出建筑图纸，导出的图纸清晰，图幅合理，楼梯梯段、平台、踏步等尺寸正确，符合建筑制图规范要求，错误不超过3处，合格。",
+      "week": "7",
+      "period": "1",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558785,
+        "projectMatrixId": 270325,
+        "taskGoalId": 52051,
+        "ksa": {
+          "id": 746848,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "明确建筑平面图标注的内容及要求",
+          "level": 19
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558786,
+        "projectMatrixId": 270325,
+        "taskGoalId": 52051,
+        "ksa": {
+          "id": 746885,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "运用“快速标注”命令标注建筑平面图",
+          "level": 27
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558787,
+        "projectMatrixId": 270325,
+        "taskGoalId": 52051,
+        "ksa": {
+          "id": 746886,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "在绘图基础上对建筑平面图纸进行优化",
+          "level": 28
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558788,
+        "projectMatrixId": 270325,
+        "taskGoalId": 52051,
+        "ksa": {
+          "id": 746911,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "A",
+          "description": "创新精神",
+          "level": 3
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270326,
+      "courseUnitId": 12543,
+      "projectId": 42864,
+      "graduateRequireId": 30669,
+      "point": {
+        "id": 329354,
+        "title": "课点16",
+        "description": "建筑立面图的基础知识"
+      },
+      "relate": {
+        "name": "弱支撑",
+        "code": "success",
+        "relate": 1
+      },
+      "study": "团队学习 任务驱动",
+      "teach": "项目教学 先学后教",
+      "product": "学生独立完成立面墙体、门窗的绘制，尺寸正确，线型、线宽合理，符合建筑制图规范要求，错误不超过3处，合格。",
+      "week": "8",
+      "period": "0.5",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558789,
+        "projectMatrixId": 270326,
+        "taskGoalId": 52116,
+        "ksa": {
+          "id": 746849,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "了解CAD绘制建筑立面图的流程",
+          "level": 20
+        },
+        "relate": {
+          "name": "弱支撑",
+          "code": "success",
+          "relate": 1
+        },
+        "valid": true
+      },
+      {
+        "id": 558790,
+        "projectMatrixId": 270326,
+        "taskGoalId": 52116,
+        "ksa": {
+          "id": 746887,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "说明建筑立面图绘制的规范",
+          "level": 29
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270327,
+      "courseUnitId": 12543,
+      "projectId": 42864,
+      "graduateRequireId": 30669,
+      "point": {
+        "id": 329355,
+        "title": "课点17",
+        "description": "绘制正立面轮廓及地坪线"
+      },
+      "relate": {
+        "name": "强支撑",
+        "code": "primary",
+        "relate": 0
+      },
+      "study": "团队学习 任务驱动",
+      "teach": "项目教学 先学后教",
+      "product": "学生独立完成立面墙体、门窗的绘制，尺寸正确，线型、线宽合理，符合建筑制图规范要求，错误不超过3处，合格。",
+      "week": "8",
+      "period": "0.5",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558791,
+        "projectMatrixId": 270327,
+        "taskGoalId": 52116,
+        "ksa": {
+          "id": 746850,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "明确立面图中线宽、线型设置原则",
+          "level": 21
+        },
+        "relate": {
+          "name": "弱支撑",
+          "code": "success",
+          "relate": 1
+        },
+        "valid": true
+      },
+      {
+        "id": 558792,
+        "projectMatrixId": 270327,
+        "taskGoalId": 52116,
+        "ksa": {
+          "id": 746888,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "能够根据建筑图制图规范设置图层",
+          "level": 30
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558793,
+        "projectMatrixId": 270327,
+        "taskGoalId": 52116,
+        "ksa": {
+          "id": 746910,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "A",
+          "description": "规范意识",
+          "level": 2
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558794,
+        "projectMatrixId": 270327,
+        "taskGoalId": 52117,
+        "ksa": {
+          "id": 746889,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "能够利用绘图、编辑命令熟练绘制立轮廓",
+          "level": 31
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558795,
+        "projectMatrixId": 270327,
+        "taskGoalId": 52117,
+        "ksa": {
+          "id": 746890,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "能够利用绘图、编辑命令熟练绘制地坪线",
+          "level": 32
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270328,
+      "courseUnitId": 12543,
+      "projectId": 42864,
+      "graduateRequireId": 30669,
+      "point": {
+        "id": 329356,
+        "title": "课点18",
+        "description": "绘制立面门窗及装饰"
+      },
+      "relate": {
+        "name": "强支撑",
+        "code": "primary",
+        "relate": 0
+      },
+      "study": "团队学习 任务驱动",
+      "teach": "项目教学 先学后教",
+      "product": "学生独立完成立面墙体、门窗的绘制，尺寸正确，线型、线宽合理，符合建筑制图规范要求，错误不超过3处，合格。",
+      "week": "8",
+      "period": "1",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558796,
+        "projectMatrixId": 270328,
+        "taskGoalId": 52116,
+        "ksa": {
+          "id": 746851,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "掌握门窗立面图的绘制流程",
+          "level": 22
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558797,
+        "projectMatrixId": 270328,
+        "taskGoalId": 52116,
+        "ksa": {
+          "id": 746891,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "绘制门立面图",
+          "level": 33
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558798,
+        "projectMatrixId": 270328,
+        "taskGoalId": 52116,
+        "ksa": {
+          "id": 746892,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "绘制窗立面图",
+          "level": 34
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270329,
+      "courseUnitId": 12543,
+      "projectId": 42864,
+      "graduateRequireId": 30669,
+      "point": {
+        "id": 329357,
+        "title": "课点19",
+        "description": "绘制立面图"
+      },
+      "relate": {
+        "name": "强支撑",
+        "code": "primary",
+        "relate": 0
+      },
+      "study": "团队学习 任务驱动",
+      "teach": "项目教学 先学后教",
+      "product": "学生独立完成建筑立面图标注任务，并且正确绘制图框，并能够将图纸布置在图框中，符合建筑制图规范要求，错误不超过3处，合格。",
+      "week": "9",
+      "period": "1",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558799,
+        "projectMatrixId": 270329,
+        "taskGoalId": 52116,
+        "ksa": {
+          "id": 746852,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "明确建筑立面图标注的内容及要求",
+          "level": 23
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558800,
+        "projectMatrixId": 270329,
+        "taskGoalId": 52116,
+        "ksa": {
+          "id": 746893,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "能够标注建筑立面图标高进行",
+          "level": 35
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558801,
+        "projectMatrixId": 270329,
+        "taskGoalId": 52116,
+        "ksa": {
+          "id": 746894,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "能够对建筑装饰进行注写",
+          "level": 36
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270330,
+      "courseUnitId": 12543,
+      "projectId": 42864,
+      "graduateRequireId": 30669,
+      "point": {
+        "id": 329358,
+        "title": "课点20",
+        "description": "绘制图框、标题栏"
+      },
+      "relate": {
+        "name": "强支撑",
+        "code": "primary",
+        "relate": 0
+      },
+      "study": "团队学习 任务驱动",
+      "teach": "项目教学 先学后教",
+      "product": "学生独立完成建筑立面图标注任务，并且正确绘制图框，并能够将图纸布置在图框中，符合建筑制图规范要求，错误不超过3处，合格。",
+      "week": "9",
+      "period": "1",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558802,
+        "projectMatrixId": 270330,
+        "taskGoalId": 52116,
+        "ksa": {
+          "id": 746882,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "绘制门平面图",
+          "level": 24
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558803,
+        "projectMatrixId": 270330,
+        "taskGoalId": 52117,
+        "ksa": {
+          "id": 746895,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "能够应用“块”命令将立面图放置到图框中",
+          "level": 37
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558804,
+        "projectMatrixId": 270330,
+        "taskGoalId": 52117,
+        "ksa": {
+          "id": 746896,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "能够批判的分析图纸的优缺点",
+          "level": 38
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558805,
+        "projectMatrixId": 270330,
+        "taskGoalId": 52117,
+        "ksa": {
+          "id": 746911,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "A",
+          "description": "创新精神",
+          "level": 3
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270331,
+      "courseUnitId": 12543,
+      "projectId": 42865,
+      "graduateRequireId": 30669,
+      "point": {
+        "id": 329359,
+        "title": "课点21",
+        "description": "建筑剖面图的基础知识"
+      },
+      "relate": {
+        "name": "弱支撑",
+        "code": "success",
+        "relate": 1
+      },
+      "study": "自我学习 实践动手 合作学习",
+      "teach": "项目教学 实操教学",
+      "product": "学生独立完成建筑剖面图中轴网、墙体的绘制，尺寸正确，线型符合建筑制图规范要求，错误不超过3处，合格。",
+      "week": "11",
+      "period": "0.5",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558806,
+        "projectMatrixId": 270331,
+        "taskGoalId": 52162,
+        "ksa": {
+          "id": 746854,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "了解楼梯剖面图的命名",
+          "level": 25
+        },
+        "relate": {
+          "name": "弱支撑",
+          "code": "success",
+          "relate": 1
+        },
+        "valid": true
+      },
+      {
+        "id": 558807,
+        "projectMatrixId": 270331,
+        "taskGoalId": 52162,
+        "ksa": {
+          "id": 746855,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "掌握绘制楼梯剖面图的步骤",
+          "level": 26
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270332,
+      "courseUnitId": 12543,
+      "projectId": 42865,
+      "graduateRequireId": 30669,
+      "point": {
+        "id": 329360,
+        "title": "课点22",
+        "description": "绘制辅助线、定位轴线"
+      },
+      "relate": {
+        "name": "强支撑",
+        "code": "primary",
+        "relate": 0
+      },
+      "study": "自我学习 实践动手 合作学习",
+      "teach": "项目教学 实操教学",
+      "product": "学生独立完成建筑剖面图中轴网、墙体的绘制，尺寸正确，线型符合建筑制图规范要求，错误不超过3处，合格。",
+      "week": "11",
+      "period": "0.5",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558808,
+        "projectMatrixId": 270332,
+        "taskGoalId": 52162,
+        "ksa": {
+          "id": 746897,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "创建剖面图定位轴线",
+          "level": 39
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558809,
+        "projectMatrixId": 270332,
+        "taskGoalId": 52162,
+        "ksa": {
+          "id": 746898,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "创建剖面图楼层分割线",
+          "level": 40
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270333,
+      "courseUnitId": 12543,
+      "projectId": 42865,
+      "graduateRequireId": 30669,
+      "point": {
+        "id": 329361,
+        "title": "课点23",
+        "description": "绘制墙体、楼板"
+      },
+      "relate": {
+        "name": "强支撑",
+        "code": "primary",
+        "relate": 0
+      },
+      "study": "自我学习 实践动手 合作学习",
+      "teach": "项目教学 实操教学",
+      "product": "学生独立完成建筑剖面图中轴网、墙体的绘制，尺寸正确，线型符合建筑制图规范要求，错误不超过3处，合格。",
+      "week": "11",
+      "period": "1",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558810,
+        "projectMatrixId": 270333,
+        "taskGoalId": 52162,
+        "ksa": {
+          "id": 746856,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "掌握绘制建筑墙体剖面图步骤",
+          "level": 27
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558811,
+        "projectMatrixId": 270333,
+        "taskGoalId": 52162,
+        "ksa": {
+          "id": 746857,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "掌握绘制建筑楼板剖面图步骤",
+          "level": 28
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558812,
+        "projectMatrixId": 270333,
+        "taskGoalId": 52163,
+        "ksa": {
+          "id": 746899,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "绘制建筑墙体剖面图",
+          "level": 41
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558813,
+        "projectMatrixId": 270333,
+        "taskGoalId": 52163,
+        "ksa": {
+          "id": 746900,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "绘制建筑楼板剖面图",
+          "level": 42
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558814,
+        "projectMatrixId": 270333,
+        "taskGoalId": 52163,
+        "ksa": {
+          "id": 746911,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "A",
+          "description": "创新精神",
+          "level": 3
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270334,
+      "courseUnitId": 12543,
+      "projectId": 42865,
+      "graduateRequireId": 30669,
+      "point": {
+        "id": 329362,
+        "title": "课点24",
+        "description": "绘制门窗"
+      },
+      "relate": {
+        "name": "强支撑",
+        "code": "primary",
+        "relate": 0
+      },
+      "study": "团队学习 小组讨论 任务驱动",
+      "teach": "项目教学 先学后教",
+      "product": "学生独立完成剖面图中门窗的绘制以及楼梯剖面图的绘制，尺寸正确，符合制图规范要求，对原图纸有优化且合理，错误不超过3处，合格。",
+      "week": "12",
+      "period": "1",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558815,
+        "projectMatrixId": 270334,
+        "taskGoalId": 52162,
+        "ksa": {
+          "id": 746901,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "利用基本编辑命令创建门",
+          "level": 43
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558816,
+        "projectMatrixId": 270334,
+        "taskGoalId": 52162,
+        "ksa": {
+          "id": 746902,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "利用基本编辑命令创建窗",
+          "level": 44
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270335,
+      "courseUnitId": 12543,
+      "projectId": 42865,
+      "graduateRequireId": 30669,
+      "point": {
+        "id": 329363,
+        "title": "课点25",
+        "description": "绘制楼梯剖面图"
+      },
+      "relate": {
+        "name": "强支撑",
+        "code": "primary",
+        "relate": 0
+      },
+      "study": "团队学习 小组讨论 任务驱动",
+      "teach": "项目教学 先学后教",
+      "product": "学生独立完成剖面图中门窗的绘制以及楼梯剖面图的绘制，尺寸正确，符合制图规范要求，对原图纸有优化且合理，错误不超过3处，合格。",
+      "week": "12",
+      "period": "1",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558817,
+        "projectMatrixId": 270335,
+        "taskGoalId": 52163,
+        "ksa": {
+          "id": 746858,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "K",
+          "description": "掌握绘制楼梯剖面图步骤",
+          "level": 29
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558818,
+        "projectMatrixId": 270335,
+        "taskGoalId": 52163,
+        "ksa": {
+          "id": 746903,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "绘制楼梯踏步",
+          "level": 45
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558819,
+        "projectMatrixId": 270335,
+        "taskGoalId": 52163,
+        "ksa": {
+          "id": 746904,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "绘制楼梯栏杆、扶手",
+          "level": 46
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558820,
+        "projectMatrixId": 270335,
+        "taskGoalId": 52163,
+        "ksa": {
+          "id": 746911,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "A",
+          "description": "创新精神",
+          "level": 3
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270336,
+      "courseUnitId": 12543,
+      "projectId": 42865,
+      "graduateRequireId": 30669,
+      "point": {
+        "id": 329364,
+        "title": "课点26",
+        "description": "散水及其他细部构件绘制"
+      },
+      "relate": {
+        "name": "强支撑",
+        "code": "primary",
+        "relate": 0
+      },
+      "study": "团队学习 任务驱动",
+      "teach": "项目教学 先学后教",
+      "product": "学生独立完成细部结构剖面图的绘制，尺寸正确，符合制图规范要求，并能够将图纸放置在图框内，错误不超过3处，合格。",
+      "week": "12",
+      "period": "1",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558821,
+        "projectMatrixId": 270336,
+        "taskGoalId": 52163,
+        "ksa": {
+          "id": 746905,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "绘制散水",
+          "level": 47
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558822,
+        "projectMatrixId": 270336,
+        "taskGoalId": 52163,
+        "ksa": {
+          "id": 746906,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "绘制檐口等其他细部",
+          "level": 48
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558823,
+        "projectMatrixId": 270336,
+        "taskGoalId": 52163,
+        "ksa": {
+          "id": 746911,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "A",
+          "description": "创新精神",
+          "level": 3
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  },
+  {
+    "courseMatrix": {
+      "id": 270337,
+      "courseUnitId": 12543,
+      "projectId": 42865,
+      "graduateRequireId": 30669,
+      "point": {
+        "id": 329365,
+        "title": "课点27",
+        "description": "标注剖面图及绘制图框"
+      },
+      "relate": {
+        "name": "强支撑",
+        "code": "primary",
+        "relate": 0
+      },
+      "study": "团队学习 任务驱动",
+      "teach": "项目教学 先学后教",
+      "product": "学生独立完成细部结构剖面图的绘制，尺寸正确，符合制图规范要求，并能够将图纸放置在图框内，错误不超过3处，合格。",
+      "week": "12",
+      "period": "1",
+      "valid": true
+    },
+    "projectMatrices": [
+      {
+        "id": 558824,
+        "projectMatrixId": 270337,
+        "taskGoalId": 52163,
+        "ksa": {
+          "id": 746907,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "进行剖面图标注",
+          "level": 49
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      },
+      {
+        "id": 558825,
+        "projectMatrixId": 270337,
+        "taskGoalId": 52163,
+        "ksa": {
+          "id": 746908,
+          "majorId": 4243,
+          "courseUnitId": 12543,
+          "title": "S",
+          "description": "绘制剖面图框",
+          "level": 50
+        },
+        "relate": {
+          "name": "强支撑",
+          "code": "primary",
+          "relate": 0
+        },
+        "valid": true
+      }
+    ]
+  }
+]

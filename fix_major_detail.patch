@@ -1,0 +1,140 @@
+--- src/modules/majors/components/major-detail-panel.tsx
++++ src/modules/majors/components/major-detail-panel.tsx
+@@ -116,14 +116,6 @@
+   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+   const [isQuickCreateCourseOpen, setIsQuickCreateCourseOpen] = useState(false)
+   const [isDeletingMajor, setIsDeletingMajor] = useState(false)
+   const [coursesRefreshKey, setCoursesRefreshKey] = useState(0)
+-  const [selectedSemester, setSelectedSemester] = useState("2024-spring")
+-  const [semesters, setSemesters] = useState([
+-    { value: "2024-spring", label: "2024年春季学期" },
+-    { value: "2024-fall", label: "2024年秋季学期" },
+-    { value: "2025-spring", label: "2025年春季学期" },
+-    { value: "2025-fall", label: "2025年秋季学期" },
+-  ])
+-  const [isConfirmingSemesterChange, setIsConfirmingSemesterChange] = useState(false)
+-  const [pendingSemesterValue, setPendingSemesterValue] = useState<string | null>(null)
+   const { setActivePage } = useActivePageTracker()
+   const { can } = usePermission()
+@@ -176,80 +168,6 @@
+     setActivePage(value, label)
+   }
+ 
+-  // 生成默认学期名称
+-  const generateDefaultSemesterName = useCallback(() => {
+-    if (semesters.length === 0) return ""
+-
+-    // 获取最后一个学期
+-    const lastSemester = semesters[semesters.length - 1]
+-    const lastLabel = lastSemester.label
+-
+-    // 解析最后一个学期的年份和季节
+-    const yearMatch = lastLabel.match(/(\d{4})年/)
+-    const isFall = lastLabel.includes("秋季")
+-
+-    if (!yearMatch) return ""
+-
+-    const lastYear = parseInt(yearMatch[1])
+-    let newYear = lastYear
+-    let newSeason = "春季"
+-
+-    // 如果最后一个是秋季，则下一个是明年春季；否则是同年秋季
+-    if (isFall) {
+-      newYear = lastYear + 1
+-      newSeason = "春季"
+-    } else {
+-      newSeason = "秋季"
+-    }
+-
+-    return `${newYear}年${newSeason}学期`
+-  }, [semesters])
+-
+-  // 处理添加新学期
+-  const handleAddSemester = useCallback((semesterName: string, shouldSwitch: boolean = false) => {
+-    if (!canManageMajorCourse) return
+-    // 生成学期值（基于名称）
+-    const yearMatch = semesterName.match(/(\d{4})年/)
+-    const isFall = semesterName.includes("秋季")
+-
+-    if (!yearMatch) return
+-
+-    const year = parseInt(yearMatch[1])
+-    const season = isFall ? "fall" : "spring"
+-    const newValue = `${year}-${season}`
+-
+-    // 检查是否已存在
+-    if (semesters.some(s => s.value === newValue)) {
+-      return
+-    }
+-
+-    // 先添加新学期
+-    setSemesters((prev) => [...prev, { value: newValue, label: semesterName }])
+-
+-    // 如果勾选了立即切换，则切换到新学期
+-    if (shouldSwitch) {
+-      setSelectedSemester(newValue)
+-    }
+-  }, [canManageMajorCourse, semesters])
+-
+-  // 学期选择处理器 - 使用 useCallback 避免重复创建
+-  const handleSemesterChange = useCallback((value: string) => {
+-    // 如果选择的学期与当前学期相同，不做任何操作
+-    if (value === selectedSemester) {
+-      return
+-    }
+-    // 所有学期切换都需要确认
+-    setPendingSemesterValue(value)
+-    setIsConfirmingSemesterChange(true)
+-  }, [selectedSemester])
+-
+-  // 确认切换学期处理器
+-  const handleConfirmSemesterChange = useCallback(() => {
+-    if (pendingSemesterValue) {
+-      setSelectedSemester(pendingSemesterValue)
+-    }
+-    setIsConfirmingSemesterChange(false)
+-  }, [pendingSemesterValue])
+-
+   const handleEditMajorSubmit = async (data: any) => {
+     try {
+       await majorApiService.updateMajor(extractNumericId(node.nodeId ?? "").toString(), data)
+@@ -395,14 +313,7 @@
+                   </Button>
+                 )}
+               </div>
+-              <SemesterSelector
+-                value={selectedSemester}
+-                onChange={handleSemesterChange}
+-                semesters={semesters}
+-                onAddSemester={handleAddSemester}
+-                generateDefaultSemesterName={generateDefaultSemesterName}
+-                canManageMajorCourse={canManageMajorCourse}
+-              />
++              <SemesterViewSelect />
+             </div>
+           </div>
+         </div>
+@@ -460,23 +371,6 @@
+         </DialogContent>
+       </Dialog>
+ 
+-      <AlertDialog open={isConfirmingSemesterChange} onOpenChange={setIsConfirmingSemesterChange}>
+-        <AlertDialogContent>
+-          <AlertDialogHeader>
+-            <AlertDialogTitle>确认切换学期</AlertDialogTitle>
+-            <AlertDialogDescription>
+-              确定要切换当前学期吗？当前页面未保存的内容将会丢失，页面将重新加载选定学期的数据。
+-            </AlertDialogDescription>
+-          </AlertDialogHeader>
+-          <AlertDialogFooter>
+-            <AlertDialogCancel onClick={() => setPendingSemesterValue(null)}>取消</AlertDialogCancel>
+-            <AlertDialogAction onClick={handleConfirmSemesterChange} className="bg-primary text-primary-foreground hover:bg-primary/90">
+-              确认切换
+-            </AlertDialogAction>
+-          </AlertDialogFooter>
+-        </AlertDialogContent>
+-      </AlertDialog>
+-
+       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+         <AlertDialogContent>
+           <AlertDialogHeader>

@@ -1,0 +1,336 @@
+/**
+ * 项目矩阵数据管理Hook
+ * 负责加载和管理项目矩阵数据、KSA列表数据
+ */
+
+import { useState, useEffect, useRef, useCallback } from "react"
+import type { TreeNode } from "@/types"
+import { projectMatrixApi } from "@/modules/courses/api/projectMatrixApi"
+import type { ProjectMatrixDataResponse } from "@/lib/api/matrix-api"
+
+/**
+ * 将 API 响应数据转换为本地使用的 ProjectMatrixData 类型
+ */
+function convertToProjectMatrixData(responseData: ProjectMatrixDataResponse["data"]): ProjectMatrixData {
+  if (!responseData) {
+    return {}
+  }
+
+  return {
+    projects: (responseData.projects || []).map((p) => ({
+      project: {
+        id: p.project?.id,  // 保持数字类型
+        name: p.project?.name,
+      },
+      goals: (p.goals || []).map((g) => ({
+        id: g.id,
+        description: g.description,
+        product: g.product,
+      })),
+    })),
+    data: responseData.data as ProjectMatrixData["data"],
+  }
+}
+
+export interface ProjectMatrixItemCourseMatrix {
+  id: number
+  courseUnitId: number
+  projectId: number
+  graduateRequireId: number
+  point?: {
+    id: number
+    title: string
+    description?: string
+  }
+  relate?: {
+    name: string
+    code: string
+    relate: number
+  }
+  study?: string
+  teach?: string
+  product?: string
+  week?: string
+  period?: string
+  theoryPeriod?: string
+  practicePeriod?: string
+  valid?: boolean
+}
+
+export interface ProjectMatrixItemProjectMatrix {
+  id: number
+  projectMatrixId: number
+  taskGoalId: number
+  ksa?: {
+    id: number
+    majorId: number
+    courseUnitId: number
+    title: string
+    description?: string
+    level: number
+  }
+  relate?: {
+    name: string
+    code: string
+    relate: number
+  }
+  valid?: boolean
+}
+
+export interface ProjectMatrixItem {
+  courseMatrix: ProjectMatrixItemCourseMatrix
+  projectMatrices?: ProjectMatrixItemProjectMatrix[]
+}
+
+export interface ProjectMatrixProject {
+  id: number
+  name: string
+}
+
+export interface ProjectMatrixGoal {
+  id: number
+  description: string
+  product?: string
+}
+
+export interface ProjectMatrixProjectItem {
+  project: ProjectMatrixProject
+  goals: ProjectMatrixGoal[]
+}
+
+export interface ProjectMatrixData {
+  projectChapters?: Array<{
+    id: string
+    name: string
+    coursePoints?: Array<{
+      id: string
+      content: string
+    }>
+  }>
+  projectGoals?: Array<{
+    id: string
+    content: string
+  }>
+  projects?: ProjectMatrixProjectItem[]
+  data?: ProjectMatrixItem[]
+}
+
+export interface KsaItem {
+  id: number
+  majorId: number
+  courseUnitId: number
+  title: "K" | "S" | "A"
+  description: string
+  level: number
+}
+
+const KSA_TITLE_ORDER: Record<KsaItem["title"], number> = { K: 0, S: 1, A: 2 }
+
+function sortKsaListForState(items: readonly KsaItem[]): KsaItem[] {
+  return [...items].sort((left, right) => {
+    if (left.title !== right.title) {
+      return KSA_TITLE_ORDER[left.title] - KSA_TITLE_ORDER[right.title]
+    }
+
+    if (left.level !== right.level) {
+      return left.level - right.level
+    }
+
+    return left.id - right.id
+  })
+}
+
+export interface UseProjectMatrixResult {
+  // 数据状态
+  projectMatrixData: ProjectMatrixData | null
+  chapterTaskObjectives: Record<string, any[]>
+  ksaData: Record<string, Record<string, "strong" | "weak">>
+  ksaListData: KsaItem[]
+
+  // 加载状态
+  isLoadingProjectMatrix: boolean
+  isLoadingKsaList: boolean
+
+  // 编辑状态
+  isEditingProjectMatrix: boolean
+  isSavingProjectMatrix: boolean
+
+  // 数据更新方法
+  setProjectMatrixData: (data: ProjectMatrixData | null) => void
+  setChapterTaskObjectives: (data: Record<string, any[]>) => void
+  setKsaData: (data: Record<string, Record<string, "strong" | "weak">>) => void
+  setKsaListData: (data: KsaItem[]) => void
+
+  // 编辑状态更新
+  setIsEditingProjectMatrix: (value: boolean) => void
+  setIsSavingProjectMatrix: (value: boolean) => void
+
+  // 数据操作方法
+  loadProjectMatrixData: () => Promise<void>
+  updateKsaSupport: (chapterId: string, coursePointId: string, taskId: string, ksaId: number, support: "strong" | "weak" | null) => void
+}
+
+export function useProjectMatrix(node: TreeNode, majorId?: string | number): UseProjectMatrixResult {
+  const [projectMatrixData, setProjectMatrixData] = useState<ProjectMatrixData | null>(null)
+  const [chapterTaskObjectives, setChapterTaskObjectives] = useState<Record<string, any[]>>({})
+  const [ksaData, setKsaData] = useState<Record<string, Record<string, "strong" | "weak">>>({})
+  const [ksaListData, setKsaListData] = useState<KsaItem[]>([])
+
+  const [isLoadingProjectMatrix, setIsLoadingProjectMatrix] = useState(false)
+  const [isLoadingKsaList, setIsLoadingKsaList] = useState(true)
+  const [isEditingProjectMatrix, setIsEditingProjectMatrix] = useState(false)
+  const [isSavingProjectMatrix, setIsSavingProjectMatrix] = useState(false)
+
+  // 防止在StrictMode下重复调用API
+  const hasLoadedRef = useRef(false)
+  const prevNodeIdRef = useRef<string | null>(null)
+  const prevMajorIdRef = useRef<string | number | null>(null)
+
+  // 加载数据
+  // 加载项目矩阵数据和KSA列表
+  const loadProjectMatrixData = useCallback(async () => {
+    try {
+      setIsLoadingProjectMatrix(true)
+
+      // 直接使用 node.id 作为 courseId
+      const courseIdValue = node.id
+
+      if (!courseIdValue) {
+        console.warn("[useProjectMatrix] 缺少courseId")
+        return
+      }
+
+      // 使用传入的 majorId
+      const majorIdValue = majorId ? String(majorId) : undefined
+
+      // 获取项目矩阵数据（包含项目章节列表）
+      const projectMatrixResponse = await projectMatrixApi.getProjectMatrixData(String(courseIdValue))
+      if (projectMatrixResponse.error) {
+        console.error("[useProjectMatrix] 获取项目矩阵数据失败:", projectMatrixResponse.error)
+      } else if (projectMatrixResponse.data) {
+        console.log("[useProjectMatrix] 项目矩阵原始响应:", projectMatrixResponse.data)
+        const rawData = projectMatrixResponse.data as unknown as {
+          projects?: unknown[]
+          data?: unknown
+        }
+
+        // 兼容两种后端返回形态：
+        // 1) handleBackendResponse 已解包，直接返回 { courseId, projects, data, ... }
+        // 2) 少数场景仍返回 { data: { courseId, projects, data, ... } }
+        const responseData = Array.isArray(rawData.projects)
+          ? (rawData as ProjectMatrixDataResponse["data"])
+          : ((rawData.data as ProjectMatrixDataResponse["data"]) || null)
+
+        if (!responseData) {
+          console.warn("[useProjectMatrix] 项目矩阵响应结构异常:", projectMatrixResponse.data)
+        } else {
+          console.log("[useProjectMatrix] data数组长度:", responseData.data?.length)
+          const convertedData = convertToProjectMatrixData(responseData)
+          setProjectMatrixData(convertedData)
+        }
+      }
+
+      // 获取KSA列表数据
+      if (majorIdValue && courseIdValue) {
+        try {
+          const ksaListResponse = await projectMatrixApi.getKsaList(String(majorIdValue), String(courseIdValue))
+          if (ksaListResponse.error) {
+            console.error("[useProjectMatrix] 获取KSA列表失败:", ksaListResponse.error)
+            // 如果API调用失败，使用模拟数据
+            console.log("[useProjectMatrix] 使用模拟数据")
+            const mockKsaData: KsaItem[] = [
+              { id: 1, majorId: 0, courseUnitId: 0, title: "K", description: "知识点1", level: 1 },
+              { id: 2, majorId: 0, courseUnitId: 0, title: "K", description: "知识点2", level: 2 },
+              { id: 3, majorId: 0, courseUnitId: 0, title: "S", description: "技能点1", level: 1 },
+              { id: 4, majorId: 0, courseUnitId: 0, title: "S", description: "技能点2", level: 2 },
+              { id: 5, majorId: 0, courseUnitId: 0, title: "A", description: "态度点1", level: 1 },
+              { id: 6, majorId: 0, courseUnitId: 0, title: "A", description: "态度点2", level: 2 },
+            ]
+            setKsaListData(sortKsaListForState(mockKsaData))
+          } else if (ksaListResponse.data) {
+            const ksaArray = Array.isArray(ksaListResponse.data) ? ksaListResponse.data : []
+            setKsaListData(sortKsaListForState(ksaArray))
+          }
+        } catch (error) {
+          console.error("[useProjectMatrix] 获取KSA列表异常:", error)
+        } finally {
+          setIsLoadingKsaList(false)
+        }
+      } else {
+        setIsLoadingKsaList(false)
+      }
+    } catch (error) {
+      console.error("[useProjectMatrix] 加载数据异常:", error)
+    } finally {
+      setIsLoadingProjectMatrix(false)
+    }
+  }, [majorId, node.id])
+
+  useEffect(() => {
+    // 当node或majorId改变时，重置ref
+    if (prevNodeIdRef.current !== node.id || prevMajorIdRef.current !== majorId) {
+      hasLoadedRef.current = false
+      prevNodeIdRef.current = node.id ?? null
+      prevMajorIdRef.current = majorId ?? null
+    }
+
+    // 防止在StrictMode下重复调用
+    if (hasLoadedRef.current) {
+      return
+    }
+    hasLoadedRef.current = true
+
+    loadProjectMatrixData()
+  }, [loadProjectMatrixData, majorId, node.id])
+
+  // 更新KSA支撑关系
+  const updateKsaSupport = (
+    chapterId: string,
+    coursePointId: string,
+    taskId: string,
+    ksaId: number,
+    support: "strong" | "weak" | null
+  ) => {
+    setKsaData((prev) => {
+      const newData = { ...prev }
+      const cellKey = `${chapterId}-${coursePointId}-${taskId}`
+
+      if (!newData[cellKey]) {
+        newData[cellKey] = {}
+      }
+
+      if (support === null) {
+        // 移除支撑关系
+        delete newData[cellKey][String(ksaId)]
+        // 如果该单元格没有任何支撑关系，删除整个单元格
+        if (Object.keys(newData[cellKey]).length === 0) {
+          delete newData[cellKey]
+        }
+      } else {
+        // 添加或更新支撑关系
+        newData[cellKey][String(ksaId)] = support
+      }
+
+      return newData
+    })
+  }
+
+  return {
+    projectMatrixData,
+    chapterTaskObjectives,
+    ksaData,
+    ksaListData,
+    isLoadingProjectMatrix,
+    isLoadingKsaList,
+    isEditingProjectMatrix,
+    isSavingProjectMatrix,
+    setProjectMatrixData,
+    setChapterTaskObjectives,
+    setKsaData,
+    setKsaListData,
+    setIsEditingProjectMatrix,
+    setIsSavingProjectMatrix,
+    loadProjectMatrixData,
+    updateKsaSupport,
+  }
+}

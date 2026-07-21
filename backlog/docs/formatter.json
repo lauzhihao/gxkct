@@ -1,0 +1,2092 @@
+{
+  "version": "1.0",
+  "sessionId": "session_1769048571008_yuo3dmw",
+  "timestamp": 1769060976148,
+  "elements": [
+    {
+      "id": "doc_001",
+      "type": "source_document_card",
+      "position": {
+        "x": -1000,
+        "y": 180
+      },
+      "size": {
+        "width": 280,
+        "height": 100
+      },
+      "selected": false,
+      "data": {
+        "id": "doc_001",
+        "index": 1,
+        "filename": "新媒体营销_教学大纲2025.9.28_16学时_改.docx",
+        "ossKey": "gxkct/course_ai_files/parsed/20260122/00bf0da9_新媒体营销_教学大纲2025.9.28_16学时_改_parsed.txt",
+        "originalFileOssKey": "gxkct/course_ai_files/20260122/session_1769048571008_yuo3dmw_1769048601163_1-_新媒体营销_教学大纲2025.9.28_16学时_改.docx",
+        "fileType": "docx",
+        "createdAt": "2026-01-22T02:23:22.153808+00:00",
+        "createdBy": null,
+        "cdnHost": "https://prod-gxkct.oss-cn-beijing.aliyuncs.com/"
+      }
+    },
+    {
+      "id": "course_info_1769048725179",
+      "type": "course_info",
+      "position": {
+        "x": -633,
+        "y": 1065
+      },
+      "size": {
+        "width": 480,
+        "height": 300
+      },
+      "selected": false,
+      "data": {
+        "id": "course_info_1769048725179",
+        "name": "新媒体营销",
+        "metadata": {
+          "openingDate": "2025-09-28",
+          "courseType": "必修",
+          "courseNatureId": 3,
+          "courseNatureName": "专业课",
+          "introduction": "《新媒体营销》课程旨在培养高素质应用型人才，通过系统学习新媒体营销的基础知识和实际操作技能，提升学生的就业竞争力。课程内容涵盖新媒体营销的定义、特点及变现逻辑，短视频营销的概念与技巧，AI工具在软文创作中的应用，以及直播营销的基础知识与操作。通过真实的项目实践，学生将掌握新媒体营销的核心技能，为未来的创新创业和个人品牌建设打下坚实基础。",
+          "theoryPeriod": 16,
+          "practicePeriod": 16,
+          "teachingClass": "应用型本科学生",
+          "teachingLocation": "",
+          "teachingTime": "",
+          "studentCount": 0,
+          "credits": 2,
+          "mainTextbook": [
+            "严志华，贾丽. 新媒体营销与运营（微课版第2版）[M]. 中国工信出版集团人民邮电出版社, 2023.",
+            "王旋，李坤婧. 短视频与直播电商（全彩微课版）[M]. 中国工信出版集团人民邮电出版社, 2024."
+          ],
+          "referenceResources": [
+            "傅宛菊，陈彤，李华. 新媒体写作与传播[M]. 中国工信出版集团人民邮电出版社, 2023.",
+            "同婉婷. 短视频与直播电商实战[M]. 中国工信出版集团人民邮电出版社, 2022.",
+            "http://www.icourse163.org/ 中国大学MOOC慕课网"
+          ],
+          "attendancePolicy": "本课程要求学生按时出勤，缺勤超过总学时1/3者不得参加期末考核。",
+          "assignmentPolicy": "作业应在规定时间内独立完成并提交，迟交作业按比例扣分。",
+          "conductRequirements": "遵守课堂纪律，尊重他人，禁止抄袭等学术不端行为。",
+          "practiceRequirements": "学生需参与真实的新媒体营销项目，包括短视频创作、软文撰写、直播营销等，通过实际操作掌握新媒体营销的核心技能。",
+          "teamworkRequirements": "小组实训时需明确人员分工，避免多人同时操作同一设备。使用支架、补光灯等设备时，需确认设备放置稳固，防止倾倒砸伤人员。若实训过程中出现设备故障、人员受伤等突发情况，需立即停止操作，向教师报告。",
+          "bonusRequirements": "发表相关论文、获得专利或参与竞赛获奖可获得额外加分。",
+          "otherSuggestions": "建议学生多关注行业动态，积极参与各类新媒体平台的活动，提升自己的实践能力和创新意识。",
+          "assessmentMethod": "考试",
+          "assessmentForm": "过程性考核（平时成绩70%）+期末考核（项目作业30%）。过程性考核包括线上学习通任务（作品提交、双基测试）、MOOC学习心得与线下课堂表现；期末考核为项目作业。",
+          "scoreType": "百分制",
+          "scoreTable": {
+            "headers": [
+              "考核项目",
+              "比例",
+              "备注"
+            ],
+            "rows": [
+              {
+                "考核项目": "平时成绩",
+                "比例": "70%",
+                "备注": "出勤+作业+课堂表现"
+              },
+              {
+                "考核项目": "期末项目作业",
+                "比例": "30%",
+                "备注": "项目作业"
+              }
+            ]
+          },
+          "assessmentDescription": "本课程考核由过程性考核和期末考核构成。过程性考核占总成绩的70%，包括线上学习通任务、MOOC学习心得与线下课堂表现；期末考核占总成绩的30%，主要为项目作业。",
+          "courseId": 13040,
+          "majorId": 3899
+        }
+      }
+    },
+    {
+      "id": "objective_panel_1769048819721",
+      "type": "objective_panel",
+      "position": {
+        "x": 640,
+        "y": 60
+      },
+      "size": {
+        "width": 910,
+        "height": 355
+      },
+      "selected": false,
+      "data": {
+        "id": "objective_panel_1769048819721"
+      }
+    },
+    {
+      "id": "obj_001",
+      "type": "objective_card",
+      "position": {
+        "x": 20,
+        "y": 75
+      },
+      "size": {
+        "width": 280,
+        "height": 130
+      },
+      "selected": false,
+      "data": {
+        "id": "obj_001",
+        "index": 1,
+        "content": "掌握新媒体营销的基础知识和核心概念，包括新媒体的定义、特点及变现逻辑。"
+      },
+      "parentId": "objective_panel_1769048819721",
+      "extent": "parent"
+    },
+    {
+      "id": "obj_002",
+      "type": "objective_card",
+      "position": {
+        "x": 315,
+        "y": 75
+      },
+      "size": {
+        "width": 280,
+        "height": 130
+      },
+      "selected": false,
+      "data": {
+        "id": "obj_002",
+        "index": 2,
+        "content": "熟练掌握短视频营销的概念、技巧及其在主流平台的应用，提升数据思维和合规创作意识。"
+      },
+      "parentId": "objective_panel_1769048819721",
+      "extent": "parent"
+    },
+    {
+      "id": "obj_003",
+      "type": "objective_card",
+      "position": {
+        "x": 610,
+        "y": 75
+      },
+      "size": {
+        "width": 280,
+        "height": 130
+      },
+      "selected": false,
+      "data": {
+        "id": "obj_003",
+        "index": 3,
+        "content": "能够运用AI工具进行软文创作并优化内容，提高内容创作效率，培养理性使用AI的态度。"
+      },
+      "parentId": "objective_panel_1769048819721",
+      "extent": "parent"
+    },
+    {
+      "id": "obj_004",
+      "type": "objective_card",
+      "position": {
+        "x": 20,
+        "y": 215
+      },
+      "size": {
+        "width": 280,
+        "height": 130
+      },
+      "selected": false,
+      "data": {
+        "id": "obj_004",
+        "index": 4,
+        "content": "熟悉直播营销的基本知识，能够完成直播营销全流程操作，并树立诚信营销与团队协作意识。"
+      },
+      "parentId": "objective_panel_1769048819721",
+      "extent": "parent"
+    },
+    {
+      "id": "chapter_panel_1769048848597",
+      "type": "chapter_panel",
+      "position": {
+        "x": 640,
+        "y": 455
+      },
+      "size": {
+        "width": 910,
+        "height": 355
+      },
+      "selected": false,
+      "data": {
+        "id": "chapter_panel_1769048848597"
+      }
+    },
+    {
+      "id": "ch_001",
+      "type": "chapter_card",
+      "position": {
+        "x": 20,
+        "y": 75
+      },
+      "size": {
+        "width": 280,
+        "height": 130
+      },
+      "selected": false,
+      "data": {
+        "id": "ch_001",
+        "index": 1,
+        "name": "新媒体营销基础",
+        "theory_hours": 4,
+        "practice_hours": 4
+      },
+      "parentId": "chapter_panel_1769048848597",
+      "extent": "parent"
+    },
+    {
+      "id": "ch_002",
+      "type": "chapter_card",
+      "position": {
+        "x": 315,
+        "y": 75
+      },
+      "size": {
+        "width": 280,
+        "height": 130
+      },
+      "selected": false,
+      "data": {
+        "id": "ch_002",
+        "index": 2,
+        "name": "短视频营销概论与技巧",
+        "theory_hours": 4,
+        "practice_hours": 4
+      },
+      "parentId": "chapter_panel_1769048848597",
+      "extent": "parent"
+    },
+    {
+      "id": "ch_003",
+      "type": "chapter_card",
+      "position": {
+        "x": 610,
+        "y": 75
+      },
+      "size": {
+        "width": 280,
+        "height": 130
+      },
+      "selected": false,
+      "data": {
+        "id": "ch_003",
+        "index": 3,
+        "name": "AI工具在软文创作中的应用",
+        "theory_hours": 4,
+        "practice_hours": 4
+      },
+      "parentId": "chapter_panel_1769048848597",
+      "extent": "parent"
+    },
+    {
+      "id": "ch_004",
+      "type": "chapter_card",
+      "position": {
+        "x": 20,
+        "y": 215
+      },
+      "size": {
+        "width": 280,
+        "height": 130
+      },
+      "selected": false,
+      "data": {
+        "id": "ch_004",
+        "index": 4,
+        "name": "直播营销基础知识与操作",
+        "theory_hours": 4,
+        "practice_hours": 4
+      },
+      "parentId": "chapter_panel_1769048848597",
+      "extent": "parent"
+    },
+    {
+      "id": "course_point_panel_1769048868758",
+      "type": "course_point_panel",
+      "position": {
+        "x": 640,
+        "y": 850
+      },
+      "size": {
+        "width": 910,
+        "height": 525
+      },
+      "selected": false,
+      "data": {
+        "id": "panel_course_points_1024455239"
+      }
+    },
+    {
+      "id": "cp_001",
+      "type": "course_point_card",
+      "position": {
+        "x": 20,
+        "y": 75
+      },
+      "size": {
+        "width": 280,
+        "height": 140
+      },
+      "selected": false,
+      "data": {
+        "id": "cp_001",
+        "index": 1,
+        "name": "新媒体营销基础",
+        "description": "K: 新媒体的定义和特点; K: 新媒体营销的定义、特点及变现逻辑; A: 树立对新媒体营销的兴趣和热情"
+      },
+      "parentId": "course_point_panel_1769048868758",
+      "extent": "parent"
+    },
+    {
+      "id": "cp_002",
+      "type": "course_point_card",
+      "position": {
+        "x": 315,
+        "y": 75
+      },
+      "size": {
+        "width": 280,
+        "height": 140
+      },
+      "selected": false,
+      "data": {
+        "id": "cp_002",
+        "index": 2,
+        "name": "短视频营销概念与技巧",
+        "description": "K: 短视频营销的概念与主流平台基础规则; S: 掌握短视频创作基础技巧，如拍摄、剪辑; S: 发布流程及效果评估方法; A: 树立合规创作意识与数据思维"
+      },
+      "parentId": "course_point_panel_1769048868758",
+      "extent": "parent"
+    },
+    {
+      "id": "cp_003",
+      "type": "course_point_card",
+      "position": {
+        "x": 610,
+        "y": 75
+      },
+      "size": {
+        "width": 280,
+        "height": 140
+      },
+      "selected": false,
+      "data": {
+        "id": "cp_003",
+        "index": 3,
+        "name": "AI工具在软文创作中的应用",
+        "description": "K: AI工具的基本原理和应用场景; S: 运用AI工具完成软文创作并优化内容; A: 秉持理性用AI、保护版权的态度"
+      },
+      "parentId": "course_point_panel_1769048868758",
+      "extent": "parent"
+    },
+    {
+      "id": "cp_004",
+      "type": "course_point_card",
+      "position": {
+        "x": 20,
+        "y": 225
+      },
+      "size": {
+        "width": 280,
+        "height": 140
+      },
+      "selected": false,
+      "data": {
+        "id": "cp_004",
+        "index": 4,
+        "name": "直播营销基础知识",
+        "description": "K: 直播营销的基本概念和特点; S: 完成直播营销全流程基础操作; A: 树立诚信营销与团队协作意识"
+      },
+      "parentId": "course_point_panel_1769048868758",
+      "extent": "parent"
+    },
+    {
+      "id": "cp_005",
+      "type": "course_point_card",
+      "position": {
+        "x": 315,
+        "y": 225
+      },
+      "size": {
+        "width": 280,
+        "height": 140
+      },
+      "selected": false,
+      "data": {
+        "id": "cp_005",
+        "index": 5,
+        "name": "项目实践：短视频创作",
+        "description": "K: 短视频创作的项目管理方法; S: 实际操作短视频拍摄、剪辑与发布; A: 培养创新思维和团队合作精神"
+      },
+      "parentId": "course_point_panel_1769048868758",
+      "extent": "parent"
+    },
+    {
+      "id": "cp_006",
+      "type": "course_point_card",
+      "position": {
+        "x": 610,
+        "y": 225
+      },
+      "size": {
+        "width": 280,
+        "height": 140
+      },
+      "selected": false,
+      "data": {
+        "id": "cp_006",
+        "index": 6,
+        "name": "项目实践：软文创作",
+        "description": "K: 软文创作的基本结构和要素; S: 使用AI工具进行软文创作并优化; A: 注重内容质量和原创性"
+      },
+      "parentId": "course_point_panel_1769048868758",
+      "extent": "parent"
+    },
+    {
+      "id": "cp_007",
+      "type": "course_point_card",
+      "position": {
+        "x": 20,
+        "y": 375
+      },
+      "size": {
+        "width": 280,
+        "height": 140
+      },
+      "selected": false,
+      "data": {
+        "id": "cp_007",
+        "index": 7,
+        "name": "项目实践：直播营销",
+        "description": "K: 直播营销的策划与执行; S: 实际操作直播设备和软件; A: 注重观众互动和用户体验"
+      },
+      "parentId": "course_point_panel_1769048868758",
+      "extent": "parent"
+    },
+    {
+      "id": "cp_008",
+      "type": "course_point_card",
+      "position": {
+        "x": 315,
+        "y": 375
+      },
+      "size": {
+        "width": 280,
+        "height": 140
+      },
+      "selected": false,
+      "data": {
+        "id": "cp_008",
+        "index": 8,
+        "name": "数据与信息安全",
+        "description": "K: 数据备份与信息安全的重要性; S: 实施数据备份和信息保护措施; A: 培养信息安全意识和责任感"
+      },
+      "parentId": "course_point_panel_1769048868758",
+      "extent": "parent"
+    },
+    {
+      "id": "ksa_panel_1769048917088",
+      "type": "ksa_panel",
+      "position": {
+        "x": 640,
+        "y": 1415
+      },
+      "size": {
+        "width": 850,
+        "height": 555
+      },
+      "selected": false,
+      "data": {
+        "id": "panel_ksa_1024489242"
+      }
+    },
+    {
+      "id": "K1",
+      "type": "ksa_item",
+      "position": {
+        "x": 20,
+        "y": 75
+      },
+      "size": {
+        "width": 260,
+        "height": 110
+      },
+      "selected": false,
+      "data": {
+        "id": "K1",
+        "category": "K",
+        "index": 1,
+        "content": "新媒体的定义和特点"
+      },
+      "parentId": "ksa_panel_1769048917088",
+      "extent": "parent"
+    },
+    {
+      "id": "K2",
+      "type": "ksa_item",
+      "position": {
+        "x": 295,
+        "y": 75
+      },
+      "size": {
+        "width": 260,
+        "height": 110
+      },
+      "selected": false,
+      "data": {
+        "id": "K2",
+        "category": "K",
+        "index": 2,
+        "content": "新媒体营销的定义、特点及变现逻辑"
+      },
+      "parentId": "ksa_panel_1769048917088",
+      "extent": "parent"
+    },
+    {
+      "id": "K3",
+      "type": "ksa_item",
+      "position": {
+        "x": 570,
+        "y": 75
+      },
+      "size": {
+        "width": 260,
+        "height": 110
+      },
+      "selected": false,
+      "data": {
+        "id": "K3",
+        "category": "K",
+        "index": 3,
+        "content": "短视频营销的概念与主流平台基础规则"
+      },
+      "parentId": "ksa_panel_1769048917088",
+      "extent": "parent"
+    },
+    {
+      "id": "K4",
+      "type": "ksa_item",
+      "position": {
+        "x": 20,
+        "y": 195
+      },
+      "size": {
+        "width": 260,
+        "height": 110
+      },
+      "selected": false,
+      "data": {
+        "id": "K4",
+        "category": "K",
+        "index": 4,
+        "content": "AI工具在软文创作中的应用原理"
+      },
+      "parentId": "ksa_panel_1769048917088",
+      "extent": "parent"
+    },
+    {
+      "id": "K5",
+      "type": "ksa_item",
+      "position": {
+        "x": 295,
+        "y": 195
+      },
+      "size": {
+        "width": 260,
+        "height": 110
+      },
+      "selected": false,
+      "data": {
+        "id": "K5",
+        "category": "K",
+        "index": 5,
+        "content": "直播营销的基础知识与操作流程"
+      },
+      "parentId": "ksa_panel_1769048917088",
+      "extent": "parent"
+    },
+    {
+      "id": "S1",
+      "type": "ksa_item",
+      "position": {
+        "x": 570,
+        "y": 195
+      },
+      "size": {
+        "width": 260,
+        "height": 110
+      },
+      "selected": false,
+      "data": {
+        "id": "S1",
+        "category": "S",
+        "index": 1,
+        "content": "短视频创作基础技巧，包括拍摄、剪辑与发布"
+      },
+      "parentId": "ksa_panel_1769048917088",
+      "extent": "parent"
+    },
+    {
+      "id": "S2",
+      "type": "ksa_item",
+      "position": {
+        "x": 20,
+        "y": 315
+      },
+      "size": {
+        "width": 260,
+        "height": 110
+      },
+      "selected": false,
+      "data": {
+        "id": "S2",
+        "category": "S",
+        "index": 2,
+        "content": "运用AI工具完成软文创作并优化内容"
+      },
+      "parentId": "ksa_panel_1769048917088",
+      "extent": "parent"
+    },
+    {
+      "id": "S3",
+      "type": "ksa_item",
+      "position": {
+        "x": 295,
+        "y": 315
+      },
+      "size": {
+        "width": 260,
+        "height": 110
+      },
+      "selected": false,
+      "data": {
+        "id": "S3",
+        "category": "S",
+        "index": 3,
+        "content": "短视频效果评估方法，包括数据分析与反馈"
+      },
+      "parentId": "ksa_panel_1769048917088",
+      "extent": "parent"
+    },
+    {
+      "id": "S4",
+      "type": "ksa_item",
+      "position": {
+        "x": 570,
+        "y": 315
+      },
+      "size": {
+        "width": 260,
+        "height": 110
+      },
+      "selected": false,
+      "data": {
+        "id": "S4",
+        "category": "S",
+        "index": 4,
+        "content": "直播营销全流程基础操作，包括策划、执行与复盘"
+      },
+      "parentId": "ksa_panel_1769048917088",
+      "extent": "parent"
+    },
+    {
+      "id": "S5",
+      "type": "ksa_item",
+      "position": {
+        "x": 20,
+        "y": 435
+      },
+      "size": {
+        "width": 260,
+        "height": 110
+      },
+      "selected": false,
+      "data": {
+        "id": "S5",
+        "category": "S",
+        "index": 5,
+        "content": "合规创作意识与数据思维的应用"
+      },
+      "parentId": "ksa_panel_1769048917088",
+      "extent": "parent"
+    },
+    {
+      "id": "A1",
+      "type": "ksa_item",
+      "position": {
+        "x": 295,
+        "y": 435
+      },
+      "size": {
+        "width": 260,
+        "height": 110
+      },
+      "selected": false,
+      "data": {
+        "id": "A1",
+        "category": "A",
+        "index": 1,
+        "content": "树立诚信营销与团队协作意识"
+      },
+      "parentId": "ksa_panel_1769048917088",
+      "extent": "parent"
+    },
+    {
+      "id": "A2",
+      "type": "ksa_item",
+      "position": {
+        "x": 570,
+        "y": 435
+      },
+      "size": {
+        "width": 260,
+        "height": 110
+      },
+      "selected": false,
+      "data": {
+        "id": "A2",
+        "category": "A",
+        "index": 2,
+        "content": "理性使用AI工具，保护版权的态度"
+      },
+      "parentId": "ksa_panel_1769048917088",
+      "extent": "parent"
+    },
+    {
+      "id": "course_matrix_1769049046944",
+      "type": "course_matrix",
+      "position": {
+        "x": 1967,
+        "y": 675
+      },
+      "size": {
+        "width": 1100,
+        "height": 680
+      },
+      "selected": false,
+      "data": {
+        "course_name": "新媒体营销",
+        "objectives": [
+          {
+            "id": "obj_001",
+            "index": 1,
+            "content": "掌握新媒体营销的基础知识和核心概念，包括新媒体的定义、特点及变现逻辑。"
+          },
+          {
+            "id": "obj_002",
+            "index": 2,
+            "content": "熟练掌握短视频营销的概念、技巧及其在主流平台的应用，提升数据思维和合规创作意识。"
+          },
+          {
+            "id": "obj_003",
+            "index": 3,
+            "content": "能够运用AI工具进行软文创作并优化内容，提高内容创作效率，培养理性使用AI的态度。"
+          },
+          {
+            "id": "obj_004",
+            "index": 4,
+            "content": "熟悉直播营销的基本知识，能够完成直播营销全流程操作，并树立诚信营销与团队协作意识。"
+          }
+        ],
+        "rows": [
+          {
+            "chapter_id": "ch_001",
+            "chapter_index": 1,
+            "chapter_name": "新媒体营销基础",
+            "supports": [
+              {
+                "objective_id": "obj_001",
+                "objective_index": 1,
+                "course_points": [
+                  {
+                    "id": "cp_001",
+                    "name": "新媒体营销基础",
+                    "level": "strong"
+                  }
+                ]
+              },
+              {
+                "objective_id": "obj_002",
+                "objective_index": 2,
+                "course_points": [
+                  {
+                    "id": "cp_001",
+                    "name": "新媒体营销基础",
+                    "level": "weak"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "chapter_id": "ch_002",
+            "chapter_index": 2,
+            "chapter_name": "短视频营销概论与技巧",
+            "supports": [
+              {
+                "objective_id": "obj_002",
+                "objective_index": 2,
+                "course_points": [
+                  {
+                    "id": "cp_002",
+                    "name": "短视频营销概念与技巧",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "cp_005",
+                    "name": "项目实践：短视频创作",
+                    "level": "strong"
+                  }
+                ]
+              },
+              {
+                "objective_id": "obj_001",
+                "objective_index": 1,
+                "course_points": [
+                  {
+                    "id": "cp_002",
+                    "name": "短视频营销概念与技巧",
+                    "level": "weak"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "chapter_id": "ch_003",
+            "chapter_index": 3,
+            "chapter_name": "AI工具在软文创作中的应用",
+            "supports": [
+              {
+                "objective_id": "obj_003",
+                "objective_index": 3,
+                "course_points": [
+                  {
+                    "id": "cp_003",
+                    "name": "AI工具在软文创作中的应用",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "cp_006",
+                    "name": "项目实践：软文创作",
+                    "level": "strong"
+                  }
+                ]
+              },
+              {
+                "objective_id": "obj_001",
+                "objective_index": 1,
+                "course_points": [
+                  {
+                    "id": "cp_003",
+                    "name": "AI工具在软文创作中的应用",
+                    "level": "weak"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "chapter_id": "ch_004",
+            "chapter_index": 4,
+            "chapter_name": "直播营销基础知识与操作",
+            "supports": [
+              {
+                "objective_id": "obj_004",
+                "objective_index": 4,
+                "course_points": [
+                  {
+                    "id": "cp_004",
+                    "name": "直播营销基础知识",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "cp_007",
+                    "name": "项目实践：直播营销",
+                    "level": "strong"
+                  }
+                ]
+              },
+              {
+                "objective_id": "obj_001",
+                "objective_index": 1,
+                "course_points": [
+                  {
+                    "id": "cp_004",
+                    "name": "直播营销基础知识",
+                    "level": "weak"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "element_1769049098933_42dmpsr",
+      "type": "project_matrix",
+      "position": {
+        "x": 3350,
+        "y": 60
+      },
+      "size": {
+        "width": 900,
+        "height": 160
+      },
+      "selected": false,
+      "data": {
+        "chapter_id": "ch_001",
+        "chapter_index": 1,
+        "chapter_name": "新媒体营销基础",
+        "task_objectives": [
+          {
+            "id": "to_001",
+            "index": 1,
+            "description": "理解新媒体的定义和特点，并掌握新媒体营销的定义、特点及变现逻辑"
+          },
+          {
+            "id": "to_002",
+            "index": 2,
+            "description": "树立诚信营销与团队协作意识，培养合规创作意识与数据思维"
+          }
+        ],
+        "rows": [
+          {
+            "course_point_id": "cp_001",
+            "course_point_name": "新媒体营销基础",
+            "objective_supports": [
+              {
+                "task_objective_id": "to_001",
+                "ksa_items": [
+                  {
+                    "id": "K1",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "K2",
+                    "level": "strong"
+                  }
+                ]
+              },
+              {
+                "task_objective_id": "to_002",
+                "ksa_items": [
+                  {
+                    "id": "A1",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "S5",
+                    "level": "strong"
+                  }
+                ]
+              }
+            ],
+            "learning_method": "项目实践",
+            "teaching_method": "演示法",
+            "learning_output": "完成一份关于新媒体营销基础知识的报告，包括新媒体定义、特点、营销定义、特点及变现逻辑等内容，并展示一个小组合作的新媒体营销案例分析",
+            "week": 1,
+            "theory_hours": 2,
+            "practice_hours": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "element_1769049098933_005typf",
+      "type": "project_matrix",
+      "position": {
+        "x": 3350,
+        "y": 260
+      },
+      "size": {
+        "width": 900,
+        "height": 208
+      },
+      "selected": false,
+      "data": {
+        "chapter_id": "ch_002",
+        "chapter_index": 2,
+        "chapter_name": "短视频营销概论与技巧",
+        "task_objectives": [
+          {
+            "id": "to_001",
+            "index": 1,
+            "description": "理解短视频营销的概念、特点及主流平台基础规则，并能够进行合规创作。"
+          },
+          {
+            "id": "to_002",
+            "index": 2,
+            "description": "掌握短视频创作的基础技巧，包括拍摄、剪辑与发布，并能运用数据思维进行效果评估。"
+          }
+        ],
+        "rows": [
+          {
+            "course_point_id": "cp_002",
+            "course_point_name": "短视频营销概念与技巧",
+            "objective_supports": [
+              {
+                "task_objective_id": "to_001",
+                "ksa_items": [
+                  {
+                    "id": "K3",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "A1",
+                    "level": "weak"
+                  }
+                ]
+              },
+              {
+                "task_objective_id": "to_002",
+                "ksa_items": [
+                  {
+                    "id": "S1",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "S3",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "S5",
+                    "level": "weak"
+                  }
+                ]
+              }
+            ],
+            "learning_method": "项目实践",
+            "teaching_method": "演示法",
+            "learning_output": "完成一份短视频营销策划方案，并制作一个短视频作品。",
+            "week": 1,
+            "theory_hours": 2,
+            "practice_hours": 2
+          },
+          {
+            "course_point_id": "cp_005",
+            "course_point_name": "项目实践：短视频创作",
+            "objective_supports": [
+              {
+                "task_objective_id": "to_002",
+                "ksa_items": [
+                  {
+                    "id": "S1",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "S3",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "S5",
+                    "level": "weak"
+                  }
+                ]
+              }
+            ],
+            "learning_method": "项目实践",
+            "teaching_method": "任务驱动法",
+            "learning_output": "制作并发布一个短视频作品，并进行效果评估报告。",
+            "week": 2,
+            "theory_hours": 1,
+            "practice_hours": 3
+          }
+        ]
+      }
+    },
+    {
+      "id": "element_1769049098933_u3f1md4",
+      "type": "project_matrix",
+      "position": {
+        "x": 3350,
+        "y": 508
+      },
+      "size": {
+        "width": 900,
+        "height": 208
+      },
+      "selected": false,
+      "data": {
+        "chapter_id": "ch_003",
+        "chapter_index": 3,
+        "chapter_name": "AI工具在软文创作中的应用",
+        "task_objectives": [
+          {
+            "id": "to_001",
+            "index": 1,
+            "description": "掌握AI工具在软文创作中的基本原理和应用场景"
+          },
+          {
+            "id": "to_002",
+            "index": 2,
+            "description": "能够运用AI工具完成软文创作并优化内容，提升内容创作效率"
+          },
+          {
+            "id": "to_003",
+            "index": 3,
+            "description": "树立理性使用AI工具、保护版权的态度，确保内容的合规性和原创性"
+          }
+        ],
+        "rows": [
+          {
+            "course_point_id": "cp_003",
+            "course_point_name": "AI工具在软文创作中的应用",
+            "objective_supports": [
+              {
+                "task_objective_id": "to_001",
+                "ksa_items": [
+                  {
+                    "id": "K4",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "K2",
+                    "level": "weak"
+                  }
+                ]
+              },
+              {
+                "task_objective_id": "to_002",
+                "ksa_items": [
+                  {
+                    "id": "S2",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "S5",
+                    "level": "weak"
+                  }
+                ]
+              },
+              {
+                "task_objective_id": "to_003",
+                "ksa_items": [
+                  {
+                    "id": "A2",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "A1",
+                    "level": "weak"
+                  }
+                ]
+              }
+            ],
+            "learning_method": "项目实践",
+            "teaching_method": "演示法",
+            "learning_output": "完成一份基于AI工具的软文创作报告，并进行内容优化",
+            "week": 6,
+            "theory_hours": 2,
+            "practice_hours": 2
+          },
+          {
+            "course_point_id": "cp_006",
+            "course_point_name": "项目实践：软文创作",
+            "objective_supports": [
+              {
+                "task_objective_id": "to_002",
+                "ksa_items": [
+                  {
+                    "id": "S2",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "S5",
+                    "level": "weak"
+                  }
+                ]
+              },
+              {
+                "task_objective_id": "to_003",
+                "ksa_items": [
+                  {
+                    "id": "A2",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "A1",
+                    "level": "weak"
+                  }
+                ]
+              }
+            ],
+            "learning_method": "项目实践",
+            "teaching_method": "任务驱动法",
+            "learning_output": "制作一份完整的软文作品，并进行同行评审和反馈",
+            "week": 7,
+            "theory_hours": 1,
+            "practice_hours": 3
+          }
+        ]
+      }
+    },
+    {
+      "id": "element_1769049098933_wwbrtbh",
+      "type": "project_matrix",
+      "position": {
+        "x": 3350,
+        "y": 756
+      },
+      "size": {
+        "width": 900,
+        "height": 208
+      },
+      "selected": false,
+      "data": {
+        "chapter_id": "ch_004",
+        "chapter_index": 4,
+        "chapter_name": "直播营销基础知识与操作",
+        "task_objectives": [
+          {
+            "id": "to_001",
+            "index": 1,
+            "description": "掌握直播营销的基础知识，包括定义、特点及操作流程"
+          },
+          {
+            "id": "to_002",
+            "index": 2,
+            "description": "能够完成一次完整的直播营销全流程操作，包括策划、执行与复盘"
+          },
+          {
+            "id": "to_003",
+            "index": 3,
+            "description": "树立诚信营销与团队协作意识，并能够在直播中体现"
+          }
+        ],
+        "rows": [
+          {
+            "course_point_id": "cp_004",
+            "course_point_name": "直播营销基础知识",
+            "objective_supports": [
+              {
+                "task_objective_id": "to_001",
+                "ksa_items": [
+                  {
+                    "id": "K5",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "A1",
+                    "level": "weak"
+                  }
+                ]
+              }
+            ],
+            "learning_method": "项目实践",
+            "teaching_method": "演示法",
+            "learning_output": "完成直播营销基础知识的学习报告",
+            "week": 1,
+            "theory_hours": 2,
+            "practice_hours": 0
+          },
+          {
+            "course_point_id": "cp_007",
+            "course_point_name": "项目实践：直播营销",
+            "objective_supports": [
+              {
+                "task_objective_id": "to_002",
+                "ksa_items": [
+                  {
+                    "id": "S4",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "A1",
+                    "level": "strong"
+                  }
+                ]
+              },
+              {
+                "task_objective_id": "to_003",
+                "ksa_items": [
+                  {
+                    "id": "A1",
+                    "level": "strong"
+                  }
+                ]
+              }
+            ],
+            "learning_method": "项目实践",
+            "teaching_method": "任务驱动法",
+            "learning_output": "完成一次完整的直播营销全流程操作，并提交复盘报告",
+            "week": 2,
+            "theory_hours": 0,
+            "practice_hours": 4
+          }
+        ]
+      }
+    },
+    {
+      "id": "course-report-1769049195165",
+      "type": "course_report",
+      "position": {
+        "x": 4934.25,
+        "y": 541
+      },
+      "size": {
+        "width": 480,
+        "height": 180
+      },
+      "selected": true,
+      "data": {
+        "id": "course-report-1769049195165",
+        "name": "开课报告",
+        "status": "draft",
+        "createdAt": "2026/1/22"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_doc_001_course_info_1769048725179",
+      "source": "doc_001",
+      "target": "course_info_1769048725179",
+      "sourceHandle": "bottom",
+      "targetHandle": "top",
+      "type": "support"
+    },
+    {
+      "id": "edge_course_info_1769048725179_objective_panel_1769048819721",
+      "source": "course_info_1769048725179",
+      "target": "objective_panel_1769048819721",
+      "sourceHandle": "right",
+      "targetHandle": "left",
+      "type": "support"
+    },
+    {
+      "id": "edge_course_info_1769048725179_chapter_panel_1769048848597",
+      "source": "course_info_1769048725179",
+      "target": "chapter_panel_1769048848597",
+      "sourceHandle": "right",
+      "targetHandle": "left",
+      "type": "support"
+    },
+    {
+      "id": "edge_course_info_1769048725179_course_point_panel_1769048868758",
+      "source": "course_info_1769048725179",
+      "target": "course_point_panel_1769048868758",
+      "sourceHandle": "right",
+      "targetHandle": "left",
+      "type": "support"
+    },
+    {
+      "id": "edge_course_info_1769048725179_ksa_panel_1769048917088",
+      "source": "course_info_1769048725179",
+      "target": "ksa_panel_1769048917088",
+      "sourceHandle": "right",
+      "targetHandle": "left",
+      "type": "support"
+    },
+    {
+      "id": "edge_objective_panel_1769048819721_course_matrix_1769049046944",
+      "source": "objective_panel_1769048819721",
+      "target": "course_matrix_1769049046944",
+      "sourceHandle": "right",
+      "targetHandle": "left",
+      "type": "support"
+    },
+    {
+      "id": "edge_chapter_panel_1769048848597_course_matrix_1769049046944",
+      "source": "chapter_panel_1769048848597",
+      "target": "course_matrix_1769049046944",
+      "sourceHandle": "right",
+      "targetHandle": "left",
+      "type": "support"
+    },
+    {
+      "id": "edge_course_point_panel_1769048868758_course_matrix_1769049046944",
+      "source": "course_point_panel_1769048868758",
+      "target": "course_matrix_1769049046944",
+      "sourceHandle": "right",
+      "targetHandle": "left",
+      "type": "support"
+    },
+    {
+      "id": "edge_course_matrix_1769049046944_element_1769049098933_42dmpsr",
+      "source": "course_matrix_1769049046944",
+      "target": "element_1769049098933_42dmpsr",
+      "sourceHandle": "right",
+      "targetHandle": "left",
+      "type": "support"
+    },
+    {
+      "id": "edge_course_matrix_1769049046944_element_1769049098933_005typf",
+      "source": "course_matrix_1769049046944",
+      "target": "element_1769049098933_005typf",
+      "sourceHandle": "right",
+      "targetHandle": "left",
+      "type": "support"
+    },
+    {
+      "id": "edge_course_matrix_1769049046944_element_1769049098933_u3f1md4",
+      "source": "course_matrix_1769049046944",
+      "target": "element_1769049098933_u3f1md4",
+      "sourceHandle": "right",
+      "targetHandle": "left",
+      "type": "support"
+    },
+    {
+      "id": "edge_course_matrix_1769049046944_element_1769049098933_wwbrtbh",
+      "source": "course_matrix_1769049046944",
+      "target": "element_1769049098933_wwbrtbh",
+      "sourceHandle": "right",
+      "targetHandle": "left",
+      "type": "support"
+    },
+    {
+      "id": "edge_element_1769049098933_42dmpsr_course-report-1769049195165",
+      "source": "element_1769049098933_42dmpsr",
+      "target": "course-report-1769049195165",
+      "sourceHandle": "right",
+      "targetHandle": "left",
+      "type": "support"
+    },
+    {
+      "id": "edge_element_1769049098933_005typf_course-report-1769049195165",
+      "source": "element_1769049098933_005typf",
+      "target": "course-report-1769049195165",
+      "sourceHandle": "right",
+      "targetHandle": "left",
+      "type": "support"
+    },
+    {
+      "id": "edge_element_1769049098933_u3f1md4_course-report-1769049195165",
+      "source": "element_1769049098933_u3f1md4",
+      "target": "course-report-1769049195165",
+      "sourceHandle": "right",
+      "targetHandle": "left",
+      "type": "support"
+    },
+    {
+      "id": "edge_element_1769049098933_wwbrtbh_course-report-1769049195165",
+      "source": "element_1769049098933_wwbrtbh",
+      "target": "course-report-1769049195165",
+      "sourceHandle": "right",
+      "targetHandle": "left",
+      "type": "support"
+    }
+  ],
+  "specialComponents": {
+    "source_documents": {
+      "type": "source_document_card",
+      "data": {
+        "cdnHost": "https://prod-gxkct.oss-cn-beijing.aliyuncs.com/",
+        "documents": [
+          {
+            "id": "doc_001",
+            "filename": "新媒体营销_教学大纲2025.9.28_16学时_改.docx",
+            "ossKey": "gxkct/course_ai_files/parsed/20260122/00bf0da9_新媒体营销_教学大纲2025.9.28_16学时_改_parsed.txt",
+            "originalFileOssKey": "gxkct/course_ai_files/20260122/session_1769048571008_yuo3dmw_1769048601163_1-_新媒体营销_教学大纲2025.9.28_16学时_改.docx",
+            "fileType": "docx",
+            "createdAt": "2026-01-22T02:23:22.153808+00:00",
+            "createdBy": null
+          }
+        ]
+      }
+    },
+    "course_info": {
+      "type": "course_info",
+      "data": {
+        "id": "course_info_1769048725179",
+        "name": "新媒体营销",
+        "metadata": {
+          "openingDate": "2025-09-28",
+          "courseType": "必修",
+          "courseNatureId": 3,
+          "courseNatureName": "专业课",
+          "introduction": "《新媒体营销》课程旨在培养高素质应用型人才，通过系统学习新媒体营销的基础知识和实际操作技能，提升学生的就业竞争力。课程内容涵盖新媒体营销的定义、特点及变现逻辑，短视频营销的概念与技巧，AI工具在软文创作中的应用，以及直播营销的基础知识与操作。通过真实的项目实践，学生将掌握新媒体营销的核心技能，为未来的创新创业和个人品牌建设打下坚实基础。",
+          "theoryPeriod": 16,
+          "practicePeriod": 16,
+          "teachingClass": "应用型本科学生",
+          "teachingLocation": "",
+          "teachingTime": "",
+          "studentCount": 0,
+          "credits": 2,
+          "mainTextbook": [
+            "严志华，贾丽. 新媒体营销与运营（微课版第2版）[M]. 中国工信出版集团人民邮电出版社, 2023.",
+            "王旋，李坤婧. 短视频与直播电商（全彩微课版）[M]. 中国工信出版集团人民邮电出版社, 2024."
+          ],
+          "referenceResources": [
+            "傅宛菊，陈彤，李华. 新媒体写作与传播[M]. 中国工信出版集团人民邮电出版社, 2023.",
+            "同婉婷. 短视频与直播电商实战[M]. 中国工信出版集团人民邮电出版社, 2022.",
+            "http://www.icourse163.org/ 中国大学MOOC慕课网"
+          ],
+          "attendancePolicy": "本课程要求学生按时出勤，缺勤超过总学时1/3者不得参加期末考核。",
+          "assignmentPolicy": "作业应在规定时间内独立完成并提交，迟交作业按比例扣分。",
+          "conductRequirements": "遵守课堂纪律，尊重他人，禁止抄袭等学术不端行为。",
+          "practiceRequirements": "学生需参与真实的新媒体营销项目，包括短视频创作、软文撰写、直播营销等，通过实际操作掌握新媒体营销的核心技能。",
+          "teamworkRequirements": "小组实训时需明确人员分工，避免多人同时操作同一设备。使用支架、补光灯等设备时，需确认设备放置稳固，防止倾倒砸伤人员。若实训过程中出现设备故障、人员受伤等突发情况，需立即停止操作，向教师报告。",
+          "bonusRequirements": "发表相关论文、获得专利或参与竞赛获奖可获得额外加分。",
+          "otherSuggestions": "建议学生多关注行业动态，积极参与各类新媒体平台的活动，提升自己的实践能力和创新意识。",
+          "assessmentMethod": "考试",
+          "assessmentForm": "过程性考核（平时成绩70%）+期末考核（项目作业30%）。过程性考核包括线上学习通任务（作品提交、双基测试）、MOOC学习心得与线下课堂表现；期末考核为项目作业。",
+          "scoreType": "百分制",
+          "scoreTable": {
+            "headers": [
+              "考核项目",
+              "比例",
+              "备注"
+            ],
+            "rows": [
+              {
+                "考核项目": "平时成绩",
+                "比例": "70%",
+                "备注": "出勤+作业+课堂表现"
+              },
+              {
+                "考核项目": "期末项目作业",
+                "比例": "30%",
+                "备注": "项目作业"
+              }
+            ]
+          },
+          "assessmentDescription": "本课程考核由过程性考核和期末考核构成。过程性考核占总成绩的70%，包括线上学习通任务、MOOC学习心得与线下课堂表现；期末考核占总成绩的30%，主要为项目作业。"
+        }
+      }
+    },
+    "objective_panel": {
+      "type": "objective_panel",
+      "data": {
+        "id": "objective_panel_1769048819721"
+      }
+    },
+    "chapter_panel": {
+      "type": "chapter_panel",
+      "data": {
+        "id": "chapter_panel_1769048848597"
+      }
+    },
+    "course_point_panel": {
+      "type": "course_point_panel",
+      "data": {
+        "id": "panel_course_points_1024455239"
+      }
+    },
+    "ksa_panel": {
+      "type": "ksa_panel",
+      "data": {
+        "id": "panel_ksa_1024489242"
+      }
+    },
+    "course_matrix": {
+      "type": "course_matrix",
+      "data": {
+        "course_name": "新媒体营销",
+        "objectives": [
+          {
+            "id": "obj_001",
+            "index": 1,
+            "content": "掌握新媒体营销的基础知识和核心概念，包括新媒体的定义、特点及变现逻辑。"
+          },
+          {
+            "id": "obj_002",
+            "index": 2,
+            "content": "熟练掌握短视频营销的概念、技巧及其在主流平台的应用，提升数据思维和合规创作意识。"
+          },
+          {
+            "id": "obj_003",
+            "index": 3,
+            "content": "能够运用AI工具进行软文创作并优化内容，提高内容创作效率，培养理性使用AI的态度。"
+          },
+          {
+            "id": "obj_004",
+            "index": 4,
+            "content": "熟悉直播营销的基本知识，能够完成直播营销全流程操作，并树立诚信营销与团队协作意识。"
+          }
+        ],
+        "rows": [
+          {
+            "chapter_id": "ch_001",
+            "chapter_index": 1,
+            "chapter_name": "新媒体营销基础",
+            "supports": [
+              {
+                "objective_id": "obj_001",
+                "objective_index": 1,
+                "course_points": [
+                  {
+                    "id": "cp_001",
+                    "name": "新媒体营销基础",
+                    "level": "strong"
+                  }
+                ]
+              },
+              {
+                "objective_id": "obj_002",
+                "objective_index": 2,
+                "course_points": [
+                  {
+                    "id": "cp_001",
+                    "name": "新媒体营销基础",
+                    "level": "weak"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "chapter_id": "ch_002",
+            "chapter_index": 2,
+            "chapter_name": "短视频营销概论与技巧",
+            "supports": [
+              {
+                "objective_id": "obj_002",
+                "objective_index": 2,
+                "course_points": [
+                  {
+                    "id": "cp_002",
+                    "name": "短视频营销概念与技巧",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "cp_005",
+                    "name": "项目实践：短视频创作",
+                    "level": "strong"
+                  }
+                ]
+              },
+              {
+                "objective_id": "obj_001",
+                "objective_index": 1,
+                "course_points": [
+                  {
+                    "id": "cp_002",
+                    "name": "短视频营销概念与技巧",
+                    "level": "weak"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "chapter_id": "ch_003",
+            "chapter_index": 3,
+            "chapter_name": "AI工具在软文创作中的应用",
+            "supports": [
+              {
+                "objective_id": "obj_003",
+                "objective_index": 3,
+                "course_points": [
+                  {
+                    "id": "cp_003",
+                    "name": "AI工具在软文创作中的应用",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "cp_006",
+                    "name": "项目实践：软文创作",
+                    "level": "strong"
+                  }
+                ]
+              },
+              {
+                "objective_id": "obj_001",
+                "objective_index": 1,
+                "course_points": [
+                  {
+                    "id": "cp_003",
+                    "name": "AI工具在软文创作中的应用",
+                    "level": "weak"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "chapter_id": "ch_004",
+            "chapter_index": 4,
+            "chapter_name": "直播营销基础知识与操作",
+            "supports": [
+              {
+                "objective_id": "obj_004",
+                "objective_index": 4,
+                "course_points": [
+                  {
+                    "id": "cp_004",
+                    "name": "直播营销基础知识",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "cp_007",
+                    "name": "项目实践：直播营销",
+                    "level": "strong"
+                  }
+                ]
+              },
+              {
+                "objective_id": "obj_001",
+                "objective_index": 1,
+                "course_points": [
+                  {
+                    "id": "cp_004",
+                    "name": "直播营销基础知识",
+                    "level": "weak"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "project_matrix_ch_001": {
+      "type": "project_matrix",
+      "data": {
+        "chapter_id": "ch_001",
+        "chapter_index": 1,
+        "chapter_name": "新媒体营销基础",
+        "task_objectives": [
+          {
+            "id": "to_001",
+            "index": 1,
+            "description": "理解新媒体的定义和特点，并掌握新媒体营销的定义、特点及变现逻辑"
+          },
+          {
+            "id": "to_002",
+            "index": 2,
+            "description": "树立诚信营销与团队协作意识，培养合规创作意识与数据思维"
+          }
+        ],
+        "rows": [
+          {
+            "course_point_id": "cp_001",
+            "course_point_name": "新媒体营销基础",
+            "objective_supports": [
+              {
+                "task_objective_id": "to_001",
+                "ksa_items": [
+                  {
+                    "id": "K1",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "K2",
+                    "level": "strong"
+                  }
+                ]
+              },
+              {
+                "task_objective_id": "to_002",
+                "ksa_items": [
+                  {
+                    "id": "A1",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "S5",
+                    "level": "strong"
+                  }
+                ]
+              }
+            ],
+            "learning_method": "项目实践",
+            "teaching_method": "演示法",
+            "learning_output": "完成一份关于新媒体营销基础知识的报告，包括新媒体定义、特点、营销定义、特点及变现逻辑等内容，并展示一个小组合作的新媒体营销案例分析",
+            "week": 1,
+            "theory_hours": 2,
+            "practice_hours": 2
+          }
+        ]
+      }
+    },
+    "project_matrix_ch_002": {
+      "type": "project_matrix",
+      "data": {
+        "chapter_id": "ch_002",
+        "chapter_index": 2,
+        "chapter_name": "短视频营销概论与技巧",
+        "task_objectives": [
+          {
+            "id": "to_001",
+            "index": 1,
+            "description": "理解短视频营销的概念、特点及主流平台基础规则，并能够进行合规创作。"
+          },
+          {
+            "id": "to_002",
+            "index": 2,
+            "description": "掌握短视频创作的基础技巧，包括拍摄、剪辑与发布，并能运用数据思维进行效果评估。"
+          }
+        ],
+        "rows": [
+          {
+            "course_point_id": "cp_002",
+            "course_point_name": "短视频营销概念与技巧",
+            "objective_supports": [
+              {
+                "task_objective_id": "to_001",
+                "ksa_items": [
+                  {
+                    "id": "K3",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "A1",
+                    "level": "weak"
+                  }
+                ]
+              },
+              {
+                "task_objective_id": "to_002",
+                "ksa_items": [
+                  {
+                    "id": "S1",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "S3",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "S5",
+                    "level": "weak"
+                  }
+                ]
+              }
+            ],
+            "learning_method": "项目实践",
+            "teaching_method": "演示法",
+            "learning_output": "完成一份短视频营销策划方案，并制作一个短视频作品。",
+            "week": 1,
+            "theory_hours": 2,
+            "practice_hours": 2
+          },
+          {
+            "course_point_id": "cp_005",
+            "course_point_name": "项目实践：短视频创作",
+            "objective_supports": [
+              {
+                "task_objective_id": "to_002",
+                "ksa_items": [
+                  {
+                    "id": "S1",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "S3",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "S5",
+                    "level": "weak"
+                  }
+                ]
+              }
+            ],
+            "learning_method": "项目实践",
+            "teaching_method": "任务驱动法",
+            "learning_output": "制作并发布一个短视频作品，并进行效果评估报告。",
+            "week": 2,
+            "theory_hours": 1,
+            "practice_hours": 3
+          }
+        ]
+      }
+    },
+    "project_matrix_ch_003": {
+      "type": "project_matrix",
+      "data": {
+        "chapter_id": "ch_003",
+        "chapter_index": 3,
+        "chapter_name": "AI工具在软文创作中的应用",
+        "task_objectives": [
+          {
+            "id": "to_001",
+            "index": 1,
+            "description": "掌握AI工具在软文创作中的基本原理和应用场景"
+          },
+          {
+            "id": "to_002",
+            "index": 2,
+            "description": "能够运用AI工具完成软文创作并优化内容，提升内容创作效率"
+          },
+          {
+            "id": "to_003",
+            "index": 3,
+            "description": "树立理性使用AI工具、保护版权的态度，确保内容的合规性和原创性"
+          }
+        ],
+        "rows": [
+          {
+            "course_point_id": "cp_003",
+            "course_point_name": "AI工具在软文创作中的应用",
+            "objective_supports": [
+              {
+                "task_objective_id": "to_001",
+                "ksa_items": [
+                  {
+                    "id": "K4",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "K2",
+                    "level": "weak"
+                  }
+                ]
+              },
+              {
+                "task_objective_id": "to_002",
+                "ksa_items": [
+                  {
+                    "id": "S2",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "S5",
+                    "level": "weak"
+                  }
+                ]
+              },
+              {
+                "task_objective_id": "to_003",
+                "ksa_items": [
+                  {
+                    "id": "A2",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "A1",
+                    "level": "weak"
+                  }
+                ]
+              }
+            ],
+            "learning_method": "项目实践",
+            "teaching_method": "演示法",
+            "learning_output": "完成一份基于AI工具的软文创作报告，并进行内容优化",
+            "week": 6,
+            "theory_hours": 2,
+            "practice_hours": 2
+          },
+          {
+            "course_point_id": "cp_006",
+            "course_point_name": "项目实践：软文创作",
+            "objective_supports": [
+              {
+                "task_objective_id": "to_002",
+                "ksa_items": [
+                  {
+                    "id": "S2",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "S5",
+                    "level": "weak"
+                  }
+                ]
+              },
+              {
+                "task_objective_id": "to_003",
+                "ksa_items": [
+                  {
+                    "id": "A2",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "A1",
+                    "level": "weak"
+                  }
+                ]
+              }
+            ],
+            "learning_method": "项目实践",
+            "teaching_method": "任务驱动法",
+            "learning_output": "制作一份完整的软文作品，并进行同行评审和反馈",
+            "week": 7,
+            "theory_hours": 1,
+            "practice_hours": 3
+          }
+        ]
+      }
+    },
+    "project_matrix_ch_004": {
+      "type": "project_matrix",
+      "data": {
+        "chapter_id": "ch_004",
+        "chapter_index": 4,
+        "chapter_name": "直播营销基础知识与操作",
+        "task_objectives": [
+          {
+            "id": "to_001",
+            "index": 1,
+            "description": "掌握直播营销的基础知识，包括定义、特点及操作流程"
+          },
+          {
+            "id": "to_002",
+            "index": 2,
+            "description": "能够完成一次完整的直播营销全流程操作，包括策划、执行与复盘"
+          },
+          {
+            "id": "to_003",
+            "index": 3,
+            "description": "树立诚信营销与团队协作意识，并能够在直播中体现"
+          }
+        ],
+        "rows": [
+          {
+            "course_point_id": "cp_004",
+            "course_point_name": "直播营销基础知识",
+            "objective_supports": [
+              {
+                "task_objective_id": "to_001",
+                "ksa_items": [
+                  {
+                    "id": "K5",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "A1",
+                    "level": "weak"
+                  }
+                ]
+              }
+            ],
+            "learning_method": "项目实践",
+            "teaching_method": "演示法",
+            "learning_output": "完成直播营销基础知识的学习报告",
+            "week": 1,
+            "theory_hours": 2,
+            "practice_hours": 0
+          },
+          {
+            "course_point_id": "cp_007",
+            "course_point_name": "项目实践：直播营销",
+            "objective_supports": [
+              {
+                "task_objective_id": "to_002",
+                "ksa_items": [
+                  {
+                    "id": "S4",
+                    "level": "strong"
+                  },
+                  {
+                    "id": "A1",
+                    "level": "strong"
+                  }
+                ]
+              },
+              {
+                "task_objective_id": "to_003",
+                "ksa_items": [
+                  {
+                    "id": "A1",
+                    "level": "strong"
+                  }
+                ]
+              }
+            ],
+            "learning_method": "项目实践",
+            "teaching_method": "任务驱动法",
+            "learning_output": "完成一次完整的直播营销全流程操作，并提交复盘报告",
+            "week": 2,
+            "theory_hours": 0,
+            "practice_hours": 4
+          }
+        ]
+      }
+    }
+  },
+  "selectedIds": [
+    "course-report-1769049195165"
+  ]
+}

@@ -1,0 +1,4001 @@
+{
+  "code": "0",
+  "message": "success",
+  "data": {
+    "courseId": 8716,
+    "projects": [
+      {
+        "project": {
+          "id": 28844,
+          "uniqueCode": "",
+          "courseUnitId": 8716,
+          "name": "项目1 建筑企业会计要素识别",
+          "product": "",
+          "theoryPeriod": "4",
+          "practicePeriod": "0",
+          "indexNo": 0
+        },
+        "goals": [
+          {
+            "id": 21174,
+            "projectId": 28844,
+            "description": "教学目标1：理解并掌握会计基本理论，并能够做出相关理论表述，理解受托责任观，培养学生作为会计人的社会责任和家国情怀。",
+            "product": ""
+          },
+          {
+            "id": 21175,
+            "projectId": 28844,
+            "description": "教学目标2：理解并掌握会计等式与会计要素，能够将经济业务转化为会计语言，培养学生将会计平衡辩证思想运用到生活工作中。",
+            "product": ""
+          }
+        ]
+      },
+      {
+        "project": {
+          "id": 28845,
+          "uniqueCode": "",
+          "courseUnitId": 8716,
+          "name": "项目2 建筑企业会计凭证填制与审核",
+          "product": "",
+          "theoryPeriod": "6",
+          "practicePeriod": "0",
+          "indexNo": 1
+        },
+        "goals": [
+          {
+            "id": 21176,
+            "projectId": 28845,
+            "description": "教学目标1：理解会计科目与账户的关系，掌握账户结构和借贷记账法记账规则，树立有来路有归途的辩证哲学思维。",
+            "product": ""
+          },
+          {
+            "id": 21177,
+            "projectId": 28845,
+            "description": "教学目标2：理解原始凭证与记账凭证的种类，掌握原始凭证与记账凭证的填制与审核，培养学生认真细致的工作作风和与承担责任的能力。",
+            "product": ""
+          }
+        ]
+      },
+      {
+        "project": {
+          "id": 28846,
+          "uniqueCode": "",
+          "courseUnitId": 8716,
+          "name": "项目3 建筑企业经济业务核算",
+          "product": "",
+          "theoryPeriod": "8",
+          "practicePeriod": "0",
+          "indexNo": 2
+        },
+        "goals": [
+          {
+            "id": 21178,
+            "projectId": 28846,
+            "description": "教学目标1：掌握企业资金资金筹措、材料采购、产品生产、商品销售以及利润形成和分配的核算方法，能够完成经济业务各环节的独立核算，做到认真、细致，培育学生工匠精神。",
+            "product": ""
+          },
+          {
+            "id": 21179,
+            "projectId": 28846,
+            "description": "教学目标2：了解企业业务背后的资金的循环与周转，理解企业经济业务与会计账务处理间的逻辑关系，培养学生辩证思维能力。",
+            "product": ""
+          }
+        ]
+      },
+      {
+        "project": {
+          "id": 28847,
+          "uniqueCode": "",
+          "courseUnitId": 8716,
+          "name": "项目4 建筑企业账簿的建立与登记",
+          "product": "",
+          "theoryPeriod": "6",
+          "practicePeriod": "0",
+          "indexNo": 3
+        },
+        "goals": [
+          {
+            "id": 21180,
+            "projectId": 28847,
+            "description": "教学目标1：了解账户分类的意义与原则，理解账户按结构和用途分类，掌握总分类账与明细账平行登记方法，树立总与分的辩证统一思想。",
+            "product": ""
+          },
+          {
+            "id": 21181,
+            "projectId": 28847,
+            "description": "教学目标2：理解会计账簿的登记要求，掌握日记账、明细账与总分类账的登记方法，掌握错账查找与更正方法，培养学生对违法行为的辨识能力。",
+            "product": ""
+          }
+        ]
+      },
+      {
+        "project": {
+          "id": 28848,
+          "uniqueCode": "",
+          "courseUnitId": 8716,
+          "name": "项目5 建筑企业对账与结账",
+          "product": "",
+          "theoryPeriod": "4",
+          "practicePeriod": "0",
+          "indexNo": 4
+        },
+        "goals": [
+          {
+            "id": 21182,
+            "projectId": 28848,
+            "description": "教学目标1：掌握企业会计账簿的更换方法，理解对账的内容和结账方法，培养学生的职业道德。",
+            "product": ""
+          },
+          {
+            "id": 21183,
+            "projectId": 28848,
+            "description": "教学目标2：了解财产清查的意义，理解并掌握财产清查的一般程序，能够完成针对清查结果的账务处理，培养学生明辨是非的能力，恪守职业道德规范。",
+            "product": ""
+          }
+        ]
+      },
+      {
+        "project": {
+          "id": 28849,
+          "uniqueCode": "",
+          "courseUnitId": 8716,
+          "name": "项目6 建筑企业财务报告编制",
+          "product": "",
+          "theoryPeriod": "4",
+          "practicePeriod": "0",
+          "indexNo": 5
+        },
+        "goals": [
+          {
+            "id": 21184,
+            "projectId": 28849,
+            "description": "教学目标1：了解财务报告的涵义，理解会计报表的分类及编制要求，培养学生客公正的处事原则。",
+            "product": ""
+          },
+          {
+            "id": 21185,
+            "projectId": 28849,
+            "description": "教学目标2：理解并掌握资产负债表、利润表的编制方法，能够完成会计报表的编制，培养学生分析、解读会计报表的能力，使学生正确认识会计职业道德。",
+            "product": ""
+          }
+        ]
+      }
+    ],
+    "ksas": [
+      {
+        "id": 492760,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "A",
+        "description": "培养学生家国情怀-民族自信",
+        "level": 1
+      },
+      {
+        "id": 492761,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "A",
+        "description": "培养学生辩证思维",
+        "level": 2
+      },
+      {
+        "id": 492762,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "A",
+        "description": "树立正确价值观",
+        "level": 3
+      },
+      {
+        "id": 492763,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "A",
+        "description": "工匠精神",
+        "level": 4
+      },
+      {
+        "id": 492764,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "了解会计的产生",
+        "level": 1
+      },
+      {
+        "id": 492765,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "了解会计的发展",
+        "level": 2
+      },
+      {
+        "id": 492766,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "理解会计的核算与监督职能",
+        "level": 3
+      },
+      {
+        "id": 492767,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "理解会计对象的含义",
+        "level": 4
+      },
+      {
+        "id": 492768,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "分辨企业的经济活动",
+        "level": 5
+      },
+      {
+        "id": 492769,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握会计等式的含义",
+        "level": 6
+      },
+      {
+        "id": 492770,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "理解经济业务对会计等式的影响",
+        "level": 7
+      },
+      {
+        "id": 492771,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握会计等式的应用",
+        "level": 8
+      },
+      {
+        "id": 492772,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握资产、负债和所有者权益的定义与分类",
+        "level": 9
+      },
+      {
+        "id": 492773,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握收入、费用和利润的定义与分类",
+        "level": 10
+      },
+      {
+        "id": 492774,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握会计要素的确认",
+        "level": 11
+      },
+      {
+        "id": 492775,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "区分会计计量属性",
+        "level": 12
+      },
+      {
+        "id": 492776,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "了解设置会计账户的意义",
+        "level": 13
+      },
+      {
+        "id": 492777,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "理解设置会计科目的原则",
+        "level": 14
+      },
+      {
+        "id": 492778,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "理解会计账户的作用、结构",
+        "level": 15
+      },
+      {
+        "id": 492779,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "理解借贷记账法的平衡原理",
+        "level": 16
+      },
+      {
+        "id": 492780,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握借贷记账法的记账规则",
+        "level": 17
+      },
+      {
+        "id": 492781,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握借贷记账法下的试算平衡",
+        "level": 18
+      },
+      {
+        "id": 492782,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "理解会计凭证的概念和作用",
+        "level": 19
+      },
+      {
+        "id": 492783,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "区分原始凭证与记账凭证",
+        "level": 20
+      },
+      {
+        "id": 492784,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握原始凭证的种类和基本内容",
+        "level": 21
+      },
+      {
+        "id": 492785,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "理解原始凭证的填列要求",
+        "level": 22
+      },
+      {
+        "id": 492786,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "了解记账凭证的种类",
+        "level": 23
+      },
+      {
+        "id": 492787,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握记账凭证的基本内容",
+        "level": 24
+      },
+      {
+        "id": 492788,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握记账凭证的填制方法",
+        "level": 25
+      },
+      {
+        "id": 492789,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握会计凭证的审核与保管要求",
+        "level": 26
+      },
+      {
+        "id": 492790,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "理解并掌握权益筹资核算",
+        "level": 27
+      },
+      {
+        "id": 492791,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "理解并掌握债务筹资核算",
+        "level": 28
+      },
+      {
+        "id": 492792,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握固定资产购置业务核算",
+        "level": 29
+      },
+      {
+        "id": 492793,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握材料采购业务核算",
+        "level": 30
+      },
+      {
+        "id": 492794,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握生产成本账户",
+        "level": 31
+      },
+      {
+        "id": 492795,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握制造费用账户",
+        "level": 32
+      },
+      {
+        "id": 492796,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "认识其他生产业务账户",
+        "level": 33
+      },
+      {
+        "id": 492797,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握材料费用的核算",
+        "level": 34
+      },
+      {
+        "id": 492798,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握职工薪酬的核算",
+        "level": 35
+      },
+      {
+        "id": 492799,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "理解制造费用的分配与归集",
+        "level": 36
+      },
+      {
+        "id": 492800,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握销售业务的主要账户",
+        "level": 37
+      },
+      {
+        "id": 492801,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握主营业务收入和主营业务成本的核算",
+        "level": 38
+      },
+      {
+        "id": 492802,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握其他业务收入和其他业务成本的核算",
+        "level": 39
+      },
+      {
+        "id": 492803,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握利润形成与分配业务主要账户",
+        "level": 40
+      },
+      {
+        "id": 492804,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握期间费用等账户的核算",
+        "level": 41
+      },
+      {
+        "id": 492805,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握利润总额的计算与结转",
+        "level": 42
+      },
+      {
+        "id": 492806,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "了解账户分立的意义与原则",
+        "level": 43
+      },
+      {
+        "id": 492807,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "理解按照经济内容、用途和结构分类的账户",
+        "level": 44
+      },
+      {
+        "id": 492808,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握总分类账和明细分类账户的平行登记方法",
+        "level": 45
+      },
+      {
+        "id": 492809,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "了解会计账簿与账户的关系",
+        "level": 46
+      },
+      {
+        "id": 492810,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握会计账簿的启用与登记要求",
+        "level": 47
+      },
+      {
+        "id": 492811,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握日记账的格式与登记方法",
+        "level": 48
+      },
+      {
+        "id": 492812,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握明细分类账的格式与登记方法",
+        "level": 49
+      },
+      {
+        "id": 492813,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握总分类账的格式与登记方法",
+        "level": 50
+      },
+      {
+        "id": 492814,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "了解错账查找方法",
+        "level": 51
+      },
+      {
+        "id": 492815,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握错账更正方法",
+        "level": 52
+      },
+      {
+        "id": 492816,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握结账的方法",
+        "level": 53
+      },
+      {
+        "id": 492817,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握会计账簿的保管与更换要求",
+        "level": 54
+      },
+      {
+        "id": 492818,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握对账的概念和内容",
+        "level": 55
+      },
+      {
+        "id": 492819,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "了解财产清查的种类",
+        "level": 56
+      },
+      {
+        "id": 492820,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "理解财产清查的一般程序",
+        "level": 57
+      },
+      {
+        "id": 492821,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "理解财务清查结果的步骤和方法",
+        "level": 58
+      },
+      {
+        "id": 492822,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "了解财务会计报告的概念及种类",
+        "level": 59
+      },
+      {
+        "id": 492823,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "理解财务会计报告的编制要求",
+        "level": 60
+      },
+      {
+        "id": 492824,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握资产负债表基本格式",
+        "level": 61
+      },
+      {
+        "id": 492825,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握资产负债表编制方法",
+        "level": 62
+      },
+      {
+        "id": 492826,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握利润表基本格式",
+        "level": 63
+      },
+      {
+        "id": 492827,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "掌握利润表的编制方法",
+        "level": 64
+      },
+      {
+        "id": 492828,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "理解财务状况分析指标",
+        "level": 65
+      },
+      {
+        "id": 492829,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "K",
+        "description": "理解经营成果分析指标",
+        "level": 66
+      },
+      {
+        "id": 492830,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "S",
+        "description": "能够完成会计与会计工作的识别",
+        "level": 1
+      },
+      {
+        "id": 492831,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "S",
+        "description": "绘制企业资金运动图",
+        "level": 2
+      },
+      {
+        "id": 492832,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "S",
+        "description": "能够将经济业务转化为会计语言",
+        "level": 3
+      },
+      {
+        "id": 492833,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "S",
+        "description": "能够完成会计科目类型的辨别",
+        "level": 4
+      },
+      {
+        "id": 492834,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "S",
+        "description": "能够运用借贷记账法完成账户的填列",
+        "level": 5
+      },
+      {
+        "id": 492835,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "S",
+        "description": "能够完成原始凭证的填列",
+        "level": 6
+      },
+      {
+        "id": 492836,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "S",
+        "description": "能够完成记账凭证的填列",
+        "level": 7
+      },
+      {
+        "id": 492837,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "S",
+        "description": "能够针对实际经济业务的会计凭证进行审核",
+        "level": 8
+      },
+      {
+        "id": 492838,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "S",
+        "description": "能够完成固定资产与材料采购业务核算",
+        "level": 9
+      },
+      {
+        "id": 492839,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "S",
+        "description": "能够完成生产业务核算",
+        "level": 10
+      },
+      {
+        "id": 492840,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "S",
+        "description": "能够计算销售收入和其他业务收入",
+        "level": 11
+      },
+      {
+        "id": 492841,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "S",
+        "description": "能够完成销售业务核算",
+        "level": 12
+      },
+      {
+        "id": 492842,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "S",
+        "description": "能够完成利润的形成与分配业务处理",
+        "level": 13
+      },
+      {
+        "id": 492843,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "S",
+        "description": "能够完成日记账的填列",
+        "level": 14
+      },
+      {
+        "id": 492844,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "S",
+        "description": "能够完成明细分类账的填列",
+        "level": 15
+      },
+      {
+        "id": 492845,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "S",
+        "description": "能够完成总分类账的填列",
+        "level": 16
+      },
+      {
+        "id": 492846,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "S",
+        "description": "能够能够完成银行存款余额调节表的编制",
+        "level": 17
+      },
+      {
+        "id": 492847,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "S",
+        "description": "能够完成财产清查",
+        "level": 18
+      },
+      {
+        "id": 492848,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "S",
+        "description": "能够完成财产清查前后的会计分录编制",
+        "level": 19
+      },
+      {
+        "id": 492849,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "S",
+        "description": "能够完成资产负债表的编制",
+        "level": 20
+      },
+      {
+        "id": 492850,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "S",
+        "description": "能够正确计算企业主营业务利润、其他业务利润、营业利润、利润总额和净利润",
+        "level": 21
+      },
+      {
+        "id": 492851,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "S",
+        "description": "能够完成利润表的编制",
+        "level": 22
+      },
+      {
+        "id": 492852,
+        "majorId": 3899,
+        "courseUnitId": 8716,
+        "title": "S",
+        "description": "能够完成利润表与资产负债表中有关财务数据的简单分析",
+        "level": 23
+      }
+    ],
+    "relates": [
+      {
+        "name": "强支撑",
+        "code": "primary",
+        "relate": 0
+      },
+      {
+        "name": "弱支撑",
+        "code": "success",
+        "relate": 1
+      }
+    ],
+    "data": [
+      {
+        "courseMatrix": {
+          "id": 165427,
+          "courseUnitId": 8716,
+          "projectId": 28844,
+          "graduateRequireId": 20291,
+          "point": {
+            "id": 226853,
+            "title": "课点1",
+            "description": "会计的产生、发展与基本职能"
+          },
+          "relate": {
+            "name": "弱支撑",
+            "code": "success",
+            "relate": 1
+          },
+          "study": "自主学习 团队讨论 案例分析 调查研究 评估取舍",
+          "teach": "先学后教、项目引入、引导启发",
+          "product": "1.前测：完成学习手册中课点1-4的知识前，学生能够认真完成且质量较高，合格。 2.预习：通过绘制专业实践学期服务企业的组织机构图，学生能够结合实际，并且组织机构图错误少于2处，合格。 3.案例分析：通过案例分析能够区分会计主体与非会计的互动，得到正确的结论，明确不应偷税漏税，合格。 4.课后：竞赛题库中随机抽取10题，成绩≥70分，合格。",
+          "week": "1",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288854,
+            "projectMatrixId": 165427,
+            "taskGoalId": 21172,
+            "ksa": {
+              "id": 492764,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "了解会计的产生",
+              "level": 1
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288855,
+            "projectMatrixId": 165427,
+            "taskGoalId": 21172,
+            "ksa": {
+              "id": 492765,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "了解会计的发展",
+              "level": 2
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288856,
+            "projectMatrixId": 165427,
+            "taskGoalId": 21172,
+            "ksa": {
+              "id": 492760,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "A",
+              "description": "培养学生家国情怀-民族自信",
+              "level": 1
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288857,
+            "projectMatrixId": 165427,
+            "taskGoalId": 21172,
+            "ksa": {
+              "id": 492764,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "了解会计的产生",
+              "level": 1
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288858,
+            "projectMatrixId": 165427,
+            "taskGoalId": 21172,
+            "ksa": {
+              "id": 492765,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "了解会计的发展",
+              "level": 2
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288859,
+            "projectMatrixId": 165427,
+            "taskGoalId": 21172,
+            "ksa": {
+              "id": 492766,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "理解会计的核算与监督职能",
+              "level": 3
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288860,
+            "projectMatrixId": 165427,
+            "taskGoalId": 21172,
+            "ksa": {
+              "id": 492830,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "S",
+              "description": "能够完成会计与会计工作的识别",
+              "level": 1
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288861,
+            "projectMatrixId": 165427,
+            "taskGoalId": 21174,
+            "ksa": {
+              "id": 492760,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "A",
+              "description": "培养学生家国情怀-民族自信",
+              "level": 1
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288862,
+            "projectMatrixId": 165427,
+            "taskGoalId": 21174,
+            "ksa": {
+              "id": 492764,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "了解会计的产生",
+              "level": 1
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288863,
+            "projectMatrixId": 165427,
+            "taskGoalId": 21174,
+            "ksa": {
+              "id": 492765,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "了解会计的发展",
+              "level": 2
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288864,
+            "projectMatrixId": 165427,
+            "taskGoalId": 21174,
+            "ksa": {
+              "id": 492766,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "理解会计的核算与监督职能",
+              "level": 3
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288865,
+            "projectMatrixId": 165427,
+            "taskGoalId": 21174,
+            "ksa": {
+              "id": 492830,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "S",
+              "description": "能够完成会计与会计工作的识别",
+              "level": 1
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165428,
+          "courseUnitId": 8716,
+          "projectId": 28844,
+          "graduateRequireId": 20291,
+          "point": {
+            "id": 226854,
+            "title": "课点2",
+            "description": "会计对象"
+          },
+          "relate": {
+            "name": "强支撑",
+            "code": "primary",
+            "relate": 0
+          },
+          "study": "自主学习 团队讨论 案例分析 调查研究 评估取舍",
+          "teach": "先学后教、项目引入、引导启发",
+          "product": "1.前测：完成学习手册中课点1-4的知识前，学生能够认真完成且质量较高，合格。 2.预习：通过绘制专业实践学期服务企业的组织机构图，学生能够结合实际，并且组织机构图错误少于2处，合格。 3.案例分析：通过案例分析能够区分会计主体与非会计的互动，得到正确的结论，明确不应偷税漏税，合格。 4.课后：竞赛题库中随机抽取10题，成绩≥70分，合格。",
+          "week": "1",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288866,
+            "projectMatrixId": 165428,
+            "taskGoalId": 21175,
+            "ksa": {
+              "id": 492767,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "理解会计对象的含义",
+              "level": 4
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288867,
+            "projectMatrixId": 165428,
+            "taskGoalId": 21175,
+            "ksa": {
+              "id": 492768,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "分辨企业的经济活动",
+              "level": 5
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288868,
+            "projectMatrixId": 165428,
+            "taskGoalId": 21175,
+            "ksa": {
+              "id": 492831,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "S",
+              "description": "绘制企业资金运动图",
+              "level": 2
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165429,
+          "courseUnitId": 8716,
+          "projectId": 28844,
+          "graduateRequireId": 20291,
+          "point": {
+            "id": 226855,
+            "title": "课点3 ",
+            "description": "会计等式"
+          },
+          "relate": {
+            "name": "强支撑",
+            "code": "primary",
+            "relate": 0
+          },
+          "study": "团队协作 案例分析 巩固新知",
+          "teach": "先学后教、项目引入、引导启发",
+          "product": "1.预习：通过自学，完成宏大公司相关经济业务的识别，转换为会计要素类别，错误不超过4处，合格。 2.思政导学：通过女校长张桂梅的故事，能够结合会计恒等式，明确会计等式平衡之美，合格。 3.针对课堂案例，能够认识权力与义务之间的关系，明确义务不可放弃，合格。 4.课后：完成作业1份，根据实例，识别经济业务如何改变会计恒等式，错误少于2处，合格。",
+          "week": "1",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288869,
+            "projectMatrixId": 165429,
+            "taskGoalId": 21175,
+            "ksa": {
+              "id": 492761,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "A",
+              "description": "培养学生辩证思维",
+              "level": 2
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288870,
+            "projectMatrixId": 165429,
+            "taskGoalId": 21175,
+            "ksa": {
+              "id": 492769,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握会计等式的含义",
+              "level": 6
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288871,
+            "projectMatrixId": 165429,
+            "taskGoalId": 21175,
+            "ksa": {
+              "id": 492770,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "理解经济业务对会计等式的影响",
+              "level": 7
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288872,
+            "projectMatrixId": 165429,
+            "taskGoalId": 21175,
+            "ksa": {
+              "id": 492771,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握会计等式的应用",
+              "level": 8
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165430,
+          "courseUnitId": 8716,
+          "projectId": 28844,
+          "graduateRequireId": 20291,
+          "point": {
+            "id": 226856,
+            "title": "课点4",
+            "description": "会计要素的确认与计量"
+          },
+          "relate": {
+            "name": "强支撑",
+            "code": "primary",
+            "relate": 0
+          },
+          "study": "团队协作 案例分析 巩固新知",
+          "teach": "先学后教、项目引入、引导启发",
+          "product": "1.预习：通过自学，完成宏大公司相关经济业务的识别，转换为会计要素类别，错误不超过4处，合格。 2.思政导学：通过女校长张桂梅的故事，能够结合会计恒等式，明确会计等式平衡之美，合格。 3.针对课堂案例，能够认识权力与义务之间的关系，明确义务不可放弃，合格。 4.课后：完成作业1份，根据实例，识别经济业务如何改变会计恒等式，错误少于2处，合格。",
+          "week": "1",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288873,
+            "projectMatrixId": 165430,
+            "taskGoalId": 21175,
+            "ksa": {
+              "id": 492762,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "A",
+              "description": "树立正确价值观",
+              "level": 3
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288874,
+            "projectMatrixId": 165430,
+            "taskGoalId": 21175,
+            "ksa": {
+              "id": 492772,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握资产、负债和所有者权益的定义与分类",
+              "level": 9
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288875,
+            "projectMatrixId": 165430,
+            "taskGoalId": 21175,
+            "ksa": {
+              "id": 492773,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握收入、费用和利润的定义与分类",
+              "level": 10
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288876,
+            "projectMatrixId": 165430,
+            "taskGoalId": 21175,
+            "ksa": {
+              "id": 492774,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握会计要素的确认",
+              "level": 11
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288877,
+            "projectMatrixId": 165430,
+            "taskGoalId": 21175,
+            "ksa": {
+              "id": 492775,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "区分会计计量属性",
+              "level": 12
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288878,
+            "projectMatrixId": 165430,
+            "taskGoalId": 21175,
+            "ksa": {
+              "id": 492832,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "S",
+              "description": "能够将经济业务转化为会计语言",
+              "level": 3
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165431,
+          "courseUnitId": 8716,
+          "projectId": 28845,
+          "graduateRequireId": 20292,
+          "point": {
+            "id": 226857,
+            "title": "课点5",
+            "description": "会计科目与账户"
+          },
+          "relate": {
+            "name": "强支撑",
+            "code": "primary",
+            "relate": 0
+          },
+          "study": "自主学习 团队讨论 案例分析",
+          "teach": "先学后教、项目引入、引导启发",
+          "product": "1.预习：课前通过小组研讨完成学习手册中布置的预习任务，根据案例做出判断，课上进行抽签汇报，根据汇报成果进行打分，思路清晰、计算准确、亮点突出得满分，汇报内容不完整、计算错误等情况酌情扣分。 2.课上：学生能够积极主动参与课堂讨论、辩论，合格。 3.课后：完成学习手册中的会计账户的编制，正确率≥70%，竞赛题库中随机抽取10题，正确率≥70%，合格。",
+          "week": "2",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288879,
+            "projectMatrixId": 165431,
+            "taskGoalId": 21176,
+            "ksa": {
+              "id": 492762,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "A",
+              "description": "树立正确价值观",
+              "level": 3
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288880,
+            "projectMatrixId": 165431,
+            "taskGoalId": 21176,
+            "ksa": {
+              "id": 492776,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "了解设置会计账户的意义",
+              "level": 13
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288881,
+            "projectMatrixId": 165431,
+            "taskGoalId": 21176,
+            "ksa": {
+              "id": 492777,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "理解设置会计科目的原则",
+              "level": 14
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288882,
+            "projectMatrixId": 165431,
+            "taskGoalId": 21176,
+            "ksa": {
+              "id": 492778,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "理解会计账户的作用、结构",
+              "level": 15
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288883,
+            "projectMatrixId": 165431,
+            "taskGoalId": 21176,
+            "ksa": {
+              "id": 492833,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "S",
+              "description": "能够完成会计科目类型的辨别",
+              "level": 4
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165432,
+          "courseUnitId": 8716,
+          "projectId": 28845,
+          "graduateRequireId": 20292,
+          "point": {
+            "id": 226858,
+            "title": "课点6",
+            "description": "借贷记账法"
+          },
+          "relate": {
+            "name": "强支撑",
+            "code": "primary",
+            "relate": 0
+          },
+          "study": "自主学习 团队讨论 案例分析",
+          "teach": "先学后教、项目引入、引导启发",
+          "product": "1.预习：以小组形式完成学习手册中布置的预习任务，根据公司实际业务，指出所记入账户的名称、方向和余额，并进行T型账户登记；课上进行抽签汇报，指出的账户名称和方向错误少于4处，合格。 2.思政导学：让学生参与到“躺平”VS“一份耕耘一份收获”的讨论与辩论中，能够对付出与收获有辩证的看法，合格。 3.课后：完成学习手册中习题，正确率≥70%，合格。",
+          "week": "2",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288884,
+            "projectMatrixId": 165432,
+            "taskGoalId": 21176,
+            "ksa": {
+              "id": 492761,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "A",
+              "description": "培养学生辩证思维",
+              "level": 2
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288885,
+            "projectMatrixId": 165432,
+            "taskGoalId": 21176,
+            "ksa": {
+              "id": 492779,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "理解借贷记账法的平衡原理",
+              "level": 16
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288886,
+            "projectMatrixId": 165432,
+            "taskGoalId": 21176,
+            "ksa": {
+              "id": 492780,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握借贷记账法的记账规则",
+              "level": 17
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288887,
+            "projectMatrixId": 165432,
+            "taskGoalId": 21176,
+            "ksa": {
+              "id": 492781,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握借贷记账法下的试算平衡",
+              "level": 18
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288888,
+            "projectMatrixId": 165432,
+            "taskGoalId": 21176,
+            "ksa": {
+              "id": 492834,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "S",
+              "description": "能够运用借贷记账法完成账户的填列",
+              "level": 5
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165433,
+          "courseUnitId": 8716,
+          "projectId": 28845,
+          "graduateRequireId": 20292,
+          "point": {
+            "id": 226859,
+            "title": "课点7",
+            "description": "会计凭证"
+          },
+          "relate": {
+            "name": "弱支撑",
+            "code": "success",
+            "relate": 1
+          },
+          "study": "自主学习 团队讨论 案例分析",
+          "teach": "先学后教、案例引入、引导启发",
+          "product": "1.预习：认真学习原始凭证的填列与审核、会计凭证的填列与审核，并以小组的形式进行汇报，汇报内容错误少于4处，且不存在看错数字等低级错误，成果质量较高，合格。 2.思政导学：通过课前观看《永远的长征》第六集，能够结合知识点对影片内容发表观点，能够产生政府诚信思考，合格。 3.课上：完成课堂团队训练内容，出错较少，能够体现出严谨认真态度，合格。",
+          "week": "2",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288889,
+            "projectMatrixId": 165433,
+            "taskGoalId": 21177,
+            "ksa": {
+              "id": 492760,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "A",
+              "description": "培养学生家国情怀-民族自信",
+              "level": 1
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288890,
+            "projectMatrixId": 165433,
+            "taskGoalId": 21177,
+            "ksa": {
+              "id": 492782,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "理解会计凭证的概念和作用",
+              "level": 19
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288891,
+            "projectMatrixId": 165433,
+            "taskGoalId": 21177,
+            "ksa": {
+              "id": 492783,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "区分原始凭证与记账凭证",
+              "level": 20
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165434,
+          "courseUnitId": 8716,
+          "projectId": 28845,
+          "graduateRequireId": 20292,
+          "point": {
+            "id": 226860,
+            "title": "课点8",
+            "description": "原始凭证的填列"
+          },
+          "relate": {
+            "name": "强支撑",
+            "code": "primary",
+            "relate": 0
+          },
+          "study": "自主学习 团队讨论 案例分析",
+          "teach": "先学后教、案例引入、引导启发",
+          "product": "1.预习：认真学习原始凭证的填列与审核、会计凭证的填列与审核，并以小组的形式进行汇报，汇报内容错误少于4处，且不存在看错数字等低级错误，成果质量较高，合格。 2.思政导学：通过课前观看《永远的长征》第六集，能够结合知识点对影片内容发表观点，能够产生政府诚信思考，合格。 3.课上：完成课堂团队训练内容，出错较少，能够体现出严谨认真态度，合格。",
+          "week": "2",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288892,
+            "projectMatrixId": 165434,
+            "taskGoalId": 21177,
+            "ksa": {
+              "id": 492763,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "A",
+              "description": "工匠精神",
+              "level": 4
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288893,
+            "projectMatrixId": 165434,
+            "taskGoalId": 21177,
+            "ksa": {
+              "id": 492784,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握原始凭证的种类和基本内容",
+              "level": 21
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288894,
+            "projectMatrixId": 165434,
+            "taskGoalId": 21177,
+            "ksa": {
+              "id": 492785,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "理解原始凭证的填列要求",
+              "level": 22
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288895,
+            "projectMatrixId": 165434,
+            "taskGoalId": 21177,
+            "ksa": {
+              "id": 492835,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "S",
+              "description": "能够完成原始凭证的填列",
+              "level": 6
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165435,
+          "courseUnitId": 8716,
+          "projectId": 28845,
+          "graduateRequireId": 20292,
+          "point": {
+            "id": 226861,
+            "title": "课点9",
+            "description": "记账凭证的填列"
+          },
+          "relate": {
+            "name": "强支撑",
+            "code": "primary",
+            "relate": 0
+          },
+          "study": "团队讨论 案例分析 项目驱动",
+          "teach": "先学后教、案例引入、引导启发",
+          "product": "1.汇报：以小组形式完成记账凭证填列的学习，课上进行抽签汇报，根据汇报成果进行打分，思路清晰、亮点突出得满分，汇报内容不完整等情况酌情扣分。 2.课后：竞赛题库中随机抽取10题，正确率≥70%，合格。",
+          "week": "3",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288896,
+            "projectMatrixId": 165435,
+            "taskGoalId": 21177,
+            "ksa": {
+              "id": 492760,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "A",
+              "description": "培养学生家国情怀-民族自信",
+              "level": 1
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288897,
+            "projectMatrixId": 165435,
+            "taskGoalId": 21177,
+            "ksa": {
+              "id": 492786,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "了解记账凭证的种类",
+              "level": 23
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288898,
+            "projectMatrixId": 165435,
+            "taskGoalId": 21177,
+            "ksa": {
+              "id": 492787,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握记账凭证的基本内容",
+              "level": 24
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288899,
+            "projectMatrixId": 165435,
+            "taskGoalId": 21177,
+            "ksa": {
+              "id": 492788,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握记账凭证的填制方法",
+              "level": 25
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288900,
+            "projectMatrixId": 165435,
+            "taskGoalId": 21177,
+            "ksa": {
+              "id": 492836,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "S",
+              "description": "能够完成记账凭证的填列",
+              "level": 7
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165436,
+          "courseUnitId": 8716,
+          "projectId": 28845,
+          "graduateRequireId": 20292,
+          "point": {
+            "id": 226862,
+            "title": "课点10",
+            "description": "会计凭证的审核与保管"
+          },
+          "relate": {
+            "name": "弱支撑",
+            "code": "success",
+            "relate": 1
+          },
+          "study": "团队讨论 案例分析 项目驱动",
+          "teach": "先学后教、案例引入、引导启发",
+          "product": "1.汇报：以小组形式完成记账凭证填列的学习，课上进行抽签汇报，根据汇报成果进行打分，思路清晰、亮点突出得满分，汇报内容不完整等情况酌情扣分。 2.课后：竞赛题库中随机抽取10题，正确率≥70%，合格。",
+          "week": "3",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288901,
+            "projectMatrixId": 165436,
+            "taskGoalId": 21177,
+            "ksa": {
+              "id": 492789,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握会计凭证的审核与保管要求",
+              "level": 26
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288902,
+            "projectMatrixId": 165436,
+            "taskGoalId": 21177,
+            "ksa": {
+              "id": 492837,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "S",
+              "description": "能够针对实际经济业务的会计凭证进行审核",
+              "level": 8
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165437,
+          "courseUnitId": 8716,
+          "projectId": 28846,
+          "graduateRequireId": 20293,
+          "point": {
+            "id": 226863,
+            "title": "课点11",
+            "description": "筹资业务核算"
+          },
+          "relate": {
+            "name": "弱支撑",
+            "code": "success",
+            "relate": 1
+          },
+          "study": "自主学习 团队讨论 案例分析",
+          "teach": "先学后教、项目引入、引导启发",
+          "product": "1.预习：以小组为单位完成企业筹资业务、供应业务核算学习，课上进行抽签汇报，根据汇报成果进行打分，思路清晰、亮点突出，合格。 2.课后：完成案例分析，能够根据企业筹资业务完成相应会计分录的填制，思维缜密，计算严谨，并能够保证会计分录正确率≥70%，合格。",
+          "week": "4",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288903,
+            "projectMatrixId": 165437,
+            "taskGoalId": 21178,
+            "ksa": {
+              "id": 492763,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "A",
+              "description": "工匠精神",
+              "level": 4
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288904,
+            "projectMatrixId": 165437,
+            "taskGoalId": 21178,
+            "ksa": {
+              "id": 492790,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "理解并掌握权益筹资核算",
+              "level": 27
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288905,
+            "projectMatrixId": 165437,
+            "taskGoalId": 21178,
+            "ksa": {
+              "id": 492791,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "理解并掌握债务筹资核算",
+              "level": 28
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165438,
+          "courseUnitId": 8716,
+          "projectId": 28846,
+          "graduateRequireId": 20293,
+          "point": {
+            "id": 226864,
+            "title": "课点12",
+            "description": "供应阶段核算"
+          },
+          "relate": {
+            "name": "强支撑",
+            "code": "primary",
+            "relate": 0
+          },
+          "study": "自主学习 团队讨论 案例分析",
+          "teach": "先学后教、项目引入、引导启发",
+          "product": "1.预习：以小组为单位完成企业筹资业务、供应业务核算学习，课上进行抽签汇报，根据汇报成果进行打分，思路清晰、亮点突出，合格。 2.课后：完成案例分析，能够根据企业筹资业务完成相应会计分录的填制，思维缜密，计算严谨，并能够保证会计分录正确率≥70%，合格。",
+          "week": "4",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288906,
+            "projectMatrixId": 165438,
+            "taskGoalId": 21178,
+            "ksa": {
+              "id": 492792,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握固定资产购置业务核算",
+              "level": 29
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288907,
+            "projectMatrixId": 165438,
+            "taskGoalId": 21178,
+            "ksa": {
+              "id": 492793,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握材料采购业务核算",
+              "level": 30
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288908,
+            "projectMatrixId": 165438,
+            "taskGoalId": 21178,
+            "ksa": {
+              "id": 492838,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "S",
+              "description": "能够完成固定资产与材料采购业务核算",
+              "level": 9
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165439,
+          "courseUnitId": 8716,
+          "projectId": 28846,
+          "graduateRequireId": 20293,
+          "point": {
+            "id": 226865,
+            "title": "课点13",
+            "description": "生产业务核算账户"
+          },
+          "relate": {
+            "name": "强支撑",
+            "code": "primary",
+            "relate": 0
+          },
+          "study": "自主学习 团队讨论 案例分析 调查研究",
+          "teach": "先学后教、项目引入、引导启发",
+          "product": "1.预习：自主学习生产业务核算账户、完成简单的生产业务账务处理，并以小组的形式进行汇报，汇报内容错误少于4处，合格。 2.课前：学生通过对太原钢铁转型案例的分析，能够认识企业可持续发展、绿色发展理念，合格。 3.课后：（1）题库中随机抽取10题，正确率≥70%，合格。（2）完成案例分析，能够根据企业实际生产业务完成相应会计分录的填制，思维缜密，计算严谨，并能够保证会计分录正确率≥70%，合格。",
+          "week": "5",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288909,
+            "projectMatrixId": 165439,
+            "taskGoalId": 21178,
+            "ksa": {
+              "id": 492760,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "A",
+              "description": "培养学生家国情怀-民族自信",
+              "level": 1
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288910,
+            "projectMatrixId": 165439,
+            "taskGoalId": 21178,
+            "ksa": {
+              "id": 492794,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握生产成本账户",
+              "level": 31
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288911,
+            "projectMatrixId": 165439,
+            "taskGoalId": 21178,
+            "ksa": {
+              "id": 492795,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握制造费用账户",
+              "level": 32
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288912,
+            "projectMatrixId": 165439,
+            "taskGoalId": 21178,
+            "ksa": {
+              "id": 492796,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "认识其他生产业务账户",
+              "level": 33
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165440,
+          "courseUnitId": 8716,
+          "projectId": 28846,
+          "graduateRequireId": 20293,
+          "point": {
+            "id": 226866,
+            "title": "课点14",
+            "description": "生产业务账务处理"
+          },
+          "relate": {
+            "name": "强支撑",
+            "code": "primary",
+            "relate": 0
+          },
+          "study": "自主学习 团队讨论 案例分析 调查研究",
+          "teach": "先学后教、项目引入、引导启发",
+          "product": "1.预习：自主学习生产业务核算账户、完成简单的生产业务账务处理，并以小组的形式进行汇报，汇报内容错误少于4处，合格。 2.课前：学生通过对太原钢铁转型案例的分析，能够认识企业可持续发展、绿色发展理念，合格。 3.课后：（1）题库中随机抽取10题，正确率≥70%，合格。（2）完成案例分析，能够根据企业实际生产业务完成相应会计分录的填制，思维缜密，计算严谨，并能够保证会计分录正确率≥70%，合格。",
+          "week": "5",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288913,
+            "projectMatrixId": 165440,
+            "taskGoalId": 21178,
+            "ksa": {
+              "id": 492763,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "A",
+              "description": "工匠精神",
+              "level": 4
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288914,
+            "projectMatrixId": 165440,
+            "taskGoalId": 21178,
+            "ksa": {
+              "id": 492797,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握材料费用的核算",
+              "level": 34
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288915,
+            "projectMatrixId": 165440,
+            "taskGoalId": 21178,
+            "ksa": {
+              "id": 492798,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握职工薪酬的核算",
+              "level": 35
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288916,
+            "projectMatrixId": 165440,
+            "taskGoalId": 21178,
+            "ksa": {
+              "id": 492799,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "理解制造费用的分配与归集",
+              "level": 36
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288917,
+            "projectMatrixId": 165440,
+            "taskGoalId": 21178,
+            "ksa": {
+              "id": 492839,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "S",
+              "description": "能够完成生产业务核算",
+              "level": 10
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165441,
+          "courseUnitId": 8716,
+          "projectId": 28846,
+          "graduateRequireId": 20293,
+          "point": {
+            "id": 226867,
+            "title": "课点15",
+            "description": "销售业务核算账户"
+          },
+          "relate": {
+            "name": "弱支撑",
+            "code": "success",
+            "relate": 1
+          },
+          "study": "自主学习 团队讨论 案例分析",
+          "teach": "先学后教、案例引入、引导启发",
+          "product": "1.预习：自主学习销售业务核算账户、完成简单的销售业务账务处理，并以小组的形式进行汇报，汇报内容错误少于4处，合格。分析预习导入人大商学院诚信小摊故事，能够提炼出故事中诚实守信的核心，合格。 2.课后：完成案例分析，能够根据企业实际销售业务完成相应会计分录的填制，思维缜密，计算严谨，并能够保证会计分录正确率≥70%，合格。",
+          "week": "6",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288918,
+            "projectMatrixId": 165441,
+            "taskGoalId": 21178,
+            "ksa": {
+              "id": 492762,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "A",
+              "description": "树立正确价值观",
+              "level": 3
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288919,
+            "projectMatrixId": 165441,
+            "taskGoalId": 21178,
+            "ksa": {
+              "id": 492800,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握销售业务的主要账户",
+              "level": 37
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288920,
+            "projectMatrixId": 165441,
+            "taskGoalId": 21178,
+            "ksa": {
+              "id": 492840,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "S",
+              "description": "能够计算销售收入和其他业务收入",
+              "level": 11
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165442,
+          "courseUnitId": 8716,
+          "projectId": 28846,
+          "graduateRequireId": 20293,
+          "point": {
+            "id": 226868,
+            "title": "课点16",
+            "description": "销售业务账务处理"
+          },
+          "relate": {
+            "name": "强支撑",
+            "code": "primary",
+            "relate": 0
+          },
+          "study": "自主学习 团队讨论 案例分析",
+          "teach": "先学后教、案例引入、引导启发",
+          "product": "1.预习：自主学习销售业务核算账户、完成简单的销售业务账务处理，并以小组的形式进行汇报，汇报内容错误少于4处，合格。分析预习导入人大商学院诚信小摊故事，能够提炼出故事中诚实守信的核心，合格。 2.课后：完成案例分析，能够根据企业实际销售业务完成相应会计分录的填制，思维缜密，计算严谨，并能够保证会计分录正确率≥70%，合格。",
+          "week": "6",
+          "period": "0",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288921,
+            "projectMatrixId": 165442,
+            "taskGoalId": 21178,
+            "ksa": {
+              "id": 492801,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握主营业务收入和主营业务成本的核算",
+              "level": 38
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288922,
+            "projectMatrixId": 165442,
+            "taskGoalId": 21178,
+            "ksa": {
+              "id": 492802,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握其他业务收入和其他业务成本的核算",
+              "level": 39
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288923,
+            "projectMatrixId": 165442,
+            "taskGoalId": 21178,
+            "ksa": {
+              "id": 492841,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "S",
+              "description": "能够完成销售业务核算",
+              "level": 12
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165443,
+          "courseUnitId": 8716,
+          "projectId": 28846,
+          "graduateRequireId": 20293,
+          "point": {
+            "id": 226869,
+            "title": "课点17",
+            "description": "利润形成与分配核算账户"
+          },
+          "relate": {
+            "name": "强支撑",
+            "code": "primary",
+            "relate": 0
+          },
+          "study": "自主学习 团队讨论 案例分析 项目驱动",
+          "teach": "先学后教、案例引入",
+          "product": "1.预习：自主学习利润形成与分配核算账户，完成简单的账务处理，并以小组的形式进行汇报，汇报内容错误少于4处，合格。 2.课后：完成案例分析，写出全部会计分录，并能够绘制出企业资金流动图，会计分录正确率≥70%，资金流向正确，合格。",
+          "week": "7",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288924,
+            "projectMatrixId": 165443,
+            "taskGoalId": 21179,
+            "ksa": {
+              "id": 492803,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握利润形成与分配业务主要账户",
+              "level": 40
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288925,
+            "projectMatrixId": 165443,
+            "taskGoalId": 21179,
+            "ksa": {
+              "id": 492804,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握期间费用等账户的核算",
+              "level": 41
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165444,
+          "courseUnitId": 8716,
+          "projectId": 28846,
+          "graduateRequireId": 20293,
+          "point": {
+            "id": 226870,
+            "title": "课点18",
+            "description": "利润形成与分配账务处理"
+          },
+          "relate": {
+            "name": "强支撑",
+            "code": "primary",
+            "relate": 0
+          },
+          "study": "自主学习 团队讨论 案例分析 项目驱动",
+          "teach": "先学后教、案例引入",
+          "product": "1.预习：自主学习利润形成与分配核算账户，完成简单的账务处理，并以小组的形式进行汇报，汇报内容错误少于4处，合格。 2.课后：完成案例分析，写出全部会计分录，并能够绘制出企业资金流动图，会计分录正确率≥70%，资金流向正确，合格。",
+          "week": "7",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288926,
+            "projectMatrixId": 165444,
+            "taskGoalId": 21179,
+            "ksa": {
+              "id": 492761,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "A",
+              "description": "培养学生辩证思维",
+              "level": 2
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288927,
+            "projectMatrixId": 165444,
+            "taskGoalId": 21179,
+            "ksa": {
+              "id": 492805,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握利润总额的计算与结转",
+              "level": 42
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288928,
+            "projectMatrixId": 165444,
+            "taskGoalId": 21179,
+            "ksa": {
+              "id": 492842,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "S",
+              "description": "能够完成利润的形成与分配业务处理",
+              "level": 13
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165445,
+          "courseUnitId": 8716,
+          "projectId": 28847,
+          "graduateRequireId": 20292,
+          "point": {
+            "id": 226871,
+            "title": "课点19",
+            "description": "账户分类"
+          },
+          "relate": {
+            "name": "强支撑",
+            "code": "primary",
+            "relate": 0
+          },
+          "study": "自主学习 团队讨论 案例分析",
+          "teach": "先学后教、项目引入、引导启发",
+          "product": "1.预习：以小组形式完成学习手册中布置的预习任务，课上进行抽签汇报，能够完整阐述账户的分类，合格。能够认识到账户之间的平衡关系，产生事物同一性的辩证思维，合格。 2.课后：完成学习手册中案例分析，根据企业实际经济业务完成日记账的填列，核算严谨完整，填列的日记账错误低于2处，合格。",
+          "week": "8",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288929,
+            "projectMatrixId": 165445,
+            "taskGoalId": 21180,
+            "ksa": {
+              "id": 492806,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "了解账户分立的意义与原则",
+              "level": 43
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288930,
+            "projectMatrixId": 165445,
+            "taskGoalId": 21180,
+            "ksa": {
+              "id": 492807,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "理解按照经济内容、用途和结构分类的账户",
+              "level": 44
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288931,
+            "projectMatrixId": 165445,
+            "taskGoalId": 21180,
+            "ksa": {
+              "id": 492808,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握总分类账和明细分类账户的平行登记方法",
+              "level": 45
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165446,
+          "courseUnitId": 8716,
+          "projectId": 28847,
+          "graduateRequireId": 20292,
+          "point": {
+            "id": 226872,
+            "title": "课点20",
+            "description": "会计账簿启用与登记格式"
+          },
+          "relate": {
+            "name": "弱支撑",
+            "code": "success",
+            "relate": 1
+          },
+          "study": "自主学习 团队讨论 案例分析",
+          "teach": "先学后教、项目引入、引导启发",
+          "product": "1.预习：以小组形式完成学习手册中布置的预习任务，课上进行抽签汇报，能够完整阐述账户的分类，合格。能够认识到账户之间的平衡关系，产生事物同一性的辩证思维，合格。 2.课后：完成学习手册中案例分析，根据企业实际经济业务完成日记账的填列，核算严谨完整，填列的日记账错误低于2处，合格。",
+          "week": "8",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288932,
+            "projectMatrixId": 165446,
+            "taskGoalId": 21180,
+            "ksa": {
+              "id": 492761,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "A",
+              "description": "培养学生辩证思维",
+              "level": 2
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288933,
+            "projectMatrixId": 165446,
+            "taskGoalId": 21180,
+            "ksa": {
+              "id": 492809,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "了解会计账簿与账户的关系",
+              "level": 46
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288934,
+            "projectMatrixId": 165446,
+            "taskGoalId": 21180,
+            "ksa": {
+              "id": 492810,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握会计账簿的启用与登记要求",
+              "level": 47
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165447,
+          "courseUnitId": 8716,
+          "projectId": 28847,
+          "graduateRequireId": 20292,
+          "point": {
+            "id": 226873,
+            "title": "课点21",
+            "description": "日记账的填列"
+          },
+          "relate": {
+            "name": "强支撑",
+            "code": "primary",
+            "relate": 0
+          },
+          "study": "自主学习 团队讨论 案例分析",
+          "teach": "先学后教、项目引入、引导启发",
+          "product": "1.预习：以小组为单位学习日记账的填制方法，根据企业经济业务研讨相应账户的填列，以小组的形式进行汇报，汇报内容错误少于5处，合格。 2.课后：1）完成学习手册中习题，正确率≥70%，合格；2）将预习中填列的账户重新整理，认真严谨，保证账户无误，合格。",
+          "week": "9",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288935,
+            "projectMatrixId": 165447,
+            "taskGoalId": 21181,
+            "ksa": {
+              "id": 492762,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "A",
+              "description": "树立正确价值观",
+              "level": 3
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288936,
+            "projectMatrixId": 165447,
+            "taskGoalId": 21181,
+            "ksa": {
+              "id": 492811,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握日记账的格式与登记方法",
+              "level": 48
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288937,
+            "projectMatrixId": 165447,
+            "taskGoalId": 21181,
+            "ksa": {
+              "id": 492843,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "S",
+              "description": "能够完成日记账的填列",
+              "level": 14
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165448,
+          "courseUnitId": 8716,
+          "projectId": 28847,
+          "graduateRequireId": 20292,
+          "point": {
+            "id": 226874,
+            "title": "课点22",
+            "description": "明细账的填列"
+          },
+          "relate": {
+            "name": "强支撑",
+            "code": "primary",
+            "relate": 0
+          },
+          "study": "自主学习 团队讨论 案例分析",
+          "teach": "先学后教、项目引入、引导启发",
+          "product": "1.预习：以小组为单位学习明细分类账的填制方法，根据企业经济业务研讨相应账户的填列，以小组的形式进行汇报，汇报内容错误少于5处，合格。 2.课后：1）完成学习手册中习题，正确率≥70%，合格；2）将预习中填列的账户重新整理，认真严谨，保证账户无误，合格。",
+          "week": "9",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288938,
+            "projectMatrixId": 165448,
+            "taskGoalId": 21181,
+            "ksa": {
+              "id": 492762,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "A",
+              "description": "树立正确价值观",
+              "level": 3
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288939,
+            "projectMatrixId": 165448,
+            "taskGoalId": 21181,
+            "ksa": {
+              "id": 492812,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握明细分类账的格式与登记方法",
+              "level": 49
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288940,
+            "projectMatrixId": 165448,
+            "taskGoalId": 21181,
+            "ksa": {
+              "id": 492844,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "S",
+              "description": "能够完成明细分类账的填列",
+              "level": 15
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165449,
+          "courseUnitId": 8716,
+          "projectId": 28847,
+          "graduateRequireId": 20292,
+          "point": {
+            "id": 226875,
+            "title": "课点23",
+            "description": "总分类账的填列"
+          },
+          "relate": {
+            "name": "强支撑",
+            "code": "primary",
+            "relate": 0
+          },
+          "study": "自主学习 团队讨论 案例分析",
+          "teach": "先学后教、案例引入、引导启发",
+          "product": "1.预习：以小组为单位学习总分类账的填制方法，根据企业经济业务研讨相应账户的填列，以小组的形式进行汇报，汇报内容错误少于5处，合格。 2.课后：1）完成学习手册中习题，正确率≥70%，合格；2）将预习中填列的账户重新整理，认真严谨，保证账户无误，合格。",
+          "week": "10",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288941,
+            "projectMatrixId": 165449,
+            "taskGoalId": 21181,
+            "ksa": {
+              "id": 492763,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "A",
+              "description": "工匠精神",
+              "level": 4
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288942,
+            "projectMatrixId": 165449,
+            "taskGoalId": 21181,
+            "ksa": {
+              "id": 492813,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握总分类账的格式与登记方法",
+              "level": 50
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288943,
+            "projectMatrixId": 165449,
+            "taskGoalId": 21181,
+            "ksa": {
+              "id": 492845,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "S",
+              "description": "能够完成总分类账的填列",
+              "level": 16
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165450,
+          "courseUnitId": 8716,
+          "projectId": 28847,
+          "graduateRequireId": 20292,
+          "point": {
+            "id": 226876,
+            "title": "课点24",
+            "description": "错账查找与更正"
+          },
+          "relate": {
+            "name": "弱支撑",
+            "code": "success",
+            "relate": 1
+          },
+          "study": "自主学习 团队讨论 案例分析",
+          "teach": "先学后教、案例引入、引导启发",
+          "product": "1.预习：以小组为单位学习总分类账的填制方法，根据企业经济业务研讨相应账户的填列，以小组的形式进行汇报，汇报内容错误少于5处，合格。 2.课后：1）完成学习手册中习题，正确率≥70%，合格；2）将预习中填列的账户重新整理，认真严谨，保证账户无误，合格。",
+          "week": "10",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288944,
+            "projectMatrixId": 165450,
+            "taskGoalId": 21181,
+            "ksa": {
+              "id": 492814,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "了解错账查找方法",
+              "level": 51
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288945,
+            "projectMatrixId": 165450,
+            "taskGoalId": 21181,
+            "ksa": {
+              "id": 492815,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握错账更正方法",
+              "level": 52
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165451,
+          "courseUnitId": 8716,
+          "projectId": 28848,
+          "graduateRequireId": 20292,
+          "point": {
+            "id": 226877,
+            "title": "课点25",
+            "description": "会计账簿的保管"
+          },
+          "relate": {
+            "name": "强支撑",
+            "code": "primary",
+            "relate": 0
+          },
+          "study": "自主学习 团队讨论",
+          "teach": "先学后教、项目引入、引导启发",
+          "product": "1.预习：以小组为单位完成学习手册中预习任务的汇报。能够识别案例中经济业务填报项目；汇报思路清晰、逻辑正确；汇报材料美观精致，合格。 2.课后：掌握对账与结账的方法，完成学习手册中课后测评，能够做到认真严谨，成绩≥70分为合格。",
+          "week": "11",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288946,
+            "projectMatrixId": 165451,
+            "taskGoalId": 21182,
+            "ksa": {
+              "id": 492816,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握结账的方法",
+              "level": 53
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288947,
+            "projectMatrixId": 165451,
+            "taskGoalId": 21182,
+            "ksa": {
+              "id": 492817,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握会计账簿的保管与更换要求",
+              "level": 54
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165452,
+          "courseUnitId": 8716,
+          "projectId": 28848,
+          "graduateRequireId": 20292,
+          "point": {
+            "id": 226878,
+            "title": "课点26",
+            "description": "对账和结账"
+          },
+          "relate": {
+            "name": "强支撑",
+            "code": "primary",
+            "relate": 0
+          },
+          "study": "自主学习 团队讨论",
+          "teach": "先学后教、项目引入、引导启发",
+          "product": "1.预习：以小组为单位完成学习手册中预习任务的汇报。能够识别案例中经济业务填报项目；汇报思路清晰、逻辑正确；汇报材料美观精致，合格。 2.课后：掌握对账与结账的方法，完成学习手册中课后测评，能够做到认真严谨，成绩≥70分为合格。",
+          "week": "11",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288948,
+            "projectMatrixId": 165452,
+            "taskGoalId": 21182,
+            "ksa": {
+              "id": 492763,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "A",
+              "description": "工匠精神",
+              "level": 4
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288949,
+            "projectMatrixId": 165452,
+            "taskGoalId": 21182,
+            "ksa": {
+              "id": 492818,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握对账的概念和内容",
+              "level": 55
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288950,
+            "projectMatrixId": 165452,
+            "taskGoalId": 21182,
+            "ksa": {
+              "id": 492846,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "S",
+              "description": "能够能够完成银行存款余额调节表的编制",
+              "level": 17
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165453,
+          "courseUnitId": 8716,
+          "projectId": 28848,
+          "graduateRequireId": 20292,
+          "point": {
+            "id": 226879,
+            "title": "课点27",
+            "description": "财产清查的步骤和方法"
+          },
+          "relate": {
+            "name": "强支撑",
+            "code": "primary",
+            "relate": 0
+          },
+          "study": "自主学习 团队讨论 案例分析",
+          "teach": "先学后教、项目引入、引导启发",
+          "product": "1.预习：通过自学，以小组为单位完成学习手册中预习任务的汇报，汇报思路清晰、逻辑正确；能够联系实际业务，合格。 2.课上：针对碧龙村“白条抵账”，提问学生如何处理，能够表达出恪守职业道德职业的，合格。 3.课后：掌握财产清查的方法，完成学习手册中课后测评，能够做到认真严谨，成绩≥70分为合格。",
+          "week": "12",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288951,
+            "projectMatrixId": 165453,
+            "taskGoalId": 21183,
+            "ksa": {
+              "id": 492763,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "A",
+              "description": "工匠精神",
+              "level": 4
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288952,
+            "projectMatrixId": 165453,
+            "taskGoalId": 21183,
+            "ksa": {
+              "id": 492819,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "了解财产清查的种类",
+              "level": 56
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288953,
+            "projectMatrixId": 165453,
+            "taskGoalId": 21183,
+            "ksa": {
+              "id": 492820,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "理解财产清查的一般程序",
+              "level": 57
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288954,
+            "projectMatrixId": 165453,
+            "taskGoalId": 21183,
+            "ksa": {
+              "id": 492847,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "S",
+              "description": "能够完成财产清查",
+              "level": 18
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165454,
+          "courseUnitId": 8716,
+          "projectId": 28848,
+          "graduateRequireId": 20292,
+          "point": {
+            "id": 226880,
+            "title": "课点28",
+            "description": "财产清查结果的账务处理"
+          },
+          "relate": {
+            "name": "弱支撑",
+            "code": "success",
+            "relate": 1
+          },
+          "study": "自主学习 团队讨论 案例分析",
+          "teach": "先学后教、项目引入、引导启发",
+          "product": "1.预习：通过自学，以小组为单位完成学习手册中预习任务的汇报，汇报思路清晰、逻辑正确；能够联系实际业务，合格。 2.课上：针对碧龙村“白条抵账”，提问学生如何处理，能够表达出恪守职业道德职业的，合格。 3.课后：掌握财产清查的方法，完成学习手册中课后测评，能够做到认真严谨，成绩≥70分为合格。",
+          "week": "12",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288955,
+            "projectMatrixId": 165454,
+            "taskGoalId": 21183,
+            "ksa": {
+              "id": 492821,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "理解财务清查结果的步骤和方法",
+              "level": 58
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288956,
+            "projectMatrixId": 165454,
+            "taskGoalId": 21183,
+            "ksa": {
+              "id": 492848,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "S",
+              "description": "能够完成财产清查前后的会计分录编制",
+              "level": 19
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165455,
+          "courseUnitId": 8716,
+          "projectId": 28849,
+          "graduateRequireId": 20294,
+          "point": {
+            "id": 226881,
+            "title": "课点29",
+            "description": "编制会计报表预备知识"
+          },
+          "relate": {
+            "name": "弱支撑",
+            "code": "success",
+            "relate": 1
+          },
+          "study": "自主学习 团队讨论 案例分析",
+          "teach": "先学后教、项目引入、引导启发",
+          "product": "1.预习：完成学习手册中预习任务的汇报。测量标准：1）能够识别案例中经济业务填报项目；2）资产负债表项目的填制正确率超过60%；3)汇报思路清晰、逻辑正确；4）汇报材料美观精致为合格。 2.课后：掌握资产负债表的填制要求，完成学习手册中课后测评，成绩≥70分为合格。",
+          "week": "12",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288957,
+            "projectMatrixId": 165455,
+            "taskGoalId": 21184,
+            "ksa": {
+              "id": 492762,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "A",
+              "description": "树立正确价值观",
+              "level": 3
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288958,
+            "projectMatrixId": 165455,
+            "taskGoalId": 21184,
+            "ksa": {
+              "id": 492822,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "了解财务会计报告的概念及种类",
+              "level": 59
+            },
+            "relate": {
+              "name": "弱支撑",
+              "code": "success",
+              "relate": 1
+            },
+            "valid": true
+          },
+          {
+            "id": 288959,
+            "projectMatrixId": 165455,
+            "taskGoalId": 21184,
+            "ksa": {
+              "id": 492823,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "理解财务会计报告的编制要求",
+              "level": 60
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165456,
+          "courseUnitId": 8716,
+          "projectId": 28849,
+          "graduateRequireId": 20294,
+          "point": {
+            "id": 226882,
+            "title": "课点30",
+            "description": "编制资产负债表"
+          },
+          "relate": {
+            "name": "强支撑",
+            "code": "primary",
+            "relate": 0
+          },
+          "study": "自主学习 团队讨论 案例分析",
+          "teach": "先学后教、项目引入、引导启发",
+          "product": "1.预习：完成学习手册中预习任务的汇报。测量标准：1）能够识别案例中经济业务填报项目；2）资产负债表项目的填制正确率超过60%；3)汇报思路清晰、逻辑正确；4）汇报材料美观精致为合格。 2.课后：掌握资产负债表的填制要求，完成学习手册中课后测评，成绩≥70分为合格。",
+          "week": "12",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288960,
+            "projectMatrixId": 165456,
+            "taskGoalId": 21184,
+            "ksa": {
+              "id": 492824,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握资产负债表基本格式",
+              "level": 61
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288961,
+            "projectMatrixId": 165456,
+            "taskGoalId": 21185,
+            "ksa": {
+              "id": 492763,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "A",
+              "description": "工匠精神",
+              "level": 4
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288962,
+            "projectMatrixId": 165456,
+            "taskGoalId": 21185,
+            "ksa": {
+              "id": 492825,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握资产负债表编制方法",
+              "level": 62
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288963,
+            "projectMatrixId": 165456,
+            "taskGoalId": 21185,
+            "ksa": {
+              "id": 492849,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "S",
+              "description": "能够完成资产负债表的编制",
+              "level": 20
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165457,
+          "courseUnitId": 8716,
+          "projectId": 28849,
+          "graduateRequireId": 20294,
+          "point": {
+            "id": 226883,
+            "title": "课点31",
+            "description": "编制利润表"
+          },
+          "relate": {
+            "name": "强支撑",
+            "code": "primary",
+            "relate": 0
+          },
+          "study": "自主学习 团队讨论 案例分析",
+          "teach": "先学后教、项目引入、引导启发",
+          "product": "1.预习：完成学习手册中预习任务的汇报。测量标准：1）能够识别案例中经济业务填报项目；2）资产负债表（利润表）项目的填制正确率超过60%；3)汇报思路清晰、逻辑正确；4）汇报材料美观精致为合格。 2.课后：掌握利润表的填制要求，完成学习手册中课后测评，成绩≥70分为合格。 3.撰写项目作业：标准： 1）项目作业中涵盖财务报表基础知识，采用计算和填制报表的方法。 2）对资产负债表和利润表中数据填写准确率70%为合格。",
+          "week": "13",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288964,
+            "projectMatrixId": 165457,
+            "taskGoalId": 21184,
+            "ksa": {
+              "id": 492826,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握利润表基本格式",
+              "level": 63
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288965,
+            "projectMatrixId": 165457,
+            "taskGoalId": 21185,
+            "ksa": {
+              "id": 492763,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "A",
+              "description": "工匠精神",
+              "level": 4
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288966,
+            "projectMatrixId": 165457,
+            "taskGoalId": 21185,
+            "ksa": {
+              "id": 492827,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "掌握利润表的编制方法",
+              "level": 64
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288967,
+            "projectMatrixId": 165457,
+            "taskGoalId": 21185,
+            "ksa": {
+              "id": 492850,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "S",
+              "description": "能够正确计算企业主营业务利润、其他业务利润、营业利润、利润总额和净利润",
+              "level": 21
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288968,
+            "projectMatrixId": 165457,
+            "taskGoalId": 21185,
+            "ksa": {
+              "id": 492851,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "S",
+              "description": "能够完成利润表的编制",
+              "level": 22
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      },
+      {
+        "courseMatrix": {
+          "id": 165458,
+          "courseUnitId": 8716,
+          "projectId": 28849,
+          "graduateRequireId": 20294,
+          "point": {
+            "id": 226884,
+            "title": "课点32",
+            "description": "财务报表分析"
+          },
+          "relate": {
+            "name": "强支撑",
+            "code": "primary",
+            "relate": 0
+          },
+          "study": "自主学习 团队讨论 案例分析",
+          "teach": "先学后教、项目引入、引导启发",
+          "product": "1.预习：完成学习手册中预习任务的汇报。测量标准：1）能够识别案例中经济业务填报项目；2）资产负债表（利润表）项目的填制正确率超过60%；3)汇报思路清晰、逻辑正确；4）汇报材料美观精致为合格。 2.课后：掌握利润表的填制要求，完成学习手册中课后测评，成绩≥70分为合格。 3.撰写项目作业：标准： 1）项目作业中涵盖财务报表基础知识，采用计算和填制报表的方法。 2）对资产负债表和利润表中数据填写准确率70%为合格。",
+          "week": "13",
+          "period": "1",
+          "valid": true
+        },
+        "projectMatrices": [
+          {
+            "id": 288969,
+            "projectMatrixId": 165458,
+            "taskGoalId": 21185,
+            "ksa": {
+              "id": 492828,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "理解财务状况分析指标",
+              "level": 65
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288970,
+            "projectMatrixId": 165458,
+            "taskGoalId": 21185,
+            "ksa": {
+              "id": 492829,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "K",
+              "description": "理解经营成果分析指标",
+              "level": 66
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          },
+          {
+            "id": 288971,
+            "projectMatrixId": 165458,
+            "taskGoalId": 21185,
+            "ksa": {
+              "id": 492852,
+              "majorId": 3899,
+              "courseUnitId": 8716,
+              "title": "S",
+              "description": "能够完成利润表与资产负债表中有关财务数据的简单分析",
+              "level": 23
+            },
+            "relate": {
+              "name": "强支撑",
+              "code": "primary",
+              "relate": 0
+            },
+            "valid": true
+          }
+        ]
+      }
+    ],
+    "spend": 911
+  },
+  "success": true
+}

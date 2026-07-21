@@ -1,0 +1,91 @@
+data: {"type": "status", "node": "agent", "event": "start"}
+data: {"type": "status", "node": "agent", "event": "end"}
+data: {"type": "status", "node": "tools", "event": "start"}
+data: {"type": "status", "node": "tool", "event": "call", "tool": "generate_course_basic_info", "args": {"course_name": "短视频剧本创作与分镜设计实战", "course_level": "专业核心课", "target_audience": "影视制作/新媒体专业大三学生", "course_description": "本课程以都市武侠《老街暗锋》等真实剧本为教学载体，系统训练学生完成从剧本解析、分镜脚本撰写到动态分镜制作的全流程能力，重点培养镜头语言表达、节奏把控及传统文化元素创新转化能力。"}}
+data: {"type": "status", "node": "tool", "event": "result", "tool": "generate_course_basic_info"}
+data: {"type": "canvas", "action": "create", "component": "course_info", "data": {"course_name": "短视频剧本创作与分镜设计实战", "course_level": "专业核心课", "target_audience": "影视制作/新媒体专业大三学生", "description": "本课程以都市武侠《老街暗锋》等真实剧本为教学载体，系统训练学生完成从剧本解析、分镜脚本撰写到动态分镜制作的全流程能力。通过真实项目案例，重点培养学生的镜头语言表达、节奏把控及传统文化元素创新转化能力，使学生能够在实际工作中应用所学知识和技能。", "total_theory_hours": 32, "total_practice_hours": 32}}
+data: {"type": "canvas", "action": "create", "component": "objective_panel", "data": {"id": "panel_objectives"}}
+data: {"type": "canvas", "action": "create", "component": "objective_card", "data": {"id": "obj_001", "index": 1, "content": "能够独立完成短视频剧本的创作，包括故事构思、角色设定和情节发展"}}
+data: {"type": "canvas", "action": "create", "component": "objective_card", "data": {"id": "obj_002", "index": 2, "content": "掌握分镜脚本的撰写技巧，能够根据剧本内容绘制详细的分镜脚本"}}
+data: {"type": "canvas", "action": "create", "component": "objective_card", "data": {"id": "obj_003", "index": 3, "content": "熟练使用相关软件进行动态分镜制作，并能对作品进行后期调整优化"}}
+data: {"type": "canvas", "action": "create", "component": "objective_card", "data": {"id": "obj_004", "index": 4, "content": "理解并运用镜头语言的基本原则，提升视频作品的艺术表现力"}}
+data: {"type": "canvas", "action": "create", "component": "course_point_panel", "data": {"id": "panel_course_points"}}
+data: {"type": "canvas", "action": "create", "component": "course_point_card", "data": {"id": "cp_001", "index": 1, "name": "剧本基础理论", "description": "介绍剧本创作的基本概念、结构以及常见类型"}}
+data: {"type": "canvas", "action": "create", "component": "course_point_card", "data": {"id": "cp_002", "index": 2, "name": "角色与情节构建", "description": "讲解如何塑造立体的角色形象及构建吸引人的情节"}}
+data: {"type": "canvas", "action": "create", "component": "course_point_card", "data": {"id": "cp_003", "index": 3, "name": "分镜原理", "description": "学习分镜的基本原则及其在视觉叙事中的作用"}}
+data: {"type": "canvas", "action": "create", "component": "course_point_card", "data": {"id": "cp_004", "index": 4, "name": "分镜脚本写作", "description": "教授如何将文字剧本转化为图像化的分镜脚本"}}
+data: {"type": "canvas", "action": "create", "component": "course_point_card", "data": {"id": "cp_005", "index": 5, "name": "动态分镜制作", "description": "指导学生使用专业软件实现从静态到动态的转变"}}
+data: {"type": "canvas", "action": "create", "component": "course_point_card", "data": {"id": "cp_006", "index": 6, "name": "传统文化元素的应用", "description": "探讨如何在现代作品中融入传统美学元素"}}
+data: {"type": "canvas", "action": "create", "component": "course_point_card", "data": {"id": "cp_007", "index": 7, "name": "剪辑与合成技术", "description": "学习视频编辑的基础知识和技术"}}
+data: {"type": "canvas", "action": "create", "component": "course_point_card", "data": {"id": "cp_008", "index": 8, "name": "声音设计", "description": "了解音频处理对于增强影片氛围的重要性"}}
+data: {"type": "canvas", "action": "create", "component": "course_point_card", "data": {"id": "cp_009", "index": 9, "name": "项目管理", "description": "培养学生在团队合作中的领导力和时间管理能力"}}
+data: {"type": "canvas", "action": "create", "component": "course_point_card", "data": {"id": "cp_010", "index": 10, "name": "案例分析", "description": "通过对经典案例的研究加深理解和实践应用"}}
+data: {"type": "canvas", "action": "create", "component": "chapter_panel", "data": {"id": "panel_chapters"}}
+data: {"type": "canvas", "action": "create", "component": "chapter_card", "data": {"id": "ch_001", "index": 1, "name": "剧本创作入门", "theory_hours": 6, "practice_hours": 6}}
+data: {"type": "canvas", "action": "create", "component": "chapter_card", "data": {"id": "ch_002", "index": 2, "name": "分镜艺术探索", "theory_hours": 6, "practice_hours": 6}}
+data: {"type": "canvas", "action": "create", "component": "chapter_card", "data": {"id": "ch_003", "index": 3, "name": "动态分镜实战", "theory_hours": 6, "practice_hours": 6}}
+data: {"type": "canvas", "action": "create", "component": "chapter_card", "data": {"id": "ch_004", "index": 4, "name": "文化元素融合", "theory_hours": 6, "practice_hours": 6}}
+data: {"type": "canvas", "action": "create", "component": "chapter_card", "data": {"id": "ch_005", "index": 5, "name": "综合项目演练", "theory_hours": 8, "practice_hours": 8}}
+data: {"type": "canvas", "action": "create", "component": "ksa_panel", "data": {"id": "panel_ksa"}}
+data: {"type": "canvas", "action": "create", "component": "ksa_item", "data": {"id": "k_001", "category": "K", "index": 1, "content": "剧本创作理论"}}
+data: {"type": "canvas", "action": "create", "component": "ksa_item", "data": {"id": "k_002", "category": "K", "index": 2, "content": "分镜设计原理"}}
+data: {"type": "canvas", "action": "create", "component": "ksa_item", "data": {"id": "k_003", "category": "K", "index": 3, "content": "动态分镜制作流程"}}
+data: {"type": "canvas", "action": "create", "component": "ksa_item", "data": {"id": "k_004", "category": "K", "index": 4, "content": "传统文化在现代媒体中的应用"}}
+data: {"type": "canvas", "action": "create", "component": "ksa_item", "data": {"id": "s_001", "category": "S", "index": 1, "content": "剧本创作"}}
+data: {"type": "canvas", "action": "create", "component": "ksa_item", "data": {"id": "s_002", "category": "S", "index": 2, "content": "分镜脚本撰写"}}
+data: {"type": "canvas", "action": "create", "component": "ksa_item", "data": {"id": "s_003", "category": "S", "index": 3, "content": "动态分镜软件操作"}}
+data: {"type": "canvas", "action": "create", "component": "ksa_item", "data": {"id": "s_004", "category": "S", "index": 4, "content": "视频剪辑与后期处理"}}
+data: {"type": "canvas", "action": "create", "component": "ksa_item", "data": {"id": "a_001", "category": "A", "index": 1, "content": "对传统文化的尊重与传承意识"}}
+data: {"type": "canvas", "action": "create", "component": "ksa_item", "data": {"id": "a_002", "category": "A", "index": 2, "content": "团队协作精神"}}
+data: {"type": "status", "node": "tools", "event": "end"}
+data: {"type": "status", "node": "agent", "event": "start"}
+data: {"type": "status", "node": "agent", "event": "end"}
+data: {"type": "status", "node": "tools", "event": "start"}
+data: {"type": "status", "node": "tool", "event": "call", "tool": "generate_course_matrix", "args": {"course_name": "短视频剧本创作与分镜设计实战", "teaching_objectives": "[{\"id\": \"obj_001\", \"index\": 1, \"content\": \"能够独立完成短视频剧本的创作，包括故事构思、角色设定和情节发展\"}, {\"id\": \"obj_002\", \"index\": 2, \"content\": \"掌握分镜脚本的撰写技巧，能够根据剧本内容绘制详细的分镜脚本\"}, {\"id\": \"obj_003\", \"index\": 3, \"content\": \"熟练使用相关软件进行动态分镜制作，并能对作品进行后期调整优化\"}, {\"id\": \"obj_004\", \"index\": 4, \"content\": \"理解并运用镜头语言的基本原则，提升视频作品的艺术表现力\"}]", "chapters": "[{\"id\": \"ch_001\", \"index\": 1, \"name\": \"剧本创作入门\", \"theory_hours\": 6, \"practice_hours\": 6}, {\"id\": \"ch_002\", \"index\": 2, \"name\": \"分镜艺术探索\", \"theory_hours\": 6, \"practice_hours\": 6}, {\"id\": \"ch_003\", \"index\": 3, \"name\": \"动态分镜实战\", \"theory_hours\": 6, \"practice_hours\": 6}, {\"id\": \"ch_004\", \"index\": 4, \"name\": \"文化元素融合\", \"theory_hours\": 6, \"practice_hours\": 6}, {\"id\": \"ch_005\", \"index\": 5, \"name\": \"综合项目演练\", \"theory_hours\": 8, \"practice_hours\": 8}]", "course_points": "[{\"id\": \"cp_001\", \"index\": 1, \"name\": \"剧本基础理论\", \"description\": \"介绍剧本创作的基本概念、结构以及常见类型\"}, {\"id\": \"cp_002\", \"index\": 2, \"name\": \"角色与情节构建\", \"description\": \"讲解如何塑造立体的角色形象及构建吸引人的情节\"}, {\"id\": \"cp_003\", \"index\": 3, \"name\": \"分镜原理\", \"description\": \"学习分镜的基本原则及其在视觉叙事中的作用\"}, {\"id\": \"cp_004\", \"index\": 4, \"name\": \"分镜脚本写作\", \"description\": \"教授如何将文字剧本转化为图像化的分镜脚本\"}, {\"id\": \"cp_005\", \"index\": 5, \"name\": \"动态分镜制作\", \"description\": \"指导学生使用专业软件实现从静态到动态的转变\"}, {\"id\": \"cp_006\", \"index\": 6, \"name\": \"传统文化元素的应用\", \"description\": \"探讨如何在现代作品中融入传统美学元素\"}, {\"id\": \"cp_007\", \"index\": 7, \"name\": \"剪辑与合成技术\", \"description\": \"学习视频编辑的基础知识和技术\"}, {\"id\": \"cp_008\", \"index\": 8, \"name\": \"声音设计\", \"description\": \"了解音频处理对于增强影片氛围的重要性\"}, {\"id\": \"cp_009\", \"index\": 9, \"name\": \"项目管理\", \"description\": \"培养学生在团队合作中的领导力和时间管理能力\"}, {\"id\": \"cp_010\", \"index\": 10, \"name\": \"案例分析\", \"description\": \"通过对经典案例的研究加深理解和实践应用\"}]"}}
+data: {"type": "status", "node": "tool", "event": "result", "tool": "generate_course_matrix"}
+data: {"type": "canvas", "action": "set", "component": "course_matrix", "data": {"course_name": "短视频剧本创作与分镜设计实战", "objectives": [{"id": "obj_001", "index": 1, "content": "能够独立完成短视频剧本的创作，包括故事构思、角色设定和情节发展"}, {"id": "obj_002", "index": 2, "content": "掌握分镜脚本的撰写技巧，能够根据剧本内容绘制详细的分镜脚本"}, {"id": "obj_003", "index": 3, "content": "熟练使用相关软件进行动态分镜制作，并能对作品进行后期调整优化"}, {"id": "obj_004", "index": 4, "content": "理解并运用镜头语言的基本原则，提升视频作品的艺术表现力"}], "rows": [{"chapter_id": "ch_001", "chapter_index": 1, "chapter_name": "剧本创作入门", "supports": [{"objective_id": "obj_001", "objective_index": 1, "level": "strong", "course_point_ids": ["cp_001", "cp_002"]}, {"objective_id": "obj_002", "objective_index": 2, "level": "weak", "course_point_ids": ["cp_003"]}]}, {"chapter_id": "ch_002", "chapter_index": 2, "chapter_name": "分镜艺术探索", "supports": [{"objective_id": "obj_002", "objective_index": 2, "level": "strong", "course_point_ids": ["cp_003", "cp_004"]}, {"objective_id": "obj_004", "objective_index": 4, "level": "medium", "course_point_ids": ["cp_003"]}]}, {"chapter_id": "ch_003", "chapter_index": 3, "chapter_name": "动态分镜实战", "supports": [{"objective_id": "obj_003", "objective_index": 3, "level": "strong", "course_point_ids": ["cp_005", "cp_007"]}, {"objective_id": "obj_004", "objective_index": 4, "level": "weak", "course_point_ids": ["cp_008"]}]}, {"chapter_id": "ch_004", "chapter_index": 4, "chapter_name": "文化元素融合", "supports": [{"objective_id": "obj_001", "objective_index": 1, "level": "weak", "course_point_ids": ["cp_006"]}, {"objective_id": "obj_004", "objective_index": 4, "level": "strong", "course_point_ids": ["cp_006"]}]}, {"chapter_id": "ch_005", "chapter_index": 5, "chapter_name": "综合项目演练", "supports": [{"objective_id": "obj_001", "objective_index": 1, "level": "medium", "course_point_ids": ["cp_009", "cp_010"]}, {"objective_id": "obj_002", "objective_index": 2, "level": "medium", "course_point_ids": ["cp_009", "cp_010"]}, {"objective_id": "obj_003", "objective_index": 3, "level": "medium", "course_point_ids": ["cp_009", "cp_010"]}, {"objective_id": "obj_004", "objective_index": 4, "level": "medium", "course_point_ids": ["cp_009", "cp_010"]}]}]}}
+data: {"type": "status", "node": "tools", "event": "end"}
+data: {"type": "status", "node": "agent", "event": "start"}
+data: {"type": "status", "node": "agent", "event": "end"}
+data: {"type": "status", "node": "tools", "event": "start"}
+data: {"type": "status", "node": "tool", "event": "call", "tool": "show_stage_options", "args": {"current_stage": "course_matrix", "course_name": "短视频剧本创作与分镜设计实战"}}
+data: {"type": "status", "node": "tool", "event": "result", "tool": "show_stage_options"}
+data: {"type": "status", "node": "tools", "event": "end"}
+data: {"type": "status", "node": "agent", "event": "start"}
+data: {"type": "status", "node": "agent", "event": "end"}
+data: {"type": "status", "node": "tools", "event": "start"}
+data: {"type": "status", "node": "tool", "event": "call", "tool": "generate_project_matrix", "args": {"course_name": "短视频剧本创作与分镜设计实战", "chapter_name": "剧本创作入门", "chapter_index": 1, "course_points_in_chapter": "[{\"id\": \"cp_001\", \"index\": 1, \"name\": \"剧本基础理论\", \"description\": \"介绍剧本创作的基本概念、结构以及常见类型\"}, {\"id\": \"cp_002\", \"index\": 2, \"name\": \"角色与情节构建\", \"description\": \"讲解如何塑造立体的角色形象及构建吸引人的情节\"}]", "ksa_elements": "[{\"id\": \"k_001\", \"category\": \"K\", \"index\": 1, \"content\": \"剧本创作理论\"}, {\"id\": \"s_001\", \"category\": \"S\", \"index\": 1, \"content\": \"剧本创作\"}, {\"id\": \"a_001\", \"category\": \"A\", \"index\": 1, \"content\": \"对传统文化的尊重与传承意识\"}]"}}
+data: {"type": "status", "node": "tool", "event": "result", "tool": "generate_project_matrix"}
+data: {"type": "status", "node": "tools", "event": "end"}
+data: {"type": "status", "node": "agent", "event": "start"}
+data: {"type": "status", "node": "agent", "event": "end"}
+data: {"type": "status", "node": "tools", "event": "start"}
+data: {"type": "status", "node": "tool", "event": "call", "tool": "generate_project_matrix", "args": {"course_name": "短视频剧本创作与分镜设计实战", "chapter_name": "分镜艺术探索", "chapter_index": 2, "course_points_in_chapter": "[{\"id\": \"cp_003\", \"index\": 3, \"name\": \"分镜原理\", \"description\": \"学习分镜的基本原则及其在视觉叙事中的作用\"}, {\"id\": \"cp_004\", \"index\": 4, \"name\": \"分镜脚本写作\", \"description\": \"教授如何将文字剧本转化为图像化的分镜脚本\"}]", "ksa_elements": "[{\"id\": \"k_002\", \"category\": \"K\", \"index\": 2, \"content\": \"分镜设计原理\"}, {\"id\": \"s_002\", \"category\": \"S\", \"index\": 2, \"content\": \"分镜脚本撰写\"}, {\"id\": \"a_002\", \"category\": \"A\", \"index\": 2, \"content\": \"团队协作精神\"}]"}}
+data: {"type": "status", "node": "tool", "event": "result", "tool": "generate_project_matrix"}
+data: {"type": "status", "node": "tools", "event": "end"}
+data: {"type": "status", "node": "agent", "event": "start"}
+data: {"type": "status", "node": "agent", "event": "end"}
+data: {"type": "status", "node": "tools", "event": "start"}
+data: {"type": "status", "node": "tool", "event": "call", "tool": "generate_project_matrix", "args": {"course_name": "短视频剧本创作与分镜设计实战", "chapter_name": "动态分镜实战", "chapter_index": 3, "course_points_in_chapter": "[{\"id\": \"cp_005\", \"index\": 5, \"name\": \"动态分镜制作\", \"description\": \"指导学生使用专业软件实现从静态到动态的转变\"}, {\"id\": \"cp_007\", \"index\": 7, \"name\": \"剪辑与合成技术\", \"description\": \"学习视频编辑的基础知识和技术\"}]", "ksa_elements": "[{\"id\": \"k_003\", \"category\": \"K\", \"index\": 3, \"content\": \"动态分镜制作流程\"}, {\"id\": \"s_003\", \"category\": \"S\", \"index\": 3, \"content\": \"动态分镜软件操作\"}, {\"id\": \"s_004\", \"category\": \"S\", \"index\": 4, \"content\": \"视频剪辑与后期处理\"}, {\"id\": \"a_002\", \"category\": \"A\", \"index\": 2, \"content\": \"团队协作精神\"}]"}}
+data: {"type": "status", "node": "tool", "event": "result", "tool": "generate_project_matrix"}
+data: {"type": "status", "node": "tools", "event": "end"}
+data: {"type": "status", "node": "agent", "event": "start"}
+data: {"type": "status", "node": "agent", "event": "end"}
+data: {"type": "status", "node": "tools", "event": "start"}
+data: {"type": "status", "node": "tool", "event": "call", "tool": "generate_project_matrix", "args": {"course_name": "短视频剧本创作与分镜设计实战", "chapter_name": "文化元素融合", "chapter_index": 4, "course_points_in_chapter": "[{\"id\": \"cp_006\", \"index\": 6, \"name\": \"传统文化元素的应用\", \"description\": \"探讨如何在现代作品中融入传统美学元素\"}]", "ksa_elements": "[{\"id\": \"k_004\", \"category\": \"K\", \"index\": 4, \"content\": \"传统文化在现代媒体中的应用\"}, {\"id\": \"a_001\", \"category\": \"A\", \"index\": 1, \"content\": \"对传统文化的尊重与传承意识\"}]"}}
+data: {"type": "status", "node": "tool", "event": "result", "tool": "generate_project_matrix"}
+data: {"type": "status", "node": "tools", "event": "end"}
+data: {"type": "status", "node": "agent", "event": "start"}
+data: {"type": "status", "node": "agent", "event": "end"}
+data: {"type": "status", "node": "tools", "event": "start"}
+data: {"type": "status", "node": "tool", "event": "call", "tool": "generate_project_matrix", "args": {"course_name": "短视频剧本创作与分镜设计实战", "chapter_name": "综合项目演练", "chapter_index": 5, "course_points_in_chapter": "[{\"id\": \"cp_009\", \"index\": 9, \"name\": \"项目管理\", \"description\": \"培养学生在团队合作中的领导力和时间管理能力\"}, {\"id\": \"cp_010\", \"index\": 10, \"name\": \"案例分析\", \"description\": \"通过对经典案例的研究加深理解和实践应用\"}]", "ksa_elements": "[{\"id\": \"k_001\", \"category\": \"K\", \"index\": 1, \"content\": \"剧本创作理论\"}, {\"id\": \"k_002\", \"category\": \"K\", \"index\": 2, \"content\": \"分镜设计原理\"}, {\"id\": \"s_001\", \"category\": \"S\", \"index\": 1, \"content\": \"剧本创作\"}, {\"id\": \"s_002\", \"category\": \"S\", \"index\": 2, \"content\": \"分镜脚本撰写\"}, {\"id\": \"s_003\", \"category\": \"S\", \"index\": 3, \"content\": \"动态分镜软件操作\"}, {\"id\": \"a_001\", \"category\": \"A\", \"index\": 1, \"content\": \"对传统文化的尊重与传承意识\"}, {\"id\": \"a_002\", \"category\": \"A\", \"index\": 2, \"content\": \"团队协作精神\"}]"}}
+data: {"type": "status", "node": "tool", "event": "result", "tool": "generate_project_matrix"}
+data: {"type": "status", "node": "tools", "event": "end"}
+data: {"type": "status", "node": "agent", "event": "start"}
+data: {"type": "status", "node": "agent", "event": "end"}
+data: {"type": "status", "node": "tools", "event": "start"}
+data: {"type": "status", "node": "tool", "event": "call", "tool": "show_stage_options", "args": {"current_stage": "project_matrix", "course_name": "短视频剧本创作与分镜设计实战"}}
+data: {"type": "status", "node": "tool", "event": "result", "tool": "show_stage_options"}
+data: {"type": "status", "node": "tools", "event": "end"}
+data: {"type": "status", "node": "agent", "event": "start"}
+data: {"type": "status", "node": "agent", "event": "end"}

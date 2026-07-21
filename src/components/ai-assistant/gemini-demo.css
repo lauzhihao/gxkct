@@ -1,0 +1,1118 @@
+@font-face {
+  font-family: "GeminiDemoDisplay";
+  src: url("/fonts/1.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: optional;
+  unicode-range: U+0000-00FF, U+0100-024F, U+1E00-1EFF;
+}
+
+@font-face {
+  font-family: "GeminiDemoDisplayAlt";
+  src: url("/fonts/2.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: optional;
+  unicode-range: U+0000-00FF, U+0100-024F, U+1E00-1EFF;
+}
+
+@font-face {
+  font-family: "GeminiDemoText";
+  src: url("/fonts/3.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: optional;
+  unicode-range: U+0000-00FF, U+0100-024F, U+1E00-1EFF;
+}
+
+@font-face {
+  font-family: "GeminiDemoTextAlt";
+  src: url("/fonts/4.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: optional;
+  unicode-range: U+0000-00FF, U+0100-024F, U+1E00-1EFF;
+}
+
+.gemini-demo-sheet {
+  background: #0f1115;
+  color: #e6ebf2;
+}
+
+.gemini-font-preset-a {
+  --gemini-font-cjk: var(--font-noto-sans-sc), "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", "DengXian", "Noto Sans CJK SC", "Source Han Sans SC", sans-serif;
+  --gemini-font-latin-display: var(--font-noto-sans-sc);
+  --gemini-font-latin-body: var(--font-noto-sans-sc);
+  --gemini-font-latin-ui: var(--font-noto-sans-sc);
+  --gemini-font-display: var(--gemini-font-cjk);
+  --gemini-font-body: var(--gemini-font-cjk);
+  --gemini-font-ui: var(--gemini-font-cjk);
+  --gemini-display-letter-spacing: -0.018em;
+  --gemini-body-letter-spacing: 0;
+}
+
+.gemini-font-preset-b {
+  --gemini-font-cjk: var(--font-noto-sans-sc), "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", "DengXian", "Noto Sans CJK SC", "Source Han Sans SC", sans-serif;
+  --gemini-font-latin-display: "GeminiDemoDisplay";
+  --gemini-font-latin-body: "GeminiDemoDisplay";
+  --gemini-font-latin-ui: "GeminiDemoDisplayAlt";
+  --gemini-font-display: var(--gemini-font-latin-display), var(--gemini-font-cjk);
+  --gemini-font-body: var(--gemini-font-latin-body), var(--gemini-font-cjk);
+  --gemini-font-ui: var(--gemini-font-latin-ui), var(--gemini-font-cjk);
+  --gemini-display-letter-spacing: -0.012em;
+  --gemini-body-letter-spacing: 0.002em;
+}
+
+.gemini-demo-shell {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  font-family: var(--gemini-font-body);
+  font-weight: 400;
+  letter-spacing: var(--gemini-body-letter-spacing);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  background:
+    radial-gradient(80% 70% at 50% 100%, rgba(46, 130, 255, 0.2), transparent 60%),
+    radial-gradient(60% 30% at 50% 20%, rgba(79, 118, 255, 0.1), transparent 70%),
+    #0b0d11;
+}
+
+.gemini-demo-sidebar {
+  width: 64px;
+  flex-shrink: 0;
+  border-right: 1px solid rgba(220, 230, 255, 0.08);
+  background: linear-gradient(180deg, #171b23 0%, #13171e 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding-top: 14px;
+}
+
+.gemini-demo-side-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: #c6d0df;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.gemini-demo-side-btn:hover {
+  background: rgba(115, 165, 255, 0.15);
+  color: #edf3ff;
+}
+
+.gemini-demo-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.gemini-demo-topbar {
+  height: 64px;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gemini-demo-brand {
+  font-size: 30px;
+  letter-spacing: var(--gemini-display-letter-spacing);
+  color: #edf3ff;
+  font-weight: 520;
+  font-family: var(--gemini-font-display);
+}
+
+.gemini-demo-latin-brand {
+  font-family: var(--gemini-font-latin-display), var(--gemini-font-cjk);
+  letter-spacing: -0.01em;
+}
+
+.gemini-demo-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gemini-demo-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #f7c27d, #e7875a);
+  color: #111318;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.gemini-demo-content-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.gemini-demo-welcome-stage {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  background-color: #0f1319;
+  background:
+    radial-gradient(74% 54% at 50% 58%, rgba(124, 162, 232, 0.28), rgba(124, 162, 232, 0.04) 52%, transparent 80%);
+}
+
+.gemini-demo-welcome-center {
+  --gemini-welcome-width: min(1080px, max(700px, calc(100vw - 190px)));
+  width: var(--gemini-welcome-width);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.gemini-demo-welcome-stack {
+  width: 70%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.gemini-demo-greeting-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #b9c6da;
+  font-size: clamp(17px, 1.25vw, 22px);
+  font-weight: 480;
+  line-height: 1.2;
+  font-family: var(--gemini-font-ui);
+}
+
+.gemini-demo-user-name-base {
+  display: inline-block;
+  color: #9fc0ff;
+  background-image: linear-gradient(100deg, #8db5ff 0%, #a8d3ff 34%, #86f0db 66%, #8db5ff 100%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: gemini-name-gradient-shift 6s linear infinite;
+}
+
+.gemini-demo-greeting-mini {
+  color: #c6d0de;
+}
+
+.gemini-demo-greeting-headline {
+  color: #e8effb;
+  font-size: clamp(30px, 2.45vw, 46px);
+  letter-spacing: var(--gemini-display-letter-spacing);
+  line-height: 1.16;
+  font-weight: 500;
+  font-family: var(--gemini-font-display);
+}
+
+.gemini-demo-greeting-headline.is-typing {
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.gemini-demo-greeting-headline.is-typing::after {
+  content: "";
+  width: 0.08em;
+  height: 0.95em;
+  margin-left: 0.08em;
+  background: rgba(232, 239, 251, 0.9);
+  animation: gemini-headline-caret-blink 0.9s steps(1, end) infinite;
+}
+
+.gemini-demo-greeting-headline.is-typing.is-finished::after {
+  animation: none;
+  opacity: 0;
+}
+
+.gemini-demo-chat-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.gemini-demo-prompt-shell {
+  --prompt-actions-inline: 14px;
+  --prompt-actions-bottom: 12px;
+  --prompt-icon-size: 32px;
+  --prompt-actions-height: var(--prompt-icon-size);
+  --prompt-text-safe-gap: 14px;
+  --prompt-mask-rgb: 31, 37, 47;
+  position: relative;
+  width: 70%;
+  margin: 0 auto;
+  min-height: 140px;
+  border-radius: 24px;
+  border: 1px solid rgba(152, 180, 232, 0.3);
+  background: linear-gradient(180deg, #252c37 0%, #1f252f 100%);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
+  overflow: hidden;
+}
+
+.gemini-demo-prompt-shell::after {
+  content: "";
+  position: absolute;
+  left: 16%;
+  right: 16%;
+  bottom: -16px;
+  height: 22px;
+  background: linear-gradient(
+    90deg,
+    rgba(96, 154, 255, 0.14),
+    rgba(181, 125, 247, 0.15),
+    rgba(255, 173, 93, 0.15),
+    rgba(135, 210, 113, 0.14)
+  );
+  filter: blur(14px);
+  opacity: 0.16;
+  pointer-events: none;
+}
+
+.gemini-demo-prompt-shell:focus-within::after {
+  opacity: 0.22;
+}
+
+.gemini-demo-prompt-shell:focus-within {
+  border-color: rgba(170, 196, 239, 0.58);
+  box-shadow:
+    0 14px 34px rgba(0, 0, 0, 0.34),
+    0 0 0 1px rgba(150, 177, 224, 0.24);
+}
+
+.gemini-demo-prompt-input {
+  width: 100%;
+  min-height: 140px;
+  height: auto;
+  resize: none;
+  max-height: 320px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 0;
+  background: transparent;
+  color: #edf3ff;
+  font-weight: 500;
+  font-size: clamp(17px, 1.3vw, 25px);
+  line-height: 1.4;
+  padding: 20px 22px calc(var(--prompt-actions-height) + var(--prompt-actions-bottom) + var(--prompt-text-safe-gap));
+  outline: none;
+}
+
+.gemini-demo-prompt-input::placeholder {
+  color: #8c9bb0;
+}
+
+.gemini-demo-prompt-actions {
+  position: absolute;
+  left: var(--prompt-actions-inline);
+  right: var(--prompt-actions-inline);
+  bottom: var(--prompt-actions-bottom);
+  min-height: var(--prompt-actions-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 4;
+  isolation: isolate;
+}
+
+.gemini-demo-prompt-actions::before {
+  content: "";
+  position: absolute;
+  left: calc(-1 * var(--prompt-actions-inline));
+  right: calc(-1 * var(--prompt-actions-inline));
+  bottom: calc(-1 * var(--prompt-actions-bottom));
+  height: calc(var(--prompt-actions-height) + var(--prompt-actions-bottom) + 14px);
+  background: linear-gradient(
+    180deg,
+    rgba(var(--prompt-mask-rgb), 0) 0%,
+    rgba(var(--prompt-mask-rgb), 0.74) 58%,
+    rgba(var(--prompt-mask-rgb), 0.96) 100%
+  );
+  pointer-events: none;
+  z-index: -1;
+}
+
+.gemini-demo-prompt-icon {
+  width: var(--prompt-icon-size);
+  height: var(--prompt-icon-size);
+  box-sizing: border-box;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: rgba(158, 182, 224, 0.08);
+  border: 1px solid rgba(174, 201, 245, 0.22);
+  color: #dbe7fd;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: background-color 0.2s ease;
+}
+
+.gemini-demo-prompt-icon svg {
+  display: block;
+}
+
+.gemini-demo-prompt-icon:hover {
+  background: rgba(134, 162, 210, 0.2);
+}
+
+.gemini-demo-tool-shortcuts {
+  width: 70%;
+  margin: 4px auto 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.gemini-demo-tool-pill {
+  border: 1px solid rgba(173, 199, 242, 0.22);
+  border-radius: 9999px;
+  background: rgba(34, 41, 53, 0.82);
+  color: #cbd8ef;
+  height: 42px;
+  padding: 0 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  line-height: 1;
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+}
+
+.gemini-demo-tool-pill svg {
+  width: 18px;
+  height: 18px;
+}
+
+.gemini-demo-tool-pill:hover {
+  border-color: rgba(147, 181, 238, 0.5);
+  background: rgba(53, 65, 84, 0.94);
+  transform: translateY(-1px);
+}
+
+.gemini-demo-chat-body {
+  width: min(1080px, max(720px, calc(100vw - 230px)));
+  margin: 0 auto;
+  padding: 16px 0 0;
+}
+
+.gemini-demo-chat-bubble-user {
+  margin-left: auto;
+  width: fit-content;
+  max-width: min(780px, 75vw);
+  background: #242a33;
+  border-radius: 22px;
+  padding: 16px 22px;
+  font-size: 21px;
+  line-height: 1.55;
+}
+
+.gemini-demo-assistant-row {
+  margin-top: 26px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 19px;
+  line-height: 1.6;
+  color: #dde4f0;
+}
+
+.gemini-demo-assistant-sparkle {
+  flex-shrink: 0;
+  margin-top: 0.3em;
+}
+
+.gemini-demo-assistant-row-large ul {
+  margin: 10px 0 0;
+  padding-left: 24px;
+}
+
+.gemini-demo-composer {
+  width: min(1080px, max(720px, calc(100vw - 180px)));
+  margin: 0 auto 30px;
+  padding: 0;
+}
+
+.gemini-demo-chat-prompt-shell {
+  width: 100%;
+  margin: 0;
+}
+
+.gemini-demo-composer-actions {
+  width: 70%;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.gemini-demo-composer-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gemini-demo-small-btn {
+  border: 0;
+  border-radius: 14px;
+  height: 38px;
+  min-width: 38px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #c7d5ea;
+  background: transparent;
+}
+
+.gemini-demo-small-btn:hover {
+  background: rgba(102, 153, 255, 0.14);
+}
+
+.gemini-demo-scene-switch {
+  position: absolute;
+  right: 18px;
+  bottom: 22px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 14px;
+  background: rgba(11, 13, 17, 0.72);
+  border: 1px solid rgba(206, 219, 243, 0.15);
+  backdrop-filter: blur(6px);
+}
+
+.gemini-demo-icon-btn {
+  border: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  color: #becbe0;
+  background: transparent;
+}
+
+.gemini-demo-icon-btn:hover {
+  background: rgba(96, 150, 255, 0.18);
+}
+
+.gemini-demo-split-wrap {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(220px, 27%) minmax(420px, 73%);
+  gap: 18px;
+  padding: 0 14px 14px;
+}
+
+.gemini-demo-split-wrap.is-font-loading {
+  opacity: 0.01;
+}
+
+.gemini-demo-split-wrap.is-font-ready {
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+.gemini-demo-chat-pane {
+  border: 1px solid rgba(207, 221, 244, 0.14);
+  border-radius: 20px;
+  background: rgba(14, 18, 23, 0.85);
+  color: #ecf3ff;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 14px;
+}
+
+.gemini-demo-chat-pane-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.gemini-demo-chat-pane-composer {
+  width: 100%;
+}
+
+.gemini-demo-chat-pane .gemini-demo-chat-bubble-user {
+  width: 88%;
+  max-width: 88%;
+  margin-left: auto;
+  margin-right: 6px;
+  font-size: 19.2px;
+  font-weight: 500;
+  line-height: 1.6;
+  font-family: var(--gemini-font-body);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: #1f2630;
+  color: #f1f6ff;
+}
+
+.gemini-demo-chat-pane .gemini-demo-assistant-row {
+  margin-top: 14px;
+  max-width: 90%;
+  margin-left: 12px;
+  font-size: 19.2px;
+  font-weight: 500;
+  font-family: var(--gemini-font-body);
+  color: #ebf2ff;
+}
+
+.gemini-demo-chat-pane .gemini-demo-assistant-row > div {
+  max-width: calc(100% - 32px);
+}
+
+.gemini-demo-split-prompt-shell {
+  --gemini-ring-size: 1.5px;
+  --gemini-shell-bg-start: #222935;
+  --gemini-shell-bg-end: #1b222d;
+  --prompt-mask-rgb: 28, 36, 48;
+  --split-text-safe-extra: 16px;
+  width: 100%;
+  margin: 0;
+  min-height: clamp(106px, 14vh, 136px);
+  border-radius: 18px;
+  position: relative;
+  isolation: isolate;
+  overflow: visible;
+  border: var(--gemini-ring-size) solid rgba(176, 205, 246, 0.24);
+  background: linear-gradient(180deg, var(--gemini-shell-bg-start) 0%, var(--gemini-shell-bg-end) 100%);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+}
+
+/* 底部彩虹光带 - 参考 Gemini 网页 GEMINI6.png 输入框底部的柔和彩色光晕 */
+.gemini-demo-split-prompt-shell::after {
+  content: "";
+  position: absolute;
+  left: 20%;
+  right: 20%;
+  bottom: -8px;
+  height: 18px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(96, 165, 250, 0.32) 12%,
+    rgba(168, 130, 255, 0.28) 24%,
+    rgba(244, 114, 182, 0.35) 38%,
+    rgba(251, 146, 60, 0.30) 52%,
+    rgba(250, 204, 21, 0.26) 66%,
+    rgba(74, 222, 128, 0.32) 82%,
+    transparent 100%
+  );
+  filter: blur(14px);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.22;
+  transition: opacity 0.35s ease;
+}
+
+/* 用于 pulse 动画的旋转边框 - ::before */
+.gemini-demo-split-prompt-shell::before {
+  content: "";
+  position: absolute;
+  inset: -1.5px;
+  border-radius: inherit;
+  padding: calc(var(--gemini-ring-size) + 1px);
+  background: conic-gradient(from -0.2turn, hsla(189, 100%, 72%, 0) 0turn, hsla(189, 100%, 72%, 0) 0.5turn, hsla(189, 100%, 72%, 0.84) 0.68turn, hsla(241, 98%, 72%, 0.88) 0.77turn, hsla(334, 94%, 72%, 0.92) 0.84turn, hsla(36, 98%, 73%, 0.95) 0.9turn, hsla(125, 96%, 73%, 0.88) 0.95turn, hsla(189, 100%, 72%, 0) 1turn);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 3;
+  transform: rotate(0turn);
+  filter: blur(2.6px) saturate(1.2);
+  box-shadow:
+    0 0 20px rgba(120, 203, 255, 0.42),
+    0 0 28px rgba(239, 136, 255, 0.33),
+    0 0 24px rgba(255, 188, 115, 0.32),
+    0 0 30px rgba(128, 226, 151, 0.28);
+}
+
+.gemini-demo-split-prompt-shell:focus-within {
+  border-color: rgba(176, 205, 246, 0.42);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.28),
+    0 0 0 1px rgba(150, 185, 240, 0.15);
+}
+
+.gemini-demo-split-prompt-shell:focus-within::after {
+  opacity: 0.45;
+}
+
+.gemini-demo-split-prompt-shell.is-submit-pulse {
+  animation: gemini-split-shell-press 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.gemini-demo-split-prompt-shell.is-submit-pulse::before {
+  animation: gemini-split-border-spin 1.2s cubic-bezier(0.33, 0.01, 0.21, 1) both;
+}
+
+.gemini-demo-split-prompt-shell.is-submit-pulse::after {
+  animation: gemini-split-glow-pulse 1.2s cubic-bezier(0.33, 0.01, 0.21, 1) both;
+}
+
+.gemini-demo-prompt-send {
+  background: rgba(210, 225, 248, 0.12);
+  border-color: rgba(193, 215, 247, 0.44);
+  box-shadow: 0 0 14px rgba(145, 182, 244, 0.16);
+}
+
+.gemini-demo-prompt-send:hover:not(:disabled) {
+  background: rgba(172, 200, 244, 0.24);
+  box-shadow: 0 0 18px rgba(164, 195, 249, 0.26);
+}
+
+.gemini-demo-prompt-send.is-generating {
+  background: rgba(255, 120, 120, 0.18);
+  border-color: rgba(255, 143, 143, 0.5);
+  box-shadow: 0 0 16px rgba(255, 112, 112, 0.24);
+}
+
+.gemini-demo-split-actions {
+  justify-content: space-between;
+  left: 11px;
+  right: 11px;
+  bottom: 9px;
+  min-height: var(--prompt-actions-height);
+  z-index: 5;
+  isolation: isolate;
+}
+
+.gemini-demo-split-main-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.gemini-demo-split-actions::before {
+  content: "";
+  position: absolute;
+  left: -11px;
+  right: -11px;
+  bottom: -9px;
+  height: calc(var(--prompt-actions-height) + 14px);
+  background: linear-gradient(180deg, rgba(28, 36, 48, 0) 0%, rgba(28, 36, 48, 0.74) 56%, rgba(28, 36, 48, 0.96) 100%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.gemini-demo-prompt-send:disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+
+@keyframes gemini-split-border-spin {
+  0% {
+    opacity: 1;
+    transform: rotate(0turn);
+  }
+
+  52% {
+    opacity: 0.92;
+  }
+
+  78% {
+    opacity: 0.56;
+  }
+
+  100% {
+    opacity: 0;
+    transform: rotate(1turn);
+  }
+}
+
+@keyframes gemini-split-glow-pulse {
+  0% {
+    opacity: 0.66;
+    filter: blur(11px);
+  }
+
+  45% {
+    opacity: 0.98;
+    filter: blur(19px);
+  }
+
+  72% {
+    opacity: 0.7;
+    filter: blur(16px);
+  }
+
+  100% {
+    opacity: 0.28;
+    filter: blur(14px);
+  }
+}
+
+@keyframes gemini-split-shell-press {
+  0% {
+    transform: scale(1);
+  }
+
+  22% {
+    transform: scale(0.98);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes gemini-name-gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes gemini-headline-caret-blink {
+  0%,
+  45% {
+    opacity: 1;
+  }
+
+  46%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.gemini-demo-split-prompt-input {
+  position: relative;
+  z-index: 2;
+  min-height: clamp(106px, 14vh, 136px);
+  max-height: 220px;
+  font-size: clamp(15px, 1.2vw, 18px);
+  padding: 14px 16px calc(var(--prompt-actions-height) + var(--prompt-actions-bottom) + var(--prompt-text-safe-gap) + var(--split-text-safe-extra));
+  background: linear-gradient(180deg, #222a36 0%, #1c2430 100%);
+  border-radius: calc(18px - var(--gemini-ring-size));
+}
+
+.gemini-demo-attachment-card {
+  margin-top: 12px;
+  margin-left: 12px;
+  width: 88%;
+  max-width: 88%;
+  box-sizing: border-box;
+  border-radius: 14px;
+  border: 1px solid rgba(206, 220, 243, 0.15);
+  background: linear-gradient(90deg, rgba(243, 247, 255, 0.15), rgba(243, 247, 255, 0.08));
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.gemini-demo-attachment-card > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.gemini-demo-attachment-card > div > div {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gemini-demo-attachment-card small {
+  color: #c7daef;
+}
+
+.gemini-demo-link-btn {
+  margin-top: 14px;
+  border: 0;
+  background: transparent;
+  color: #c4e2ff;
+  font-family: var(--gemini-font-ui);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  padding: 0;
+}
+
+.gemini-demo-editor-pane {
+  border: 1px solid rgba(207, 221, 244, 0.18);
+  border-radius: 20px;
+  background: #101419;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.gemini-demo-editor-toolbar {
+  height: 52px;
+  padding: 0 14px;
+  border-bottom: 1px solid rgba(209, 222, 245, 0.12);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #b8c4d8;
+  font-family: var(--gemini-font-ui);
+}
+
+.gemini-demo-toolbar-spacer {
+  flex: 1;
+}
+
+.gemini-demo-editor-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.gemini-demo-editor-canvas-wrap {
+  flex: 1;
+  min-height: 0;
+  border-top: 1px solid rgba(209, 222, 245, 0.08);
+}
+
+.gemini-knowledge-canvas-root {
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(70% 68% at 50% 48%, rgba(37, 71, 115, 0.2), transparent 64%),
+    #090d14;
+}
+
+.gemini-knowledge-flow {
+  --xy-background-color: #090d14;
+  background-color: #090d14;
+}
+
+.gemini-knowledge-flow .react-flow__background {
+  background-color: #090d14;
+}
+
+.gemini-knowledge-node {
+  width: 188px;
+  border-radius: 16px;
+  border: 1px solid rgba(182, 210, 255, 0.3);
+  background:
+    linear-gradient(168deg, rgba(44, 55, 74, 0.95), rgba(24, 31, 43, 0.96)),
+    rgba(19, 24, 33, 0.95);
+  box-shadow:
+    0 12px 24px rgba(5, 10, 18, 0.45),
+    inset 0 1px 0 rgba(220, 232, 255, 0.16);
+  padding: 12px 12px 10px;
+}
+
+.gemini-knowledge-flow.is-high-density .gemini-knowledge-node {
+  box-shadow: 0 6px 14px rgba(5, 10, 18, 0.28);
+  border-color: rgba(182, 210, 255, 0.22);
+}
+
+.gemini-knowledge-node-selected {
+  border-color: rgba(147, 198, 255, 0.86);
+  box-shadow:
+    0 12px 24px rgba(5, 10, 18, 0.45),
+    0 0 0 1px rgba(129, 185, 252, 0.48),
+    0 0 24px rgba(124, 188, 255, 0.22);
+}
+
+.gemini-knowledge-flow.is-high-density .gemini-knowledge-node-selected {
+  box-shadow:
+    0 8px 16px rgba(5, 10, 18, 0.34),
+    0 0 0 1px rgba(129, 185, 252, 0.32);
+}
+
+.gemini-knowledge-node-title {
+  color: #e6eefc;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+}
+
+.gemini-knowledge-node-subtitle {
+  margin-top: 6px;
+  color: #aac0df;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.gemini-knowledge-canvas-root .react-flow__edge path {
+  filter: drop-shadow(0 0 6px rgba(113, 168, 246, 0.28));
+}
+
+.gemini-knowledge-flow.is-high-density .react-flow__edge path {
+  filter: none;
+}
+
+.gemini-knowledge-canvas-root .react-flow__controls {
+  border: 1px solid rgba(183, 211, 255, 0.24);
+  background: rgba(17, 24, 36, 0.82);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.32);
+}
+
+.gemini-knowledge-canvas-root .react-flow__controls-button {
+  background: transparent;
+  color: #cfdef4;
+  border-bottom-color: rgba(184, 211, 255, 0.2);
+}
+
+.gemini-knowledge-canvas-root .react-flow__controls-button:hover {
+  background: rgba(92, 145, 220, 0.2);
+}
+
+.gemini-knowledge-canvas-root .react-flow__minimap {
+  border: 1px solid rgba(183, 211, 255, 0.24);
+  border-radius: 12px;
+  background: rgba(14, 20, 32, 0.86);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(4px);
+}
+
+.gemini-knowledge-canvas-root .react-flow__minimap svg {
+  border-radius: 11px;
+}
+
+.gemini-knowledge-hint {
+  border-radius: 9999px;
+  border: 1px solid rgba(176, 204, 248, 0.28);
+  background: rgba(19, 30, 47, 0.7);
+  color: #c8d8ef;
+  font-size: 12px;
+  line-height: 1;
+  padding: 9px 12px;
+  backdrop-filter: blur(4px);
+}
+
+.gemini-demo-editor-content {
+  width: min(900px, 100%);
+  margin: 0 auto;
+  padding: 22px;
+  color: #e1e9f8;
+  line-height: 1.8;
+}
+
+.gemini-demo-editor-content h2 {
+  margin: 0 0 10px;
+  font-size: 30px;
+}
+
+.gemini-demo-editor-content h3 {
+  margin: 22px 0 8px;
+  font-size: 24px;
+}
+
+.gemini-demo-editor-content ul {
+  margin: 0;
+  padding-left: 26px;
+}
+
+@media (max-width: 1200px) {
+  .gemini-demo-brand {
+    font-size: 26px;
+  }
+
+  .gemini-demo-chat-bubble-user,
+  .gemini-demo-assistant-row {
+    font-size: 16px;
+  }
+
+  .gemini-demo-welcome-center {
+    --gemini-welcome-width: min(920px, calc(100vw - 120px));
+  }
+
+  .gemini-demo-prompt-shell {
+    min-height: 124px;
+  }
+
+  .gemini-demo-prompt-input {
+    min-height: 124px;
+    font-size: clamp(16px, 1.45vw, 22px);
+    padding: 16px 18px calc(var(--prompt-actions-height) + var(--prompt-actions-bottom) + var(--prompt-text-safe-gap));
+  }
+
+  .gemini-demo-greeting-headline {
+    font-size: clamp(28px, 2.8vw, 40px);
+  }
+
+  .gemini-demo-welcome-stage {
+    background:
+      radial-gradient(84% 58% at 50% 58%, rgba(124, 162, 232, 0.26), rgba(124, 162, 232, 0.03) 54%, transparent 82%);
+  }
+
+  .gemini-demo-split-wrap {
+    grid-template-columns: minmax(210px, 30%) minmax(300px, 70%);
+  }
+
+  .gemini-demo-chat-pane .gemini-demo-chat-bubble-user {
+    width: 84%;
+    max-width: 84%;
+    margin-right: 4px;
+  }
+
+  .gemini-demo-attachment-card {
+    width: 84%;
+    max-width: 84%;
+    margin-left: 10px;
+  }
+
+  .gemini-demo-chat-pane .gemini-demo-assistant-row {
+    max-width: 94%;
+    margin-left: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gemini-demo-user-name-base {
+    animation: none;
+    background-position: 50% 50%;
+  }
+
+  .gemini-demo-greeting-headline.is-typing::after {
+    animation: none;
+    opacity: 0;
+  }
+
+  .gemini-demo-split-prompt-shell.is-submit-pulse {
+    animation: none;
+  }
+
+  .gemini-demo-split-prompt-shell.is-submit-pulse::before {
+    animation: none;
+    opacity: 0.62;
+  }
+
+  .gemini-demo-split-prompt-shell.is-submit-pulse::after {
+    animation: none;
+  }
+
+  .gemini-demo-split-wrap.is-font-ready {
+    transition: none;
+  }
+}

@@ -1,0 +1,181 @@
+.graph-demo-page {
+  height: 100vh;
+  width: 100%;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(56, 189, 248, 0.16), transparent 40%),
+    radial-gradient(circle at 85% 10%, rgba(34, 197, 94, 0.14), transparent 35%),
+    linear-gradient(180deg, #f7fafc 0%, #eef2f7 100%);
+}
+
+.graph-demo-toolbar {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid #d1d9e6;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
+.graph-demo-btn {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: #0f172a;
+  background: #ffffff;
+  transition: all 0.16s ease;
+}
+
+.graph-demo-btn:hover {
+  border-color: #0ea5e9;
+  color: #0c4a6e;
+}
+
+.graph-demo-btn-active {
+  border-color: #0ea5e9;
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.graph-demo-stats {
+  margin-left: 8px;
+  border-left: 1px solid #dbe4ee;
+  padding-left: 10px;
+  font-size: 12px;
+  color: #334155;
+}
+
+.graph-major-ring {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  border: 2px dashed rgba(14, 165, 233, 0.5);
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.78) 0%, rgba(224, 242, 254, 0.85) 65%, rgba(186, 230, 253, 0.95) 100%);
+  box-shadow:
+    inset 0 0 0 18px rgba(255, 255, 255, 0.6),
+    0 12px 30px rgba(14, 116, 144, 0.12);
+  position: relative;
+  overflow: visible;
+  pointer-events: all;
+}
+
+.graph-major-ring-title {
+  position: absolute;
+  top: 32px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  color: #0c4a6e;
+  letter-spacing: 0.02em;
+}
+
+.graph-major-ring-subtitle {
+  position: absolute;
+  top: 62px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 12px;
+  color: #0369a1;
+}
+
+.graph-hex {
+  width: 100%;
+  height: 100%;
+  clip-path: polygon(25% 5%, 75% 5%, 98% 50%, 75% 95%, 25% 95%, 2% 50%);
+  border: 2px solid #0f172a;
+  background:
+    linear-gradient(155deg, rgba(255, 255, 255, 0.97), rgba(248, 250, 252, 0.92));
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.16);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.graph-hex:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 24px rgba(15, 23, 42, 0.2);
+}
+
+.graph-hex-course {
+  border-color: #0c4a6e;
+  background:
+    linear-gradient(155deg, rgba(224, 242, 254, 1), rgba(186, 230, 253, 0.95));
+}
+
+.graph-hex-support {
+  border-color: #14532d;
+  background:
+    linear-gradient(155deg, rgba(220, 252, 231, 1), rgba(187, 247, 208, 0.95));
+}
+
+.graph-hex-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+  padding: 14px 18px;
+}
+
+.graph-hex-content-compact {
+  gap: 4px;
+  padding: 10px 8px;
+}
+
+.graph-hex-caption {
+  font-size: 12px;
+  color: #0369a1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.graph-hex-code {
+  font-size: 12px;
+  font-weight: 700;
+  color: #166534;
+}
+
+.graph-hex-title {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #0f172a;
+}
+
+.graph-hex-content-compact .graph-hex-title {
+  font-size: 14px;
+}
+
+.graph-hex-subtitle {
+  font-size: 11px;
+  color: #475569;
+}
+
+.graph-demo-page .react-flow__handle {
+  border-radius: 999px;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.55);
+}
+
+.graph-demo-page .graph-rainbow-bezier-edge {
+  filter: drop-shadow(0 0 3px rgba(59, 130, 246, 0.25));
+  animation: graph-rainbow-dash 1.2s linear infinite;
+}
+
+@keyframes graph-rainbow-dash {
+  to {
+    stroke-dashoffset: -18;
+  }
+}

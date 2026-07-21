@@ -1,0 +1,612 @@
+"use client"
+
+import type React from "react"
+import { useState, useEffect, useCallback } from "react"
+import { Card, CardContent } from "@/shared/components/ui/card"
+import { Badge } from "@/shared/components/ui/badge"
+import { Checkbox } from "@/shared/components/ui/checkbox"
+import { Label } from "@/shared/components/ui/label"
+import type { TreeNode, TreeNodeManager } from "@/types"
+import { LoadingState } from "@/shared/components/ui/loading-state"
+import { Building2, GraduationCap, BookOpen, FileText, Search, User, Settings } from "lucide-react"
+import cn from "classnames"
+import { useDepartmentMajorsPreferences } from "@/modules/departments/hooks/use-department-majors-preferences"
+import { api } from "@/lib/api"
+import { removeMajorCache, syncMajorCacheForDepartment, type MajorCacheItem } from "@/shared/utils/major-cache"
+import { useSemesterStore } from "@/shared/stores/semester-store"
+import { MajorSettingsDialog } from "@/modules/departments/components/dialogs/major-settings-dialog"
+
+interface StatisticsCardsProps {
+  node: TreeNode
+  onNodeSelect?: (node: TreeNode) => void
+  headerAction?: React.ReactNode
+  currentUser?: { username: string; role: string } | null
+  // 用于外部设置初始搜索值（如创建专业后自动填充）
+  initialMajorSearch?: string
+  // 用于触发重新获取专业列表
+  refreshKey?: number
+  onUpdateNode?: (nodeId: string, updates: Partial<TreeNode>) => void
+  onDeleteNode?: (nodeId: string) => void
+  onTreeRefresh?: () => Promise<boolean> | boolean
+}
+
+export function StatisticsCards({
+  node,
+  onNodeSelect,
+  headerAction,
+  currentUser,
+  initialMajorSearch,
+  refreshKey,
+  onUpdateNode,
+  onDeleteNode,
+  onTreeRefresh,
+}: StatisticsCardsProps) {
+  const [departmentSearch, setDepartmentSearch] = useState("")
+  const [majorSearch, setMajorSearch] = useState("")
+  const selectedSemesterId = useSemesterStore((state) => state.selectedSemesterId)
+
+  // 监听 initialMajorSearch 变化，自动填充搜索框
+  useEffect(() => {
+    if (initialMajorSearch !== undefined) {
+      setMajorSearch(initialMajorSearch)
+    }
+  }, [initialMajorSearch])
+
+  // 院系详情独立获取的专业列表数据
+  const [majors, setMajors] = useState<TreeNode[]>([])
+  const [isLoadingMajors, setIsLoadingMajors] = useState(false)
+  const [settingsMajor, setSettingsMajor] = useState<TreeNode | null>(null)
+
+  const setMajorCacheFromItems = useCallback((majorItems: TreeNode[], departmentId: string, semesterId: number | null) => {
+    const cacheItems = majorItems
+      .map((major): MajorCacheItem | null => {
+        const majorId = getMajorId(major)
+        if (!majorId) {
+          return null
+        }
+
+        const source = typeof major.metadata?.source === "string" ? major.metadata.source : undefined
+
+        return {
+          majorId,
+          majorName: getMajorName(major),
+          btnMenus: Array.isArray(major.btnMenus) ? major.btnMenus : [],
+          coverMenus: Array.isArray(major.coverMenus) ? major.coverMenus : [],
+          managers: Array.isArray(major.manager) ? major.manager : [],
+          departmentId,
+          semesterId,
+          source,
+        }
+      })
+      .filter((item): item is MajorCacheItem => item !== null)
+
+    syncMajorCacheForDepartment(departmentId, semesterId, cacheItems)
+  }, [])
+
+  // 使用 hook 管理"我的专业"偏好设置，仅在部门节点时使用
+  const { showMyMajors, setShowMyMajors } = useDepartmentMajorsPreferences()
+  const showMyMajorsOnly = node.nodeType === "department" ? showMyMajors : false
+
+  const departments = node.children?.filter((child) => child.nodeType === "department") || []
+
+  const allMajors =
+    node.children?.flatMap((dept) => dept.children?.filter((child) => child.nodeType === "major") || []) || []
+  const courses =
+    node.children?.flatMap(
+      (dept) =>
+        dept.children?.flatMap((major) => major.children?.filter((child) => child.nodeType === "course") || []) || [],
+    ) || []
+
+  const isUniversity = node.nodeType === "university"
+  const isDepartment = node.nodeType === "department"
+
+  const handleSelectableCardKeyDown = useCallback((event: React.KeyboardEvent<HTMLElement>, targetNode: TreeNode) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return
+    }
+
+    event.preventDefault()
+    onNodeSelect?.(targetNode)
+  }, [onNodeSelect])
+
+  // 当节点为院系时，根据院系ID调用接口获取专业列表
+  useEffect(() => {
+    const fetchMajors = async () => {
+      if (!isDepartment || !node.id) return
+
+      setIsLoadingMajors(true)
+      try {
+        const response = await api.tree.getDepartmentMajors(node.id, selectedSemesterId)
+        if (!response.data) {
+          setMajors([])
+          return
+        }
+
+        setMajors(response.data)
+        setMajorCacheFromItems(response.data, node.id, selectedSemesterId)
+      } catch (error) {
+        console.error('[StatisticsCards] 获取专业列表失败:', error)
+        setMajors([])
+      } finally {
+        setIsLoadingMajors(false)
+      }
+    }
+
+    fetchMajors()
+  }, [isDepartment, node.id, refreshKey, selectedSemesterId, setMajorCacheFromItems])
+
+  // 获取专业ID
+  const getMajorId = (major: TreeNode) => major.id || ''
+
+  // 获取专业名称
+  const getMajorName = (major: TreeNode) => major.nodeName
+
+  // 获取管理员数组
+  const getManagers = (major: TreeNode) => major.manager || []
+
+  const getDepartmentId = (departmentNode: TreeNode) => {
+    if (typeof departmentNode.id === "string" && departmentNode.id.trim().length > 0) {
+      return departmentNode.id
+    }
+    if (typeof departmentNode.nodeId === "string" && departmentNode.nodeId.trim().length > 0) {
+      const match = departmentNode.nodeId.match(/\d+/)
+      if (match && match[0].trim().length > 0) {
+        return match[0]
+      }
+    }
+    throw new Error("院系ID缺失，无法打开专业设置")
+  }
+
+  const getDepartmentName = (departmentNode: TreeNode) => {
+    if (typeof departmentNode.nodeName === "string" && departmentNode.nodeName.trim().length > 0) {
+      return departmentNode.nodeName
+    }
+    if (typeof departmentNode.name === "string" && departmentNode.name.trim().length > 0) {
+      return departmentNode.name
+    }
+    throw new Error("院系名称缺失，无法打开专业设置")
+  }
+
+  const hasMajorMenuPermission = (major: TreeNode, target: string) => {
+    return Array.isArray(major.btnMenus) && major.btnMenus.some((menu) => menu.value === target)
+  }
+
+  const handleOpenMajorSettings = (major: TreeNode) => {
+    if (!hasMajorMenuPermission(major, "majoredit")) return
+    setSettingsMajor(major)
+  }
+
+  const handleMajorSettingsOpenChange = (open: boolean) => {
+    if (!open) {
+      setSettingsMajor(null)
+    }
+  }
+
+  const handleMajorSettingsSaved = (majorId: string, updates: { majorName?: string; managers?: TreeNodeManager[] }) => {
+    setMajors((prev) => {
+      const next = prev.map((major) => {
+        if (getMajorId(major) !== majorId) {
+          return major
+        }
+
+        const updatedMajor = { ...major }
+        if (updates.majorName !== undefined) {
+          updatedMajor.nodeName = updates.majorName
+          updatedMajor.name = updates.majorName
+        }
+        if (updates.managers !== undefined) {
+          updatedMajor.manager = updates.managers
+          const existingMetadata = updatedMajor.metadata
+          if (existingMetadata === undefined) {
+            updatedMajor.metadata = {
+              managers: updates.managers,
+            }
+            return updatedMajor
+          }
+          updatedMajor.metadata = {
+            ...existingMetadata,
+            managers: updates.managers,
+          }
+        }
+        return updatedMajor
+      })
+
+      if (node.id) {
+        setMajorCacheFromItems(next, node.id, selectedSemesterId)
+      }
+      return next
+    })
+
+    if (updates.majorName !== undefined) {
+      onUpdateNode?.(`major_${majorId}`, {
+        nodeName: updates.majorName,
+        name: updates.majorName,
+      })
+    }
+    void onTreeRefresh?.()
+  }
+
+  const handleMajorSettingsDeleted = (majorId: string) => {
+    setMajors((prev) => {
+      const next = prev.filter((major) => getMajorId(major) !== majorId)
+      if (node.id) {
+        setMajorCacheFromItems(next, node.id, selectedSemesterId)
+      }
+      return next
+    })
+    removeMajorCache(majorId)
+    onDeleteNode?.(`major_${majorId}`)
+    void onTreeRefresh?.()
+  }
+
+  // Filter departments by search
+  const filteredDepartments = departments.filter((dept) =>
+    dept.nodeName.toLowerCase().includes(departmentSearch.toLowerCase()),
+  )
+
+  // Filter majors by search and "my majors" filter
+  const filteredMajors = majors.filter((major) => {
+    const majorName = getMajorName(major)
+    // 先按名称搜索
+    const matchesSearch = majorName.toLowerCase().includes(majorSearch.toLowerCase())
+
+    // 如果勾选了"我的专业"，则还需要检查专业管理员中是否包含当前用户
+    if (showMyMajorsOnly) {
+      const managers = getManagers(major)
+      const hasMe = managers.some((manager) => manager.label === currentUser?.username)
+      return matchesSearch && hasMe
+    }
+
+    return matchesSearch
+  })
+
+  const getNodeTypeLabel = (type: string) => {
+    const typeMap: Record<string, string> = {
+      university: "学校",
+      department: "院系",
+      major: "专业",
+      course: "课程",
+      project: "项目",
+    }
+    return typeMap[type] || type
+  }
+
+  const getNodeTypeIcon = (type: string) => {
+    const iconMap: Record<string, React.ReactNode> = {
+      university: <Building2 className="w-3 h-3" />,
+      department: <GraduationCap className="w-3 h-3" />,
+      major: <BookOpen className="w-3 h-3" />,
+      course: <FileText className="w-3 h-3" />,
+    }
+    return iconMap[type] || null
+  }
+
+  const userCount = 0
+
+  return (
+    <div className="flex-1 overflow-auto p-6">
+      <div className="space-y-6">
+        {/* Header with action button */}
+        {headerAction && (
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-medium text-foreground">数据统计</h3>
+            {headerAction}
+          </div>
+        )}
+
+        <div className={cn("grid gap-4", isDepartment && userCount > 0 ? "grid-cols-3" : isUniversity ? "grid-cols-3" : "grid-cols-2")}>
+          {isUniversity && (
+            <Card
+              className="bg-card/50 backdrop-blur-sm border-border hover:border-primary/50 hover:shadow-lg transition-all"
+              // onClick={() => {
+              //   if (departments.length > 0 && onNodeSelect) {
+              //     onNodeSelect(departments[0])
+              //   }
+              // }}
+            >
+              <CardContent className="p-4">
+                <div className="flex flex-col items-center justify-center gap-3">
+                  <div className="text-3xl font-bold text-foreground">{departments.length}</div>
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <GraduationCap className="w-4 h-4 text-primary" />
+                    <span>院系</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          <Card className="bg-card/50 backdrop-blur-sm border-border hover:border-primary/50 hover:shadow-lg transition-all">
+            <CardContent className="p-4">
+              <div className="flex flex-col items-center justify-center gap-3">
+                <div className="text-3xl font-bold text-foreground">
+                  {isDepartment ? majors.length : allMajors.length}
+                </div>
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <BookOpen className="w-4 h-4 text-primary" />
+                  <span>专业</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          {isDepartment && (
+            <Card className="bg-card/50 backdrop-blur-sm border-border hover:border-primary/50 hover:shadow-lg transition-all">
+              <CardContent className="p-4">
+                <div className="flex flex-col items-center justify-center gap-3">
+                  <div className="text-3xl font-bold text-foreground">{userCount}</div>
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Building2 className="w-4 h-4 text-primary" />
+                    <span>用户</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {isUniversity && (
+            <Card className="bg-card/50 backdrop-blur-sm border-border hover:border-primary/50 hover:shadow-lg transition-all">
+              <CardContent className="p-4">
+                <div className="flex flex-col items-center justify-center gap-3">
+                  <div className="text-3xl font-bold text-foreground">{courses.length}</div>
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <FileText className="w-4 h-4 text-primary" />
+                    <span>课程</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {isUniversity && departments.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-medium text-foreground">下属院系</h3>
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="搜索院系..."
+                  value={departmentSearch}
+                  onChange={(e) => setDepartmentSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-4 gap-4">
+              {filteredDepartments.map((dept) => {
+                const deptMajors = dept.children?.filter((child) => child.nodeType === "major") || []
+                const deptCourses =
+                  dept.children?.flatMap((major) => major.children?.filter((child) => child.nodeType === "course") || []) ||
+                  []
+
+                return (
+                  <Card
+                    key={dept.nodeId}
+                    role="button"
+                    tabIndex={0}
+                    data-interactive="true"
+                    className="cursor-pointer hover:shadow-md transition-shadow border-border bg-card/50 backdrop-blur-sm relative"
+                    onClick={() => {
+                      onNodeSelect?.(dept)
+                    }}
+                    onKeyDown={(event) => {
+                      handleSelectableCardKeyDown(event, dept)
+                    }}
+                  >
+                    <Badge
+                      variant="secondary"
+                      data-card-decoration="true"
+                      className="absolute top-2 right-2 text-xs flex items-center gap-1 bg-primary/10 text-primary border-primary/20"
+                    >
+                      {getNodeTypeIcon(dept.nodeType)}
+                      {getNodeTypeLabel(dept.nodeType)}
+                    </Badge>
+
+                    <CardContent className="p-4 pt-8 pb-3">
+                      <div className="space-y-3">
+                        <div className="text-center">
+                          <h4 className="font-semibold text-foreground text-lg mb-2">{dept.nodeName}</h4>
+                        </div>
+                        <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <BookOpen className="w-4 h-4 text-primary" />
+                            <span className="font-medium">{deptMajors.length}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <FileText className="w-4 h-4 text-primary" />
+                            <span className="font-medium">{deptCourses.length}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {isDepartment && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-medium text-foreground">开设专业</h3>
+              <div className="flex items-center gap-4">
+                <div className="relative w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="搜索专业..."
+                    value={majorSearch}
+                    onChange={(e) => setMajorSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="my-majors"
+                    checked={showMyMajorsOnly}
+                    onCheckedChange={(checked) => setShowMyMajors(checked as boolean)}
+                  />
+                  <Label htmlFor="my-majors" className="text-sm font-medium cursor-pointer">
+                    我的专业
+                  </Label>
+                </div>
+              </div>
+            </div>
+
+            {isLoadingMajors ? (
+              <LoadingState variant="card" />
+            ) : filteredMajors.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="text-muted-foreground">
+                  <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm">暂无专业数据</p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-4">
+                {filteredMajors.map((major) => {
+                  const majorId = getMajorId(major)
+                  const majorName = getMajorName(major)
+                  const managers = getManagers(major)
+                  const isVirtualMajor = (major.metadata as { source?: string } | null)?.source === "course-level-switchDpt"
+                  const prefetchedCourses = (major.metadata as { prefetchedCourses?: TreeNode[] } | null)?.prefetchedCourses || []
+                  const canEditMajor = !isVirtualMajor && hasMajorMenuPermission(major, "majoredit")
+                  const handleSelectMajor = () => {
+                    if (!node.id) {
+                      throw new Error("Department node id is required before selecting a major card")
+                    }
+
+                    setMajorCacheFromItems([major], node.id, selectedSemesterId)
+                    // 构造节点对象，硬编码 nodeType 为 major
+                    onNodeSelect?.({
+                      ...major,
+                      id: majorId,
+                      nodeId: `major_${majorId}`,
+                      name: majorName,
+                      nodeName: majorName,
+                      type: "major",
+                      nodeType: "major",
+                      btnMenus: major.btnMenus,
+                      coverMenus: major.coverMenus,
+                      manager: isVirtualMajor ? [] : managers,
+                      metadata: {
+                        ...(major.metadata || {}),
+                        managers: isVirtualMajor ? [] : managers,
+                        prefetchedCourses,
+                        btnMenus: major.btnMenus,
+                        coverMenus: major.coverMenus,
+                      },
+                    })
+                  }
+
+                  return (
+                    <div
+                      key={majorId}
+                      role="button"
+                      tabIndex={0}
+                      onClick={handleSelectMajor}
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter" && event.key !== " ") {
+                          return
+                        }
+
+                        event.preventDefault()
+                        handleSelectMajor()
+                      }}
+                      className={cn(
+                        "relative flex flex-col p-5 rounded-xl border transition-all duration-200 min-h-[165px]",
+                        "bg-white/40 backdrop-blur-md border-primary/20",
+                        "hover:bg-white/60 hover:shadow-lg hover:border-primary/40",
+                        "group cursor-pointer",
+                      )}
+                      data-interactive="true"
+                    >
+                      <div className="absolute top-3 left-3" data-card-decoration="true">
+                        <div
+                          className={cn(
+                            "w-10 h-10 rounded-lg flex items-center justify-center",
+                            "bg-white/50 backdrop-blur-sm",
+                            "border border-primary/30",
+                            "group-hover:bg-white/70 group-hover:border-primary/50",
+                            "transition-all duration-200",
+                          )}
+                        >
+                          <BookOpen className="w-5 h-5 text-primary" />
+                        </div>
+                      </div>
+
+                      <div className="absolute top-3 right-3" data-card-decoration="true">
+                        <div className="px-2 py-0.5 rounded-full bg-white/60 backdrop-blur-sm border border-primary/30 text-xs font-medium text-primary">
+                          专业
+                        </div>
+                      </div>
+
+                      <div className="flex-1 flex flex-col justify-center">
+                        <div className="flex items-center justify-center px-12">
+                          <div className="font-semibold text-foreground text-lg text-center line-clamp-2 leading-tight">
+                            {majorName}
+                          </div>
+                        </div>
+                      </div>
+
+                      {!isVirtualMajor && managers.length > 0 && (
+                        <div className="absolute bottom-3 left-3 flex max-w-[calc(100%-24px)] flex-wrap gap-2" data-card-decoration="true">
+                          {managers.map((manager, index) => (
+                            <div key={index} className="flex items-center gap-[6px] px-[8px] py-[2px] rounded bg-primary border border-primary">
+                              <User className="w-[13px] h-[13px] text-white" />
+                              <span className="text-[13px] text-white font-medium">{manager.label}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {canEditMajor && (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            handleOpenMajorSettings(major)
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key !== "Enter" && event.key !== " ") return
+                            event.preventDefault()
+                            event.stopPropagation()
+                            handleOpenMajorSettings(major)
+                          }}
+                          className={cn(
+                            "absolute bottom-3 right-3 p-1.5 rounded-lg",
+                            "bg-white/50 backdrop-blur-sm border border-primary/30",
+                            "text-primary transition-[opacity,background-color,border-color] duration-200",
+                            "invisible opacity-0 pointer-events-none group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto",
+                            "focus-visible:visible focus-visible:opacity-100 focus-visible:pointer-events-auto",
+                            "hover:bg-primary/10 hover:border-primary/60",
+                          )}
+                          title="专业设置"
+                        >
+                          <Settings className="w-4 h-4" />
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      {isDepartment && (
+        <MajorSettingsDialog
+          open={settingsMajor !== null}
+          onOpenChange={handleMajorSettingsOpenChange}
+          major={settingsMajor}
+          departmentId={getDepartmentId(node)}
+          departmentName={getDepartmentName(node)}
+          selectedSemesterId={selectedSemesterId}
+          canDeleteMajor={settingsMajor !== null && hasMajorMenuPermission(settingsMajor, "majordel")}
+          onSaved={handleMajorSettingsSaved}
+          onDeleted={handleMajorSettingsDeleted}
+        />
+      )}
+    </div>
+  )
+}
