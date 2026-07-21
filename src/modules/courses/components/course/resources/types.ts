@@ -22,6 +22,7 @@ export interface ResourceBreadcrumbProps {
 
 export interface ResourceSearchBarProps {
   courseEditable?: boolean
+  selectedCount: number
   searchTerm: string
   onSearchChange: (term: string) => void
   placeholder: string
@@ -32,6 +33,9 @@ export interface ResourceSearchBarProps {
   disableUpload?: boolean
   onCreateFolderClick?: () => void
   disableCreateFolder?: boolean
+  onBatchDownload?: () => void
+  disableBatchDownload?: boolean
+  isBatchDownloading?: boolean
 }
 
 export type ResourceEntry =

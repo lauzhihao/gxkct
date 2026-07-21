@@ -37,6 +37,28 @@ interface CourseResourcesContainerProps {
 const MAX_RESOURCE_UPLOAD_SIZE = 1024 * 1024 * 1024
 const FALLBACK_RESOURCE_MIME_TYPE = "application/octet-stream"
 
+const resolveSafeBatchDownloadUrl = (value: string): string => {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    throw new Error("批量下载地址为空")
+  }
+  if (trimmed.includes("\\")) {
+    throw new Error("批量下载地址无效")
+  }
+  if (trimmed.startsWith("/")) {
+    if (trimmed.startsWith("//")) {
+      throw new Error("批量下载地址无效")
+    }
+    return trimmed
+  }
+
+  const url = new URL(trimmed)
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("批量下载地址协议不受支持")
+  }
+  return trimmed
+}
+
 class UploadCanceledError extends Error {
   constructor(message = "已取消上传") {
     super(message)
@@ -119,6 +141,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isBatchDownloading, setIsBatchDownloading] = useState(false)
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false)
   const [newFolderName, setNewFolderName] = useState("")
   const [folderNameError, setFolderNameError] = useState<string | null>(null)
@@ -216,6 +239,57 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
       setIsDeleting(false)
     }
   }, [courseEditable, nodeId, currentParentId, selectedIds, refreshCurrentLevel, ownerType])
+
+  const handleBatchDownload = useCallback(async () => {
+    if (!courseEditable || !nodeId || selectedIds.size === 0) return
+
+    setIsBatchDownloading(true)
+    try {
+      const response = await courseResourcesApi.createBatchDownload(nodeId, Array.from(selectedIds), ownerType)
+      if (response.error !== null) {
+        showError(response.error)
+        return
+      }
+      if (response.data === null) {
+        showError("批量下载响应为空")
+        return
+      }
+
+      const { taskId, status, downloadUrl } = response.data
+      if (typeof taskId !== "string" || taskId.trim().length === 0) {
+        showError("批量下载响应缺少有效的任务 ID")
+        return
+      }
+      if (typeof status !== "string" || status.trim().length === 0) {
+        showError("批量下载响应缺少有效的任务状态")
+        return
+      }
+      if (downloadUrl === null) {
+        showSuccess(`批量下载任务已创建，状态：${status}，任务 ID：${taskId}`)
+        return
+      }
+      if (typeof downloadUrl !== "string") {
+        showError("批量下载响应包含无效的下载地址")
+        return
+      }
+
+      const safeDownloadUrl = resolveSafeBatchDownloadUrl(downloadUrl)
+      const anchor = document.createElement("a")
+      anchor.href = safeDownloadUrl
+      anchor.download = ""
+      anchor.target = "_blank"
+      anchor.rel = "noopener noreferrer"
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      showSuccess("批量下载已开始")
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "批量下载失败"
+      showError(message)
+    } finally {
+      setIsBatchDownloading(false)
+    }
+  }, [courseEditable, nodeId, ownerType, selectedIds])
 
   const calculateChecksum = useCallback(async (file: File) => {
     const buffer = await file.arrayBuffer()
@@ -756,6 +830,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
             <ResourceSearchBar
               courseEditable={courseEditable}
+              selectedCount={selectedCount}
               searchTerm={searchTerm}
               onSearchChange={setSearchTerm}
               placeholder="搜索当前目录下的文件"
@@ -765,6 +840,9 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
               disableUpload={isLoading || isRootLevel}
               onCreateFolderClick={handleOpenCreateFolder}
               disableCreateFolder={isCreateFolderDisabled}
+              onBatchDownload={handleBatchDownload}
+              disableBatchDownload={nodeId === null || selectedCount === 0}
+              isBatchDownloading={isBatchDownloading}
             />
             <div className="flex items-center gap-2">
               <Button
