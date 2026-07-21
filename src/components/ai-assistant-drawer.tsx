@@ -29,6 +29,8 @@ import {
   KsaItemData,
   RegenerateTag,
   CourseInfoData,
+  GenerationSummaryEventMessage,
+  ErrorEventMessage,
 } from "./canvas-elements"
 import { FlowNodeType, getNodeColorConfig } from "./flow/utils/types"
 import type { CanvasLayoutMode } from "./flow/utils/canvas-layout"
@@ -69,7 +71,11 @@ import {
 } from "./ai-assistant/session-utils"
 import { ChatMessageItem } from "./ai-assistant/chat-message-item"
 import { ChatInputArea } from "./ai-assistant/chat-input-area"
-import { createConnectionMenuHandler } from "./ai-assistant/connection-menu-handlers"
+import {
+  createConnectionMenuHandler,
+  getChapterGenerationReadiness,
+  getProjectMatrixGenerationReadiness,
+} from "./ai-assistant/connection-menu-handlers"
 import { GeminiDemoDrawer } from "./ai-assistant/gemini-demo-drawer"
 import { useDebugMode } from "@/shared/hooks/use-debug-mode"
 
@@ -125,6 +131,116 @@ const PROGRESS_STAGE_ROUTE_MAP: Record<string, FillProgressType> = {
   fill_project_matrix: "projectMatrix",
   fill_matrix: "matrix",
   fill_course_matrix: "matrix",
+}
+
+function formatSSEErrorMessage(error: ErrorEventMessage): string {
+  const message = error.message || "服务出现异常，请稍后重试。"
+  const chapterLabel = error.chapter_name
+    || (typeof error.chapter_index === "number" ? `第${error.chapter_index}章` : "")
+    || error.chapter_id
+
+  if (!chapterLabel || message.includes(chapterLabel)) {
+    return message
+  }
+
+  return `${chapterLabel}：${message}`
+}
+
+function appendSSEErrorMessage(messages: string[], error: ErrorEventMessage): string {
+  const nextMessage = formatSSEErrorMessage(error)
+  if (!messages.includes(nextMessage)) {
+    messages.push(nextMessage)
+  }
+
+  const visibleMessages = messages.slice(0, 5)
+  if (messages.length > visibleMessages.length) {
+    visibleMessages.push(`另有 ${messages.length - visibleMessages.length} 个章节生成失败`)
+  }
+  return visibleMessages.join("\n")
+}
+
+function formatGenerationSummaryMessage(summary: GenerationSummaryEventMessage): string {
+  const failureLabels = summary.failures
+    .slice(0, 5)
+    .map((failure) => {
+      const chapterIndex = typeof failure.chapter_index === "number"
+        ? `第${failure.chapter_index}章`
+        : "未知章节"
+      return failure.chapter_name
+        ? `${chapterIndex}《${failure.chapter_name}》`
+        : chapterIndex
+    })
+  const failureSuffix = failureLabels.length > 0
+    ? `；失败章节：${failureLabels.join("、")}`
+    : ""
+
+  if (summary.status === "partial") {
+    return `项目矩阵部分生成失败：${summary.generated}/${summary.total} 个章节成功，${summary.fallback} 个章节已创建空白模板${failureSuffix}`
+  }
+  if (summary.status === "failed") {
+    return `项目矩阵生成失败：${summary.fallback} 个章节仅创建了空白模板，${summary.failed} 个章节未生成${failureSuffix}`
+  }
+  return "项目矩阵已自动填充任务目标和支撑关系"
+}
+
+function resolveFailedGenerationStatus(
+  summary: GenerationSummaryEventMessage | null,
+  errorType: string,
+  generatedProjectMatrixCanvasCount: number,
+): "partial" | "failed" {
+  if (summary?.stage === "fill_project_matrix") {
+    if (summary.status === "failed") return "failed"
+    if (summary.status === "partial") return "partial"
+  }
+
+  if (errorType === "generation_failed") return "failed"
+  if (errorType === "partial_generation") return "partial"
+
+  return generatedProjectMatrixCanvasCount > 0 ? "partial" : "failed"
+}
+
+function isProjectMatrixFailureWarning(message: string): boolean {
+  return (
+    (message.includes("项目矩阵") && message.includes("失败"))
+    || message.includes("空白模板")
+  )
+}
+
+function hasGeneratedProjectMatrixContent(data: unknown): boolean {
+  if (!data || typeof data !== "object") return false
+  const matrix = data as {
+    task_objectives?: unknown[]
+    rows?: Array<{ objective_supports?: unknown[] }>
+  }
+  return (
+    Array.isArray(matrix.task_objectives)
+    && matrix.task_objectives.length > 0
+    && Array.isArray(matrix.rows)
+    && matrix.rows.length > 0
+    && matrix.rows.every(
+      (row) => Array.isArray(row.objective_supports) && row.objective_supports.length > 0,
+    )
+  )
+}
+
+function buildCanvasEventElementId(
+  component: CanvasComponentType,
+  data: unknown,
+): string {
+  if (
+    component === CanvasComponentType.PROJECT_MATRIX
+    || component === CanvasComponentType.PROJECT_MATRIX_PANEL
+  ) {
+    const chapterId = String(
+      (data as { chapter_id?: string } | null)?.chapter_id || "",
+    ).trim()
+    if (chapterId) {
+      // 同一批 SSE 事件可能在同一毫秒到达；章节 ID 才是多项目矩阵的稳定唯一键。
+      return `${component}_${chapterId}`
+    }
+  }
+
+  return `${component}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
 }
 
 type CourseCanvasSaveState = "unchanged" | "changed_unsaved" | "changed_saved"
@@ -1066,6 +1182,13 @@ export function AiAssistantDrawer({
     }
     // 用于追踪 SSE 错误消息
     let sseErrorMessage = ''
+    let sseWarningMessage = ''
+    const sseErrorMessages: string[] = []
+    let generationSummary: GenerationSummaryEventMessage | null = null
+    let generationErrorType = ''
+    let appliedCanvasEventCount = 0
+    let generatedProjectMatrixCanvasCount = 0
+    let chapterPanelIdFromStream = ''
     // [MOD] 用于追踪已创建关联消息的元素ID，避免重复创建（移到 try 外以便 catch 可访问）
     const linkedElementIds = new Set<string>()
 
@@ -1113,7 +1236,7 @@ export function AiAssistantDrawer({
       // [MOD] 强制上传最新画布数据，确保后端获取到最新状态
       const ossKey = await forceCanvasUpload()
       if (!ossKey) {
-        commitAssistantContent(config.errorMessage)
+        commitAssistantContent(config.errorMessage, undefined, "failed")
         if (streamingControllerRef.current === controller) {
           streamingControllerRef.current = null
         }
@@ -1137,7 +1260,7 @@ export function AiAssistantDrawer({
       const response = await fetch(getAIRequestUrl(), buildAIRequest(payload, controller.signal))
 
       if (!response.ok) {
-        commitAssistantContent(config.errorMessage)
+        commitAssistantContent(config.errorMessage, undefined, "failed")
         if (streamingControllerRef.current === controller) {
           streamingControllerRef.current = null
         }
@@ -1165,7 +1288,10 @@ export function AiAssistantDrawer({
             // [MOD] 使用 canvasElementsRef.current 获取最新的画布元素状态，解决闭包捕获旧值问题
             const currentElements = canvasElementsRef.current
             let existingElement: typeof currentElements[number] | undefined
-            if (event.component === CanvasComponentType.PROJECT_MATRIX) {
+            if (
+              event.component === CanvasComponentType.PROJECT_MATRIX
+              || event.component === CanvasComponentType.PROJECT_MATRIX_PANEL
+            ) {
               // 项目矩阵需要根据 chapter_id 匹配（支持多个实例）
               const chapterId = (event.data as { chapter_id?: string }).chapter_id
               existingElement = currentElements.find(el =>
@@ -1176,11 +1302,60 @@ export function AiAssistantDrawer({
               // 其他元素根据类型匹配（单例）
               existingElement = currentElements.find(el => el.type === event.component)
             }
-            // [FIX] 始终覆盖 ID，确保格式为 ${component}_${timestamp}，与画布创建逻辑一致
-            (event.data as { id?: string }).id = existingElement?.id || `${event.component}_${Date.now()}`
+            (event.data as { id?: string }).id = existingElement?.id
+              || buildCanvasEventElementId(event.component, event.data)
+          }
+
+          if (event.component === CanvasComponentType.CHAPTER_PANEL && event.data) {
+            chapterPanelIdFromStream = String((event.data as { id?: string }).id || "")
+          }
+
+          if (
+            event.action === CanvasAction.BATCH_CREATE
+            && event.items?.some((item) => item.component === CanvasComponentType.CHAPTER_CARD)
+          ) {
+            const chapterPanel = canvasElementsRef.current.find(
+              (element) => element.id === chapterPanelIdFromStream,
+            ) || canvasElementsRef.current.find(
+              (element) => element.type === CanvasComponentType.CHAPTER_PANEL,
+            )
+            if (chapterPanel) {
+              // 只在服务端已经返回完整章节时原子替换，上传/HTTP/取消失败不破坏旧内容。
+              removeCanvasDownstream(chapterPanel.id)
+              updateCanvasPanelChildren(
+                chapterPanel.id,
+                CanvasComponentType.CHAPTER_PANEL,
+                CanvasComponentType.CHAPTER_CARD,
+                [],
+              )
+            }
+          }
+
+          if (event.component === CanvasComponentType.PROJECT_MATRIX && event.data) {
+            const chapterId = String((event.data as { chapter_id?: string }).chapter_id || "")
+            const existingMatrix = canvasElementsRef.current.find(
+              (element) => element.type === CanvasComponentType.PROJECT_MATRIX
+                && String((element.data as { chapter_id?: string }).chapter_id || "") === chapterId,
+            )
+            const incomingGenerated = hasGeneratedProjectMatrixContent(event.data)
+            if (incomingGenerated) {
+              generatedProjectMatrixCanvasCount += 1
+            }
+            if (
+              existingMatrix
+              && hasGeneratedProjectMatrixContent(existingMatrix.data)
+              && !incomingGenerated
+            ) {
+              console.warn("[项目矩阵] 生成失败，保留原有矩阵内容:", chapterId)
+              return
+            }
+            if (existingMatrix && incomingGenerated) {
+              removeCanvasDownstream(existingMatrix.id)
+            }
           }
 
           handleCanvasEvent(event)
+          appliedCanvasEventCount += 1
 
           // [MOD] 检测创建画布元素时，同步插入聊天关联卡片（支持所有在 ELEMENT_TYPE_TITLES 中定义的类型）
           if (
@@ -1241,11 +1416,22 @@ export function AiAssistantDrawer({
           updateStreamingIndicator("status", formatStatusIndicator(status))
         },
         onErrorEvent: (error) => {
+          generationErrorType = error.error_type || generationErrorType
           // 保存错误信息，用于最终消息内容
-          sseErrorMessage = error.message || '服务出现异常，请稍后重试。'
+          sseErrorMessage = appendSSEErrorMessage(sseErrorMessages, error)
           // 将错误信息显示在聊天区域
           markStreamingContentStarted()
           setStreamingText(sseErrorMessage)
+        },
+        onWarningEvent: (warning) => {
+          sseWarningMessage = warning.message || sseWarningMessage
+          if (sseWarningMessage) {
+            markStreamingContentStarted()
+            setStreamingText(sseWarningMessage)
+          }
+        },
+        onGenerationSummary: (summary) => {
+          generationSummary = summary
         },
         onProgressEvent: (progress) => {
           const progressLine = `[${progress.current}/${progress.total}] ${progress.message}`
@@ -1271,14 +1457,23 @@ export function AiAssistantDrawer({
         onAbort: () => {
           console.log(`[${config.logPrefix}] 流式请求已被用户中止`)
         },
+        requireGenerationSummary: config.fillProgressType === 'projectMatrix',
       })
 
-      // 完成：优先使用 SSE 错误消息，其次使用返回内容，最后使用默认完成消息
-      const finalContent = sseErrorMessage || result.content.trim() || config.defaultCompleteMessage
+      const finalSummary = result.generationSummary || generationSummary
+      const partialSummary = finalSummary?.status === "partial" ? finalSummary : null
+      const isPartial = partialSummary !== null
+      const finalContent = isPartial
+        ? sseWarningMessage || sseErrorMessage || formatGenerationSummaryMessage(partialSummary)
+        : sseErrorMessage || result.content.trim() || config.defaultCompleteMessage
       const finalThinking = thinkingState.mode === "latest"
         ? (thinkingState.latest || result.thinking || '')
         : (thinkingState.accumulated || result.thinking || '')
-      commitAssistantContent(finalContent, finalThinking || undefined)
+      commitAssistantContent(
+        finalContent,
+        finalThinking || undefined,
+        isPartial ? "partial" : "completed",
+      )
 
       if (streamingControllerRef.current === controller) {
         streamingControllerRef.current = null
@@ -1293,14 +1488,17 @@ export function AiAssistantDrawer({
       // SSE 结束后统一重定位画布元素（项目矩阵在流式阶段不做居中，此处统一重排）
       relayoutElements()
 
-      // 执行完成回调
-      config.onComplete?.()
+      // partial 已保留有效章节，但不是业务成功，不触发成功回调。
+      if (!isPartial) {
+        config.onComplete?.()
+      }
 
-      console.log(`[${config.logPrefix}] 完成`)
+      console.log(`[${config.logPrefix}] ${isPartial ? "部分完成" : "完成"}`)
     } catch (error) {
       // AbortError 已在 processStream 内部处理并抛出，这里需要捕获
       if (error instanceof Error && error.name === 'AbortError') {
-        // 中止时不提交错误消息，保持当前状态
+        // 必须结束占位消息；否则聊天记录会永久停留在“生成中”。
+        commitAssistantContent(config.cancelMessage, undefined, "cancelled")
         if (streamingControllerRef.current === controller) {
           streamingControllerRef.current = null
         }
@@ -1315,8 +1513,13 @@ export function AiAssistantDrawer({
 
       const fallback = controller.signal.aborted
         ? config.cancelMessage
-        : config.errorMessage
-      commitAssistantContent(fallback)
+        : sseErrorMessage || config.errorMessage
+      const generationStatus = resolveFailedGenerationStatus(
+        generationSummary,
+        generationErrorType,
+        generatedProjectMatrixCanvasCount,
+      )
+      commitAssistantContent(fallback, undefined, generationStatus)
 
       if (streamingControllerRef.current === controller) {
         streamingControllerRef.current = null
@@ -1328,9 +1531,13 @@ export function AiAssistantDrawer({
       // [MOD] 错误时也清除 loading 状态
       clearLinkedElementLoading()
 
+      if (appliedCanvasEventCount > 0) {
+        relayoutElements()
+      }
+
       console.error(`[${config.logPrefix}] 失败:`, error)
     }
-  }, [isRegenerating, streamingMessageId, isInitialized, sessionId, handleCanvasEvent, processStream, resetSSEController, forceCanvasUpload, waitForCanvasStateFlush, updateCanvasData, syncFillProgressFromProcessing, syncFillProgressFromProgress, updateStreamingIndicator, markStreamingContentStarted, relayoutElements])
+  }, [isRegenerating, streamingMessageId, isInitialized, sessionId, handleCanvasEvent, processStream, resetSSEController, forceCanvasUpload, waitForCanvasStateFlush, updateCanvasData, syncFillProgressFromProcessing, syncFillProgressFromProgress, updateStreamingIndicator, markStreamingContentStarted, relayoutElements, removeCanvasDownstream, updateCanvasPanelChildren])
 
   const restoreRegenerateTargetSelection = useCallback((targetId?: string | null) => {
     if (typeof targetId !== "string" || targetId.length === 0) {
@@ -1344,12 +1551,18 @@ export function AiAssistantDrawer({
   // 处理章节项目面板自动填充请求
   // [MOD] 增加 userPrompt 参数，支持重做时传入用户提示词
   const handleFillChapterPanel = useCallback(async (targetPanelId?: string, userPrompt?: string, displayUserContent?: string) => {
+    const currentElements = canvasElementsRef.current
+    const readiness = getChapterGenerationReadiness(currentElements)
+    if (!readiness.ready) {
+      toast.error(readiness.message)
+      return
+    }
     // 判断面板是否有内容（子节点）
     const chapterPanel = targetPanelId
-      ? canvasElements.find(el => el.id === targetPanelId)
-      : canvasElements.find(el => el.type === CanvasComponentType.CHAPTER_PANEL)
+      ? currentElements.find(el => el.id === targetPanelId)
+      : currentElements.find(el => el.type === CanvasComponentType.CHAPTER_PANEL)
     const hasContent = chapterPanel
-      ? canvasElements.some(el => el.parentId === chapterPanel.id)
+      ? currentElements.some(el => el.parentId === chapterPanel.id)
       : false
     const promptPrefix = hasContent ? "请帮我重新完善" : "请帮我完善"
     // 优先使用用户提示词，否则使用默认提示词
@@ -1370,15 +1583,6 @@ export function AiAssistantDrawer({
       fillProgressType: 'chapters',
       onBeforeRequest: () => {
         restoreRegenerateTargetSelection(targetPanelId)
-        if (chapterPanel) {
-          console.log("[填充章节项目] 删除下游组件，保留当前章节面板:", chapterPanel.id)
-          removeCanvasDownstream(chapterPanel.id)
-        }
-        // 清空章节面板子节点（填充前必须清空，否则原有内容会传到后台）
-        if (chapterPanel) {
-          console.log("[填充章节项目] 清空章节面板:", chapterPanel.id)
-          updateCanvasPanelChildren(chapterPanel.id, CanvasComponentType.CHAPTER_PANEL, CanvasComponentType.CHAPTER_CARD, [])
-        }
       },
       onComplete: () => {
         updateFillProgress('chapters', null)
@@ -1386,7 +1590,7 @@ export function AiAssistantDrawer({
       },
     })
     updateFillProgress('chapters', null)
-  }, [executeSSERequest, canvasElements, removeCanvasDownstream, updateCanvasPanelChildren, updateFillProgress, restoreRegenerateTargetSelection])
+  }, [executeSSERequest, updateFillProgress, restoreRegenerateTargetSelection])
 
   // 处理教学目标面板自动填充请求
   // [MOD] 增加 userPrompt 参数，支持重做时传入用户提示词
@@ -1509,19 +1713,32 @@ export function AiAssistantDrawer({
   // 处理项目矩阵自动填充请求
   // [MOD] 添加可选参数 targetMatrixId，支持重做时指定目标矩阵
   const handleFillProjectMatrix = useCallback(async (targetMatrixId?: string, userPrompt?: string, displayUserContent?: string) => {
-    // 判断项目矩阵是否有内容
-    const projectMatrix = targetMatrixId
-      ? canvasElements.find(el => el.id === targetMatrixId)
-      : canvasElements.find(el => el.type === CanvasComponentType.PROJECT_MATRIX)
+    const currentElements = canvasElementsRef.current
+    const projectMatrices = targetMatrixId
+      ? currentElements.filter(el => el.id === targetMatrixId && el.type === CanvasComponentType.PROJECT_MATRIX)
+      : currentElements.filter(el => el.type === CanvasComponentType.PROJECT_MATRIX)
+    const projectMatrix = projectMatrices[0]
     const matrixData = projectMatrix?.data as { rows?: unknown[]; chapter_id?: string } | undefined
     const hasContent = matrixData?.rows && matrixData.rows.length > 0
-    const targetChapterId = matrixData?.chapter_id
+    const targetChapterId = targetMatrixId ? matrixData?.chapter_id : undefined
     if (targetMatrixId && !targetChapterId) {
       console.warn("[填充项目矩阵] 缺少目标章节ID，已取消重做:", {
         targetMatrixId,
         projectMatrix,
       })
       toast.error("未找到当前项目矩阵对应的章节标识，无法单独重做。")
+      return
+    }
+    const readiness = getProjectMatrixGenerationReadiness(
+      currentElements,
+      targetMatrixId ? targetChapterId : undefined,
+    )
+    if (!readiness.ready) {
+      toast.error(readiness.message)
+      return
+    }
+    if (projectMatrices.length === 0) {
+      toast.error("未找到可生成的项目矩阵，请先检查章节及课程要点。")
       return
     }
     const promptPrefix = hasContent ? "请帮我重新完善" : "请帮我完善"
@@ -1542,15 +1759,6 @@ export function AiAssistantDrawer({
       fillProgressType: 'projectMatrix',
       onBeforeRequest: () => {
         restoreRegenerateTargetSelection(targetMatrixId)
-        if (projectMatrix) {
-          console.log("[填充项目矩阵] 删除下游组件，保留当前项目矩阵:", projectMatrix.id)
-          removeCanvasDownstream(projectMatrix.id)
-        }
-        // 清空项目矩阵数据（填充前必须清空，否则原有内容会传到后台）
-        if (projectMatrix) {
-          console.log("[填充项目矩阵] 清空项目矩阵:", projectMatrix.id)
-          updateCanvasElementData(projectMatrix.id, { rows: [] })
-        }
       },
       onComplete: () => {
         updateFillProgress('projectMatrix', null)
@@ -1558,7 +1766,7 @@ export function AiAssistantDrawer({
       },
     })
     updateFillProgress('projectMatrix', null)
-  }, [executeSSERequest, canvasElements, removeCanvasDownstream, updateCanvasElementData, updateFillProgress, restoreRegenerateTargetSelection])
+  }, [executeSSERequest, updateFillProgress, restoreRegenerateTargetSelection])
 
   // 处理课程信息自动填充请求（从源文档生成课程基本信息）
   const handleFillCourseInfo = useCallback(async (courseInfoId: string, userPrompt?: string, displayUserContent?: string) => {
@@ -1865,6 +2073,14 @@ export function AiAssistantDrawer({
 
     // 用于追踪 SSE 错误消息
     let sseErrorMessage = ''
+    let sseWarningMessage = ''
+    const sseErrorMessages: string[] = []
+    let generationSummary: GenerationSummaryEventMessage | null = null
+    let generationErrorType = ''
+    let appliedCanvasEventCount = 0
+    let generatedProjectMatrixCanvasCount = 0
+    let sawProjectMatrixFailureWarning = false
+    let chapterPanelIdFromStream = ''
     // 思考区展示模式：闲聊模式累积，agent/internal 进度模式仅显示最新一条
     const thinkingState = {
       mode: "accumulate" as ThinkingDisplayMode,
@@ -1919,7 +2135,7 @@ export function AiAssistantDrawer({
         const fallback = controller.signal.aborted
           ? "已取消本次 AI 响应。"
           : "抱歉，AI 服务暂时不可用，请稍后再试。"
-        commitAssistantContent(fallback)
+        commitAssistantContent(fallback, undefined, "failed")
         if (streamingControllerRef.current === controller) {
           streamingControllerRef.current = null
         }
@@ -1946,7 +2162,10 @@ export function AiAssistantDrawer({
             // [MOD] 使用 canvasElementsRef.current 获取最新的画布元素状态，解决闭包捕获旧值问题
             const currentElements = canvasElementsRef.current
             let existingElement: typeof currentElements[number] | undefined
-            if (event.component === CanvasComponentType.PROJECT_MATRIX) {
+            if (
+              event.component === CanvasComponentType.PROJECT_MATRIX
+              || event.component === CanvasComponentType.PROJECT_MATRIX_PANEL
+            ) {
               // 项目矩阵需要根据 chapter_id 匹配（支持多个实例）
               const chapterId = (event.data as { chapter_id?: string }).chapter_id
               existingElement = currentElements.find(el =>
@@ -1957,11 +2176,59 @@ export function AiAssistantDrawer({
               // 其他元素根据类型匹配（单例）
               existingElement = currentElements.find(el => el.type === event.component)
             }
-            // [FIX] 始终覆盖 ID，确保格式为 ${component}_${timestamp}，与画布创建逻辑一致
-            (event.data as { id?: string }).id = existingElement?.id || `${event.component}_${Date.now()}`
+            (event.data as { id?: string }).id = existingElement?.id
+              || buildCanvasEventElementId(event.component, event.data)
+          }
+
+          if (event.component === CanvasComponentType.CHAPTER_PANEL && event.data) {
+            chapterPanelIdFromStream = String((event.data as { id?: string }).id || "")
+          }
+
+          if (
+            event.action === CanvasAction.BATCH_CREATE
+            && event.items?.some((item) => item.component === CanvasComponentType.CHAPTER_CARD)
+          ) {
+            const chapterPanel = canvasElementsRef.current.find(
+              (element) => element.id === chapterPanelIdFromStream,
+            ) || canvasElementsRef.current.find(
+              (element) => element.type === CanvasComponentType.CHAPTER_PANEL,
+            )
+            if (chapterPanel) {
+              removeCanvasDownstream(chapterPanel.id)
+              updateCanvasPanelChildren(
+                chapterPanel.id,
+                CanvasComponentType.CHAPTER_PANEL,
+                CanvasComponentType.CHAPTER_CARD,
+                [],
+              )
+            }
+          }
+
+          if (event.component === CanvasComponentType.PROJECT_MATRIX && event.data) {
+            const chapterId = String((event.data as { chapter_id?: string }).chapter_id || "")
+            const existingMatrix = canvasElementsRef.current.find(
+              (element) => element.type === CanvasComponentType.PROJECT_MATRIX
+                && String((element.data as { chapter_id?: string }).chapter_id || "") === chapterId,
+            )
+            const incomingGenerated = hasGeneratedProjectMatrixContent(event.data)
+            if (incomingGenerated) {
+              generatedProjectMatrixCanvasCount += 1
+            }
+            if (
+              existingMatrix
+              && hasGeneratedProjectMatrixContent(existingMatrix.data)
+              && !incomingGenerated
+            ) {
+              console.warn("[项目矩阵] 生成失败，保留原有矩阵内容:", chapterId)
+              return
+            }
+            if (existingMatrix && incomingGenerated) {
+              removeCanvasDownstream(existingMatrix.id)
+            }
           }
 
           handleCanvasEvent(event)
+          appliedCanvasEventCount += 1
           // canvas 事件触发画布展开
           if (!hasTriggeredExpandRef.current) {
             hasTriggeredExpandRef.current = true
@@ -2057,11 +2324,24 @@ export function AiAssistantDrawer({
           }
         },
         onErrorEvent: (error) => {
+          generationErrorType = error.error_type || generationErrorType
           // 保存错误信息，用于最终消息内容
-          sseErrorMessage = error.message || '服务出现异常，请稍后重试。'
+          sseErrorMessage = appendSSEErrorMessage(sseErrorMessages, error)
           // 将错误信息显示在聊天区域
           markStreamingContentStarted()
           setStreamingText(sseErrorMessage)
+        },
+        onWarningEvent: (warning) => {
+          sseWarningMessage = warning.message || sseWarningMessage
+          sawProjectMatrixFailureWarning = sawProjectMatrixFailureWarning
+            || isProjectMatrixFailureWarning(warning.message || "")
+          if (sseWarningMessage) {
+            markStreamingContentStarted()
+            setStreamingText(sseWarningMessage)
+          }
+        },
+        onGenerationSummary: (summary) => {
+          generationSummary = summary
         },
         onContentChunk: (content) => {
           if (content.trim()) {
@@ -2083,12 +2363,36 @@ export function AiAssistantDrawer({
         },
       })
 
-      // 完成：优先使用 SSE 错误消息，其次使用返回内容，最后使用默认消息
-      const finalContent = sseErrorMessage || result.content.trim() || 'AI 暂无新的建议，请稍后再试。'
+      const finalSummary = result.generationSummary || generationSummary
+      const partialSummary = finalSummary?.status === "partial" ? finalSummary : null
+      // 兼容灰度发布：旧路由可能有 warning/canvas 但缺 summary，
+      // 这种情况也不能把项目矩阵误标为已完成。
+      const isCompatiblePartial = Boolean(
+        !finalSummary
+        && sawProjectMatrixFailureWarning
+        && generatedProjectMatrixCanvasCount > 0,
+      )
+      const isCompatibleFailed = Boolean(
+        !finalSummary
+        && sawProjectMatrixFailureWarning
+        && generatedProjectMatrixCanvasCount === 0,
+      )
+      const isPartial = partialSummary !== null || isCompatiblePartial
+      const finalContent = isPartial || isCompatibleFailed
+        ? sseWarningMessage
+          || sseErrorMessage
+          || (partialSummary
+            ? formatGenerationSummaryMessage(partialSummary)
+            : '项目矩阵部分生成失败，已保留有效章节。')
+        : sseErrorMessage || result.content.trim() || 'AI 暂无新的建议，请稍后再试。'
       const finalThinking = thinkingState.mode === "latest"
         ? (thinkingState.latest || result.thinking || '')
         : (thinkingState.accumulated || result.thinking || '')
-      commitAssistantContent(finalContent, finalThinking || undefined)
+      commitAssistantContent(
+        finalContent,
+        finalThinking || undefined,
+        isCompatibleFailed ? "failed" : isPartial ? "partial" : "completed",
+      )
       if (streamingControllerRef.current === controller) {
         streamingControllerRef.current = null
       }
@@ -2102,6 +2406,7 @@ export function AiAssistantDrawer({
     } catch (error) {
       // AbortError 已在 processStream 内部处理并抛出，这里需要捕获
       if (error instanceof Error && error.name === 'AbortError') {
+        commitAssistantContent("已取消本次 AI 响应。", undefined, "cancelled")
         if (streamingControllerRef.current === controller) {
           streamingControllerRef.current = null
         }
@@ -2115,8 +2420,13 @@ export function AiAssistantDrawer({
 
       const fallback = controller.signal.aborted
         ? "已取消本次 AI 响应。"
-        : "抱歉，AI 服务暂时不可用，请稍后再试。"
-      commitAssistantContent(fallback)
+        : sseErrorMessage || "抱歉，AI 服务暂时不可用，请稍后再试。"
+      const generationStatus = resolveFailedGenerationStatus(
+        generationSummary,
+        generationErrorType,
+        generatedProjectMatrixCanvasCount,
+      )
+      commitAssistantContent(fallback, undefined, generationStatus)
       if (streamingControllerRef.current === controller) {
         streamingControllerRef.current = null
       }
@@ -2125,8 +2435,12 @@ export function AiAssistantDrawer({
       setIsPreContentIndicatorVisible(false)
       // [MOD] 错误时也清除 loading 状态
       clearLinkedElementLoading()
+
+      if (appliedCanvasEventCount > 0) {
+        relayoutElements()
+      }
     }
-  }, [inputMessage, isInitialized, sessionId, regenerateTag, attachedFiles, uploadFileToOss, handleCanvasEvent, processStream, resetSSEController, handleFillCoursePoints, handleFillKsa, handleFillChapterPanel, handleFillObjectivePanel, handleFillCourseMatrix, handleFillProjectMatrix, handleFillCourseInfo, clearAttachedFiles, forceCanvasUpload, waitForCanvasStateFlush, updateCanvasData, syncFillProgressFromProcessing, syncFillProgressFromProgress, updateStreamingIndicator, markStreamingContentStarted, selectCanvasElement, relayoutElements])
+  }, [inputMessage, isInitialized, sessionId, regenerateTag, attachedFiles, uploadFileToOss, handleCanvasEvent, processStream, resetSSEController, handleFillCoursePoints, handleFillKsa, handleFillChapterPanel, handleFillObjectivePanel, handleFillCourseMatrix, handleFillProjectMatrix, handleFillCourseInfo, clearAttachedFiles, forceCanvasUpload, waitForCanvasStateFlush, updateCanvasData, syncFillProgressFromProcessing, syncFillProgressFromProgress, updateStreamingIndicator, markStreamingContentStarted, selectCanvasElement, relayoutElements, removeCanvasDownstream, updateCanvasPanelChildren])
 
   // 连接菜单处理器
   const handleConnectionMenuSelect = useMemo(
@@ -2140,6 +2454,7 @@ export function AiAssistantDrawer({
       handleFillCourseInfo,
       handleFillCoursePoints,
       handleFillKsa,
+      waitForCanvasStateFlush,
     }),
     [
       canvasElements,
@@ -2151,6 +2466,7 @@ export function AiAssistantDrawer({
       handleFillCourseInfo,
       handleFillCoursePoints,
       handleFillKsa,
+      waitForCanvasStateFlush,
     ]
   )
 

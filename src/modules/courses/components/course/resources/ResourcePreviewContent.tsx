@@ -7,12 +7,14 @@ interface ResourcePreviewContentProps {
   kind: DirectResourcePreviewKind
   url: string
   displayName: string
+  onDirectPreviewFailed: () => void
 }
 
 export function ResourcePreviewContent({
   kind,
   url,
   displayName,
+  onDirectPreviewFailed,
 }: ResourcePreviewContentProps) {
   if (kind === "pdf") {
     return (
@@ -51,5 +53,11 @@ export function ResourcePreviewContent({
     )
   }
 
-  return <ResourceTextPreview url={url} format={kind} />
+  return (
+    <ResourceTextPreview
+      url={url}
+      format={kind}
+      onPreviewFailed={onDirectPreviewFailed}
+    />
+  )
 }

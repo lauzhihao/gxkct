@@ -1,16 +1,14 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
   AlertCircle,
   Clock3,
   Download,
-  ExternalLink,
   FileQuestion,
   RotateCw,
   X,
 } from "lucide-react"
-import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
 import {
   Drawer,
@@ -21,13 +19,13 @@ import {
   DrawerTitle,
 } from "@/shared/components/ui/drawer"
 import { Spinner } from "@/shared/components/ui/spinner"
-import type { ResourcePreviewStatus } from "@/lib/api"
 import { ResourcePreviewContent } from "./ResourcePreviewContent"
 import {
   parseResourcePreviewDetail,
-  resolveDirectResourcePreviewKind,
+  resolveResourcePreviewPresentation,
   type DirectResourcePreviewKind,
   type ResourcePreviewDetail,
+  type ResourcePreviewPresentation,
 } from "./resource-preview-types"
 
 const PREVIEW_POLL_INTERVAL_MS = 2_000
@@ -49,28 +47,23 @@ export interface ResourcePreviewDrawerProps {
   resourceId: string
   initialDisplayName: string
   onOpenChange: (open: boolean) => void
+  onCloseAnimationEnd: () => void
   loadDetail: (resourceId: string) => Promise<unknown>
 }
 
-function getStatusLabel(status: ResourcePreviewStatus): string {
-  switch (status) {
-    case "NONE":
-      return "原件预览"
-    case "PENDING":
-      return "等待转换"
-    case "PROCESSING":
-      return "正在转换"
-    case "READY":
-      return "预览就绪"
-    case "FAILED":
-      return "转换失败"
-  }
-}
-
-function getPreviewSource(detail: ResourcePreviewDetail): {
+function getPreviewSource(
+  detail: ResourcePreviewDetail,
+  presentation: ResourcePreviewPresentation,
+): {
   kind: DirectResourcePreviewKind
   url: string
 } | null {
+  if (presentation.mode === "unsupported") {
+    return null
+  }
+  if (presentation.mode === "direct-text") {
+    return { kind: presentation.kind, url: detail.downloadUrl }
+  }
   if (detail.previewStatus === "READY") {
     if (detail.previewUrl === null) {
       return null
@@ -80,14 +73,19 @@ function getPreviewSource(detail: ResourcePreviewDetail): {
   if (detail.previewStatus !== "NONE") {
     return null
   }
-  const kind = resolveDirectResourcePreviewKind(
-    detail.displayName,
-    detail.mimeType,
-  )
-  if (kind === null) {
+  if (presentation.directKind === null) {
     return null
   }
-  return { kind, url: detail.downloadUrl }
+  return { kind: presentation.directKind, url: detail.downloadUrl }
+}
+
+function getDirectPreviewKey(detail: ResourcePreviewDetail): string {
+  return [
+    detail.id,
+    detail.displayName,
+    detail.mimeType,
+    detail.downloadUrl,
+  ].join("\n")
 }
 
 export function ResourcePreviewDrawer({
@@ -95,6 +93,7 @@ export function ResourcePreviewDrawer({
   resourceId,
   initialDisplayName,
   onOpenChange,
+  onCloseAnimationEnd,
   loadDetail,
 }: ResourcePreviewDrawerProps) {
   const [reloadVersion, setReloadVersion] = useState(0)
@@ -102,15 +101,20 @@ export function ResourcePreviewDrawer({
     phase: "loading",
     resourceId,
   })
+  const [directPreviewFailedKey, setDirectPreviewFailedKey] = useState<
+    string | null
+  >(null)
 
   useEffect(() => {
     if (!open) {
+      setDirectPreviewFailedKey(null)
       return
     }
 
     let disposed = false
     let pollTimer: ReturnType<typeof setTimeout> | undefined
     const startedAt = Date.now()
+    setDirectPreviewFailedKey(null)
     setState({ phase: "loading", resourceId })
 
     const requestDetail = async () => {
@@ -123,9 +127,15 @@ export function ResourcePreviewDrawer({
           return
         }
 
+        const presentation = resolveResourcePreviewPresentation(
+          detail.displayName,
+          detail.mimeType,
+          false,
+        )
         const isConverting =
-          detail.previewStatus === "PENDING" ||
-          detail.previewStatus === "PROCESSING"
+          presentation.mode === "status" &&
+          (detail.previewStatus === "PENDING" ||
+            detail.previewStatus === "PROCESSING")
         const timedOut = isConverting && Date.now() - startedAt >= PREVIEW_POLL_TIMEOUT_MS
         setState({
           phase: "loaded",
@@ -163,17 +173,56 @@ export function ResourcePreviewDrawer({
     isCurrentResource && state.phase === "loaded" ? state.detail : null
   const displayName =
     loadedDetail === null ? initialDisplayName : loadedDetail.displayName
+  const directPreviewFailed =
+    loadedDetail !== null &&
+    directPreviewFailedKey === getDirectPreviewKey(loadedDetail)
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen && !open) {
+      setDirectPreviewFailedKey(null)
       setState({ phase: "loading", resourceId })
     }
+    if (!nextOpen) {
+      setDirectPreviewFailedKey(null)
+    }
     onOpenChange(nextOpen)
+  }
+
+  const handleAnimationEnd = (animationOpen: boolean) => {
+    if (!animationOpen) {
+      onCloseAnimationEnd()
+    }
   }
 
   const handleReload = () => {
     setReloadVersion((currentVersion) => currentVersion + 1)
   }
+
+  const handleDirectPreviewFailed = useCallback(() => {
+    if (loadedDetail === null) {
+      return
+    }
+    setDirectPreviewFailedKey(getDirectPreviewKey(loadedDetail))
+  }, [loadedDetail])
+
+  const renderUnsupported = (detail: ResourcePreviewDetail) => (
+    <div className="flex h-full min-h-[520px] flex-col items-center justify-center gap-3 px-8 text-center">
+      <FileQuestion className="size-11 text-muted-foreground" />
+      <p className="font-medium text-foreground">此文件类型暂不支持在线预览</p>
+      <p className="text-sm text-muted-foreground">请下载原始文件查看</p>
+      <Button variant="outline" className="mt-2" asChild>
+        <a
+          href={detail.downloadUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          download={detail.displayName}
+        >
+          <Download />
+          下载原件
+        </a>
+      </Button>
+    </div>
+  )
 
   const renderBody = () => {
     if (!isCurrentResource || state.phase === "loading") {
@@ -202,6 +251,26 @@ export function ResourcePreviewDrawer({
     }
 
     const { detail } = state
+    const presentation = resolveResourcePreviewPresentation(
+      detail.displayName,
+      detail.mimeType,
+      directPreviewFailed,
+    )
+    if (presentation.mode === "unsupported") {
+      return renderUnsupported(detail)
+    }
+
+    if (presentation.mode === "direct-text") {
+      return (
+        <ResourcePreviewContent
+          kind={presentation.kind}
+          url={detail.downloadUrl}
+          displayName={detail.displayName}
+          onDirectPreviewFailed={handleDirectPreviewFailed}
+        />
+      )
+    }
+
     if (detail.previewStatus === "PENDING" || detail.previewStatus === "PROCESSING") {
       return (
         <div className="flex h-full min-h-[520px] flex-col items-center justify-center px-8 text-center">
@@ -218,7 +287,7 @@ export function ResourcePreviewDrawer({
           <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
             {state.timedOut
               ? "自动等待已结束。你可以重新检查转换状态，或通过顶部链接下载原始文件。"
-              : "Office 文件正在生成 PDF 预览版，完成后会自动刷新，无需关闭抽屉。"}
+              : "文件正在生成 PDF 预览版，完成后会自动刷新，无需关闭抽屉。"}
           </p>
           {state.timedOut ? (
             <Button type="button" variant="outline" className="mt-6" onClick={handleReload}>
@@ -246,15 +315,9 @@ export function ResourcePreviewDrawer({
       )
     }
 
-    const previewSource = getPreviewSource(detail)
+    const previewSource = getPreviewSource(detail, presentation)
     if (previewSource === null) {
-      return (
-        <div className="flex h-full min-h-[520px] flex-col items-center justify-center gap-3 px-8 text-center">
-          <FileQuestion className="size-11 text-muted-foreground" />
-          <p className="font-medium text-foreground">此文件类型暂不支持在线预览</p>
-          <p className="text-sm text-muted-foreground">请使用顶部链接下载原始文件</p>
-        </div>
-      )
+      return renderUnsupported(detail)
     }
 
     return (
@@ -262,58 +325,61 @@ export function ResourcePreviewDrawer({
         kind={previewSource.kind}
         url={previewSource.url}
         displayName={detail.displayName}
+        onDirectPreviewFailed={handleDirectPreviewFailed}
       />
     )
   }
 
-  const status = loadedDetail === null ? null : loadedDetail.previewStatus
+  const presentation = loadedDetail === null
+    ? null
+    : resolveResourcePreviewPresentation(
+        loadedDetail.displayName,
+        loadedDetail.mimeType,
+        directPreviewFailed,
+      )
+  const isUnsupported =
+    presentation === null ? false : presentation.mode === "unsupported"
 
   return (
-    <Drawer open={open} onOpenChange={handleOpenChange} direction="right">
-      <DrawerContent className="h-dvh w-[94vw] bg-background sm:max-w-[min(960px,94vw)]">
+    <Drawer
+      open={open}
+      onOpenChange={handleOpenChange}
+      onAnimationEnd={handleAnimationEnd}
+      direction="right"
+    >
+      <DrawerContent className="h-dvh bg-background data-[vaul-drawer-direction=right]:w-[94vw] data-[vaul-drawer-direction=right]:sm:w-[47vw] data-[vaul-drawer-direction=right]:sm:max-w-[min(960px,47vw)]">
         <DrawerHeader className="sticky top-0 z-10 gap-3 border-b border-border bg-background/95 px-5 py-4 backdrop-blur">
-          <div className="flex items-start gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <DrawerTitle className="truncate text-base" title={displayName}>
-                  {displayName}
-                </DrawerTitle>
-                {status === null ? (
-                  <Badge variant="outline">加载详情</Badge>
-                ) : (
-                  <Badge variant={status === "FAILED" ? "destructive" : "secondary"}>
-                    {getStatusLabel(status)}
-                  </Badge>
-                )}
-              </div>
-              <DrawerDescription className="mt-1">
-                在线预览仅供快速核对，原始文件始终保留
-              </DrawerDescription>
+          <div className="flex flex-wrap items-center gap-2">
+            <DrawerTitle
+              className="min-w-0 flex-[1_1_12rem] truncate text-base"
+              title={displayName}
+            >
+              {displayName}
+            </DrawerTitle>
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              {loadedDetail !== null && !isUnsupported ? (
+                <Button variant="outline" size="sm" asChild>
+                  <a
+                    href={loadedDetail.downloadUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download={loadedDetail.displayName}
+                  >
+                    <Download />
+                    下载原件
+                  </a>
+                </Button>
+              ) : null}
+              <DrawerClose asChild>
+                <Button type="button" variant="ghost" size="icon" aria-label="关闭预览">
+                  <X />
+                </Button>
+              </DrawerClose>
             </div>
-            <DrawerClose asChild>
-              <Button type="button" variant="ghost" size="icon" aria-label="关闭预览">
-                <X />
-              </Button>
-            </DrawerClose>
           </div>
-          <div className="flex min-h-9 items-center rounded-lg border border-border bg-muted/40 px-3">
-            <Download className="mr-2 size-4 text-primary" />
-            <span className="mr-3 text-xs font-medium text-muted-foreground">原始文件</span>
-            {loadedDetail === null ? (
-              <span className="text-sm text-muted-foreground">链接加载中</span>
-            ) : (
-              <a
-                href={loadedDetail.downloadUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                download={loadedDetail.displayName}
-                className="inline-flex min-w-0 items-center gap-1.5 truncate text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                下载原件
-                <ExternalLink className="size-3.5 shrink-0" />
-              </a>
-            )}
-          </div>
+          <DrawerDescription className="sr-only">
+            在线预览仅供快速核对，原始文件始终保留
+          </DrawerDescription>
         </DrawerHeader>
         <div className="min-h-0 flex-1 overflow-auto bg-muted/20" aria-live="polite">
           {renderBody()}

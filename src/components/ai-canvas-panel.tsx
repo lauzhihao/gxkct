@@ -135,7 +135,7 @@ export interface AiCanvasPanelProps {
   // 连接创建回调
   onConnect?: (connection: Connection) => void
   // 连接菜单选择回调（包含画布坐标位置）
-  onConnectionMenuSelect?: (option: ConnectionMenuOption, sourceNodeId: string | null, position?: { x: number; y: number }) => void
+  onConnectionMenuSelect?: (option: ConnectionMenuOption, sourceNodeId: string | null, position?: { x: number; y: number }) => void | Promise<void>
   // 节点数据更新回调
   onNodeDataUpdate?: (nodeId: string, data: CanvasComponentData) => void
   // 节点位置更新回调（拖动结束时触发）
@@ -776,9 +776,9 @@ function AiCanvasPanelInner({
         const screenX = containerRect.left + connectionMenu.x
         const screenY = containerRect.top + connectionMenu.y
         const flowPosition = screenToFlowPosition({ x: screenX, y: screenY })
-        onConnectionMenuSelect?.(option, connectionMenu.sourceNodeId, flowPosition)
+        void onConnectionMenuSelect?.(option, connectionMenu.sourceNodeId, flowPosition)
       } else {
-        onConnectionMenuSelect?.(option, connectionMenu.sourceNodeId)
+        void onConnectionMenuSelect?.(option, connectionMenu.sourceNodeId)
       }
       setConnectionMenu((prev) => ({ ...prev, visible: false }))
     },

@@ -11,6 +11,8 @@ export {
   isProgressEvent,
   isProcessingEvent,
   isModeEvent,
+  isWarningEvent,
+  isGenerationSummaryEvent,
   isErrorEvent,
   isOpenAIChunk,
   // 兼容旧代码（已废弃）
@@ -60,6 +62,10 @@ export type {
   ProgressEventMessage,
   ProcessingEventMessage,
   ModeEventMessage,
+  WarningEventMessage,
+  GenerationSummaryStatus,
+  GenerationFailureDetail,
+  GenerationSummaryEventMessage,
   ErrorEventMessage,
   SSEEventMessage,
   // 兼容旧代码（已废弃）

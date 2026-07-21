@@ -36,7 +36,7 @@ export interface ResourceBreadcrumbNode {
 
 const ROOT_CRUMB: ResourceBreadcrumbNode = {
   id: null,
-  name: "课程资源",
+  name: "文件资源",
 }
 
 interface UseCourseResourcesResult {
@@ -54,8 +54,6 @@ interface UseCourseResourcesResult {
   isRootLevel: boolean
   searchTerm: string
   setSearchTerm: (term: string) => void
-  viewMode: "grid" | "list"
-  setViewMode: (mode: "grid" | "list") => void
   enterFolder: (folder: ResourceFolder) => void
   goToBreadcrumb: (index: number) => void
   refreshCurrentLevel: () => void
@@ -75,7 +73,6 @@ export function useCourseResources(courseId?: string | null, ownerType?: Resourc
   const [needInitialization, setNeedInitialization] = useState(false)
   const [isInitializing, setIsInitializing] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
 
   const loadFolders = useCallback(
     async (parentId: string | null, nextBreadcrumbs?: ResourceBreadcrumbNode[]) => {
@@ -219,8 +216,6 @@ export function useCourseResources(courseId?: string | null, ownerType?: Resourc
       isRootLevel: currentParentId === null,
       searchTerm,
       setSearchTerm,
-      viewMode,
-      setViewMode,
       enterFolder,
       goToBreadcrumb,
       refreshCurrentLevel,
@@ -239,7 +234,6 @@ export function useCourseResources(courseId?: string | null, ownerType?: Resourc
       needInitialization,
       isInitializing,
       searchTerm,
-      viewMode,
       enterFolder,
       goToBreadcrumb,
       refreshCurrentLevel,

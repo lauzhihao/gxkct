@@ -7,7 +7,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import type { AddMajorFormProps, WorkCategory, WorksData } from "./types"
-import { useMajorFormState } from "@/modules/majors/hooks/use-major-form-state"
+import { useMajorFormState, type UseMajorFormStateResult } from "@/modules/majors/hooks/use-major-form-state"
 import { useCareerInfo } from "@/modules/majors/hooks/use-career-info"
 import { useGraduationRequirements } from "@/modules/majors/hooks/use-graduation-requirements"
 import { useToast } from "@/shared/hooks/use-toast"
@@ -16,6 +16,10 @@ import { api } from "@/lib/api"
 import { TreeApi } from "@/lib/api/tree-api"
 import { majorApiService, type CreateMajorRequest } from "@/modules/majors/api"
 import type { IndicatorCourseSupport } from "@/modules/majors/types"
+import type {
+  MajorBasicInfoErrors,
+  MajorBasicInfoField,
+} from "@/modules/majors/types/components"
 import worksJsonData from "@/mock-data/works.json"
 
 // 创建 TreeApi 实例
@@ -64,6 +68,61 @@ interface MajorDetailResponse {
   position?: string
   professionsVOS?: MajorDetailProfessionVO[]
   requiresVOS?: MajorDetailRequireVO[]
+}
+
+type MajorBasicInfoValues = Pick<UseMajorFormStateResult, MajorBasicInfoField>
+
+const MAJOR_BASIC_INFO_FIELD_ORDER = [
+  "majorCode",
+  "majorName",
+  "majorLevel",
+  "educationalFeatures",
+] as const satisfies readonly MajorBasicInfoField[]
+
+const VALID_MAJOR_LEVELS: ReadonlySet<string> = new Set(["0", "1", "2"])
+
+const getMajorBasicInfoFieldError = (
+  field: MajorBasicInfoField,
+  value: string
+): string | undefined => {
+  switch (field) {
+    case "majorCode":
+      return value.trim() === "" ? "请输入专业类别" : undefined
+    case "majorName":
+      return value.trim() === "" ? "请输入专业名称" : undefined
+    case "majorLevel":
+      if (value.trim() === "") {
+        return "请选择专业层次"
+      }
+      return VALID_MAJOR_LEVELS.has(value) ? undefined : "专业层次数据无效，请重新选择"
+    case "educationalFeatures":
+      return value.trim() === "" ? "请输入专业特色" : undefined
+  }
+}
+
+const validateMajorBasicInfo = (values: MajorBasicInfoValues): MajorBasicInfoErrors => {
+  const errors: MajorBasicInfoErrors = {}
+
+  for (const field of MAJOR_BASIC_INFO_FIELD_ORDER) {
+    const error = getMajorBasicInfoFieldError(field, values[field])
+    if (error !== undefined) {
+      errors[field] = error
+    }
+  }
+
+  return errors
+}
+
+const getFirstInvalidBasicInfoField = (
+  errors: MajorBasicInfoErrors
+): MajorBasicInfoField | null => {
+  for (const field of MAJOR_BASIC_INFO_FIELD_ORDER) {
+    if (errors[field] !== undefined) {
+      return field
+    }
+  }
+
+  return null
 }
 
 export function AddMajorFormContainer({
@@ -137,6 +196,9 @@ export function AddMajorFormContainer({
   const [isLoadingDetail, setIsLoadingDetail] = useState(false)
   const [hasUploadedRequirements, setHasUploadedRequirements] = useState(false)
   const [initialProfessionSnapshots, setInitialProfessionSnapshots] = useState<ProfessionPayloadSnapshot[]>([])
+  const [basicInfoErrors, setBasicInfoErrors] = useState<MajorBasicInfoErrors>({})
+  const [basicInfoValidationAttempt, setBasicInfoValidationAttempt] = useState(0)
+  const [basicInfoFocusField, setBasicInfoFocusField] = useState<MajorBasicInfoField | null>(null)
   const hasLoadedDetailRef = useRef(false)
   const {
     setMajorCode,
@@ -148,6 +210,37 @@ export function AddMajorFormContainer({
   } = formState
   const { setCareerInfoList } = careerInfo
   const { setGraduationRequirements, setIndicatorCourseSupports, clearDeletedNodeIds } = graduationReqs
+
+  const handleBasicInfoFieldValidationChange = (
+    field: MajorBasicInfoField,
+    value: string
+  ) => {
+    if (basicInfoValidationAttempt === 0) {
+      return
+    }
+
+    const error = getMajorBasicInfoFieldError(field, value)
+    setBasicInfoErrors((currentErrors) => {
+      if (error === undefined) {
+        if (currentErrors[field] === undefined) {
+          return currentErrors
+        }
+
+        const nextErrors = { ...currentErrors }
+        delete nextErrors[field]
+        return nextErrors
+      }
+
+      if (currentErrors[field] === error) {
+        return currentErrors
+      }
+
+      return {
+        ...currentErrors,
+        [field]: error,
+      }
+    })
+  }
 
   const downloadBlobFile = (blob: Blob, filename: string) => {
     const objectUrl = window.URL.createObjectURL(blob)
@@ -305,8 +398,10 @@ export function AddMajorFormContainer({
           if (detailData.majorClass || detailData.code) {
             setMajorCode(detailData.majorClass ?? detailData.code ?? "")
           }
-          if (detailData.majorLevel) {
+          if (typeof detailData.majorLevel === "string") {
             setMajorLevel(detailData.majorLevel)
+          } else {
+            setMajorLevel("")
           }
           if (detailData.feature) {
             setEducationalFeatures(detailData.feature)
@@ -405,11 +500,14 @@ export function AddMajorFormContainer({
       formState.setAutoSaveStatus("saving")
     }
 
-    if (
-      !formState.majorCode.trim() ||
-      !formState.majorName.trim() ||
-      !formState.educationalFeatures.trim()
-    ) {
+    const nextBasicInfoErrors = validateMajorBasicInfo(formState)
+    const firstInvalidBasicInfoField = getFirstInvalidBasicInfoField(nextBasicInfoErrors)
+
+    if (firstInvalidBasicInfoField !== null) {
+      setBasicInfoErrors(nextBasicInfoErrors)
+      setBasicInfoFocusField(firstInvalidBasicInfoField)
+      setBasicInfoValidationAttempt((currentAttempt) => currentAttempt + 1)
+
       // 自动保存时静默失败，不显示 toast
       if (!isAutoSave) {
         toast({
@@ -425,6 +523,9 @@ export function AddMajorFormContainer({
       }
       return
     }
+
+    setBasicInfoErrors({})
+    setBasicInfoFocusField(null)
 
     // 将 careerInfoList 转换为 professionsVOS 格式
     const professionsVOS = careerInfo.careerInfoList.map((careerInfoItem, index) => {
@@ -697,6 +798,10 @@ export function AddMajorFormContainer({
       effectiveDepartmentId={effectiveDepartmentId}
       initialData={initialData}
       formState={formState}
+      basicInfoErrors={basicInfoErrors}
+      basicInfoValidationAttempt={basicInfoValidationAttempt}
+      basicInfoFocusField={basicInfoFocusField}
+      onBasicInfoFieldValidationChange={handleBasicInfoFieldValidationChange}
       careerInfo={careerInfo}
       graduationReqs={graduationReqs}
       worksData={worksData}

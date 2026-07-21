@@ -7,6 +7,14 @@ import type { UseCareerInfoResult } from "../hooks/use-career-info"
 import type { UseGraduationRequirementsResult } from "../hooks/use-graduation-requirements"
 import type { WorkCategory } from "./models"
 
+export type MajorBasicInfoField =
+  | "majorCode"
+  | "majorName"
+  | "majorLevel"
+  | "educationalFeatures"
+
+export type MajorBasicInfoErrors = Partial<Record<MajorBasicInfoField, string>>
+
 // AddMajorForm主组件Props
 export interface AddMajorFormProps {
   departmentId: string
@@ -22,12 +30,20 @@ export interface AddMajorFormViewProps {
   effectiveDepartmentId: string
   initialData?: any
   formState: UseMajorFormStateResult
+  basicInfoErrors: MajorBasicInfoErrors
+  basicInfoValidationAttempt: number
+  basicInfoFocusField: MajorBasicInfoField | null
+  onBasicInfoFieldValidationChange: (field: MajorBasicInfoField, value: string) => void
   careerInfo: UseCareerInfoResult
   graduationReqs: UseGraduationRequirementsResult
   worksData: WorkCategory[]
   onCancel: () => void
   handleSubmit: () => void
   toast: any
+  isLoadingDetail?: boolean
+  onUploadGraduationRequirements: (files: File[]) => Promise<string[]>
+  onDownloadGraduationTemplate: () => Promise<void>
+  isGraduationUploadDisabled: boolean
 }
 
 // FormHeader组件Props
@@ -49,6 +65,10 @@ export interface MajorBasicInfoSectionProps {
   setMajorName: (value: string) => void
   setMajorLevel: (value: string) => void
   setEducationalFeatures: (value: string) => void
+  errors: MajorBasicInfoErrors
+  validationAttempt: number
+  focusField: MajorBasicInfoField | null
+  onFieldValidationChange: (field: MajorBasicInfoField, value: string) => void
 }
 
 // CareerInfoSection组件Props

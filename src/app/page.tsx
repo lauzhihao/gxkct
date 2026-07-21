@@ -6,6 +6,7 @@ import { TreeView } from "@/components/tree-view"
 import { DetailPanel } from "@/components/detail-panel"
 import { Header } from "@/components/header"
 import { LoadingState } from "@/shared/components/ui/loading-state"
+import { Button } from "@/shared/components/ui/button"
 import { useTreeData } from "@/shared/hooks/use-tree-data"
 import { useLocalStorage } from "@/shared/hooks/use-local-storage"
 import { api, getStoredAuthUser, getStoredAuthToken, clearStoredAuthToken } from "@/lib/api"
@@ -13,6 +14,17 @@ import { findStarredNode, getFirstNode } from "@/shared/utils/tree-operations"
 import { cn, extractNumericId } from "@/shared/utils/utils"
 import type { TreeNode } from "@/types"
 import { useSemesterStore } from "@/shared/stores/semester-store"
+import { mergeAuthoritativeCourseNode, resolveCourseMajorId } from "./course-node-resolution"
+import {
+  canCommitSelectionRequest,
+  createErrorSelectionResolution,
+  createIdleSelectionResolution,
+  createLoadingSelectionResolution,
+  createReadySelectionResolution,
+  getSelectionResolutionView,
+  type SelectionResolutionContext,
+  type SelectionResolutionState,
+} from "./course-selection-resolution"
 
 const CURRENT_SCHOOL_STORAGE_KEY = "education-current-school"
 const TREE_COLLAPSED_STORAGE_KEY = "education-tree-collapsed"
@@ -49,7 +61,7 @@ function mergeTreeNodeWithRichNode(treeNode: TreeNode | null, richNode: TreeNode
     ...treeNode,
     btnMenus: hasNonEmptyArray(richNode.btnMenus) ? richNode.btnMenus : treeNode.btnMenus,
     coverMenus: hasNonEmptyArray(richNode.coverMenus) ? richNode.coverMenus : treeNode.coverMenus,
-    manager: hasNonEmptyArray(richNode.manager) ? richNode.manager : treeNode.manager,
+    manager: richNode.manager !== undefined ? richNode.manager : treeNode.manager,
     metadata: {
       ...(treeNode.metadata ? treeNode.metadata : {}),
       ...(richNode.metadata ? richNode.metadata : {}),
@@ -114,8 +126,22 @@ function PageContent() {
   // 通过 selectedNodeRef 在异步闭包中读取最新值，避免在 setState 之外重复依赖 selectedNode
   const selectedNodeRef = useRef<TreeNode | null>(null)
   const pendingNavigationNodeRef = useRef<TreeNode | null>(null)
+  const selectionRequestIdRef = useRef(0)
   const urlNodeId = searchParams.get("nodeId")
   const selectedSemesterId = useSemesterStore((state) => state.selectedSemesterId)
+  const [selectionResolution, setSelectionResolution] = useState<SelectionResolutionState>(
+    createIdleSelectionResolution,
+  )
+  const [selectionRetryToken, setSelectionRetryToken] = useState(0)
+  const currentSelectionContext: SelectionResolutionContext | null = treeData !== null && urlNodeId !== null
+    ? {
+        treeData,
+        nodeId: urlNodeId,
+        semesterId: selectedSemesterId,
+        retryToken: selectionRetryToken,
+      }
+    : null
+  const selectionContextRef = useRef<SelectionResolutionContext | null>(currentSelectionContext)
 
   const resolveNextSelectedNode = useCallback((
     latestTree: TreeNode,
@@ -190,11 +216,10 @@ function PageContent() {
     selectedNodeRef.current = selectedNode
   }, [selectedNode])
 
-  // [ADD] urlNodeId 也用 ref 跟踪，避免 loadTreeData 等 effect 因 URL 变化而重跑树请求
+  // 当前完整解析上下文包含重试代次，防止旧请求在重试后写回。
   const urlNodeIdRef = useRef<string | null>(urlNodeId)
-  useEffect(() => {
-    urlNodeIdRef.current = urlNodeId
-  }, [urlNodeId])
+  urlNodeIdRef.current = urlNodeId
+  selectionContextRef.current = currentSelectionContext
 
   // [ADD] 用户主动切换节点的统一入口：改写 URL 并入历史栈
   // URL → state 的同步由下面的 effect 负责，这里只负责写 URL
@@ -209,28 +234,104 @@ function PageContent() {
     router.push(`/?nodeId=${encodeURIComponent(node.nodeId)}`, { scroll: false })
   }, [router])
 
-  // [ADD] URL → state 同步：响应浏览器返回/前进键，或 router.push 后的 URL 变化
+  // URL -> state：课程节点必须先从专业课程列表补齐负责人信息，再允许详情面板挂载。
   useEffect(() => {
-    if (!treeData || !urlNodeId) {
-      return
+    const requestId = selectionRequestIdRef.current + 1
+    selectionRequestIdRef.current = requestId
+    const invalidateRequest = () => {
+      if (selectionRequestIdRef.current === requestId) {
+        selectionRequestIdRef.current += 1
+      }
     }
-    if (urlNodeId === selectedNodeRef.current?.nodeId) {
-      return
+
+    if (treeData === null || urlNodeId === null) {
+      setSelectionResolution(createIdleSelectionResolution())
+      return invalidateRequest
     }
-    const found = findNodeInTree(treeData, urlNodeId)
+
+    const expectedTreeData = treeData
+    const expectedNodeId = urlNodeId
+    const expectedSemesterId = selectedSemesterId
+    const resolutionContext: SelectionResolutionContext = {
+      treeData: expectedTreeData,
+      nodeId: expectedNodeId,
+      semesterId: expectedSemesterId,
+      retryToken: selectionRetryToken,
+    }
+    const canCommitRequest = () => canCommitSelectionRequest(
+      selectionRequestIdRef.current,
+      requestId,
+      selectionContextRef.current,
+      resolutionContext,
+    )
+    const found = findNodeInTree(expectedTreeData, expectedNodeId)
     const pendingNode = pendingNavigationNodeRef.current
 
-    if (pendingNode?.nodeId === urlNodeId) {
+    if (pendingNode?.nodeId === expectedNodeId && found !== null) {
       setSelectedNode(mergeTreeNodeWithRichNode(found, pendingNode))
       pendingNavigationNodeRef.current = null
-      return
+      setSelectionResolution(createReadySelectionResolution(resolutionContext, requestId))
+      return invalidateRequest
     }
 
-    if (found) {
-      setSelectedNode(found)
+    if (found === null) {
+      if (pendingNode?.nodeId === expectedNodeId) {
+        pendingNavigationNodeRef.current = null
+      }
+      setSelectedNode(null)
+      setSelectionResolution(createErrorSelectionResolution(
+        resolutionContext,
+        requestId,
+        `当前树中不存在节点 ${expectedNodeId}`,
+      ))
+      return invalidateRequest
     }
-    // URL 指向的节点已不存在时不处理；由树刷新流程兜底替换 URL
-  }, [urlNodeId, treeData])
+
+    if (found.nodeType !== "course") {
+      setSelectedNode(found)
+      setSelectionResolution(createReadySelectionResolution(resolutionContext, requestId))
+      return invalidateRequest
+    }
+
+    setSelectedNode(null)
+    setSelectionResolution(createLoadingSelectionResolution(resolutionContext, requestId))
+
+    const resolveCourseNode = async () => {
+      try {
+        const majorId = resolveCourseMajorId(expectedTreeData, expectedNodeId)
+        const response = await api.tree.getMajorCourses(majorId, expectedSemesterId)
+        if (!canCommitRequest()) {
+          return
+        }
+
+        if (!Array.isArray(response.data)) {
+          const responseError = typeof response.error === "string" && response.error.trim() !== ""
+            ? response.error
+            : "课程负责人信息响应无效"
+          throw new Error(responseError)
+        }
+
+        const resolvedCourseNode = mergeAuthoritativeCourseNode(found, response.data)
+        if (!canCommitRequest()) {
+          return
+        }
+
+        setSelectedNode(resolvedCourseNode)
+        setSelectionResolution(createReadySelectionResolution(resolutionContext, requestId))
+      } catch (error) {
+        if (!canCommitRequest()) {
+          return
+        }
+
+        const message = error instanceof Error ? error.message : "课程负责人信息加载失败"
+        setSelectedNode(null)
+        setSelectionResolution(createErrorSelectionResolution(resolutionContext, requestId, message))
+      }
+    }
+
+    void resolveCourseNode()
+    return invalidateRequest
+  }, [selectedSemesterId, selectionRetryToken, treeData, urlNodeId])
 
   useEffect(() => {
     const loadTreeData = async () => {
@@ -280,7 +381,9 @@ function PageContent() {
         const resolvedNode = urlMatchedNode !== null
           ? urlMatchedNode
           : resolveNextSelectedNode(latestTree, selectedNodeRef.current, preferredSchoolId)
-        setSelectedNode(resolvedNode)
+        if (resolvedNode === null) {
+          setSelectedNode(null)
+        }
         // URL 与最终选中节点不一致时，用 replace 同步 URL（不入历史栈，避免首次访问就污染返回键）
         if (resolvedNode?.nodeId && resolvedNode.nodeId !== urlNodeIdSnapshot) {
           router.replace(`/?nodeId=${encodeURIComponent(resolvedNode.nodeId)}`, { scroll: false })
@@ -318,6 +421,20 @@ function PageContent() {
 
     return mergeTreeNodeWithRichNode(treeNode, selectedNode)
   }, [selectedNode, treeData])
+
+  const selectionResolutionView = getSelectionResolutionView(selectionResolution, currentSelectionContext)
+  const canRenderDetailPanel = selectionResolutionView === "ready"
+    && effectiveSelectedNode !== null
+    && effectiveSelectedNode.nodeId === urlNodeId
+  const currentSelectionError = selectionResolutionView === "error" && selectionResolution.status === "error"
+    ? selectionResolution.error
+    : null
+  const urlMatchedTreeNode = treeData !== null && urlNodeId !== null
+    ? findNodeInTree(treeData, urlNodeId)
+    : null
+  const selectionLoadingTitle = urlMatchedTreeNode?.nodeType === "course"
+    ? "正在加载课程权限信息"
+    : "正在加载页面信息"
 
   useEffect(() => {
     console.log("[Page] selectedNode changed:", selectedNode)
@@ -409,7 +526,9 @@ function PageContent() {
       const resolvedNode = urlMatchedNode !== null
         ? urlMatchedNode
         : resolveNextSelectedNode(latestTree, selectedNodeRef.current, preferredSchoolId)
-      setSelectedNode(resolvedNode)
+      if (resolvedNode === null) {
+        setSelectedNode(null)
+      }
       if (resolvedNode?.nodeId && resolvedNode.nodeId !== urlNodeIdSnapshot) {
         router.replace(`/?nodeId=${encodeURIComponent(resolvedNode.nodeId)}`, { scroll: false })
       }
@@ -468,22 +587,43 @@ function PageContent() {
               isTreeCollapsed ? "w-[calc(100%-70px-0.75rem)]" : "w-[calc(77%-0.375rem)]"
             )}
           >
-            <DetailPanel
-              node={effectiveSelectedNode}
-              treeData={treeData}
-              selectedNodePath={selectedNodePath}
-              onNodeSelect={navigateToNode}
-              onTreeRefresh={refreshTreeData}
-              onAddDepartment={handleAddDepartment}
-              onAddMajor={handleAddMajor}
-              onAddCourse={handleAddCourse}
-              onUpdateNode={handleUpdateNode}
-              onDeleteNode={handleDeleteNode}
-              departmentMajors={departmentMajors}
-              currentUser={currentUser}
-              // 传入handleToggleExpand回调
-              onToggleExpand={handleToggleExpand}
-            />
+            {canRenderDetailPanel ? (
+              <DetailPanel
+                node={effectiveSelectedNode}
+                treeData={treeData}
+                selectedNodePath={selectedNodePath}
+                onNodeSelect={navigateToNode}
+                onTreeRefresh={refreshTreeData}
+                onAddDepartment={handleAddDepartment}
+                onAddMajor={handleAddMajor}
+                onAddCourse={handleAddCourse}
+                onUpdateNode={handleUpdateNode}
+                onDeleteNode={handleDeleteNode}
+                departmentMajors={departmentMajors}
+                currentUser={currentUser}
+                // 传入handleToggleExpand回调
+                onToggleExpand={handleToggleExpand}
+              />
+            ) : currentSelectionError !== null ? (
+              <div
+                className="flex min-h-[500px] items-center justify-center rounded-xl border border-border bg-card/30 p-6 shadow-2xl backdrop-blur-md"
+                role="alert"
+              >
+                <div className="max-w-lg text-center">
+                  <h2 className="text-lg font-semibold text-foreground">课程权限信息加载失败</h2>
+                  <p className="mt-2 text-sm text-muted-foreground">{currentSelectionError}</p>
+                  <Button
+                    type="button"
+                    className="mt-6"
+                    onClick={() => setSelectionRetryToken((currentToken) => currentToken + 1)}
+                  >
+                    重试
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <LoadingState title={selectionLoadingTitle} variant="card" />
+            )}
           </div>
         </div>
       </div>

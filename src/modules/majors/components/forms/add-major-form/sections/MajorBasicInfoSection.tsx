@@ -6,26 +6,35 @@
 "use client"
 
 import { Button } from "@/shared/components/ui/button"
+import { FieldError } from "@/shared/components/ui/field"
 import { Input } from "@/shared/components/ui/input"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { Label } from "@/shared/components/ui/label"
 import { usePermission } from "@/shared/hooks/use-permission"
 import type { PermissionAction } from "@/shared/permissions/types"
+import type { MajorBasicInfoSectionProps } from "@/modules/majors/types/components"
 import { X } from "lucide-react"
+import { useEffect, useRef, type ChangeEvent, type KeyboardEvent } from "react"
+
+export type {
+  MajorBasicInfoErrors,
+  MajorBasicInfoField,
+} from "@/modules/majors/types/components"
 
 const MANAGE_MAJOR_ACTION: PermissionAction = "department.major.create"
 const MANAGE_MAJOR_CONTEXT = { scope: "department" as const }
+const MAJOR_CODE_ERROR_ID = "major-code-error"
+const MAJOR_NAME_ERROR_ID = "major-name-error"
+const MAJOR_LEVEL_LABEL_ID = "major-level-label"
+const MAJOR_LEVEL_ERROR_ID = "major-level-error"
+const EDUCATIONAL_FEATURES_ERROR_ID = "educational-features-error"
+const MAJOR_LEVEL_OPTIONS = [
+  { value: "2", label: "本科" },
+  { value: "1", label: "高职" },
+  { value: "0", label: "中职" },
+] as const
 
-interface MajorBasicInfoSectionProps {
-  majorCode: string
-  majorName: string
-  majorLevel: string
-  educationalFeatures: string
-  setMajorCode: (value: string) => void
-  setMajorName: (value: string) => void
-  setMajorLevel: (value: string) => void
-  setEducationalFeatures: (value: string) => void
-}
+type MajorLevelValue = (typeof MAJOR_LEVEL_OPTIONS)[number]["value"]
 
 export function MajorBasicInfoSection({
   majorCode,
@@ -36,29 +45,127 @@ export function MajorBasicInfoSection({
   setMajorName,
   setMajorLevel,
   setEducationalFeatures,
+  errors,
+  validationAttempt,
+  focusField,
+  onFieldValidationChange,
 }: MajorBasicInfoSectionProps) {
   const { can } = usePermission()
   const canManageMajor = can(MANAGE_MAJOR_ACTION, MANAGE_MAJOR_CONTEXT)
+  const majorCodeRef = useRef<HTMLInputElement>(null)
+  const majorNameRef = useRef<HTMLInputElement>(null)
+  const majorLevelOptionRefs = useRef<Array<HTMLButtonElement | null>>([])
+  const educationalFeaturesRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    if (validationAttempt === 0) {
+      return
+    }
+
+    if (focusField === null) {
+      return
+    }
+
+    switch (focusField) {
+      case "majorCode":
+        majorCodeRef.current?.focus()
+        return
+      case "majorName":
+        majorNameRef.current?.focus()
+        return
+      case "majorLevel":
+        if (canManageMajor) {
+          majorLevelOptionRefs.current[0]?.focus()
+        }
+        return
+      case "educationalFeatures":
+        educationalFeaturesRef.current?.focus()
+    }
+  }, [canManageMajor, focusField, validationAttempt])
+
+  const handleMajorCodeChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextValue = event.target.value.slice(0, 20)
+    setMajorCode(nextValue)
+    onFieldValidationChange("majorCode", nextValue)
+  }
+
+  const handleMajorNameChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextValue = event.target.value.slice(0, 20)
+    setMajorName(nextValue)
+    onFieldValidationChange("majorName", nextValue)
+  }
+
+  const handleEducationalFeaturesChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    const nextValue = event.target.value.slice(0, 200)
+    setEducationalFeatures(nextValue)
+    onFieldValidationChange("educationalFeatures", nextValue)
+  }
 
   const handleClearMajorCode = () => {
     if (!can(MANAGE_MAJOR_ACTION, MANAGE_MAJOR_CONTEXT)) return
     setMajorCode("")
+    onFieldValidationChange("majorCode", "")
   }
 
   const handleClearMajorName = () => {
     if (!can(MANAGE_MAJOR_ACTION, MANAGE_MAJOR_CONTEXT)) return
     setMajorName("")
+    onFieldValidationChange("majorName", "")
   }
 
-  const handleSetMajorLevel = (level: string) => {
-    if (!can(MANAGE_MAJOR_ACTION, MANAGE_MAJOR_CONTEXT)) return
+  const handleSetMajorLevel = (level: MajorLevelValue) => {
+    if (!canManageMajor) return
     setMajorLevel(level)
+    onFieldValidationChange("majorLevel", level)
+  }
+
+  const handleMajorLevelKeyDown = (
+    event: KeyboardEvent<HTMLButtonElement>,
+    currentIndex: number
+  ) => {
+    if (!canManageMajor) return
+
+    let nextIndex: number | null = null
+
+    switch (event.key) {
+      case "ArrowDown":
+      case "ArrowRight":
+        nextIndex = (currentIndex + 1) % MAJOR_LEVEL_OPTIONS.length
+        break
+      case "ArrowUp":
+      case "ArrowLeft":
+        nextIndex = (currentIndex - 1 + MAJOR_LEVEL_OPTIONS.length) % MAJOR_LEVEL_OPTIONS.length
+        break
+      case "Home":
+        nextIndex = 0
+        break
+      case "End":
+        nextIndex = MAJOR_LEVEL_OPTIONS.length - 1
+        break
+      default:
+        return
+    }
+
+    event.preventDefault()
+    const nextOption = MAJOR_LEVEL_OPTIONS[nextIndex]
+    handleSetMajorLevel(nextOption.value)
+    majorLevelOptionRefs.current[nextIndex]?.focus()
   }
 
   const handleClearEducationalFeatures = () => {
     if (!can(MANAGE_MAJOR_ACTION, MANAGE_MAJOR_CONTEXT)) return
     setEducationalFeatures("")
+    onFieldValidationChange("educationalFeatures", "")
   }
+
+  const majorCodeError = errors.majorCode
+  const majorNameError = errors.majorName
+  const majorLevelError = errors.majorLevel
+  const educationalFeaturesError = errors.educationalFeatures
+  const selectedMajorLevelIndex = MAJOR_LEVEL_OPTIONS.findIndex(
+    (option) => option.value === majorLevel
+  )
+  const tabbableMajorLevelIndex = selectedMajorLevelIndex >= 0 ? selectedMajorLevelIndex : 0
 
   return (
     <div className="space-y-4">
@@ -74,12 +181,16 @@ export function MajorBasicInfoSection({
           </Label>
           <div className="relative">
             <Input
+              ref={majorCodeRef}
               id="major-code"
               placeholder="例如：120204"
               value={majorCode}
-              onChange={(e) => setMajorCode(e.target.value.slice(0, 20))}
+              onChange={handleMajorCodeChange}
               maxLength={20}
               className="pr-20"
+              aria-invalid={majorCodeError !== undefined}
+              aria-required={true}
+              aria-describedby={majorCodeError !== undefined ? MAJOR_CODE_ERROR_ID : undefined}
             />
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
               <span className="text-xs text-muted-foreground">{majorCode.length}/20</span>
@@ -88,12 +199,16 @@ export function MajorBasicInfoSection({
                   type="button"
                   onClick={handleClearMajorCode}
                   className="text-muted-foreground hover:text-foreground"
+                  aria-label="清空专业类别"
                 >
                   <X className="w-3 h-3" />
                 </button>
               )}
             </div>
           </div>
+          {majorCodeError !== undefined && (
+            <FieldError id={MAJOR_CODE_ERROR_ID}>{majorCodeError}</FieldError>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -102,12 +217,16 @@ export function MajorBasicInfoSection({
           </Label>
           <div className="relative">
             <Input
+              ref={majorNameRef}
               id="major-name"
               placeholder="例如：计算机科学与技术"
               value={majorName}
-              onChange={(e) => setMajorName(e.target.value.slice(0, 20))}
+              onChange={handleMajorNameChange}
               maxLength={20}
               className="pr-20"
+              aria-invalid={majorNameError !== undefined}
+              aria-required={true}
+              aria-describedby={majorNameError !== undefined ? MAJOR_NAME_ERROR_ID : undefined}
             />
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
               <span className="text-xs text-muted-foreground">{majorName.length}/20</span>
@@ -116,44 +235,62 @@ export function MajorBasicInfoSection({
                   type="button"
                   onClick={handleClearMajorName}
                   className="text-muted-foreground hover:text-foreground"
+                  aria-label="清空专业名称"
                 >
                   <X className="w-3 h-3" />
                 </button>
               )}
             </div>
           </div>
+          {majorNameError !== undefined && (
+            <FieldError id={MAJOR_NAME_ERROR_ID}>{majorNameError}</FieldError>
+          )}
         </div>
 
         <div className="space-y-2">
-          <Label>
+          <Label id={MAJOR_LEVEL_LABEL_ID}>
             专业层次 <span className="text-red-500">*</span>
           </Label>
-          <div className="flex flex-col gap-2">
-            <Button
-              type="button"
-              variant={majorLevel === "2" ? "default" : "outline"}
-              className="justify-center"
-              onClick={() => handleSetMajorLevel("2")}
-            >
-              本科
-            </Button>
-            <Button
-              type="button"
-              variant={majorLevel === "1" ? "default" : "outline"}
-              className="justify-center"
-              onClick={() => handleSetMajorLevel("1")}
-            >
-              高职
-            </Button>
-            <Button
-              type="button"
-              variant={majorLevel === "0" ? "default" : "outline"}
-              className="justify-center"
-              onClick={() => handleSetMajorLevel("0")}
-            >
-              中职
-            </Button>
+          <div
+            className={
+              majorLevelError !== undefined
+                ? "flex flex-col gap-2 rounded-md border border-destructive p-2"
+                : "flex flex-col gap-2"
+            }
+            role="radiogroup"
+            aria-labelledby={MAJOR_LEVEL_LABEL_ID}
+            aria-required={true}
+            aria-invalid={majorLevelError !== undefined}
+            aria-describedby={majorLevelError !== undefined ? MAJOR_LEVEL_ERROR_ID : undefined}
+          >
+            {MAJOR_LEVEL_OPTIONS.map((option, index) => (
+              <Button
+                key={option.value}
+                ref={(node) => {
+                  majorLevelOptionRefs.current[index] = node
+                }}
+                type="button"
+                variant={majorLevel === option.value ? "default" : "outline"}
+                className="justify-center"
+                onClick={() => handleSetMajorLevel(option.value)}
+                onKeyDown={(event) => handleMajorLevelKeyDown(event, index)}
+                role="radio"
+                aria-checked={majorLevel === option.value}
+                aria-disabled={!canManageMajor}
+                aria-describedby={
+                  majorLevelError !== undefined ? MAJOR_LEVEL_ERROR_ID : undefined
+                }
+                tabIndex={
+                  canManageMajor && tabbableMajorLevelIndex === index ? 0 : -1
+                }
+              >
+                {option.label}
+              </Button>
+            ))}
           </div>
+          {majorLevelError !== undefined && (
+            <FieldError id={MAJOR_LEVEL_ERROR_ID}>{majorLevelError}</FieldError>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -162,12 +299,18 @@ export function MajorBasicInfoSection({
           </Label>
           <div className="relative h-[120px]">
             <Textarea
+              ref={educationalFeaturesRef}
               id="educational-features"
               placeholder="简要描述专业的特色和优势"
               value={educationalFeatures}
-              onChange={(e) => setEducationalFeatures(e.target.value.slice(0, 200))}
+              onChange={handleEducationalFeaturesChange}
               maxLength={200}
               className="pr-20 h-full resize-none"
+              aria-invalid={educationalFeaturesError !== undefined}
+              aria-required={true}
+              aria-describedby={
+                educationalFeaturesError !== undefined ? EDUCATIONAL_FEATURES_ERROR_ID : undefined
+              }
             />
             <div className="absolute right-2 top-2 flex items-center gap-2">
               <span className="text-xs text-muted-foreground">{educationalFeatures.length}/200</span>
@@ -176,12 +319,18 @@ export function MajorBasicInfoSection({
                   type="button"
                   onClick={handleClearEducationalFeatures}
                   className="text-muted-foreground hover:text-foreground"
+                  aria-label="清空专业特色"
                 >
                   <X className="w-3 h-3" />
                 </button>
               )}
             </div>
           </div>
+          {educationalFeaturesError !== undefined && (
+            <FieldError id={EDUCATIONAL_FEATURES_ERROR_ID}>
+              {educationalFeaturesError}
+            </FieldError>
+          )}
         </div>
       </div>
     </div>

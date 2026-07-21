@@ -58,12 +58,12 @@ export function createMessageCommitter(
   sessionId: string,
   setChatMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>,
   saveToStorage: (sessionId: string, messages: ChatMessage[]) => void
-): (content: string, thinking?: string) => void {
-  return (content: string, thinking?: string) => {
+): (content: string, thinking?: string, generationStatus?: ChatMessage["generationStatus"]) => void {
+  return (content: string, thinking?: string, generationStatus = "completed") => {
     setChatMessages((prev) => {
       const updatedMessages = prev.map((message) =>
         message.id === aiMessageId
-          ? { ...message, content, thinking, isStreaming: false }
+          ? { ...message, content, thinking, isStreaming: false, generationStatus }
           : message
       )
       saveToStorage(sessionId, updatedMessages)

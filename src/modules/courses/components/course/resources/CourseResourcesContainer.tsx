@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { RefreshCw, FolderPlus, Copy, Scissors, Trash2, Search as SearchIcon, Upload } from "lucide-react"
+import { RefreshCw, FolderPlus, Download, Copy, Scissors, Trash2, Search as SearchIcon, Upload } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Empty, EmptyDescription, EmptyTitle } from "@/shared/components/ui/empty"
 import { Input } from "@/shared/components/ui/input"
@@ -22,8 +22,16 @@ import { ResourceBreadcrumb } from "./ResourceBreadcrumb"
 import { ResourceSearchBar } from "./ResourceSearchBar"
 import { ResourceObjectList } from "./ResourceObjectList"
 import { ResourcePreviewDrawer } from "./ResourcePreviewDrawer"
+import { resolveSafeResourceUrl } from "./resource-preview-types"
+import {
+  changeResourceInteractionMode,
+  toggleResourceSelection,
+  type ResourceInteractionMode,
+} from "./resource-interaction-state"
+import { validateCompleteFileName, validateFolderName } from "./resource-name-validation"
 import type { ResourceEntry, ResourcePreviewTarget, ResourceRenameTarget, TemporaryUploadItem } from "./types"
 import { useCourseResources } from "@/modules/courses/hooks/use-course-resources"
+import { useResourceViewPreference } from "@/modules/courses/hooks/use-resource-view-preference"
 import { courseResourcesApi, type ResourceOwnerType } from "@/modules/courses/api/courseResourcesApi"
 import { showError, showSuccess } from "@/shared/utils/toast-utils"
 
@@ -37,28 +45,6 @@ interface CourseResourcesContainerProps {
 const MAX_RESOURCE_UPLOAD_SIZE = 1024 * 1024 * 1024
 const FALLBACK_RESOURCE_MIME_TYPE = "application/octet-stream"
 
-const resolveSafeBatchDownloadUrl = (value: string): string => {
-  const trimmed = value.trim()
-  if (!trimmed) {
-    throw new Error("批量下载地址为空")
-  }
-  if (trimmed.includes("\\")) {
-    throw new Error("批量下载地址无效")
-  }
-  if (trimmed.startsWith("/")) {
-    if (trimmed.startsWith("//")) {
-      throw new Error("批量下载地址无效")
-    }
-    return trimmed
-  }
-
-  const url = new URL(trimmed)
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error("批量下载地址协议不受支持")
-  }
-  return trimmed
-}
-
 class UploadCanceledError extends Error {
   constructor(message = "已取消上传") {
     super(message)
@@ -67,20 +53,6 @@ class UploadCanceledError extends Error {
 }
 
 const MAX_RESOURCE_UPLOAD_COUNT = 20
-
-const validateResourceName = (value: string, resourceLabel: "文件夹" | "文件"): string | null => {
-  const trimmed = value.trim()
-  if (!trimmed) {
-    return `${resourceLabel}名称不能为空`
-  }
-  if (trimmed.length > 64) {
-    return `${resourceLabel}名称不能超过64个字符`
-  }
-  if (!/^[\u4e00-\u9fa5a-zA-Z0-9\s]+$/.test(trimmed)) {
-    return `${resourceLabel}名称包含特殊符号，请重新输入`
-  }
-  return null
-}
 
 const resolveUploadMimeType = (file: File): string => {
   if (typeof file.type !== "string") {
@@ -131,15 +103,15 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
     currentParentId,
     searchTerm,
     setSearchTerm,
-    viewMode,
-    setViewMode,
     enterFolder,
     goToBreadcrumb,
     refreshCurrentLevel,
     initializeFolders,
   } = useCourseResources(nodeId, ownerType)
+  const { viewMode, setViewMode } = useResourceViewPreference()
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [interactionMode, setInteractionMode] = useState<ResourceInteractionMode>("normal")
   const [isDeleting, setIsDeleting] = useState(false)
   const [isBatchDownloading, setIsBatchDownloading] = useState(false)
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false)
@@ -163,6 +135,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
 
   useEffect(() => {
     setSelectedIds(new Set())
+    setInteractionMode("normal")
     setRenameTarget(null)
     setRenameName("")
     setRenameNameError(null)
@@ -204,16 +177,31 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
   }, [currentParentId, nodeId])
 
   const toggleSelect = useCallback((objectId: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(objectId)) {
-        next.delete(objectId)
-      } else {
-        next.add(objectId)
-      }
-      return next
-    })
-  }, [])
+    setSelectedIds((currentIds) => (
+      toggleResourceSelection(interactionMode, currentIds, objectId)
+    ))
+  }, [interactionMode])
+
+  const handleToggleBatchMode = useCallback(() => {
+    const nextMode = interactionMode === "normal" ? "batch" : "normal"
+    const nextState = changeResourceInteractionMode(nextMode)
+    setInteractionMode(nextState.mode)
+    setSelectedIds(nextState.selectedIds)
+  }, [interactionMode])
+
+  const handleFolderClick = useCallback((folder: Parameters<typeof enterFolder>[0]) => {
+    const nextState = changeResourceInteractionMode("normal")
+    setInteractionMode(nextState.mode)
+    setSelectedIds(nextState.selectedIds)
+    enterFolder(folder)
+  }, [enterFolder])
+
+  const handleBreadcrumbClick = useCallback((index: number) => {
+    const nextState = changeResourceInteractionMode("normal")
+    setInteractionMode(nextState.mode)
+    setSelectedIds(nextState.selectedIds)
+    goToBreadcrumb(index)
+  }, [goToBreadcrumb])
 
   const handleDeleteSelected = useCallback(async () => {
     if (!courseEditable) return
@@ -273,7 +261,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
         return
       }
 
-      const safeDownloadUrl = resolveSafeBatchDownloadUrl(downloadUrl)
+      const safeDownloadUrl = resolveSafeResourceUrl(downloadUrl, "批量下载地址")
       const anchor = document.createElement("a")
       anchor.href = safeDownloadUrl
       anchor.download = ""
@@ -578,14 +566,14 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
   const handleFolderNameChange = useCallback(
     (value: string) => {
       setNewFolderName(value)
-      setFolderNameError(validateResourceName(value, "文件夹"))
+      setFolderNameError(validateFolderName(value))
     },
     [],
   )
 
   const handleCreateFolderConfirm = useCallback(async () => {
     if (!courseEditable) return
-    const error = validateResourceName(newFolderName, "文件夹")
+    const error = validateFolderName(newFolderName)
     if (error) {
       setFolderNameError(error)
       return
@@ -624,10 +612,13 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
 
   const handleOpenRename = useCallback((target: ResourceRenameTarget) => {
     if (!courseEditable || isRootLevel) return
-    const resourceLabel = target.type === "folder" ? "文件夹" : "文件"
     setRenameTarget(target)
     setRenameName(target.name)
-    setRenameNameError(validateResourceName(target.name, resourceLabel))
+    setRenameNameError(
+      target.type === "folder"
+        ? validateFolderName(target.name)
+        : validateCompleteFileName(target.name),
+    )
     setIsRenaming(false)
   }, [courseEditable, isRootLevel])
 
@@ -637,8 +628,11 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
       setRenameNameError("未找到要重命名的资源")
       return
     }
-    const resourceLabel = renameTarget.type === "folder" ? "文件夹" : "文件"
-    setRenameNameError(validateResourceName(value, resourceLabel))
+    setRenameNameError(
+      renameTarget.type === "folder"
+        ? validateFolderName(value)
+        : validateCompleteFileName(value),
+    )
   }, [renameTarget])
 
   const handleRenameConfirm = useCallback(async () => {
@@ -651,7 +645,9 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
       return
     }
     const resourceLabel = renameTarget.type === "folder" ? "文件夹" : "文件"
-    const validationError = validateResourceName(renameName, resourceLabel)
+    const validationError = renameTarget.type === "folder"
+      ? validateFolderName(renameName)
+      : validateCompleteFileName(renameName)
     if (validationError) {
       setRenameNameError(validationError)
       return
@@ -696,6 +692,10 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
 
   const handlePreviewOpenChange = useCallback((open: boolean) => {
     setIsPreviewOpen(open)
+  }, [])
+
+  const handlePreviewCloseAnimationEnd = useCallback(() => {
+    setPreviewTarget(null)
   }, [])
 
   const loadPreviewDetail = useCallback(async (resourceId: string): Promise<unknown> => {
@@ -815,8 +815,8 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
   if (!nodeId) {
     return (
       <Empty>
-        <EmptyTitle>暂无课程数据</EmptyTitle>
-        <EmptyDescription>请选择具体课程后查看课程资源。</EmptyDescription>
+        <EmptyTitle>暂无资源数据</EmptyTitle>
+        <EmptyDescription>请选择具体对象后查看文件资源。</EmptyDescription>
       </Empty>
     )
   }
@@ -825,12 +825,11 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
     <>
       <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <ResourceBreadcrumb path={breadcrumbs} onCrumbClick={goToBreadcrumb} />
+        <ResourceBreadcrumb path={breadcrumbs} onCrumbClick={handleBreadcrumbClick} />
         {showActions ? (
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
             <ResourceSearchBar
               courseEditable={courseEditable}
-              selectedCount={selectedCount}
               searchTerm={searchTerm}
               onSearchChange={setSearchTerm}
               placeholder="搜索当前目录下的文件"
@@ -840,9 +839,8 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
               disableUpload={isLoading || isRootLevel}
               onCreateFolderClick={handleOpenCreateFolder}
               disableCreateFolder={isCreateFolderDisabled}
-              onBatchDownload={handleBatchDownload}
-              disableBatchDownload={nodeId === null || selectedCount === 0}
-              isBatchDownloading={isBatchDownloading}
+              interactionMode={interactionMode}
+              onToggleBatchMode={handleToggleBatchMode}
             />
             <div className="flex items-center gap-2">
               <Button
@@ -876,13 +874,15 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
       {needInitialization ? (
         <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-primary/40 py-12 text-center">
           <FolderPlus className="h-10 w-10 text-primary" />
-          <p className="text-sm text-muted-foreground">当前课程尚未初始化资源目录</p>
-          {canManageCourseResource && (
-            <Button onClick={handleInitializeFoldersWithPermission} disabled={isInitializing} className="min-w-[160px]">
-              {isInitializing && <Spinner className="mr-2" />}
-              初始化目录
-            </Button>
-          )}
+          <p className="text-sm text-muted-foreground">尚未初始化资源目录</p>
+          <Button
+            onClick={handleInitializeFoldersWithPermission}
+            disabled={!courseEditable || isInitializing}
+            className="min-w-[160px]"
+          >
+            {isInitializing && <Spinner className="mr-2" />}
+            初始化目录
+          </Button>
         </div>
       ) : isLoading ? (
         <LoadingState title="正在加载目录" />
@@ -892,10 +892,31 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
         </div>
       ) : (
         <div className="space-y-4">
-          {hasSelectableObjects && (
+          {interactionMode === "batch" && hasSelectableObjects && (
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <span>已选 {selectedCount} 个对象</span>
               <div className="flex flex-wrap items-center gap-2">
+                {canManageCourseResource && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1 transition-colors hover:bg-primary hover:text-white hover:[&>svg]:text-white"
+                    disabled={nodeId === null || selectedCount === 0 || isBatchDownloading}
+                    onClick={handleBatchDownload}
+                  >
+                    {isBatchDownloading ? (
+                      <>
+                        <Spinner className="h-4 w-4" />
+                        正在准备
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4" />
+                        批量下载
+                      </>
+                    )}
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -958,8 +979,9 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
               entries={resourceEntries}
               viewMode={viewMode}
               selectedIds={selectedIds}
+              interactionMode={interactionMode}
               onToggleSelect={toggleSelect}
-              onFolderClick={enterFolder}
+              onFolderClick={handleFolderClick}
               onCancelUpload={handleCancelUpload}
               onRetryUpload={handleRetryUpload}
               isRootLevel={isRootLevel}
@@ -1008,7 +1030,11 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
         <DialogContent>
           <DialogHeader>
             <DialogTitle>重命名{renameTarget?.type === "folder" ? "文件夹" : "文件"}</DialogTitle>
-            <DialogDescription>请输入新名称，最多64个字符且不可包含特殊符号。</DialogDescription>
+            <DialogDescription>
+              {renameTarget?.type === "file"
+                ? "请输入完整文件名，可包含空格、点号、连字符和下划线，最多64个字符。"
+                : "请输入新名称，最多64个字符且不可包含特殊符号。"}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-2">
             <Input
@@ -1080,6 +1106,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
           resourceId={previewTarget.id}
           initialDisplayName={previewTarget.name}
           onOpenChange={handlePreviewOpenChange}
+          onCloseAnimationEnd={handlePreviewCloseAnimationEnd}
           loadDetail={loadPreviewDetail}
         />
       )}

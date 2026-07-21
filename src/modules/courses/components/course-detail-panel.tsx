@@ -102,6 +102,111 @@ interface CourseFormData {
   metadata?: CourseFormMetadata
 }
 
+interface AcceptedCourseDetailIdentity {
+  requestKey: string
+  courseId: number
+  data: CombinedCourseDetail
+}
+
+const VALID_COURSE_NATURE_IDS: ReadonlySet<number> = new Set([1, 2, 3, 4, 5])
+
+const parseRequiredPositiveInteger = (value: unknown, fieldName: string): number => {
+  if (typeof value === "number") {
+    if (Number.isInteger(value) && value > 0) {
+      return value
+    }
+    throw new Error(`${fieldName} must be a positive integer`)
+  }
+
+  if (typeof value === "string") {
+    const trimmedValue = value.trim()
+    if (/^\d+$/.test(trimmedValue)) {
+      const parsedValue = Number.parseInt(trimmedValue, 10)
+      if (Number.isInteger(parsedValue) && parsedValue > 0) {
+        return parsedValue
+      }
+    }
+  }
+
+  throw new Error(`${fieldName} must be a positive integer`)
+}
+
+const parseCourseNodeId = (value: unknown, fieldName: string): number => {
+  if (typeof value !== "string") {
+    return parseRequiredPositiveInteger(value, fieldName)
+  }
+
+  const trimmedValue = value.trim()
+  const matchedCourseId = /^(?:course_)?(\d+)$/.exec(trimmedValue)
+  if (matchedCourseId === null) {
+    throw new Error(`${fieldName} must be a numeric id or course-prefixed numeric id`)
+  }
+
+  return parseRequiredPositiveInteger(matchedCourseId[1], fieldName)
+}
+
+const resolveRequiredCourseName = (value: unknown): string => {
+  if (typeof value !== "string") {
+    throw new Error("Course name must be a string")
+  }
+
+  const trimmedName = value.trim()
+  if (trimmedName === "") {
+    throw new Error("Course name is required")
+  }
+  if (trimmedName.length > 32) {
+    throw new Error("Course name must not exceed 32 characters")
+  }
+
+  return trimmedName
+}
+
+const resolveRequiredCourseNatureId = (value: unknown): number => {
+  if (typeof value !== "number" || !Number.isInteger(value) || !VALID_COURSE_NATURE_IDS.has(value)) {
+    throw new Error("Course nature id is invalid")
+  }
+
+  return value
+}
+
+const resolveOptionalNonNegativeNumber = (
+  value: unknown,
+  fieldName: string,
+  integerOnly: boolean,
+): number | undefined => {
+  if (value === undefined) {
+    return undefined
+  }
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    throw new Error(`${fieldName} must be a non-negative finite number`)
+  }
+  if (integerOnly && !Number.isInteger(value)) {
+    throw new Error(`${fieldName} must be an integer`)
+  }
+
+  return value
+}
+
+const resolveOptionalIntroduction = (value: unknown): string | null => {
+  if (value === undefined || value === null || value === "") {
+    return null
+  }
+  if (typeof value !== "string") {
+    throw new Error("Course introduction must be a string or null")
+  }
+
+  return value
+}
+
+const createCourseDetailRequestKey = (
+  courseNodeId: string | undefined,
+  semesterId: number | null,
+): string => {
+  const courseKey = typeof courseNodeId === "string" ? courseNodeId : "missing-course"
+  const semesterKey = semesterId === null ? "current-semester" : String(semesterId)
+  return `${courseKey}:${semesterKey}`
+}
+
 interface CourseOrganizationInfo {
   universityId: string
   universityName: string
@@ -311,6 +416,19 @@ export function CourseDetail({
     clearPreparedCanvasData,
   } = useAiCanvasStore()
   const prefetchedCanvasCourseIdRef = useRef<string | null>(null)
+  const courseDetailRequestSequenceRef = useRef(0)
+  const courseGoalsRequestSequenceRef = useRef(0)
+  const acceptedCourseDetailIdentityRef = useRef<AcceptedCourseDetailIdentity | null>(null)
+  const currentCourseNodeIdRef = useRef(courseNodeId)
+  const currentCourseDetailRequestKeyRef = useRef("")
+  const courseEditableRef = useRef(courseEditable)
+  const semesterReadonlyRef = useRef(isSemesterReadonly)
+  const currentCourseDetailRequestKey = createCourseDetailRequestKey(courseNodeId, selectedSemesterId)
+
+  currentCourseNodeIdRef.current = courseNodeId
+  currentCourseDetailRequestKeyRef.current = currentCourseDetailRequestKey
+  courseEditableRef.current = courseEditable
+  semesterReadonlyRef.current = isSemesterReadonly
 
   // [MOD] 开课学期：从后端返回的 courseDetail 中直接获取，不再前端计算
   const semesterDisplay = useMemo(() => {
@@ -351,12 +469,30 @@ export function CourseDetail({
   }, [courseNode?.nodeId])
 
   useEffect(() => {
+    if (!courseEditable) {
+      setIsEditingCourse(false)
+    }
+  }, [courseEditable])
+
+  useEffect(() => {
     const handleOpenResources = () => setActiveTab("resources")
     window.addEventListener("open-course-resources-tab", handleOpenResources)
     return () => window.removeEventListener("open-course-resources-tab", handleOpenResources)
   }, [])
 
   const loadCourseDetail = useCallback(async (options?: { silent?: boolean }) => {
+    const requestKey = createCourseDetailRequestKey(courseNodeId, selectedSemesterId)
+    if (currentCourseDetailRequestKeyRef.current !== requestKey) {
+      return false
+    }
+
+    const requestSequence = courseDetailRequestSequenceRef.current + 1
+    courseDetailRequestSequenceRef.current = requestSequence
+    acceptedCourseDetailIdentityRef.current = null
+    const isLatestRequest = () => (
+      courseDetailRequestSequenceRef.current === requestSequence
+      && currentCourseDetailRequestKeyRef.current === requestKey
+    )
     const silent = options?.silent ?? false
     if (!silent) {
       setIsLoading(true)
@@ -371,13 +507,34 @@ export function CourseDetail({
         return false
       }
 
-      console.log(`[CourseDetail] 开始加载课程详情，courseId: ${courseId}`)
-      const response = await courseApiService.getCourseDetail(courseId, selectedSemesterId)
+      const requestedCourseId = parseCourseNodeId(courseId, "Current course id")
+      console.log(`[CourseDetail] 开始加载课程详情，courseId: ${requestedCourseId}`)
+      const response = await courseApiService.getCourseDetail(String(requestedCourseId), selectedSemesterId)
       if (response.data) {
+        const responseCourseId = parseRequiredPositiveInteger(
+          response.data.courseDetailData.course.id,
+          "Response course id",
+        )
+        if (responseCourseId !== requestedCourseId) {
+          throw new Error("Course detail response does not match the current course")
+        }
+        if (!isLatestRequest()) {
+          return false
+        }
+
         console.log("[CourseDetail] 课程详情加载成功")
+        acceptedCourseDetailIdentityRef.current = {
+          requestKey,
+          courseId: responseCourseId,
+          data: response.data,
+        }
         setCourseDetailData(response.data)
         setCourseLoadError(null)
         return true
+      }
+
+      if (!isLatestRequest()) {
+        return false
       }
 
       console.error("[CourseDetail] 课程详情返回为空")
@@ -387,14 +544,19 @@ export function CourseDetail({
       setCourseLoadError(response.error || "该学期无课程数据")
       return false
     } catch (error) {
+      if (!isLatestRequest()) {
+        return false
+      }
+
       console.error("[CourseDetail] 加载课程详情失败:", error)
+      acceptedCourseDetailIdentityRef.current = null
       setCourseDetailData(null)
       setCourseGoals([])
       setHasLoadedCourseGoals(false)
       setCourseLoadError(error instanceof Error ? error.message : "加载课程详情失败")
       return false
     } finally {
-      if (!silent) {
+      if (!silent && isLatestRequest()) {
         setIsLoading(false)
       }
     }
@@ -408,18 +570,44 @@ export function CourseDetail({
 
   // 加载教学目标数据（课程详情加载完成后即加载）
   const loadCourseGoals = useCallback(async (options?: { refreshMatrix?: boolean }) => {
+    const requestKey = createCourseDetailRequestKey(courseNodeId, selectedSemesterId)
+    if (currentCourseDetailRequestKeyRef.current !== requestKey) {
+      return false
+    }
+
+    const requestSequence = courseGoalsRequestSequenceRef.current + 1
+    courseGoalsRequestSequenceRef.current = requestSequence
+    const isLatestGoalsRequest = () => (
+      courseGoalsRequestSequenceRef.current === requestSequence
+      && currentCourseDetailRequestKeyRef.current === requestKey
+    )
+
     try {
       const courseId = courseNodeId
       const majorId = courseDetailData?.courseDetailData?.course?.majorId
+      const acceptedCourseDetailIdentity = acceptedCourseDetailIdentityRef.current
 
-      if (!courseId || !majorId) {
+      if (
+        !courseId
+        || !majorId
+        || acceptedCourseDetailIdentity === null
+        || acceptedCourseDetailIdentity.requestKey !== requestKey
+        || acceptedCourseDetailIdentity.data !== courseDetailData
+      ) {
         console.warn("[CourseDetail] 无法获取课程ID或专业ID")
-        setHasLoadedCourseGoals(false)
+        if (isLatestGoalsRequest()) {
+          setHasLoadedCourseGoals(false)
+        }
         return false
       }
 
-      console.log(`[CourseDetail] 开始加载教学目标，courseId: ${courseId}, majorId: ${majorId}`)
-      const response = await courseGoalsApi.getCourseMatrixHeaderGoals(String(courseId))
+      const requestedCourseId = parseCourseNodeId(courseId, "Current course id")
+      console.log(`[CourseDetail] 开始加载教学目标，courseId: ${requestedCourseId}, majorId: ${majorId}`)
+      const response = await courseGoalsApi.getCourseMatrixHeaderGoals(String(requestedCourseId))
+      if (!isLatestGoalsRequest()) {
+        return false
+      }
+
       if (response.data) {
         console.log(`[CourseDetail] 教学目标加载成功:`, response.data.length)
         setCourseGoals(response.data)
@@ -433,11 +621,15 @@ export function CourseDetail({
       setHasLoadedCourseGoals(false)
       return false
     } catch (error) {
+      if (!isLatestGoalsRequest()) {
+        return false
+      }
+
       console.error("[CourseDetail] 加载教学目标失败:", error)
       setHasLoadedCourseGoals(false)
       return false
     }
-  }, [courseNodeId, courseDetailData])
+  }, [courseNodeId, courseDetailData, selectedSemesterId])
 
   useEffect(() => {
     // 当课程详情加载完成后，加载教学目标数据
@@ -447,15 +639,76 @@ export function CourseDetail({
   }, [courseDetailData, loadCourseGoals])
 
   const handleEditCourseFormSubmit = async (courseData: CourseFormData, isAutoSave: boolean = false) => {
-    if (!courseNode) return
+    if (!courseNode) {
+      throw new Error("Course node is required for server edit")
+    }
 
     try {
       // 构建保存请求数据
-      const courseId = courseNode.id ? parseInt(courseNode.id, 10) : 0
-      const majorId = courseDetailData?.courseDetailData?.course?.majorId || 0
+      if (!courseDetailData) {
+        throw new Error("Course detail is required for server edit")
+      }
+      const persistedCourse = courseDetailData.courseDetailData.course
+      const courseId = parseRequiredPositiveInteger(persistedCourse.id, "Course id")
+      const acceptedCourseDetailIdentity = acceptedCourseDetailIdentityRef.current
+      const isCurrentCourseSaveContext = () => {
+        if (
+          !courseEditableRef.current
+          || semesterReadonlyRef.current
+          || acceptedCourseDetailIdentity === null
+          || acceptedCourseDetailIdentity.requestKey !== currentCourseDetailRequestKeyRef.current
+        ) {
+          return false
+        }
+
+        try {
+          return parseCourseNodeId(currentCourseNodeIdRef.current, "Current course id") === courseId
+        } catch {
+          return false
+        }
+      }
+      const assertCurrentCourseEditContext = () => {
+        if (!courseEditableRef.current || semesterReadonlyRef.current) {
+          throw new Error("Course is read-only and cannot be saved")
+        }
+
+        const currentCourseId = parseCourseNodeId(
+          currentCourseNodeIdRef.current,
+          "Current course id",
+        )
+        if (currentCourseId !== courseId) {
+          throw new Error("Course detail does not match the current course")
+        }
+        if (
+          acceptedCourseDetailIdentity === null
+          || acceptedCourseDetailIdentity.data !== courseDetailData
+          || acceptedCourseDetailIdentity.courseId !== courseId
+          || acceptedCourseDetailIdentity.requestKey !== currentCourseDetailRequestKeyRef.current
+          || acceptedCourseDetailIdentityRef.current !== acceptedCourseDetailIdentity
+        ) {
+          throw new Error("Course detail is stale and must be reloaded before saving")
+        }
+      }
+
+      assertCurrentCourseEditContext()
+      const majorId = parseRequiredPositiveInteger(
+        persistedCourse.majorId,
+        "Major id",
+      )
       const submittedClassId = getCourseTypeId(courseData.metadata?.courseType)
-      const classId = submittedClassId ?? courseDetailData?.courseDetailData?.course?.classId ?? 1
-      const typeId = courseData.metadata?.courseNatureId ?? courseDetailData?.courseDetailData?.course?.typeId ?? 1
+      if (submittedClassId === undefined) {
+        throw new Error("Course type is invalid")
+      }
+      const classId = submittedClassId
+      const typeId = resolveRequiredCourseNatureId(courseData.metadata?.courseNatureId)
+      const courseName = resolveRequiredCourseName(courseData.name)
+      const studentCount = resolveOptionalNonNegativeNumber(
+        courseData.metadata?.studentCount,
+        "Student count",
+        true,
+      )
+      const credits = resolveOptionalNonNegativeNumber(courseData.metadata?.credits, "Credits", false)
+      const introduction = resolveOptionalIntroduction(courseData.metadata?.introduction)
       const normalizeChapterId = (value: unknown): number | null => {
         const parsed = Number.parseInt(String(value ?? ""), 10)
         return Number.isFinite(parsed) ? parsed : null
@@ -557,6 +810,14 @@ export function CourseDetail({
         }),
         { theoryPeriod: 0, practicePeriod: 0 },
       )
+      if (
+        !Number.isFinite(summarizedPeriods.theoryPeriod)
+        || summarizedPeriods.theoryPeriod < 0
+        || !Number.isFinite(summarizedPeriods.practicePeriod)
+        || summarizedPeriods.practicePeriod < 0
+      ) {
+        throw new Error("Course period totals must be non-negative finite numbers")
+      }
 
       const saveRequest: SaveCourseUnitRequest = {
         course: {
@@ -564,8 +825,8 @@ export function CourseDetail({
           majorId: majorId,
           classId: classId,
           typeId: typeId,
-          name: courseData.name || "",
-          introduction: courseData.metadata?.introduction || null,
+          name: courseName,
+          introduction,
           criterion: null,
           theoryPeriod: summarizedPeriods.theoryPeriod,
           practicePeriod: summarizedPeriods.practicePeriod,
@@ -575,8 +836,8 @@ export function CourseDetail({
           teachingClass: courseData.metadata?.teachingClass,
           teachingLocation: courseData.metadata?.teachingLocation,
           teachingTime: courseData.metadata?.teachingTime,
-          studentCount: courseData.metadata?.studentCount,
-          credits: courseData.metadata?.credits,
+          studentCount,
+          credits,
           mainTextbook: courseData.metadata?.mainTextbook,
           referenceResources: courseData.metadata?.referenceResources,
           attendancePolicy: courseData.metadata?.attendancePolicy,
@@ -597,17 +858,21 @@ export function CourseDetail({
         }
       }
 
-      console.log("[CourseDetail] 保存课程数据", saveRequest)
+      console.log("[CourseDetail] Saving course data", saveRequest)
 
       // 调用保存接口
       const response = await api.courseDetail.saveCourseUnit(saveRequest)
 
-      if (response.error) {
-        console.error("[CourseDetail] 保存课程失败:", response.error)
+      if (response.error !== null) {
+        throw new Error(response.error)
+      }
+
+      if (!isCurrentCourseSaveContext()) {
+        console.warn("[CourseDetail] Course save succeeded after context changed; skipping local synchronization")
         return
       }
 
-      console.log("[CourseDetail] 课程保存成功")
+      console.log("[CourseDetail] Course save succeeded")
 
       // 更新本地节点数据
       if (onUpdateNode) {
@@ -618,16 +883,17 @@ export function CourseDetail({
       if (!isAutoSave) {
         const refreshed = await loadCourseDetail({ silent: false })
         if (!refreshed) {
-          console.warn("[CourseDetail] 保存后刷新详情失败，页面可能显示旧数据")
+          console.warn("[CourseDetail] Course detail refresh failed after save")
         }
-      }
-
-      // 手动保存时退出编辑模式，自动保存时不退出
-      if (!isAutoSave) {
+        if (!isCurrentCourseSaveContext()) {
+          console.warn("[CourseDetail] Course context changed during post-save refresh; skipping edit-state update")
+          return
+        }
         setIsEditingCourse(false)
       }
     } catch (error) {
-      console.error("[CourseDetail] 保存课程异常:", error)
+      console.error("[CourseDetail] Course save failed:", error)
+      throw error
     }
   }
 
@@ -990,26 +1256,60 @@ export function CourseDetail({
 
   if (!courseNode) return null
 
-  // 获取课程所属的专业ID - 从已加载的课程详情中获取
-  const getMajorId = (): string => {
-    return courseDetailData?.courseDetailData?.course?.majorId?.toString() || courseNode.id || ""
-  }
+  const renderCourseEditError = (title: string, description: string) => (
+    <div
+      className="flex min-h-[500px] items-center justify-center rounded-xl border border-border bg-card/30 p-6 shadow-2xl backdrop-blur-md"
+      role="alert"
+    >
+      <div className="max-w-lg text-center">
+        <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+        <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <Button type="button" variant="outline" onClick={() => setIsEditingCourse(false)}>
+            返回课程详情
+          </Button>
+          <Button type="button" onClick={() => void loadCourseDetail()}>
+            重试
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
 
   if (isEditingCourse) {
     // 如果courseDetailData已加载，使用其中的majorId；否则等待加载
     if (isLoading) {
       return <LoadingState />
     }
+    if (!courseDetailData) {
+      const errorDescription =
+        typeof courseLoadError === "string" && courseLoadError.trim() !== ""
+          ? courseLoadError
+          : "无法获取课程详情，请检查网络连接或刷新重试"
+      return renderCourseEditError(
+        courseLoadError === "该学期无课程数据" ? "该学期无课程数据" : "加载失败",
+        errorDescription,
+      )
+    }
+
+    const serverMajorId = courseDetailData.courseDetailData.course.majorId
+    if (!Number.isInteger(serverMajorId) || serverMajorId <= 0) {
+      return renderCourseEditError(
+        "课程数据错误",
+        "课程所属专业 ID 无效，无法进入编辑模式",
+      )
+    }
 
     return (
       <AddCourseForm
-        majorId={getMajorId()}
+        majorId={String(serverMajorId)}
         onCancel={() => setIsEditingCourse(false)}
         onSubmit={handleEditCourseFormSubmit}
         initialData={courseNode}
         isEditMode={true}
         enableAutoSaveInEdit={false}
         courseDetailData={courseDetailData}
+        validationMode="serverEdit"
       />
     )
   }
@@ -1101,57 +1401,59 @@ export function CourseDetail({
     <>
       <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6 border-b border-border">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center flex-shrink-0">
-                <BookOpen className="w-8 h-8 text-primary" />
-              </div>
-              <div className="flex flex-col gap-1">
-                <h2 className="text-2xl font-bold text-foreground leading-tight">{courseNameData.name}</h2>
-                <div className="flex flex-wrap gap-1 items-center">
-                  {getInstructors().map((instructor, index) => (
-                    <div
-                      key={index}
-                      className={cn(
-                        "flex items-center gap-1 px-1.5 py-0.5 rounded border text-xs",
-                        isInstructorSet()
-                          ? "bg-primary border-primary"
-                          : "bg-muted border-muted-foreground/30",
-                      )}
-                    >
-                      <User className={cn(
-                        "w-3 h-3",
-                        isInstructorSet() ? "text-white" : "text-muted-foreground",
-                      )} />
-                      <span className={cn(
-                        "font-medium",
-                        isInstructorSet() ? "text-white" : "text-muted-foreground",
-                      )}>
-                        {instructor}
-                      </span>
-                    </div>
-                  ))}
-                  {majorName && (
-                    <Badge variant="secondary" className="text-sm px-2 py-0.5 w-fit">@{majorName}</Badge>
-                  )}
+        <div className="border-b border-border bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-4">
+                <div className="w-16 h-16 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center flex-shrink-0">
+                  <BookOpen className="w-8 h-8 text-primary" />
+                </div>
+                <div className="flex min-w-0 flex-col gap-1">
+                  <h2 className="truncate text-2xl font-bold leading-tight text-foreground">
+                    {courseNameData.name}
+                  </h2>
+                  <div className="flex flex-wrap gap-1 items-center">
+                    {getInstructors().map((instructor, index) => (
+                      <div
+                        key={index}
+                        className={cn(
+                          "flex items-center gap-1 px-1.5 py-0.5 rounded border text-xs",
+                          isInstructorSet()
+                            ? "bg-primary border-primary"
+                            : "bg-muted border-muted-foreground/30",
+                        )}
+                      >
+                        <User className={cn(
+                          "w-3 h-3",
+                          isInstructorSet() ? "text-white" : "text-muted-foreground",
+                        )} />
+                        <span className={cn(
+                          "font-medium",
+                          isInstructorSet() ? "text-white" : "text-muted-foreground",
+                        )}>
+                          {instructor}
+                        </span>
+                      </div>
+                    ))}
+                    {majorName && (
+                      <Badge variant="secondary" className="text-sm px-2 py-0.5 w-fit">@{majorName}</Badge>
+                    )}
+                  </div>
                 </div>
               </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {courseNameData.department?.name && (
+                  <Badge variant="outline">{courseNameData.department.name}</Badge>
+                )}
+                {courseNameData.college?.name && (
+                  <Badge variant="outline">
+                    <Calendar className="w-3 h-3 mr-1" />
+                    {courseNameData.college.name}
+                  </Badge>
+                )}
+              </div>
             </div>
-          </div>
-          <div className="flex flex-wrap gap-2 mt-2">
-            {courseNameData.department?.name && (
-              <Badge variant="outline">{courseNameData.department.name}</Badge>
-            )}
-            {courseNameData.college?.name && (
-              <Badge variant="outline">
-                <Calendar className="w-3 h-3 mr-1" />
-                {courseNameData.college.name}
-              </Badge>
-            )}
-          </div>
-          <div className="flex flex-col gap-2 absolute top-6 right-6">
-            <div className="flex flex-col gap-2 items-end">
+            <div className="flex shrink-0 flex-col items-start gap-2 lg:items-end">
               {numericCourseId > 0 && (
                 <Button
                   size="sm"

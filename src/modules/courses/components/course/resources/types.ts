@@ -1,5 +1,6 @@
 import type { ResourceFolder } from "@/lib/api"
 import type { ResourceBreadcrumbNode, ResourceObject } from "@/modules/courses/hooks/use-course-resources"
+import type { ResourceInteractionMode } from "./resource-interaction-state"
 
 export type FolderData = ResourceFolder
 export type ResourceObjectItem = ResourceObject
@@ -22,20 +23,18 @@ export interface ResourceBreadcrumbProps {
 
 export interface ResourceSearchBarProps {
   courseEditable?: boolean
-  selectedCount: number
   searchTerm: string
   onSearchChange: (term: string) => void
   placeholder: string
-  onViewModeChange?: (mode: "grid" | "list") => void
-  viewMode?: "grid" | "list"
+  onViewModeChange: (mode: "grid" | "list") => void
+  viewMode: "grid" | "list"
   className?: string
   onSelectFiles?: () => void
   disableUpload?: boolean
   onCreateFolderClick?: () => void
   disableCreateFolder?: boolean
-  onBatchDownload?: () => void
-  disableBatchDownload?: boolean
-  isBatchDownloading?: boolean
+  interactionMode: ResourceInteractionMode
+  onToggleBatchMode?: () => void
 }
 
 export type ResourceEntry =
@@ -67,6 +66,7 @@ export interface ResourceObjectListProps {
   entries: ResourceEntry[]
   viewMode: "grid" | "list"
   selectedIds: Set<string>
+  interactionMode: ResourceInteractionMode
   onToggleSelect: (objectId: string) => void
   onFolderClick: (folder: FolderData) => void
   onCancelUpload?: (uploadId: string) => void

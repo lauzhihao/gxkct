@@ -1,27 +1,25 @@
 "use client"
 
-import { Search, X, LayoutGrid, Rows, Download, Plus, Upload } from "lucide-react"
+import { Search, X, LayoutGrid, Rows, Plus, Upload, ListChecks } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
-import { Spinner } from "@/shared/components/ui/spinner"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/components/ui/tooltip"
 import { cn } from "@/shared/utils/utils"
 import type { ResourceSearchBarProps } from "./types"
 
 export function ResourceSearchBar({
   courseEditable = false,
-  selectedCount,
   searchTerm,
   onSearchChange,
   placeholder,
-  viewMode = "grid",
+  viewMode,
   onViewModeChange,
   className,
   onSelectFiles,
   disableUpload,
   onCreateFolderClick,
   disableCreateFolder,
-  onBatchDownload,
-  disableBatchDownload,
-  isBatchDownloading,
+  interactionMode,
+  onToggleBatchMode,
 }: ResourceSearchBarProps) {
   const canManageCourseResource = courseEditable
   const buttonHoverClass = "transition-colors hover:bg-primary hover:text-white hover:[&>svg]:text-white"
@@ -36,14 +34,14 @@ export function ResourceSearchBar({
     onSelectFiles?.()
   }
 
-  const handleBatchDownload = () => {
-    if (!courseEditable || selectedCount <= 0 || disableBatchDownload || isBatchDownloading) return
-    onBatchDownload?.()
+  const handleToggleBatchMode = () => {
+    if (!courseEditable) return
+    onToggleBatchMode?.()
   }
 
   return (
     <div className={cn("flex flex-wrap items-center gap-2", className)}>
-      <div className="relative w-64">
+      <div className="relative w-full sm:w-64">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
           type="text"
@@ -54,6 +52,7 @@ export function ResourceSearchBar({
         />
         {searchTerm && (
           <button
+            type="button"
             onClick={() => onSearchChange("")}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
             aria-label="清空搜索"
@@ -62,23 +61,43 @@ export function ResourceSearchBar({
           </button>
         )}
       </div>
-      <div className="flex items-center gap-1">
-        <Button
-          variant={viewMode === "grid" ? "default" : "ghost"}
-          size="icon"
-          className={cn("h-9 w-9", buttonHoverClass)}
-          onClick={() => onViewModeChange?.("grid")}
-        >
-          <LayoutGrid className="h-4 w-4" />
-        </Button>
-        <Button
-          variant={viewMode === "list" ? "default" : "ghost"}
-          size="icon"
-          className={cn("h-9 w-9", buttonHoverClass)}
-          onClick={() => onViewModeChange?.("list")}
-        >
-          <Rows className="h-4 w-4" />
-        </Button>
+      <div
+        className="flex shrink-0 items-center gap-1 rounded-md border border-border bg-muted/40 p-0.5"
+        role="group"
+        aria-label="资源视图"
+      >
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant={viewMode === "grid" ? "default" : "ghost"}
+              size="icon"
+              className={cn("h-8 w-8", buttonHoverClass)}
+              onClick={() => onViewModeChange("grid")}
+              aria-label="网格视图"
+              aria-pressed={viewMode === "grid"}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">网格视图</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant={viewMode === "list" ? "default" : "ghost"}
+              size="icon"
+              className={cn("h-8 w-8", buttonHoverClass)}
+              onClick={() => onViewModeChange("list")}
+              aria-label="列表视图"
+              aria-pressed={viewMode === "list"}
+            >
+              <Rows className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">列表视图</TooltipContent>
+        </Tooltip>
       </div>
       {canManageCourseResource && (
         <Button
@@ -95,31 +114,24 @@ export function ResourceSearchBar({
         <Button
           size="sm"
           className={cn("gap-2", buttonHoverClass)}
-          onClick={handleBatchDownload}
-          disabled={selectedCount <= 0 || disableBatchDownload || isBatchDownloading || !onBatchDownload}
-        >
-          {isBatchDownloading ? (
-            <>
-              <Spinner className="h-4 w-4" />
-              正在准备
-            </>
-          ) : (
-            <>
-              <Download className="h-4 w-4" />
-              批量下载
-            </>
-          )}
-        </Button>
-      )}
-      {canManageCourseResource && (
-        <Button
-          size="sm"
-          className={cn("gap-2", buttonHoverClass)}
           onClick={handleSelectFiles}
           disabled={disableUpload || !onSelectFiles}
         >
           <Upload className="h-4 w-4" />
           上传文件
+        </Button>
+      )}
+      {canManageCourseResource && (
+        <Button
+          size="sm"
+          variant={interactionMode === "batch" ? "secondary" : "default"}
+          className={cn("gap-2", buttonHoverClass)}
+          onClick={handleToggleBatchMode}
+          disabled={!onToggleBatchMode}
+          aria-pressed={interactionMode === "batch"}
+        >
+          <ListChecks className="h-4 w-4" />
+          {interactionMode === "batch" ? "退出批量操作" : "批量操作"}
         </Button>
       )}
     </div>

@@ -598,12 +598,45 @@ export interface ModeEventMessage {
   stage?: "collecting_info" | "basic_info" | "course_matrix" | "project_matrix" | "complete"
 }
 
+/** SSE warning 事件消息结构 */
+export interface WarningEventMessage {
+  type: "warning"
+  message: string
+}
+
+export type GenerationSummaryStatus = "success" | "partial" | "failed"
+
+export interface GenerationFailureDetail {
+  chapter_index?: number
+  chapter_name?: string
+  call_id?: string
+  error?: string
+  fallback_used?: boolean
+}
+
+/** 批量生成的权威业务结果，当前由项目矩阵生成接口发送。 */
+export interface GenerationSummaryEventMessage {
+  type: "generation_summary"
+  stage: string
+  status: GenerationSummaryStatus
+  total: number
+  generated: number
+  fallback: number
+  failed: number
+  failures: GenerationFailureDetail[]
+}
+
 /**
  * SSE error事件消息结构
  */
 export interface ErrorEventMessage {
   type: "error"
   message: string
+  error_type?: string
+  /** 批量项目矩阵错误的可选章节上下文 */
+  chapter_id?: string
+  chapter_index?: number
+  chapter_name?: string
 }
 
 /**
@@ -626,7 +659,10 @@ export type SSEEventMessage =
   | ThinkingEventMessage
   | UIEventMessage
   | ProgressEventMessage
+  | ProcessingEventMessage
   | ModeEventMessage
+  | WarningEventMessage
+  | GenerationSummaryEventMessage
   | ErrorEventMessage
 
 // ============ 类型判断函数 ============
@@ -694,6 +730,36 @@ export function isModeEvent(parsed: unknown): parsed is ModeEventMessage {
     typeof parsed === "object" &&
     parsed !== null &&
     (parsed as Record<string, unknown>).type === "mode"
+  )
+}
+
+/** 判断是否为 warning 事件 */
+export function isWarningEvent(parsed: unknown): parsed is WarningEventMessage {
+  return (
+    typeof parsed === "object" &&
+    parsed !== null &&
+    (parsed as Record<string, unknown>).type === "warning"
+  )
+}
+
+/** 判断是否为批量生成结果摘要。 */
+export function isGenerationSummaryEvent(
+  parsed: unknown
+): parsed is GenerationSummaryEventMessage {
+  if (typeof parsed !== "object" || parsed === null) {
+    return false
+  }
+
+  const candidate = parsed as Record<string, unknown>
+  return (
+    candidate.type === "generation_summary" &&
+    typeof candidate.stage === "string" &&
+    (candidate.status === "success" || candidate.status === "partial" || candidate.status === "failed") &&
+    typeof candidate.total === "number" &&
+    typeof candidate.generated === "number" &&
+    typeof candidate.fallback === "number" &&
+    typeof candidate.failed === "number" &&
+    Array.isArray(candidate.failures)
   )
 }
 

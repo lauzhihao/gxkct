@@ -16,11 +16,13 @@ type TextPreviewState =
 interface ResourceTextPreviewProps {
   url: string
   format: "markdown" | "text"
+  onPreviewFailed: () => void
 }
 
 export function ResourceTextPreview({
   url,
   format,
+  onPreviewFailed,
 }: ResourceTextPreviewProps) {
   const [state, setState] = useState<TextPreviewState>({ phase: "loading" })
 
@@ -46,12 +48,13 @@ export function ResourceTextPreview({
         }
         const message = error instanceof Error ? error.message : "文件内容加载失败"
         setState({ phase: "error", message })
+        onPreviewFailed()
       }
     }
 
     void loadContent()
     return () => controller.abort()
-  }, [url])
+  }, [onPreviewFailed, url])
 
   if (state.phase === "loading") {
     return (

@@ -14,33 +14,17 @@ import {
   CareerTrainingSection,
   GraduationRequirementsSection,
 } from "./sections"
-import type { UseMajorFormStateResult } from "@/modules/majors/hooks/use-major-form-state"
-import type { UseCareerInfoResult } from "@/modules/majors/hooks/use-career-info"
-import type { UseGraduationRequirementsResult } from "@/modules/majors/hooks/use-graduation-requirements"
-import type { WorkCategory } from "./types"
-
-interface AddMajorFormViewProps {
-  isEditMode: boolean
-  effectiveDepartmentId: string
-  initialData?: any
-  formState: UseMajorFormStateResult
-  careerInfo: UseCareerInfoResult
-  graduationReqs: UseGraduationRequirementsResult
-  worksData: WorkCategory[]
-  onCancel: () => void
-  handleSubmit: () => void
-  toast: any
-  isLoadingDetail?: boolean
-  onUploadGraduationRequirements: (files: File[]) => Promise<string[]>
-  onDownloadGraduationTemplate: () => Promise<void>
-  isGraduationUploadDisabled: boolean
-}
+import type { AddMajorFormViewProps } from "@/modules/majors/types/components"
 
 export function AddMajorFormView({
   isEditMode,
   effectiveDepartmentId,
   initialData,
   formState,
+  basicInfoErrors,
+  basicInfoValidationAttempt,
+  basicInfoFocusField,
+  onBasicInfoFieldValidationChange,
   careerInfo,
   graduationReqs,
   worksData,
@@ -84,6 +68,10 @@ export function AddMajorFormView({
           setMajorName={formState.setMajorName}
           setMajorLevel={formState.setMajorLevel}
           setEducationalFeatures={formState.setEducationalFeatures}
+          errors={basicInfoErrors}
+          validationAttempt={basicInfoValidationAttempt}
+          focusField={basicInfoFocusField}
+          onFieldValidationChange={onBasicInfoFieldValidationChange}
         />
 
         {/* 职业信息 */}

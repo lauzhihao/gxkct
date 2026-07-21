@@ -200,6 +200,7 @@ export function CourseResourcePickerDialog({
                 entries={entries}
                 viewMode="grid"
                 selectedIds={selectedIds}
+                interactionMode="batch"
                 onToggleSelect={handleToggle}
                 onFolderClick={enterFolder}
                 isRootLevel={isRootLevel}

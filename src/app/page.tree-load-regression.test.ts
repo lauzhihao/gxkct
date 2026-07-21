@@ -43,10 +43,35 @@ test("page URL navigation preserves rich course node fields", async () => {
   assert.match(source, /const pendingNavigationNodeRef = useRef<TreeNode \| null>\(null\)/)
   assert.match(source, /pendingNavigationNodeRef\.current = node\s*router\.push/)
   assert.match(source, /const pendingNode = pendingNavigationNodeRef\.current/)
-  assert.match(source, /if \(pendingNode\?\.nodeId === urlNodeId\) \{\s*setSelectedNode\(mergeTreeNodeWithRichNode\(found, pendingNode\)\)\s*pendingNavigationNodeRef\.current = null\s*return\s*\}/)
+  assert.match(source, /if \(pendingNode\?\.nodeId === expectedNodeId && found !== null\)/)
+  assert.match(source, /setSelectedNode\(mergeTreeNodeWithRichNode\(found, pendingNode\)\)/)
+  assert.match(source, /pendingNavigationNodeRef\.current = null/)
+  assert.match(source, /createReadySelectionResolution\(resolutionContext, requestId\)/)
   assert.match(source, /btnMenus: hasNonEmptyArray\(richNode\.btnMenus\) \? richNode\.btnMenus : treeNode\.btnMenus/)
   assert.match(source, /coverMenus: hasNonEmptyArray\(richNode\.coverMenus\) \? richNode\.coverMenus : treeNode\.coverMenus/)
-  assert.match(source, /manager: hasNonEmptyArray\(richNode\.manager\) \? richNode\.manager : treeNode\.manager/)
+  assert.match(source, /manager: richNode\.manager !== undefined \? richNode\.manager : treeNode\.manager/)
+})
+
+test("direct course URLs load authoritative manager data before selection", async () => {
+  const source = await readSource("./page.tsx")
+
+  assert.match(source, /const majorId = resolveCourseMajorId\(expectedTreeData, expectedNodeId\)/)
+  assert.match(source, /await api\.tree\.getMajorCourses\(majorId, expectedSemesterId\)/)
+  assert.match(source, /mergeAuthoritativeCourseNode\(found, response\.data\)/)
+  assert.doesNotMatch(source, /setSelectedNode\(resolvedNode\)/)
+})
+
+test("page delegates selection race and view decisions to the pure resolution module", async () => {
+  const source = await readSource("./page.tsx")
+
+  assert.match(source, /from "\.\/course-selection-resolution"/)
+  assert.match(source, /const selectionRequestIdRef = useRef\(0\)/)
+  assert.match(source, /retryToken: selectionRetryToken/)
+  assert.match(source, /canCommitSelectionRequest\(/)
+  assert.match(source, /getSelectionResolutionView\(selectionResolution, currentSelectionContext\)/)
+  assert.match(source, /createLoadingSelectionResolution\(resolutionContext, requestId\)/)
+  assert.match(source, /createErrorSelectionResolution\(/)
+  assert.match(source, /createReadySelectionResolution\(resolutionContext, requestId\)/)
 })
 
 test("useLocalStorage exposes stable setter callbacks", async () => {

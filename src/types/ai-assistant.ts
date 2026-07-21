@@ -40,6 +40,8 @@ export interface ChatMessage {
   timestamp: number
   /** 是否正在流式传输 */
   isStreaming?: boolean
+  /** AI 生成结果；失败或部分完成时用于避免 UI 误显示为普通完成 */
+  generationStatus?: "completed" | "failed" | "partial" | "cancelled"
   /** AI 思考过程 */
   thinking?: string
   /** 用户消息附件 */

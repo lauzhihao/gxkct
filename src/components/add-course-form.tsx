@@ -3,6 +3,7 @@
 import type React from "react"
 import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { Button } from "@/shared/components/ui/button"
+import { FieldError } from "@/shared/components/ui/field"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
 import { ArrowLeft, Plus, Trash2, X, Check, Calendar, ChevronDown } from "lucide-react"
@@ -44,6 +45,7 @@ interface ChapterProject {
 }
 
 type ChapterInputColumn = "name" | "theoryHours" | "practiceHours"
+type ChapterHourColumn = Exclude<ChapterInputColumn, "name">
 
 interface RawChapterProject {
   id?: string | number
@@ -66,6 +68,7 @@ interface AddCourseFormProps {
   hideChapterSectionInEdit?: boolean
   enableAutoSaveInEdit?: boolean
   allowHourFieldEdit?: boolean
+  validationMode?: "legacy" | "serverEdit"
 }
 
 const DEFAULT_SCHEDULE_ROW = {
@@ -144,6 +147,285 @@ const courseNatureOptions = [
   { id: 5, name: "综合教育" },
 ]
 
+type ServerEditField = "courseType" | "courseName" | "courseNatureId" | "studentCount" | "credits"
+
+type ServerEditErrors = Partial<Record<ServerEditField, string>>
+
+interface OptionalNumberInputState {
+  value: string
+  sourceInvalid: boolean
+}
+
+interface ServerEditValidationValues {
+  courseType: string
+  courseName: string
+  courseNatureId: number
+  studentCount: OptionalNumberInputState
+  credits: OptionalNumberInputState
+}
+
+interface ChapterHourFocusTarget {
+  rowIndex: number
+  column: ChapterHourColumn
+}
+
+interface ChapterHourValidationResult {
+  errors: Record<string, string>
+  firstInvalidTarget: ChapterHourFocusTarget | null
+}
+
+const SERVER_EDIT_FIELD_ORDER = [
+  "courseType",
+  "courseName",
+  "courseNatureId",
+  "studentCount",
+  "credits",
+] as const satisfies readonly ServerEditField[]
+
+const COURSE_TYPE_OPTIONS = ["必修", "选修"] as const
+type CourseTypeOption = (typeof COURSE_TYPE_OPTIONS)[number]
+
+const VALID_COURSE_TYPES: ReadonlySet<string> = new Set(COURSE_TYPE_OPTIONS)
+const VALID_COURSE_NATURE_IDS: ReadonlySet<number> = new Set(courseNatureOptions.map((option) => option.id))
+
+const COURSE_TYPE_LABEL_ID = "course-type-label"
+const COURSE_TYPE_ERROR_ID = "course-type-error"
+const COURSE_NAME_ERROR_ID = "course-name-error"
+const COURSE_NATURE_ERROR_ID = "course-nature-error"
+const STUDENT_COUNT_ERROR_ID = "student-count-error"
+const CREDITS_ERROR_ID = "credits-error"
+
+const getChapterHourFieldKey = (rowIndex: number, column: ChapterHourColumn) => `${rowIndex}-${column}`
+
+const getChapterHourErrorId = (rowIndex: number, column: ChapterHourColumn) =>
+  `course-chapter-${rowIndex}-${column}-error`
+
+const getServerChapterHourSource = (
+  chapter: RawChapterProject,
+  column: ChapterHourColumn,
+): unknown => column === "theoryHours" ? chapter.theoryPeriod : chapter.practicePeriod
+
+const createOptionalNumberInputState = (value: unknown): OptionalNumberInputState => {
+  if (value === undefined || value === null || value === "") {
+    return { value: "", sourceInvalid: false }
+  }
+
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      return { value: "", sourceInvalid: true }
+    }
+
+    return { value: String(value), sourceInvalid: false }
+  }
+
+  if (typeof value === "string") {
+    return { value, sourceInvalid: false }
+  }
+
+  return { value: "", sourceInvalid: true }
+}
+
+const parseOptionalNumberInput = (input: OptionalNumberInputState): number | undefined => {
+  if (input.sourceInvalid) {
+    return Number.NaN
+  }
+
+  const trimmedValue = input.value.trim()
+  if (trimmedValue === "") {
+    return undefined
+  }
+
+  return Number(trimmedValue)
+}
+
+const getServerEditFieldError = (
+  field: ServerEditField,
+  values: ServerEditValidationValues,
+): string | undefined => {
+  switch (field) {
+    case "courseType":
+      return VALID_COURSE_TYPES.has(values.courseType) ? undefined : "请选择课程类型"
+    case "courseName": {
+      const trimmedName = values.courseName.trim()
+      if (trimmedName === "") {
+        return "请输入课程名称"
+      }
+      return trimmedName.length <= 32 ? undefined : "课程名称不能超过 32 个字符"
+    }
+    case "courseNatureId":
+      return VALID_COURSE_NATURE_IDS.has(values.courseNatureId) ? undefined : "请选择课程性质"
+    case "studentCount": {
+      const parsedValue = parseOptionalNumberInput(values.studentCount)
+      if (parsedValue === undefined) {
+        return undefined
+      }
+      return Number.isFinite(parsedValue) && parsedValue >= 0 && Number.isInteger(parsedValue)
+        ? undefined
+        : "学生人数必须是非负整数"
+    }
+    case "credits": {
+      const parsedValue = parseOptionalNumberInput(values.credits)
+      if (parsedValue === undefined) {
+        return undefined
+      }
+      return Number.isFinite(parsedValue) && parsedValue >= 0 ? undefined : "学分必须是非负数"
+    }
+  }
+}
+
+const validateServerEditFields = (values: ServerEditValidationValues): ServerEditErrors => {
+  const errors: ServerEditErrors = {}
+
+  for (const field of SERVER_EDIT_FIELD_ORDER) {
+    const error = getServerEditFieldError(field, values)
+    if (error !== undefined) {
+      errors[field] = error
+    }
+  }
+
+  return errors
+}
+
+const getFirstInvalidServerEditField = (errors: ServerEditErrors): ServerEditField | null => {
+  for (const field of SERVER_EDIT_FIELD_ORDER) {
+    if (errors[field] !== undefined) {
+      return field
+    }
+  }
+
+  return null
+}
+
+const getChapterHourInputState = (
+  chapter: ChapterProject,
+  rowIndex: number,
+  column: ChapterHourColumn,
+  serverInputs: Record<string, OptionalNumberInputState>,
+): OptionalNumberInputState => {
+  const fieldKey = getChapterHourFieldKey(rowIndex, column)
+  const storedInput = serverInputs[fieldKey]
+  if (storedInput !== undefined) {
+    return storedInput
+  }
+
+  return createOptionalNumberInputState(chapter[column])
+}
+
+const remapServerChapterHourInputsAfterRemoval = (
+  chapters: ChapterProject[],
+  removedChapterId: string,
+  serverInputs: Record<string, OptionalNumberInputState>,
+): Record<string, OptionalNumberInputState> => {
+  const nextInputs: Record<string, OptionalNumberInputState> = {}
+  let nextRowIndex = 0
+
+  chapters.forEach((chapter, rowIndex) => {
+    if (chapter.id === removedChapterId) {
+      return
+    }
+
+    const columns: readonly ChapterHourColumn[] = ["theoryHours", "practiceHours"]
+    for (const column of columns) {
+      nextInputs[getChapterHourFieldKey(nextRowIndex, column)] = getChapterHourInputState(
+        chapter,
+        rowIndex,
+        column,
+        serverInputs,
+      )
+    }
+    nextRowIndex += 1
+  })
+
+  return nextInputs
+}
+
+const createServerChapterHourInputs = (
+  source: unknown,
+): Record<string, OptionalNumberInputState> => {
+  if (!Array.isArray(source)) {
+    return {}
+  }
+
+  const inputs: Record<string, OptionalNumberInputState> = {}
+  source.forEach((item, rowIndex) => {
+    const chapter = (item !== null && typeof item === "object" ? item : {}) as RawChapterProject
+    const columns: readonly ChapterHourColumn[] = ["theoryHours", "practiceHours"]
+    for (const column of columns) {
+      inputs[getChapterHourFieldKey(rowIndex, column)] = createOptionalNumberInputState(
+        getServerChapterHourSource(chapter, column),
+      )
+    }
+  })
+
+  return inputs
+}
+
+const validateChapterHours = (
+  chapters: ChapterProject[],
+  serverInputs: Record<string, OptionalNumberInputState>,
+): ChapterHourValidationResult => {
+  const errors: Record<string, string> = {}
+  let firstInvalidTarget: ChapterHourFocusTarget | null = null
+  let theoryPeriodTotal = 0
+  let practicePeriodTotal = 0
+
+  chapters.forEach((chapter, rowIndex) => {
+    const columns: readonly ChapterHourColumn[] = ["theoryHours", "practiceHours"]
+    for (const column of columns) {
+      const input = getChapterHourInputState(chapter, rowIndex, column, serverInputs)
+      const trimmedValue = input.value.trim()
+      const parsedValue = trimmedValue === "" ? 0 : Number(trimmedValue)
+      const fieldKey = getChapterHourFieldKey(rowIndex, column)
+      const fieldLabel = column === "theoryHours" ? "理论学时" : "实践学时"
+      let error: string | undefined
+
+      if (input.sourceInvalid) {
+        error = `${fieldLabel}必须是非负有限数`
+      } else if (trimmedValue === "") {
+        error = `请输入${fieldLabel}`
+      } else if (!Number.isFinite(parsedValue) || parsedValue < 0) {
+        error = `${fieldLabel}必须是非负有限数`
+      } else if (column === "theoryHours") {
+        theoryPeriodTotal += parsedValue
+        if (!Number.isFinite(theoryPeriodTotal)) {
+          error = "理论学时汇总超出有效数值范围"
+        }
+      } else {
+        practicePeriodTotal += parsedValue
+        if (!Number.isFinite(practicePeriodTotal)) {
+          error = "实践学时汇总超出有效数值范围"
+        }
+      }
+
+      if (error !== undefined) {
+        errors[fieldKey] = error
+        if (firstInvalidTarget === null) {
+          firstInvalidTarget = { rowIndex, column }
+        }
+      }
+    }
+  })
+
+  return {
+    errors,
+    firstInvalidTarget,
+  }
+}
+
+const resolveServerCourseType = (classId: unknown): string => {
+  if (classId === 1) {
+    return "必修"
+  }
+  if (classId === 2) {
+    return "选修"
+  }
+  return ""
+}
+
+const resolveServerCourseNatureId = (typeId: unknown): number => {
+  return typeof typeId === "number" && VALID_COURSE_NATURE_IDS.has(typeId) ? typeId : 0
+}
+
 function AddCourseForm({
   majorId,
   onCancel,
@@ -154,9 +436,11 @@ function AddCourseForm({
   hideChapterSectionInEdit = false,
   enableAutoSaveInEdit = true,
   allowHourFieldEdit = false,
+  validationMode = "legacy",
 }: AddCourseFormProps) {
   const { toast } = useToast()
   const { can } = usePermission()
+  const isServerEditValidation = validationMode === "serverEdit"
   const canManageCourse = isEditMode
     ? can(EDIT_COURSE_ACTION, { scope: "course" })
     : can(CREATE_COURSE_ACTION, { scope: "major" })
@@ -174,6 +458,18 @@ function AddCourseForm({
   const pendingSnapshotRef = useRef<string | null>(null)
   const lastSavedSnapshotRef = useRef<string | null>(null)
   const handleSubmitRef = useRef<(isAutoSave?: boolean) => Promise<void>>(async () => {})
+  const courseTypeFirstOptionRef = useRef<HTMLButtonElement>(null)
+  const courseTypeSecondOptionRef = useRef<HTMLButtonElement>(null)
+  const courseNameRef = useRef<HTMLInputElement>(null)
+  const courseNatureTriggerRef = useRef<HTMLButtonElement>(null)
+  const studentCountRef = useRef<HTMLInputElement>(null)
+  const creditsRef = useRef<HTMLInputElement>(null)
+  const chapterTableContainerRef = useRef<HTMLDivElement>(null)
+  const [serverEditErrors, setServerEditErrors] = useState<ServerEditErrors>({})
+  const [serverEditChapterHourErrors, setServerEditChapterHourErrors] = useState<Record<string, string>>({})
+  const [serverEditChapterFocusTarget, setServerEditChapterFocusTarget] = useState<ChapterHourFocusTarget | null>(null)
+  const [serverEditValidationAttempt, setServerEditValidationAttempt] = useState(0)
+  const [serverEditFocusField, setServerEditFocusField] = useState<ServerEditField | null>(null)
   const showChapterTab = !isEditMode || !hideChapterSectionInEdit
 
   // 从majorId中提取真实的majorId（如果是major-3895格式，提取3895）
@@ -220,9 +516,24 @@ function AddCourseForm({
 
   // Tab 1: Basic Information - 直接访问 initialData 的属性
   const [openingSemesterId, setOpeningSemesterId] = useState<number | null>(currentSemester?.id ?? null)
-  const [courseType, setCourseType] = useState(initialData?.courseType || "必修")
-  const [courseName, setCourseName] = useState(initialData?.name || initialData?.nodeName || "")
-  const [courseNatureId, setCourseNatureId] = useState<number>(initialData?.courseNatureId || 0)
+  const [courseType, setCourseType] = useState<string>(() => {
+    if (isServerEditValidation) {
+      return typeof initialData?.courseType === "string" ? initialData.courseType : ""
+    }
+    return initialData?.courseType || "必修"
+  })
+  const [courseName, setCourseName] = useState<string>(() => {
+    if (isServerEditValidation) {
+      return typeof initialData?.name === "string" ? initialData.name : ""
+    }
+    return initialData?.name || initialData?.nodeName || ""
+  })
+  const [courseNatureId, setCourseNatureId] = useState<number>(() => {
+    if (isServerEditValidation) {
+      return resolveServerCourseNatureId(initialData?.courseNatureId)
+    }
+    return initialData?.courseNatureId || 0
+  })
   const [introduction, setIntroduction] = useState(initialData?.introduction || "")
   const [theoryPeriod, setTheoryPeriod] = useState(initialData?.theoryPeriod || 0)
   const [practicePeriod, setPracticePeriod] = useState(initialData?.practicePeriod || 0)
@@ -373,6 +684,16 @@ function AddCourseForm({
 
   const [studentCount, setStudentCount] = useState(initialData?.studentCount || 0)
   const [credits, setCredits] = useState(initialData?.credits || 0)
+  const [serverStudentCountInput, setServerStudentCountInput] = useState<OptionalNumberInputState>(() =>
+    isServerEditValidation
+      ? createOptionalNumberInputState(initialData?.studentCount)
+      : createOptionalNumberInputState(undefined)
+  )
+  const [serverCreditsInput, setServerCreditsInput] = useState<OptionalNumberInputState>(() =>
+    isServerEditValidation
+      ? createOptionalNumberInputState(initialData?.credits)
+      : createOptionalNumberInputState(undefined)
+  )
   const [mainTextbook, setMainTextbook] = useState(initialData?.mainTextbook || "")
   const [referenceResources, setReferenceResources] = useState(initialData?.referenceResources || "")
 
@@ -417,8 +738,16 @@ function AddCourseForm({
           ? chapter.title
           : ""
 
-      const theoryValue = Number(chapter.theoryHours ?? chapter.theoryPeriod ?? 0)
-      const practiceValue = Number(chapter.practiceHours ?? chapter.practicePeriod ?? 0)
+      const theoryValue = Number(
+        isServerEditValidation
+          ? chapter.theoryPeriod
+          : chapter.theoryHours ?? chapter.theoryPeriod ?? 0,
+      )
+      const practiceValue = Number(
+        isServerEditValidation
+          ? chapter.practicePeriod
+          : chapter.practiceHours ?? chapter.practicePeriod ?? 0,
+      )
 
       const courseUnitIdValue = Number(chapter.courseUnitId)
 
@@ -432,12 +761,17 @@ function AddCourseForm({
     })
 
     return normalized.length > 0 ? normalized : [defaultChapter]
-  }, [])
+  }, [isServerEditValidation])
 
   // Tab 4: Chapter and Project Management
   const [chapters, setChapters] = useState<ChapterProject[]>(() =>
     normalizeChapterProjects(initialData?.chapters),
   )
+  const [serverChapterHourInputs, setServerChapterHourInputs] = useState<
+    Record<string, OptionalNumberInputState>
+  >(() => isServerEditValidation
+    ? createServerChapterHourInputs(initialData?.chapters)
+    : {})
   const summarizedPeriods = useMemo(() => {
     return chapters.reduce(
       (totals, chapter) => ({
@@ -483,14 +817,103 @@ function AddCourseForm({
     ? resolveReadonlyHourFieldValue(practicePeriodSource, summarizedPeriods.practicePeriod, hasMeaningfulChapterData)
     : practicePeriod
 
+  const serverEditValidationValues = useMemo<ServerEditValidationValues>(() => ({
+    courseType,
+    courseName,
+    courseNatureId,
+    studentCount: serverStudentCountInput,
+    credits: serverCreditsInput,
+  }), [courseName, courseNatureId, courseType, serverCreditsInput, serverStudentCountInput])
+
+  useEffect(() => {
+    if (!isServerEditValidation || serverEditValidationAttempt === 0) {
+      return
+    }
+
+    setServerEditErrors(validateServerEditFields(serverEditValidationValues))
+    setServerEditChapterHourErrors(validateChapterHours(chapters, serverChapterHourInputs).errors)
+  }, [
+    chapters,
+    isServerEditValidation,
+    serverChapterHourInputs,
+    serverEditValidationAttempt,
+    serverEditValidationValues,
+  ])
+
+  useEffect(() => {
+    if (
+      !isServerEditValidation
+      || serverEditValidationAttempt === 0
+      || activeTab !== "basic"
+      || serverEditFocusField === null
+    ) {
+      return
+    }
+
+    switch (serverEditFocusField) {
+      case "courseType":
+        courseTypeFirstOptionRef.current?.focus()
+        break
+      case "courseName":
+        courseNameRef.current?.focus()
+        break
+      case "courseNatureId":
+        courseNatureTriggerRef.current?.focus()
+        break
+      case "studentCount":
+        studentCountRef.current?.focus()
+        break
+      case "credits":
+        creditsRef.current?.focus()
+    }
+    setServerEditFocusField(null)
+  }, [activeTab, isServerEditValidation, serverEditFocusField, serverEditValidationAttempt])
+
+  useEffect(() => {
+    if (
+      !isServerEditValidation
+      || serverEditValidationAttempt === 0
+      || activeTab !== "chapters"
+      || serverEditChapterFocusTarget === null
+    ) {
+      return
+    }
+
+    const targetInput = chapterTableContainerRef.current?.querySelector<HTMLInputElement>(
+      `[data-chapter-row="${serverEditChapterFocusTarget.rowIndex}"]`
+      + `[data-chapter-col="${serverEditChapterFocusTarget.column}"]`,
+    )
+    targetInput?.focus()
+    targetInput?.select()
+    setServerEditChapterFocusTarget(null)
+  }, [
+    activeTab,
+    isServerEditValidation,
+    serverEditChapterFocusTarget,
+    serverEditValidationAttempt,
+  ])
+
   // 在编辑模式下，使用传入的 courseDetailData 初始化表单字段
   useEffect(() => {
     if (!isEditMode || !courseDetailData) return
 
     const courseData = courseDetailData.courseDetailData?.course
     if (courseData) {
-      console.log(`[AddCourseForm] 使用 courseDetailData 初始化表单字段`)
-      setCourseName(courseData.name || initialData?.name || "")
+      console.log("[AddCourseForm] Initializing fields from course detail")
+      if (isServerEditValidation) {
+        setCourseType(resolveServerCourseType(courseData.classId))
+        setCourseName(typeof courseData.name === "string" ? courseData.name : "")
+        setCourseNatureId(resolveServerCourseNatureId(courseData.typeId))
+        setServerStudentCountInput(createOptionalNumberInputState(courseData.studentCount))
+        setServerCreditsInput(createOptionalNumberInputState(courseData.credits))
+      } else {
+        setCourseName(courseData.name || initialData?.name || "")
+        setStudentCount(courseData.studentCount || 0)
+        setCredits(courseData.credits || 0)
+        if (courseData.typeId) {
+          setCourseNatureId(courseData.typeId)
+        }
+      }
       setIntroduction(courseData.introduction || "")
       const nextTheoryPeriod = readOptionalNumber(courseData.theoryPeriod)
       const nextPracticePeriod = readOptionalNumber(courseData.practicePeriod)
@@ -502,8 +925,6 @@ function AddCourseForm({
       setTeachingClass(courseData.teachingClass || "")
       setTeachingLocation(courseData.teachingLocation || "")
       setTeachingScheduleRows(parseTeachingSchedule(courseData.teachingTime))
-      setStudentCount(courseData.studentCount || 0)
-      setCredits(courseData.credits || 0)
       setMainTextbook(courseData.mainTextbook || "")
       setReferenceResources(courseData.referenceResources || "")
       // 初始化课程要求字段
@@ -521,16 +942,23 @@ function AddCourseForm({
       setScoreTable(courseData.scoreTable || { headers: ["平时考核", "期末考核"], rows: [{ "平时考核": "", "期末考核": "" }] })
       setAssessmentDescription(courseData.assessmentDescription || "")
       setChapters(normalizeChapterProjects(courseData.courseMatrixVOS))
-      // 根据 typeId 设置课程性质
-      if (courseData.typeId) {
-        setCourseNatureId(courseData.typeId)
+      if (isServerEditValidation) {
+        setServerChapterHourInputs(createServerChapterHourInputs(courseData.courseMatrixVOS))
       }
       // [MOD] 开课学期初始化为全校当前学期（移除旧的 createTime 逻辑）
       if (currentSemester) {
         setOpeningSemesterId(currentSemester.id)
       }
     }
-  }, [isEditMode, courseDetailData, initialData?.name, normalizeChapterProjects, parseTeachingSchedule, currentSemester])
+  }, [
+    courseDetailData,
+    currentSemester,
+    initialData?.name,
+    isEditMode,
+    isServerEditValidation,
+    normalizeChapterProjects,
+    parseTeachingSchedule,
+  ])
 
   // Tab 3: Course Point Information Library
   const [coursePoints] = useState<CoursePoint[]>(
@@ -564,6 +992,20 @@ function AddCourseForm({
       notifyNoPermission()
       return
     }
+    if (isServerEditValidation) {
+      const newRowIndex = chapters.length
+      setServerChapterHourInputs((currentInputs) => ({
+        ...currentInputs,
+        [getChapterHourFieldKey(newRowIndex, "theoryHours")]: {
+          value: "",
+          sourceInvalid: false,
+        },
+        [getChapterHourFieldKey(newRowIndex, "practiceHours")]: {
+          value: "",
+          sourceInvalid: false,
+        },
+      }))
+    }
     setChapters(prev => ([...prev, { id: Date.now().toString(), name: "", theoryHours: 0, practiceHours: 0 }]))
   }
 
@@ -572,10 +1014,14 @@ function AddCourseForm({
       notifyNoPermission()
       return
     }
-    setChapters(prev => {
-      if (prev.length <= 1) return prev
-      return prev.filter(chapter => chapter.id !== id)
-    })
+    if (chapters.length <= 1) {
+      return
+    }
+    if (isServerEditValidation) {
+      setServerChapterHourInputs((currentInputs) =>
+        remapServerChapterHourInputsAfterRemoval(chapters, id, currentInputs))
+    }
+    setChapters(prev => prev.filter(chapter => chapter.id !== id))
   }
 
   const updateChapter = (id: string, field: "name" | "theoryHours" | "practiceHours", value: string | number) => {
@@ -584,6 +1030,42 @@ function AddCourseForm({
         ? { ...chapter, [field]: value }
         : chapter
     )))
+  }
+
+  const handleChapterHourChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+    chapterId: string,
+    rowIndex: number,
+    column: ChapterHourColumn,
+  ) => {
+    if (!isServerEditValidation) {
+      updateChapter(chapterId, column, Number.parseInt(event.target.value) || 0)
+      return
+    }
+
+    const inputState: OptionalNumberInputState = {
+      value: event.target.value,
+      sourceInvalid: event.target.validity.badInput,
+    }
+    const fieldKey = getChapterHourFieldKey(rowIndex, column)
+    setServerChapterHourInputs((currentInputs) => ({
+      ...currentInputs,
+      [fieldKey]: inputState,
+    }))
+
+    if (inputState.sourceInvalid) {
+      return
+    }
+
+    const trimmedValue = inputState.value.trim()
+    if (trimmedValue === "") {
+      return
+    }
+
+    const parsedValue = Number(trimmedValue)
+    if (Number.isFinite(parsedValue)) {
+      updateChapter(chapterId, column, parsedValue)
+    }
   }
 
   const handleChapterInputKeyDown = useCallback((
@@ -605,7 +1087,7 @@ function AddCourseForm({
       return
     }
 
-    const targetInput = document.querySelector<HTMLInputElement>(
+    const targetInput = chapterTableContainerRef.current?.querySelector<HTMLInputElement>(
       `[data-chapter-row="${targetRowIndex}"][data-chapter-col="${column}"]`,
     )
 
@@ -716,7 +1198,7 @@ function AddCourseForm({
   const openingSemesterDisplay = currentSemester?.name ?? null
 
   const buildCourseData = useCallback(() => ({
-    name: courseName,
+    name: isServerEditValidation ? courseName.trim() : courseName,
     type: "course" as const,
     metadata: {
       // [MOD] 改为开课学期 ID
@@ -731,8 +1213,12 @@ function AddCourseForm({
       teachingClass,
       teachingLocation,
       teachingTime: JSON.stringify(teachingScheduleRows),
-      studentCount,
-      credits,
+      studentCount: isServerEditValidation
+        ? parseOptionalNumberInput(serverStudentCountInput)
+        : studentCount,
+      credits: isServerEditValidation
+        ? parseOptionalNumberInput(serverCreditsInput)
+        : credits,
       mainTextbook,
       referenceResources,
       attendancePolicy,
@@ -768,6 +1254,7 @@ function AddCourseForm({
     credits,
     initialData?.children,
     introduction,
+    isServerEditValidation,
     mainTextbook,
     openingSemesterId,
     openingSemesterDisplay,
@@ -777,6 +1264,8 @@ function AddCourseForm({
     referenceResources,
     scoreTable,
     scoreType,
+    serverCreditsInput,
+    serverStudentCountInput,
     studentCount,
     teachingClass,
     teachingLocation,
@@ -829,7 +1318,41 @@ function AddCourseForm({
 
     isSubmittingRef.current = true
 
-    if (!courseName.trim() || !courseNatureId) {
+    if (isServerEditValidation) {
+      const nextErrors = validateServerEditFields(serverEditValidationValues)
+      const nextChapterHourValidation = validateChapterHours(chapters, serverChapterHourInputs)
+      const nextFocusField = getFirstInvalidServerEditField(nextErrors)
+      const nextChapterFocusTarget = nextChapterHourValidation.firstInvalidTarget
+      const hasValidationError = nextFocusField !== null || nextChapterFocusTarget !== null
+
+      setServerEditErrors(nextErrors)
+      setServerEditChapterHourErrors(nextChapterHourValidation.errors)
+      setServerEditFocusField(nextFocusField)
+      setServerEditChapterFocusTarget(nextFocusField === null ? nextChapterFocusTarget : null)
+      setServerEditValidationAttempt((currentAttempt) => currentAttempt + 1)
+
+      if (hasValidationError) {
+        if (nextFocusField !== null) {
+          setActiveTab("basic")
+        } else if (nextChapterFocusTarget !== null) {
+          setActiveTab("chapters")
+        }
+        if (isAutoSave) {
+          setAutoSaveStatus("failed")
+        }
+        if (!isAutoSave) {
+          toast({
+            variant: "destructive",
+            title: "表单验证失败",
+            description: "请修正标记的课程信息后重试",
+            duration: 5000,
+          })
+          setIsLoading(false)
+        }
+        isSubmittingRef.current = false
+        return
+      }
+    } else if (!courseName.trim() || !courseNatureId) {
       if (isAutoSave) {
         setAutoSaveStatus("failed")
       }
@@ -872,7 +1395,7 @@ function AddCourseForm({
       } else {
         setAutoSaveStatus("failed")
       }
-      console.error("[AddCourseForm] 保存失败:", error)
+      console.error("[AddCourseForm] Course save failed:", error)
     } finally {
       if (autoSaveStatusTimerRef.current) {
         clearTimeout(autoSaveStatusTimerRef.current)
@@ -904,8 +1427,12 @@ function AddCourseForm({
     canManageCourse,
     getCurrentSnapshot,
     isEditMode,
+    isServerEditValidation,
     notifyNoPermission,
     onSubmit,
+    chapters,
+    serverChapterHourInputs,
+    serverEditValidationValues,
     toast,
     courseName,
     courseNatureId,
@@ -918,6 +1445,69 @@ function AddCourseForm({
     }
     void handleSubmit(false)
   }, [canManageCourse, handleSubmit, notifyNoPermission])
+
+  const handleCourseTypeKeyDown = useCallback((
+    event: React.KeyboardEvent<HTMLButtonElement>,
+    currentOption: CourseTypeOption,
+  ) => {
+    if (!isServerEditValidation) {
+      return
+    }
+
+    const currentIndex = COURSE_TYPE_OPTIONS.indexOf(currentOption)
+    let targetIndex: number
+    switch (event.key) {
+      case "ArrowLeft":
+      case "ArrowUp":
+        targetIndex = (currentIndex - 1 + COURSE_TYPE_OPTIONS.length) % COURSE_TYPE_OPTIONS.length
+        break
+      case "ArrowRight":
+      case "ArrowDown":
+        targetIndex = (currentIndex + 1) % COURSE_TYPE_OPTIONS.length
+        break
+      case "Home":
+        targetIndex = 0
+        break
+      case "End":
+        targetIndex = COURSE_TYPE_OPTIONS.length - 1
+        break
+      default:
+        return
+    }
+
+    event.preventDefault()
+    const targetOption = COURSE_TYPE_OPTIONS[targetIndex]
+    setCourseType(targetOption)
+    if (targetIndex === 0) {
+      courseTypeFirstOptionRef.current?.focus()
+      return
+    }
+    courseTypeSecondOptionRef.current?.focus()
+  }, [isServerEditValidation])
+
+  const handleStudentCountChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    if (isServerEditValidation) {
+      setServerStudentCountInput({
+        value: event.target.value,
+        sourceInvalid: event.target.validity.badInput,
+      })
+      return
+    }
+
+    setStudentCount(Number.parseInt(event.target.value) || 0)
+  }, [isServerEditValidation])
+
+  const handleCreditsChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    if (isServerEditValidation) {
+      setServerCreditsInput({
+        value: event.target.value,
+        sourceInvalid: event.target.validity.badInput,
+      })
+      return
+    }
+
+    setCredits(Number.parseFloat(event.target.value) || 0)
+  }, [isServerEditValidation])
 
   const removeScoreHeader = useCallback((index: number, header: string) => {
     if (!canManageCourse) {
@@ -1072,27 +1662,61 @@ function AddCourseForm({
                 </div>
 
                 <div className="space-y-2">
-                  <Label>
+                  <Label id={isServerEditValidation ? COURSE_TYPE_LABEL_ID : undefined}>
                     课程类型 <span className="text-red-500">*</span>
                   </Label>
-                  <div className="flex gap-2">
+                  <div
+                    className={
+                      serverEditErrors.courseType !== undefined
+                        ? "flex gap-2 rounded-md border border-destructive p-2"
+                        : "flex gap-2"
+                    }
+                    role={isServerEditValidation ? "radiogroup" : undefined}
+                    aria-labelledby={isServerEditValidation ? COURSE_TYPE_LABEL_ID : undefined}
+                    aria-required={isServerEditValidation ? true : undefined}
+                    aria-invalid={serverEditErrors.courseType !== undefined ? true : undefined}
+                    aria-describedby={
+                      serverEditErrors.courseType !== undefined ? COURSE_TYPE_ERROR_ID : undefined
+                    }
+                  >
                     <Button
+                      ref={courseTypeFirstOptionRef}
                       type="button"
                       variant={courseType === "必修" ? "default" : "outline"}
                       onClick={() => setCourseType("必修")}
                       className="flex-1"
+                      role={isServerEditValidation ? "radio" : undefined}
+                      aria-checked={isServerEditValidation ? courseType === "必修" : undefined}
+                      tabIndex={isServerEditValidation ? (courseType === "选修" ? -1 : 0) : undefined}
+                      onKeyDown={
+                        isServerEditValidation
+                          ? (event) => handleCourseTypeKeyDown(event, "必修")
+                          : undefined
+                      }
                     >
                       必修
                     </Button>
                     <Button
+                      ref={courseTypeSecondOptionRef}
                       type="button"
                       variant={courseType === "选修" ? "default" : "outline"}
                       onClick={() => setCourseType("选修")}
                       className="flex-1"
+                      role={isServerEditValidation ? "radio" : undefined}
+                      aria-checked={isServerEditValidation ? courseType === "选修" : undefined}
+                      tabIndex={isServerEditValidation ? (courseType === "选修" ? 0 : -1) : undefined}
+                      onKeyDown={
+                        isServerEditValidation
+                          ? (event) => handleCourseTypeKeyDown(event, "选修")
+                          : undefined
+                      }
                     >
                       选修
                     </Button>
                   </div>
+                  {serverEditErrors.courseType !== undefined && (
+                    <FieldError id={COURSE_TYPE_ERROR_ID}>{serverEditErrors.courseType}</FieldError>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -1101,12 +1725,18 @@ function AddCourseForm({
                   </Label>
                   <div className="relative">
                     <Input
+                      ref={courseNameRef}
                       id="course-name"
                       placeholder="例如：数据结构与算法"
                       value={courseName}
                       onChange={(e) => setCourseName(e.target.value.slice(0, 32))}
                       maxLength={32}
                       className="pr-20"
+                      aria-invalid={serverEditErrors.courseName !== undefined ? true : undefined}
+                      aria-required={isServerEditValidation ? true : undefined}
+                      aria-describedby={
+                        serverEditErrors.courseName !== undefined ? COURSE_NAME_ERROR_ID : undefined
+                      }
                     />
                     <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">{courseName.length}/32</span>
@@ -1115,12 +1745,16 @@ function AddCourseForm({
                           type="button"
                           onClick={() => setCourseName("")}
                           className="text-muted-foreground hover:text-foreground"
+                          aria-label="清空课程名称"
                         >
                           <X className="w-3 h-3" />
                         </button>
                       )}
                     </div>
                   </div>
+                  {serverEditErrors.courseName !== undefined && (
+                    <FieldError id={COURSE_NAME_ERROR_ID}>{serverEditErrors.courseName}</FieldError>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -1129,7 +1763,21 @@ function AddCourseForm({
                   </Label>
                   <Popover open={courseNaturePopoverOpen} onOpenChange={setCourseNaturePopoverOpen}>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-between bg-transparent">
+                      <Button
+                        ref={courseNatureTriggerRef}
+                        id={isServerEditValidation ? "course-nature" : undefined}
+                        variant="outline"
+                        className={
+                          serverEditErrors.courseNatureId !== undefined
+                            ? "w-full justify-between border-destructive bg-transparent"
+                            : "w-full justify-between bg-transparent"
+                        }
+                        aria-invalid={serverEditErrors.courseNatureId !== undefined ? true : undefined}
+                        aria-required={isServerEditValidation ? true : undefined}
+                        aria-describedby={
+                          serverEditErrors.courseNatureId !== undefined ? COURSE_NATURE_ERROR_ID : undefined
+                        }
+                      >
                         <span className="truncate">{courseNatureName || "请选择课程性质"}</span>
                         <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
                       </Button>
@@ -1153,6 +1801,9 @@ function AddCourseForm({
                       </div>
                     </PopoverContent>
                   </Popover>
+                  {serverEditErrors.courseNatureId !== undefined && (
+                    <FieldError id={COURSE_NATURE_ERROR_ID}>{serverEditErrors.courseNatureId}</FieldError>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -1251,26 +1902,40 @@ function AddCourseForm({
                 <div className="space-y-2">
                   <Label htmlFor="student-count">学生人数</Label>
                   <Input
+                    ref={studentCountRef}
                     id="student-count"
                     type="number"
                     min="0"
                     placeholder=""
-                    value={studentCount}
-                    onChange={(e) => setStudentCount(Number.parseInt(e.target.value) || 0)}
+                    value={isServerEditValidation ? serverStudentCountInput.value : studentCount}
+                    onChange={handleStudentCountChange}
+                    aria-invalid={serverEditErrors.studentCount !== undefined ? true : undefined}
+                    aria-describedby={
+                      serverEditErrors.studentCount !== undefined ? STUDENT_COUNT_ERROR_ID : undefined
+                    }
                   />
+                  {serverEditErrors.studentCount !== undefined && (
+                    <FieldError id={STUDENT_COUNT_ERROR_ID}>{serverEditErrors.studentCount}</FieldError>
+                  )}
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="credits">学分</Label>
                   <Input
+                    ref={creditsRef}
                     id="credits"
                     type="number"
                     min="0"
                     step="0.1"
                     placeholder=""
-                    value={credits}
-                    onChange={(e) => setCredits(Number.parseFloat(e.target.value) || 0)}
+                    value={isServerEditValidation ? serverCreditsInput.value : credits}
+                    onChange={handleCreditsChange}
+                    aria-invalid={serverEditErrors.credits !== undefined ? true : undefined}
+                    aria-describedby={serverEditErrors.credits !== undefined ? CREDITS_ERROR_ID : undefined}
                   />
+                  {serverEditErrors.credits !== undefined && (
+                    <FieldError id={CREDITS_ERROR_ID}>{serverEditErrors.credits}</FieldError>
+                  )}
                 </div>
 
                 {/* 授课时间课程表 */}
@@ -1635,7 +2300,7 @@ function AddCourseForm({
 
           <TabsContent value="chapters" className="space-y-6 mt-6">
             <div className="space-y-4">
-              <div className="border border-input rounded-md overflow-hidden bg-background">
+              <div ref={chapterTableContainerRef} className="border border-input rounded-md overflow-hidden bg-background">
                 <Table>
                   <TableHeader className="[&_tr]:border-0">
                     <TableRow className="border-0 bg-secondary/30 hover:bg-secondary/30">
@@ -1675,23 +2340,97 @@ function AddCourseForm({
                           <Input
                             type="number"
                             min="0"
-                            value={chapter.theoryHours}
-                            onChange={(e) => updateChapter(chapter.id, "theoryHours", Number.parseInt(e.target.value) || 0)}
+                            value={
+                              isServerEditValidation
+                                ? getChapterHourInputState(
+                                  chapter,
+                                  index,
+                                  "theoryHours",
+                                  serverChapterHourInputs,
+                                ).value
+                                : chapter.theoryHours
+                            }
+                            onChange={(event) => handleChapterHourChange(
+                              event,
+                              chapter.id,
+                              index,
+                              "theoryHours",
+                            )}
                             onKeyDown={(e) => handleChapterInputKeyDown(e, index, "theoryHours")}
                             data-chapter-row={index}
                             data-chapter-col="theoryHours"
+                            aria-invalid={
+                              serverEditChapterHourErrors[
+                                getChapterHourFieldKey(index, "theoryHours")
+                              ] !== undefined
+                                ? true
+                                : undefined
+                            }
+                            aria-describedby={
+                              serverEditChapterHourErrors[
+                                getChapterHourFieldKey(index, "theoryHours")
+                              ] !== undefined
+                                ? getChapterHourErrorId(index, "theoryHours")
+                                : undefined
+                            }
                           />
+                          {serverEditChapterHourErrors[
+                            getChapterHourFieldKey(index, "theoryHours")
+                          ] !== undefined && (
+                            <FieldError id={getChapterHourErrorId(index, "theoryHours")}>
+                              {serverEditChapterHourErrors[
+                                getChapterHourFieldKey(index, "theoryHours")
+                              ]}
+                            </FieldError>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Input
                             type="number"
                             min="0"
-                            value={chapter.practiceHours}
-                            onChange={(e) => updateChapter(chapter.id, "practiceHours", Number.parseInt(e.target.value) || 0)}
+                            value={
+                              isServerEditValidation
+                                ? getChapterHourInputState(
+                                  chapter,
+                                  index,
+                                  "practiceHours",
+                                  serverChapterHourInputs,
+                                ).value
+                                : chapter.practiceHours
+                            }
+                            onChange={(event) => handleChapterHourChange(
+                              event,
+                              chapter.id,
+                              index,
+                              "practiceHours",
+                            )}
                             onKeyDown={(e) => handleChapterInputKeyDown(e, index, "practiceHours")}
                             data-chapter-row={index}
                             data-chapter-col="practiceHours"
+                            aria-invalid={
+                              serverEditChapterHourErrors[
+                                getChapterHourFieldKey(index, "practiceHours")
+                              ] !== undefined
+                                ? true
+                                : undefined
+                            }
+                            aria-describedby={
+                              serverEditChapterHourErrors[
+                                getChapterHourFieldKey(index, "practiceHours")
+                              ] !== undefined
+                                ? getChapterHourErrorId(index, "practiceHours")
+                                : undefined
+                            }
                           />
+                          {serverEditChapterHourErrors[
+                            getChapterHourFieldKey(index, "practiceHours")
+                          ] !== undefined && (
+                            <FieldError id={getChapterHourErrorId(index, "practiceHours")}>
+                              {serverEditChapterHourErrors[
+                                getChapterHourFieldKey(index, "practiceHours")
+                              ]}
+                            </FieldError>
+                          )}
                         </TableCell>
                         <TableCell className="text-center">
                           {canManageCourse && chapters.length > 1 && (

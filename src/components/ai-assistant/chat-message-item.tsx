@@ -165,6 +165,18 @@ function AssistantMessage({
       : message.content
   const contentToRender = isStreaming ? streamingText || "" : displayContent
   const timeDisplay = isStreaming ? "生成中" : formatRelativeTime(message.timestamp)
+  const resultLabel = message.generationStatus === "failed"
+    ? "生成失败"
+    : message.generationStatus === "partial"
+      ? "部分完成"
+      : message.generationStatus === "cancelled"
+        ? "已取消"
+        : timeDisplay
+  const resultLabelClass = message.generationStatus === "failed"
+    ? "text-destructive"
+    : message.generationStatus === "partial"
+      ? "text-amber-600 dark:text-amber-400"
+      : "text-muted-foreground"
   const showThinkingBlock = isLastAssistantMessage && !isStreaming && !!thinkingContent
   const shouldShowSingleIndicator = isStreaming && preContentIndicatorVisible
 
@@ -189,7 +201,7 @@ function AssistantMessage({
       {isStreaming ? (
         <div className="text-xs ai-loading-text-gradient">简报 · 处理中</div>
       ) : (
-        <div className="text-xs text-muted-foreground">简报 · {timeDisplay}</div>
+        <div className={`text-xs ${resultLabelClass}`}>简报 · {resultLabel}</div>
       )}
 
       {/* 思考区域 */}
