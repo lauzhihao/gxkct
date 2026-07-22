@@ -1,4 +1,5 @@
 import { TreeApi } from "./tree-api"
+import type { BinaryDownload } from "./http-adapter"
 import {
   UserApi,
   type User,
@@ -129,6 +130,7 @@ export type {
   SubmitFeedbackPayload,
   EditHistoryListItem,
   EditHistoryDetailItem,
+  BinaryDownload,
 }
 export type {
   CreateSemesterPayload,

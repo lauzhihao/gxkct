@@ -22,7 +22,6 @@ import { ResourceBreadcrumb } from "./ResourceBreadcrumb"
 import { ResourceSearchBar } from "./ResourceSearchBar"
 import { ResourceObjectList } from "./ResourceObjectList"
 import { ResourcePreviewDrawer } from "./ResourcePreviewDrawer"
-import { resolveSafeResourceUrl } from "./resource-preview-types"
 import {
   canPasteResourceClipboard,
   canStartResourceBatchTransfer,
@@ -277,33 +276,18 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
         return
       }
 
-      const { taskId, status, downloadUrl } = response.data
-      if (typeof taskId !== "string" || taskId.trim().length === 0) {
-        showError("批量下载响应缺少有效的任务 ID")
-        return
-      }
-      if (typeof status !== "string" || status.trim().length === 0) {
-        showError("批量下载响应缺少有效的任务状态")
-        return
-      }
-      if (downloadUrl === null) {
-        showSuccess(`批量下载任务已创建，状态：${status}，任务 ID：${taskId}`)
-        return
-      }
-      if (typeof downloadUrl !== "string") {
-        showError("批量下载响应包含无效的下载地址")
-        return
-      }
-
-      const safeDownloadUrl = resolveSafeResourceUrl(downloadUrl, "批量下载地址")
+      const { blob, fileName } = response.data
+      const objectUrl = URL.createObjectURL(blob)
       const anchor = document.createElement("a")
-      anchor.href = safeDownloadUrl
-      anchor.download = ""
-      anchor.target = "_blank"
-      anchor.rel = "noopener noreferrer"
+      anchor.href = objectUrl
+      anchor.download = fileName
       document.body.appendChild(anchor)
-      anchor.click()
-      anchor.remove()
+      try {
+        anchor.click()
+      } finally {
+        anchor.remove()
+        URL.revokeObjectURL(objectUrl)
+      }
       showSuccess("批量下载已开始")
     } catch (error) {
       const message = error instanceof Error ? error.message : "批量下载失败"

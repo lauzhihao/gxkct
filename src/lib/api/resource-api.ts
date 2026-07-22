@@ -1,4 +1,4 @@
-import { HttpAdapter } from "./http-adapter"
+import { HttpAdapter, type BinaryDownload } from "./http-adapter"
 import type { ApiResponse } from "./types"
 
 export interface ResourceFolder {
@@ -239,8 +239,8 @@ export class ResourceApi {
     courseId: string,
     objectIds: string[],
     ownerType?: string,
-  ): Promise<ApiResponse<{ taskId: string; status: string; downloadUrl: string | null } | null>> {
+  ): Promise<ApiResponse<BinaryDownload | null>> {
     const endpoint = this.withOwner(`${this.getBasePath(courseId)}/resource-objects/batch-download`, ownerType)
-    return this.http.post(endpoint, { objectIds })
+    return this.http.postBinary(endpoint, { objectIds })
   }
 }

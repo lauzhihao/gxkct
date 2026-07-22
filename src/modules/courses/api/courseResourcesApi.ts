@@ -13,6 +13,7 @@ import {
   type UploadSignatureRequest,
   type UploadSignatureResponse,
   type ConfirmUploadRequest,
+  type BinaryDownload,
 } from "@/lib/api"
 import type { ApiResponse } from "@/lib/api/types"
 
@@ -69,7 +70,7 @@ export const courseResourcesApi = {
     courseId: string,
     objectIds: string[],
     ownerType?: ResourceOwnerType,
-  ): Promise<ApiResponse<{ taskId: string; status: string; downloadUrl: string | null } | null>> {
+  ): Promise<ApiResponse<BinaryDownload | null>> {
     return api.resources.createBatchDownload(courseId, objectIds, ownerType)
   },
 
