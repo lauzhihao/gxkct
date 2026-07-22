@@ -21,18 +21,22 @@ import {
 import { ResourceBreadcrumb } from "./ResourceBreadcrumb"
 import { ResourceSearchBar } from "./ResourceSearchBar"
 import { ResourceObjectList } from "./ResourceObjectList"
-import { ResourceDestinationPickerDialog } from "./ResourceDestinationPickerDialog"
 import { ResourcePreviewDrawer } from "./ResourcePreviewDrawer"
 import { resolveSafeResourceUrl } from "./resource-preview-types"
 import {
-  canConfirmResourceDestination,
+  canPasteResourceClipboard,
   canStartResourceBatchTransfer,
   changeResourceInteractionMode,
-  createResourceBatchTransferSnapshot,
+  completeResourceClipboard,
+  createPreparingResourceClipboard,
+  normalizeResourceClipboardOwnerType,
   parseResourceBatchActionOutcome,
+  readResourceFingerprint,
+  resourceFingerprintMatches,
   toggleResourceSelection,
   type ResourceBatchTransferAction,
-  type ResourceBatchTransferSnapshot,
+  type ResourceClipboardItem,
+  type ResourceClipboardSnapshot,
   type ResourceInteractionMode,
 } from "./resource-interaction-state"
 import { validateCompleteFileName, validateFolderName } from "./resource-name-validation"
@@ -97,6 +101,7 @@ const createUploadHeaders = (
 
 export function CourseResourcesContainer({ nodeId, courseEditable = false, ownerType }: CourseResourcesContainerProps) {
   const canManageCourseResource = courseEditable
+  const normalizedOwnerType = normalizeResourceClipboardOwnerType(ownerType)
 
   const {
     breadcrumbs,
@@ -121,8 +126,8 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
   const [interactionMode, setInteractionMode] = useState<ResourceInteractionMode>("normal")
   const [isDeleting, setIsDeleting] = useState(false)
   const [isBatchDownloading, setIsBatchDownloading] = useState(false)
-  const [batchTransferSnapshot, setBatchTransferSnapshot] = useState<ResourceBatchTransferSnapshot | null>(null)
-  const [isBatchTransferring, setIsBatchTransferring] = useState(false)
+  const [resourceClipboard, setResourceClipboard] = useState<ResourceClipboardSnapshot | null>(null)
+  const [isPasting, setIsPasting] = useState(false)
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false)
   const [newFolderName, setNewFolderName] = useState("")
   const [folderNameError, setFolderNameError] = useState<string | null>(null)
@@ -141,6 +146,8 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
   const uploadInputRef = useRef<HTMLInputElement | null>(null)
   const uploadXhrMapRef = useRef(new Map<string, XMLHttpRequest>())
   const canceledUploadIdsRef = useRef(new Set<string>())
+  const clipboardRequestIdRef = useRef(0)
+  const resourceContextRef = useRef({ nodeId, ownerType: normalizedOwnerType })
 
   useEffect(() => {
     setSelectedIds(new Set())
@@ -153,8 +160,19 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
     setIsPreviewOpen(false)
     setDeleteTarget(null)
     setIsDeletingTarget(false)
-    setBatchTransferSnapshot(null)
   }, [currentParentId, nodeId])
+
+  useEffect(() => {
+    const previousContext = resourceContextRef.current
+    const nodeChanged = previousContext.nodeId !== nodeId
+    const ownerChanged = previousContext.ownerType !== normalizedOwnerType
+    resourceContextRef.current = { nodeId, ownerType: normalizedOwnerType }
+    if (!nodeChanged && !ownerChanged) {
+      return
+    }
+    clipboardRequestIdRef.current += 1
+    setResourceClipboard(null)
+  }, [nodeId, normalizedOwnerType])
 
   useEffect(() => {
     setSelectedIds((prev) => {
@@ -197,22 +215,27 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
     const nextState = changeResourceInteractionMode(nextMode)
     setInteractionMode(nextState.mode)
     setSelectedIds(nextState.selectedIds)
-    setBatchTransferSnapshot(null)
   }, [interactionMode])
 
   const handleFolderClick = useCallback((folder: Parameters<typeof enterFolder>[0]) => {
+    if (isPasting) {
+      return
+    }
     const nextState = changeResourceInteractionMode("normal")
     setInteractionMode(nextState.mode)
     setSelectedIds(nextState.selectedIds)
     enterFolder(folder)
-  }, [enterFolder])
+  }, [enterFolder, isPasting])
 
   const handleBreadcrumbClick = useCallback((index: number) => {
+    if (isPasting) {
+      return
+    }
     const nextState = changeResourceInteractionMode("normal")
     setInteractionMode(nextState.mode)
     setSelectedIds(nextState.selectedIds)
     goToBreadcrumb(index)
-  }, [goToBreadcrumb])
+  }, [goToBreadcrumb, isPasting])
 
   const handleDeleteSelected = useCallback(async () => {
     if (!courseEditable) return
@@ -290,7 +313,62 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
     }
   }, [courseEditable, nodeId, ownerType, selectedIds])
 
-  const handleOpenBatchTransfer = useCallback((action: ResourceBatchTransferAction) => {
+  const prepareResourceClipboard = useCallback(async (
+    clipboard: ResourceClipboardSnapshot,
+  ) => {
+    const preparedItems = await Promise.all(
+      clipboard.items.map(async (item): Promise<ResourceClipboardItem> => {
+        try {
+          const response = await courseResourcesApi.getObjectDetail(
+            clipboard.sourceNodeId,
+            item.objectId,
+            clipboard.sourceOwnerType,
+          )
+          if (response.error !== null) {
+            return {
+              objectId: item.objectId,
+              fingerprint: null,
+              verificationError: response.error,
+            }
+          }
+          if (response.data === null) {
+            return {
+              objectId: item.objectId,
+              fingerprint: null,
+              verificationError: "资源详情响应为空",
+            }
+          }
+          return {
+            objectId: item.objectId,
+            fingerprint: readResourceFingerprint(response.data),
+            verificationError: null,
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "读取资源 fingerprint 失败"
+          return {
+            objectId: item.objectId,
+            fingerprint: null,
+            verificationError: message,
+          }
+        }
+      }),
+    )
+
+    if (clipboardRequestIdRef.current !== clipboard.requestId) {
+      return
+    }
+    setResourceClipboard((currentClipboard) => {
+      if (currentClipboard === null) {
+        return null
+      }
+      if (currentClipboard.requestId !== clipboard.requestId) {
+        return currentClipboard
+      }
+      return completeResourceClipboard(currentClipboard, preparedItems)
+    })
+  }, [])
+
+  const handlePrepareBatchTransfer = useCallback((action: ResourceBatchTransferAction) => {
     const canStartTransfer = canStartResourceBatchTransfer({
       mode: interactionMode,
       courseEditable,
@@ -301,7 +379,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
       isLoading,
       isBatchDownloading,
       isDeleting,
-      isBatchTransferring,
+      isBatchTransferring: isPasting,
     })
     if (!canStartTransfer) {
       showError("当前状态无法执行批量复制或移动")
@@ -310,114 +388,175 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
     if (currentParentId === null) {
       throw new Error("批量操作缺少源目录 ID")
     }
-    setBatchTransferSnapshot(
-      createResourceBatchTransferSnapshot(action, currentParentId, selectedIds),
+    if (nodeId === null) {
+      throw new Error("批量操作缺少源节点 ID")
+    }
+
+    clipboardRequestIdRef.current += 1
+    const clipboard = createPreparingResourceClipboard(
+      clipboardRequestIdRef.current,
+      action,
+      nodeId,
+      normalizedOwnerType,
+      currentParentId,
+      selectedIds,
     )
+    setResourceClipboard(clipboard)
+    const nextState = changeResourceInteractionMode("normal")
+    setInteractionMode(nextState.mode)
+    setSelectedIds(nextState.selectedIds)
+    void Promise.resolve().then(() => prepareResourceClipboard(clipboard))
   }, [
     courseEditable,
     currentParentId,
     interactionMode,
     isBatchDownloading,
-    isBatchTransferring,
     isDeleting,
     isLoading,
+    isPasting,
     needInitialization,
     nodeId,
+    normalizedOwnerType,
+    prepareResourceClipboard,
     selectedIds,
   ])
 
   const handleCopySelected = useCallback(() => {
-    handleOpenBatchTransfer("copy")
-  }, [handleOpenBatchTransfer])
+    handlePrepareBatchTransfer("copy")
+  }, [handlePrepareBatchTransfer])
 
   const handleCutSelected = useCallback(() => {
-    handleOpenBatchTransfer("move")
-  }, [handleOpenBatchTransfer])
+    handlePrepareBatchTransfer("move")
+  }, [handlePrepareBatchTransfer])
 
-  const handleBatchTransferOpenChange = useCallback((open: boolean) => {
-    if (!open && !isBatchTransferring) {
-      setBatchTransferSnapshot(null)
-    }
-  }, [isBatchTransferring])
-
-  const handleConfirmBatchTransfer = useCallback(async (targetFolderId: string) => {
-    if (batchTransferSnapshot === null) {
-      showError("批量操作上下文已失效，请重新选择文件")
+  const handlePaste = useCallback(async () => {
+    const clipboard = resourceClipboard
+    const canPaste = canPasteResourceClipboard({
+      clipboard,
+      nodeId,
+      ownerType: normalizedOwnerType,
+      targetFolderId: currentParentId,
+      courseEditable,
+      isLoading,
+      isSubmitting: isPasting,
+    })
+    if (!canPaste) {
+      showError("当前目录无法粘贴剪贴板资源")
       return
     }
-    if (!courseEditable) {
-      showError("当前资源不可编辑")
-      return
+    if (clipboard === null) {
+      throw new Error("资源剪贴板为空")
     }
     if (nodeId === null) {
-      showError("当前资源不可编辑")
-      return
+      throw new Error("粘贴操作缺少目标节点 ID")
     }
-    const canConfirmDestination = canConfirmResourceDestination({
-      sourceFolderId: batchTransferSnapshot.sourceFolderId,
-      targetFolderId,
-      isLoading: false,
-      isSubmitting: isBatchTransferring,
-    })
-    if (!canConfirmDestination) {
-      showError("请选择与源目录不同的有效目标目录")
-      return
+    if (currentParentId === null) {
+      throw new Error("资源根目录不能作为粘贴目标")
     }
 
-    setIsBatchTransferring(true)
+    let ignoredCount = clipboard.items.filter((item) => item.fingerprint === null).length
+    let attemptedCount = clipboard.items.length - ignoredCount
+    setIsPasting(true)
     try {
+      const verificationResults = await Promise.all(
+        clipboard.items.map(async (item): Promise<string | null> => {
+          if (item.fingerprint === null) {
+            return null
+          }
+          try {
+            const response = await courseResourcesApi.getObjectDetail(
+              clipboard.sourceNodeId,
+              item.objectId,
+              clipboard.sourceOwnerType,
+            )
+            if (response.error !== null) {
+              return null
+            }
+            if (response.data === null) {
+              return null
+            }
+            if (!resourceFingerprintMatches(item.fingerprint, response.data)) {
+              return null
+            }
+            return item.objectId
+          } catch {
+            return null
+          }
+        }),
+      )
+      const verifiedObjectIds: string[] = []
+      for (const verificationResult of verificationResults) {
+        if (verificationResult !== null) {
+          verifiedObjectIds.push(verificationResult)
+        }
+      }
+      ignoredCount = clipboard.items.length - verifiedObjectIds.length
+      attemptedCount = verifiedObjectIds.length
+      if (verifiedObjectIds.length === 0) {
+        showError(`粘贴未执行：成功 0 个，失败 0 个，忽略 ${ignoredCount} 个`)
+        return
+      }
+      if (clipboardRequestIdRef.current !== clipboard.requestId) {
+        throw new Error("资源剪贴板上下文已失效")
+      }
+
       const response = await courseResourcesApi.batchAction(nodeId, {
-        action: batchTransferSnapshot.action,
-        sourceFolderId: batchTransferSnapshot.sourceFolderId,
-        targetFolderId,
-        objectIds: [...batchTransferSnapshot.objectIds],
-      }, ownerType)
+        action: clipboard.action,
+        sourceFolderId: clipboard.sourceFolderId,
+        targetFolderId: currentParentId,
+        objectIds: verifiedObjectIds,
+      }, normalizedOwnerType)
       if (response.error !== null) {
-        showError(response.error)
+        showError(
+          `粘贴失败：成功 0 个，失败 ${verifiedObjectIds.length} 个，忽略 ${ignoredCount} 个；${response.error}`,
+        )
         return
       }
       if (response.data === null) {
-        showError("批量复制或移动响应为空")
+        showError(
+          `粘贴失败：成功 0 个，失败 ${verifiedObjectIds.length} 个，忽略 ${ignoredCount} 个；响应为空`,
+        )
         return
       }
 
       const outcome = parseResourceBatchActionOutcome(
         response.data,
-        batchTransferSnapshot.objectIds,
+        verifiedObjectIds,
       )
       const succeededCount = outcome.succeededIds.length
       const failedCount = outcome.failedIds.length
-      const actionLabel = batchTransferSnapshot.action === "copy" ? "复制" : "移动"
-
-      if (batchTransferSnapshot.action === "move" && succeededCount > 0) {
+      if (succeededCount > 0) {
         refreshCurrentLevel()
       }
-      setBatchTransferSnapshot(null)
       if (failedCount === 0) {
-        const nextState = changeResourceInteractionMode("normal")
-        setInteractionMode(nextState.mode)
-        setSelectedIds(nextState.selectedIds)
-        showSuccess(`${actionLabel}成功：成功 ${succeededCount} 个，失败 0 个`)
+        showSuccess(`粘贴完成：成功 ${succeededCount} 个，失败 0 个，忽略 ${ignoredCount} 个`)
         return
       }
-
-      setInteractionMode("batch")
-      setSelectedIds(new Set(outcome.failedIds))
-      const resultLabel = succeededCount > 0 ? "部分完成" : "失败"
-      showError(`${actionLabel}${resultLabel}：成功 ${succeededCount} 个，失败 ${failedCount} 个`)
+      showError(`粘贴部分完成：成功 ${succeededCount} 个，失败 ${failedCount} 个，忽略 ${ignoredCount} 个`)
     } catch (error) {
-      const message = error instanceof Error ? error.message : "批量复制或移动失败"
-      showError(message)
+      const message = error instanceof Error ? error.message : "粘贴失败"
+      showError(`粘贴失败：成功 0 个，失败 ${attemptedCount} 个，忽略 ${ignoredCount} 个；${message}`)
     } finally {
-      setIsBatchTransferring(false)
+      setResourceClipboard((currentClipboard) => {
+        if (currentClipboard === null) {
+          return null
+        }
+        if (currentClipboard.requestId !== clipboard.requestId) {
+          return currentClipboard
+        }
+        return null
+      })
+      setIsPasting(false)
     }
   }, [
-    batchTransferSnapshot,
     courseEditable,
-    isBatchTransferring,
+    currentParentId,
+    isLoading,
+    isPasting,
     nodeId,
-    ownerType,
+    normalizedOwnerType,
     refreshCurrentLevel,
+    resourceClipboard,
   ])
 
   const calculateChecksum = useCallback(async (file: File) => {
@@ -930,7 +1069,17 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
     isLoading,
     isBatchDownloading,
     isDeleting,
-    isBatchTransferring,
+    isBatchTransferring: isPasting,
+  })
+
+  const canPasteClipboard = canPasteResourceClipboard({
+    clipboard: resourceClipboard,
+    nodeId,
+    ownerType: normalizedOwnerType,
+    targetFolderId: currentParentId,
+    courseEditable,
+    isLoading,
+    isSubmitting: isPasting,
   })
 
   const filteredDirectories = useMemo(() => {
@@ -958,8 +1107,8 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
   }, [filteredDirectories, objects, temporaryUploads])
 
   const hasSelectableObjects = resourceEntries.some((entry) => entry.type === "object")
-  const showActions = !needInitialization && !isRootLevel
-  const isCreateFolderDisabled = isLoading
+  const showActions = !needInitialization && (!isRootLevel || resourceClipboard !== null)
+  const isCreateFolderDisabled = isLoading || isRootLevel
   const isCreateFolderConfirmDisabled =
     isCreatingFolder || Boolean(folderNameError) || newFolderName.trim().length === 0
   const isRenameConfirmDisabled =
@@ -982,10 +1131,10 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
         {showActions ? (
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
             <ResourceSearchBar
-              courseEditable={courseEditable}
-              searchTerm={searchTerm}
-              onSearchChange={setSearchTerm}
-              placeholder="搜索当前目录下的文件"
+              courseEditable={isRootLevel ? false : courseEditable}
+              searchTerm={isRootLevel ? rootFolderSearch : searchTerm}
+              onSearchChange={isRootLevel ? setRootFolderSearch : setSearchTerm}
+              placeholder={isRootLevel ? "搜索文件夹" : "搜索当前目录下的文件"}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
               onSelectFiles={handleOpenFileSelector}
@@ -993,7 +1142,11 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
               onCreateFolderClick={handleOpenCreateFolder}
               disableCreateFolder={isCreateFolderDisabled}
               interactionMode={interactionMode}
-              onToggleBatchMode={handleToggleBatchMode}
+              onToggleBatchMode={isPasting ? undefined : handleToggleBatchMode}
+              showPaste={resourceClipboard !== null}
+              disablePaste={!canPasteClipboard}
+              isPasting={isPasting}
+              onPaste={() => void handlePaste()}
             />
             <div className="flex items-center gap-2">
               <Button
@@ -1185,18 +1338,6 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {batchTransferSnapshot === null ? null : (
-        <ResourceDestinationPickerDialog
-          open
-          nodeId={nodeId}
-          ownerType={ownerType}
-          sourceFolderId={batchTransferSnapshot.sourceFolderId}
-          action={batchTransferSnapshot.action}
-          isSubmitting={isBatchTransferring}
-          onOpenChange={handleBatchTransferOpenChange}
-          onConfirm={(targetFolderId) => void handleConfirmBatchTransfer(targetFolderId)}
-        />
-      )}
       <Dialog open={renameTarget !== null} onOpenChange={handleRenameOpenChange}>
         <DialogContent>
           <DialogHeader>

@@ -71,48 +71,154 @@ test("batch transfer eligibility requires editable batch state with persisted se
   )
 })
 
-test("destination eligibility rejects root source and pending states", async () => {
-  const { canConfirmResourceDestination } = await loadInteractionState()
-  const eligibleDestination = {
-    sourceFolderId: "folder-source",
-    targetFolderId: "folder-target",
-    isLoading: false,
-    isSubmitting: false,
-  }
-
-  assert.equal(canConfirmResourceDestination(eligibleDestination), true)
-  assert.equal(canConfirmResourceDestination({ ...eligibleDestination, targetFolderId: null }), false)
-  assert.equal(
-    canConfirmResourceDestination({ ...eligibleDestination, targetFolderId: "folder-source" }),
-    false,
-  )
-  assert.equal(canConfirmResourceDestination({ ...eligibleDestination, isLoading: true }), false)
-  assert.equal(canConfirmResourceDestination({ ...eligibleDestination, isSubmitting: true }), false)
-})
-
-test("batch transfer snapshot preserves action source and selected object ids", async () => {
-  const { createResourceBatchTransferSnapshot } = await loadInteractionState()
+test("resource clipboard freezes action context and selection while preparing", async () => {
+  const { createPreparingResourceClipboard } = await loadInteractionState()
   const selectedIds = new Set(["object-1", "object-2"])
-  const snapshot = createResourceBatchTransferSnapshot(
+  const snapshot = createPreparingResourceClipboard(
+    1,
     "copy",
+    "node-1",
+    "course",
     "folder-source",
     selectedIds,
   )
   selectedIds.clear()
 
   assert.deepEqual(snapshot, {
+    requestId: 1,
     action: "copy",
+    sourceNodeId: "node-1",
+    sourceOwnerType: "course",
     sourceFolderId: "folder-source",
-    objectIds: ["object-1", "object-2"],
+    items: [
+      { objectId: "object-1", fingerprint: null, verificationError: null },
+      { objectId: "object-2", fingerprint: null, verificationError: null },
+    ],
+    phase: "preparing",
   })
   assert.throws(
-    () => createResourceBatchTransferSnapshot("move", "folder-source", new Set()),
+    () => createPreparingResourceClipboard(2, "move", "node-1", "course", "folder-source", new Set()),
     /未选择要处理的资源/,
   )
   assert.throws(
-    () => createResourceBatchTransferSnapshot("move", " ", new Set(["object-1"])),
+    () => createPreparingResourceClipboard(2, "move", "node-1", "course", " ", new Set(["object-1"])),
     /源目录 ID缺失或无效/,
   )
+})
+
+test("resource fingerprints use strict version etag checksum priority and exact comparison", async () => {
+  const { readResourceFingerprint, resourceFingerprintMatches } = await loadInteractionState()
+
+  assert.deepEqual(
+    readResourceFingerprint({ version: "v1", etag: "etag-1", checksum: "sum-1" }),
+    { kind: "version", value: "v1" },
+  )
+  assert.deepEqual(
+    readResourceFingerprint({ version: null, etag: "etag-1", checksum: "sum-1" }),
+    { kind: "etag", value: "etag-1" },
+  )
+  assert.deepEqual(
+    readResourceFingerprint({ version: null, etag: undefined, checksum: "sum-1" }),
+    { kind: "checksum", value: "sum-1" },
+  )
+  assert.equal(
+    resourceFingerprintMatches(
+      { kind: "version", value: "v1" },
+      { version: "v1", etag: "changed-etag" },
+    ),
+    true,
+  )
+  assert.equal(
+    resourceFingerprintMatches({ kind: "version", value: "v1" }, { version: "v2" }),
+    false,
+  )
+  assert.equal(
+    resourceFingerprintMatches({ kind: "etag", value: "etag-1" }, { etag: "etag-2" }),
+    false,
+  )
+  assert.throws(() => readResourceFingerprint({}), /缺少可验证 fingerprint/)
+  assert.throws(() => readResourceFingerprint({ version: " " }), /version 无效/)
+})
+
+test("completed clipboard distinguishes verifiable and ignored items", async () => {
+  const {
+    completeResourceClipboard,
+    createPreparingResourceClipboard,
+  } = await loadInteractionState()
+  const preparing = createPreparingResourceClipboard(
+    3,
+    "move",
+    "node-1",
+    "major",
+    "folder-source",
+    new Set(["object-1", "object-2"]),
+  )
+  const ready = completeResourceClipboard(preparing, [
+    {
+      objectId: "object-1",
+      fingerprint: { kind: "version", value: "v1" },
+      verificationError: null,
+    },
+    {
+      objectId: "object-2",
+      fingerprint: null,
+      verificationError: "资源已删除",
+    },
+  ])
+
+  assert.equal(ready.phase, "ready")
+  assert.equal(ready.items[0]?.fingerprint?.value, "v1")
+  assert.equal(ready.items[1]?.verificationError, "资源已删除")
+  assert.throws(
+    () => completeResourceClipboard(preparing, [
+      { objectId: "object-1", fingerprint: null, verificationError: null },
+      { objectId: "object-2", fingerprint: null, verificationError: "资源已删除" },
+    ]),
+    /验证状态无效/,
+  )
+})
+
+test("paste eligibility enforces ready same context non-root different target and pending flags", async () => {
+  const {
+    canPasteResourceClipboard,
+    completeResourceClipboard,
+    createPreparingResourceClipboard,
+    normalizeResourceClipboardOwnerType,
+  } = await loadInteractionState()
+  const preparing = createPreparingResourceClipboard(
+    4,
+    "copy",
+    "node-1",
+    "course",
+    "folder-source",
+    new Set(["object-1"]),
+  )
+  const ready = completeResourceClipboard(preparing, [{
+    objectId: "object-1",
+    fingerprint: { kind: "checksum", value: "sum-1" },
+    verificationError: null,
+  }])
+  const eligibility = {
+    clipboard: ready,
+    nodeId: "node-1",
+    ownerType: "course" as const,
+    targetFolderId: "folder-target",
+    courseEditable: true,
+    isLoading: false,
+    isSubmitting: false,
+  }
+
+  assert.equal(normalizeResourceClipboardOwnerType(undefined), "course")
+  assert.equal(canPasteResourceClipboard(eligibility), true)
+  assert.equal(canPasteResourceClipboard({ ...eligibility, clipboard: preparing }), false)
+  assert.equal(canPasteResourceClipboard({ ...eligibility, clipboard: null }), false)
+  assert.equal(canPasteResourceClipboard({ ...eligibility, nodeId: "node-2" }), false)
+  assert.equal(canPasteResourceClipboard({ ...eligibility, ownerType: "major" }), false)
+  assert.equal(canPasteResourceClipboard({ ...eligibility, targetFolderId: null }), false)
+  assert.equal(canPasteResourceClipboard({ ...eligibility, targetFolderId: "folder-source" }), false)
+  assert.equal(canPasteResourceClipboard({ ...eligibility, courseEditable: false }), false)
+  assert.equal(canPasteResourceClipboard({ ...eligibility, isLoading: true }), false)
+  assert.equal(canPasteResourceClipboard({ ...eligibility, isSubmitting: true }), false)
 })
 
 test("batch action outcome parses full and partial success", async () => {
@@ -228,9 +334,9 @@ test("batch object list omits individual actions while normal mode exposes acces
     new URL("../../dialogs/course-resource-picker-dialog.tsx", import.meta.url),
     "utf8",
   )
-  const destinationPickerSource = await readFile(
-    new URL("./ResourceDestinationPickerDialog.tsx", import.meta.url),
-    "utf8",
+  const destinationPickerUrl = new URL(
+    "./ResourceDestinationPickerDialog.tsx",
+    import.meta.url,
   )
   const dataHookSource = await readFile(
     new URL("../../../hooks/use-course-resources.ts", import.meta.url),
@@ -355,27 +461,68 @@ test("batch object list omits individual actions while normal mode exposes acces
     Array.from(batchToolbarSource.matchAll(/disabled=\{!canStartBatchTransfer\}/g)).length,
     2,
   )
+  assert.match(batchToolbarSource, /<Download[^>]*>[\s\S]*下载/)
+  assert.doesNotMatch(batchToolbarSource, /批量下载/)
+
+  const clipboardCreationStart = containerSource.indexOf(
+    "const clipboard = createPreparingResourceClipboard(",
+  )
+  const clipboardStateStart = containerSource.indexOf(
+    "setResourceClipboard(clipboard)",
+    clipboardCreationStart,
+  )
+  const normalModeStart = containerSource.indexOf(
+    'changeResourceInteractionMode("normal")',
+    clipboardStateStart,
+  )
+  const clearSelectionStart = containerSource.indexOf(
+    "setSelectedIds(nextState.selectedIds)",
+    normalModeStart,
+  )
+  const deferredPreparationStart = containerSource.indexOf(
+    "void Promise.resolve().then(() => prepareResourceClipboard(clipboard))",
+    clearSelectionStart,
+  )
+  assert.ok(clipboardCreationStart >= 0)
+  assert.ok(clipboardStateStart > clipboardCreationStart)
+  assert.ok(normalModeStart > clipboardStateStart)
+  assert.ok(clearSelectionStart > normalModeStart)
+  assert.ok(deferredPreparationStart > clearSelectionStart)
+
   assert.match(
     containerSource,
-    /action: batchTransferSnapshot\.action,[\s\S]*sourceFolderId: batchTransferSnapshot\.sourceFolderId,[\s\S]*targetFolderId,[\s\S]*objectIds: \[\.\.\.batchTransferSnapshot\.objectIds\]/,
+    /action: clipboard\.action,[\s\S]*sourceFolderId: clipboard\.sourceFolderId,[\s\S]*targetFolderId: currentParentId,[\s\S]*objectIds: verifiedObjectIds/,
   )
   assert.match(
     containerSource,
-    /batchTransferSnapshot\.action === "move" && succeededCount > 0[\s\S]*refreshCurrentLevel\(\)/,
+    /getObjectDetail\([\s\S]*resourceFingerprintMatches\(item\.fingerprint, response\.data\)[\s\S]*verifiedObjectIds\.push\(verificationResult\)/,
   )
-  assert.match(containerSource, /setSelectedIds\(new Set\(outcome\.failedIds\)\)/)
-  assert.match(containerSource, /showError\("批量复制或移动响应为空"\)/)
-  assert.match(containerSource, /showSuccess\(`\$\{actionLabel\}成功：成功 \$\{succeededCount\} 个，失败 0 个`\)/)
+  assert.match(containerSource, /if \(succeededCount > 0\) \{\s*refreshCurrentLevel\(\)/)
+  assert.match(containerSource, /setResourceClipboard\(\(currentClipboard\) => \{[\s\S]*currentClipboard\.requestId !== clipboard\.requestId[\s\S]*return null/)
+  assert.match(containerSource, /粘贴完成：成功 \$\{succeededCount\} 个，失败 0 个，忽略 \$\{ignoredCount\} 个/)
   assert.match(
     containerSource,
-    /showError\(`\$\{actionLabel\}\$\{resultLabel\}：成功 \$\{succeededCount\} 个，失败 \$\{failedCount\} 个`\)/,
+    /粘贴部分完成：成功 \$\{succeededCount\} 个，失败 \$\{failedCount\} 个，忽略 \$\{ignoredCount\} 个/,
   )
-  assert.match(destinationPickerSource, /useCourseResources\(nodeId, ownerType\)/)
-  assert.match(destinationPickerSource, /directories\.map\(\(folder\) =>/)
-  assert.doesNotMatch(destinationPickerSource, /objects\.map|type: "object"/)
-  assert.match(destinationPickerSource, /targetFolderId: currentParentId/)
-  assert.match(destinationPickerSource, /currentParentId === sourceFolderId/)
-  assert.match(destinationPickerSource, /<ResourceBreadcrumb path=\{breadcrumbs\}/)
+  assert.match(containerSource, /clipboard\.items\.filter\(\(item\) => item\.fingerprint === null\)/)
+  assert.match(containerSource, /sourceNodeId[\s\S]*sourceOwnerType[\s\S]*sourceFolderId/)
+  assert.match(containerSource, /\[nodeId, normalizedOwnerType\]/)
+  assert.doesNotMatch(containerSource, /ResourceDestinationPickerDialog|batchTransferSnapshot/)
+  assert.doesNotMatch(containerSource, /localStorage|sessionStorage|navigator\.clipboard/)
+  await assert.rejects(readFile(destinationPickerUrl, "utf8"), /ENOENT/)
+
+  const batchButtonIndex = searchBarSource.indexOf(
+    '{interactionMode === "batch" ? "退出批量操作" : "批量操作"}',
+  )
+  const pasteButtonIndex = searchBarSource.indexOf("{isPasting ? \"粘贴中\" : \"粘贴\"}")
+  assert.ok(batchButtonIndex >= 0)
+  assert.ok(pasteButtonIndex > batchButtonIndex)
+  assert.match(searchBarSource, /\{showPaste && \([\s\S]*disabled=\{disablePaste\}/)
+  assert.match(typesSource, /showPaste: boolean[\s\S]*disablePaste: boolean[\s\S]*isPasting: boolean/)
+  assert.ok(
+    containerSource.indexOf("<ResourceSearchBar") <
+      containerSource.indexOf("<RefreshCw"),
+  )
   assert.match(
     containerSource,
     /import \{ useResourceViewPreference \} from "@\/modules\/courses\/hooks\/use-resource-view-preference"/,

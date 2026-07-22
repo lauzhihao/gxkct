@@ -35,6 +35,10 @@ export interface ResourceSearchBarProps {
   disableCreateFolder?: boolean
   interactionMode: ResourceInteractionMode
   onToggleBatchMode?: () => void
+  showPaste: boolean
+  disablePaste: boolean
+  isPasting: boolean
+  onPaste: () => void
 }
 
 export type ResourceEntry =

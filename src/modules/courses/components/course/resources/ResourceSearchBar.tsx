@@ -1,6 +1,6 @@
 "use client"
 
-import { Search, X, LayoutGrid, Rows, Plus, Upload, ListChecks } from "lucide-react"
+import { Search, X, LayoutGrid, Rows, Plus, Upload, ListChecks, ClipboardPaste } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/components/ui/tooltip"
 import { cn } from "@/shared/utils/utils"
@@ -20,6 +20,10 @@ export function ResourceSearchBar({
   disableCreateFolder,
   interactionMode,
   onToggleBatchMode,
+  showPaste,
+  disablePaste,
+  isPasting,
+  onPaste,
 }: ResourceSearchBarProps) {
   const canManageCourseResource = courseEditable
   const buttonHoverClass = "transition-colors hover:bg-primary hover:text-white hover:[&>svg]:text-white"
@@ -37,6 +41,11 @@ export function ResourceSearchBar({
   const handleToggleBatchMode = () => {
     if (!courseEditable) return
     onToggleBatchMode?.()
+  }
+
+  const handlePaste = () => {
+    if (disablePaste) return
+    onPaste()
   }
 
   return (
@@ -132,6 +141,18 @@ export function ResourceSearchBar({
         >
           <ListChecks className="h-4 w-4" />
           {interactionMode === "batch" ? "退出批量操作" : "批量操作"}
+        </Button>
+      )}
+      {showPaste && (
+        <Button
+          size="sm"
+          variant="outline"
+          className={cn("gap-1", buttonHoverClass)}
+          onClick={handlePaste}
+          disabled={disablePaste}
+        >
+          <ClipboardPaste className="h-4 w-4" />
+          {isPasting ? "粘贴中" : "粘贴"}
         </Button>
       )}
     </div>
