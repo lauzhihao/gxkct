@@ -108,36 +108,46 @@ test("resource clipboard freezes action context and selection while preparing", 
 
 test("resource fingerprints use strict version etag checksum priority and exact comparison", async () => {
   const { readResourceFingerprint, resourceFingerprintMatches } = await loadInteractionState()
-
-  assert.deepEqual(
-    readResourceFingerprint({ version: "v1", etag: "etag-1", checksum: "sum-1" }),
-    { kind: "version", value: "v1" },
-  )
-  assert.deepEqual(
-    readResourceFingerprint({ version: null, etag: "etag-1", checksum: "sum-1" }),
-    { kind: "etag", value: "etag-1" },
-  )
-  assert.deepEqual(
-    readResourceFingerprint({ version: null, etag: undefined, checksum: "sum-1" }),
-    { kind: "checksum", value: "sum-1" },
+  const baseDetail = {
+    version: "v1",
+    etag: "etag-1",
+    checksum: "sum-1",
+    objectKey: "course-resources/1/report.docx",
+    displayName: "report.docx",
+    size: 10,
+    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    uploadedAt: "2026-07-22T07:00:00Z",
+  }
+  const versionFingerprint = readResourceFingerprint(baseDetail)
+  assert.equal(versionFingerprint.kind, "version")
+  assert.equal(versionFingerprint.value, "v1")
+  assert.equal(typeof versionFingerprint.snapshot, "string")
+  assert.equal(
+    readResourceFingerprint({ ...baseDetail, version: null }).kind,
+    "etag",
   )
   assert.equal(
-    resourceFingerprintMatches(
-      { kind: "version", value: "v1" },
-      { version: "v1", etag: "changed-etag" },
-    ),
+    readResourceFingerprint({ ...baseDetail, version: null, etag: undefined }).kind,
+    "checksum",
+  )
+  assert.equal(
+    resourceFingerprintMatches(versionFingerprint, baseDetail),
     true,
   )
   assert.equal(
-    resourceFingerprintMatches({ kind: "version", value: "v1" }, { version: "v2" }),
+    resourceFingerprintMatches(versionFingerprint, { ...baseDetail, version: "v2" }),
     false,
   )
   assert.equal(
-    resourceFingerprintMatches({ kind: "etag", value: "etag-1" }, { etag: "etag-2" }),
+    resourceFingerprintMatches(versionFingerprint, { ...baseDetail, etag: "etag-2" }),
+    false,
+  )
+  assert.equal(
+    resourceFingerprintMatches(versionFingerprint, { ...baseDetail, displayName: "renamed.docx" }),
     false,
   )
   assert.throws(() => readResourceFingerprint({}), /缺少可验证 fingerprint/)
-  assert.throws(() => readResourceFingerprint({ version: " " }), /version 无效/)
+  assert.throws(() => readResourceFingerprint({ ...baseDetail, version: " " }), /version 无效/)
 })
 
 test("completed clipboard distinguishes verifiable and ignored items", async () => {
@@ -156,7 +166,7 @@ test("completed clipboard distinguishes verifiable and ignored items", async () 
   const ready = completeResourceClipboard(preparing, [
     {
       objectId: "object-1",
-      fingerprint: { kind: "version", value: "v1" },
+      fingerprint: { kind: "version", value: "v1", snapshot: "snapshot-1" },
       verificationError: null,
     },
     {
@@ -195,7 +205,7 @@ test("paste eligibility enforces ready same context non-root different target an
   )
   const ready = completeResourceClipboard(preparing, [{
     objectId: "object-1",
-    fingerprint: { kind: "checksum", value: "sum-1" },
+    fingerprint: { kind: "checksum", value: "sum-1", snapshot: "snapshot-1" },
     verificationError: null,
   }])
   const eligibility = {

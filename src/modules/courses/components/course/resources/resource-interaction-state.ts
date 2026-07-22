@@ -25,6 +25,12 @@ export interface ResourceBatchTransferEligibility {
 export interface ResourceFingerprint {
   kind: ResourceFingerprintKind
   value: string
+  snapshot: string
+}
+
+interface ResourceIdentityFingerprint {
+  kind: ResourceFingerprintKind
+  value: string
 }
 
 export interface ResourceClipboardItem {
@@ -205,7 +211,7 @@ export function createPreparingResourceClipboard(
 function readFingerprintField(
   value: unknown,
   kind: ResourceFingerprintKind,
-): ResourceFingerprint | null {
+): ResourceIdentityFingerprint | null {
   if (value === undefined) {
     return null
   }
@@ -219,7 +225,7 @@ function readFingerprintField(
   if (normalizedValue.length === 0) {
     throw new Error(`资源 ${kind} 无效`)
   }
-  return { kind, value }
+  return { kind, value: normalizedValue }
 }
 
 export function readResourceFingerprint(value: unknown): ResourceFingerprint {
@@ -228,18 +234,45 @@ export function readResourceFingerprint(value: unknown): ResourceFingerprint {
   }
 
   const versionFingerprint = readFingerprintField(value.version, "version")
-  if (versionFingerprint !== null) {
-    return versionFingerprint
-  }
   const etagFingerprint = readFingerprintField(value.etag, "etag")
-  if (etagFingerprint !== null) {
-    return etagFingerprint
-  }
   const checksumFingerprint = readFingerprintField(value.checksum, "checksum")
-  if (checksumFingerprint !== null) {
-    return checksumFingerprint
+
+  let identityFingerprint: ResourceIdentityFingerprint | null = null
+  if (versionFingerprint !== null) {
+    identityFingerprint = versionFingerprint
+  } else if (etagFingerprint !== null) {
+    identityFingerprint = etagFingerprint
+  } else if (checksumFingerprint !== null) {
+    identityFingerprint = checksumFingerprint
   }
-  throw new Error("资源详情缺少可验证 fingerprint")
+  if (identityFingerprint === null) {
+    throw new Error("资源详情缺少可验证 fingerprint")
+  }
+
+  const objectKey = readRequiredIdentifier(value.objectKey, "资源 objectKey")
+  const displayName = readRequiredIdentifier(value.displayName, "资源 displayName")
+  const mimeType = readRequiredIdentifier(value.mimeType, "资源 mimeType")
+  const uploadedAt = readRequiredIdentifier(value.uploadedAt, "资源 uploadedAt")
+  if (typeof value.size !== "number" || !Number.isSafeInteger(value.size)) {
+    throw new Error("资源 size 缺失或无效")
+  }
+  if (value.size < 0) {
+    throw new Error("资源 size 缺失或无效")
+  }
+
+  return {
+    ...identityFingerprint,
+    snapshot: JSON.stringify([
+      versionFingerprint === null ? null : versionFingerprint.value,
+      etagFingerprint === null ? null : etagFingerprint.value,
+      checksumFingerprint === null ? null : checksumFingerprint.value,
+      objectKey,
+      displayName,
+      value.size,
+      mimeType,
+      uploadedAt,
+    ]),
+  }
 }
 
 export function completeResourceClipboard(
@@ -284,7 +317,9 @@ export function resourceFingerprintMatches(
   currentDetail: unknown,
 ): boolean {
   const current = readResourceFingerprint(currentDetail)
-  return current.kind === expected.kind && current.value === expected.value
+  return current.kind === expected.kind
+    && current.value === expected.value
+    && current.snapshot === expected.snapshot
 }
 
 export function parseResourceBatchActionOutcome(
