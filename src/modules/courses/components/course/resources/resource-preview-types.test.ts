@@ -127,16 +127,45 @@ test("tries unknown non-Office resources as text regardless of extension", async
   )
 })
 
-test("Office details do not depend on previewUrl", async () => {
+test("Office details preserve safe converted previewUrl", async () => {
   const { parseResourcePreviewDetail } = await loadPreviewTypes()
   const detail = parseResourcePreviewDetail(createDetail({
     displayName: "slides.pptx",
     mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     previewStatus: "READY",
-    previewUrl: "javascript:alert(1)",
+    previewUrl: "/api/resources/resource-1/preview",
   }))
 
-  assert.equal(detail.previewUrl, null)
+  assert.equal(detail.previewUrl, "/api/resources/resource-1/preview")
+})
+
+test("Office details reject unsafe converted previewUrl", async () => {
+  const { parseResourcePreviewDetail } = await loadPreviewTypes()
+
+  assert.throws(
+    () => parseResourcePreviewDetail(createDetail({
+      displayName: "slides.pptx",
+      mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      previewStatus: "READY",
+      previewUrl: "javascript:alert(1)",
+    })),
+    /资源详情字段 previewUrl不是有效链接/,
+  )
+})
+
+test("Office details allow an empty converted previewUrl while converting", async () => {
+  const { parseResourcePreviewDetail } = await loadPreviewTypes()
+
+  for (const previewStatus of ["NONE", "PENDING", "PROCESSING", "READY"]) {
+    const detail = parseResourcePreviewDetail(createDetail({
+      displayName: "slides.pptx",
+      mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      previewStatus,
+      previewUrl: null,
+    }))
+
+    assert.equal(detail.previewUrl, null)
+  }
 })
 
 test("direct text details do not require a READY previewUrl", async () => {
@@ -187,6 +216,70 @@ test("direct preview failure switches presentation to unsupported", async () => 
   )
 })
 
+test("Office presentation uses the converted preview status flow", async () => {
+  const { resolveResourcePreviewPresentation } = await loadPreviewTypes()
+
+  assert.deepEqual(
+    resolveResourcePreviewPresentation(
+      "slides.pptx",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      false,
+    ),
+    { mode: "status", directKind: null },
+  )
+})
+
+test("Office preview state follows previewUrl and gives FAILED priority", async () => {
+  const { parseResourcePreviewDetail, resolveOfficeResourcePreviewState } =
+    await loadPreviewTypes()
+  const officeIdentity = {
+    displayName: "slides.pptx",
+    mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  }
+
+  for (const previewStatus of ["NONE", "PENDING", "PROCESSING", "READY"]) {
+    const convertingDetail = parseResourcePreviewDetail(createDetail({
+      ...officeIdentity,
+      previewStatus,
+      previewUrl: null,
+    }))
+    assert.deepEqual(
+      resolveOfficeResourcePreviewState(convertingDetail),
+      { phase: "converting" },
+    )
+
+    const readyDetail = parseResourcePreviewDetail(createDetail({
+      ...officeIdentity,
+      previewStatus,
+      previewUrl: "/api/resources/resource-1/preview",
+    }))
+    assert.deepEqual(
+      resolveOfficeResourcePreviewState(readyDetail),
+      { phase: "ready", url: "/api/resources/resource-1/preview" },
+    )
+  }
+
+  for (const previewUrl of [null, "/api/resources/resource-1/preview"]) {
+    const failedDetail = parseResourcePreviewDetail(createDetail({
+      ...officeIdentity,
+      previewStatus: "FAILED",
+      previewUrl,
+    }))
+    assert.deepEqual(
+      resolveOfficeResourcePreviewState(failedDetail),
+      { phase: "failed" },
+    )
+  }
+})
+
+test("Office preview state does not change non-Office resources", async () => {
+  const { parseResourcePreviewDetail, resolveOfficeResourcePreviewState } =
+    await loadPreviewTypes()
+  const textDetail = parseResourcePreviewDetail(createDetail())
+
+  assert.equal(resolveOfficeResourcePreviewState(textDetail), null)
+})
+
 test("required details and downloadUrl remain strictly validated", async () => {
   const { parseResourcePreviewDetail } = await loadPreviewTypes()
 
@@ -219,6 +312,9 @@ test("preview drawer keeps one contextual download action in its header", async 
   assert.equal(Array.from(source.matchAll(/<Download\s*\/>\s*下载原件/g)).length, 2)
   assert.match(source, /请下载原件查看/)
   assert.match(source, /presentation\.mode === "unsupported"[\s\S]*return renderUnsupported\(detail\)/)
+  assert.match(source, /resolveOfficeResourcePreviewState/)
+  assert.match(source, /isPreviewConverting\(detail, presentation\)/)
+  assert.match(source, /转换中，请稍候/)
   assert.match(source, /data-\[vaul-drawer-direction=right\]:sm:w-\[47vw\]/)
   assert.match(source, /onAnimationEnd=\{handleAnimationEnd\}/)
 })

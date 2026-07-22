@@ -101,6 +101,11 @@ export type ResourcePreviewPresentation =
       directKind: "pdf" | "image" | "video" | null
     }
 
+export type OfficeResourcePreviewState =
+  | { phase: "converting" }
+  | { phase: "ready"; url: string }
+  | { phase: "failed" }
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
@@ -176,14 +181,16 @@ export function parseResourcePreviewDetail(
   const displayName = readRequiredString(value, "displayName")
   const mimeType = readRequiredString(value, "mimeType")
   const downloadUrl = readSafeUrl(value, "downloadUrl", false)
+  const officeResource = isOfficeResource(displayName, mimeType)
   const directKind = resolveDirectResourcePreviewKind(displayName, mimeType)
   const ignoresConvertedPreview =
-    directKind === null || directKind === "markdown" || directKind === "text"
+    !officeResource &&
+    (directKind === null || directKind === "markdown" || directKind === "text")
   const previewStatus = readPreviewStatus(value)
   let previewUrl: string | null = null
   if (!ignoresConvertedPreview) {
     previewUrl = readOptionalSafeUrl(value, "previewUrl")
-    if (previewStatus === "READY" && previewUrl === null) {
+    if (!officeResource && previewStatus === "READY" && previewUrl === null) {
       throw new Error("资源预览已就绪，但 previewUrl 缺失")
     }
   }
@@ -288,8 +295,12 @@ export function resolveResourcePreviewPresentation(
   mimeType: string,
   directPreviewFailed: boolean,
 ): ResourcePreviewPresentation {
-  if (directPreviewFailed || isOfficeResource(displayName, mimeType)) {
+  if (directPreviewFailed) {
     return { mode: "unsupported" }
+  }
+
+  if (isOfficeResource(displayName, mimeType)) {
+    return { mode: "status", directKind: null }
   }
 
   const directKind = resolveDirectResourcePreviewKind(displayName, mimeType)
@@ -300,4 +311,19 @@ export function resolveResourcePreviewPresentation(
     return { mode: "unsupported" }
   }
   return { mode: "status", directKind }
+}
+
+export function resolveOfficeResourcePreviewState(
+  detail: ResourcePreviewDetail,
+): OfficeResourcePreviewState | null {
+  if (!isOfficeResource(detail.displayName, detail.mimeType)) {
+    return null
+  }
+  if (detail.previewStatus === "FAILED") {
+    return { phase: "failed" }
+  }
+  if (detail.previewUrl === null) {
+    return { phase: "converting" }
+  }
+  return { phase: "ready", url: detail.previewUrl }
 }

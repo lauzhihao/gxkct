@@ -22,6 +22,7 @@ import { Spinner } from "@/shared/components/ui/spinner"
 import { ResourcePreviewContent } from "./ResourcePreviewContent"
 import {
   parseResourcePreviewDetail,
+  resolveOfficeResourcePreviewState,
   resolveResourcePreviewPresentation,
   type DirectResourcePreviewKind,
   type ResourcePreviewDetail,
@@ -64,6 +65,13 @@ function getPreviewSource(
   if (presentation.mode === "direct-text") {
     return { kind: presentation.kind, url: detail.downloadUrl }
   }
+  const officePreviewState = resolveOfficeResourcePreviewState(detail)
+  if (officePreviewState !== null) {
+    if (officePreviewState.phase === "ready") {
+      return { kind: "pdf", url: officePreviewState.url }
+    }
+    return null
+  }
   if (detail.previewStatus === "READY") {
     if (detail.previewUrl === null) {
       return null
@@ -77,6 +85,21 @@ function getPreviewSource(
     return null
   }
   return { kind: presentation.directKind, url: detail.downloadUrl }
+}
+
+function isPreviewConverting(
+  detail: ResourcePreviewDetail,
+  presentation: ResourcePreviewPresentation,
+): boolean {
+  const officePreviewState = resolveOfficeResourcePreviewState(detail)
+  if (officePreviewState !== null) {
+    return officePreviewState.phase === "converting"
+  }
+  return (
+    presentation.mode === "status" &&
+    (detail.previewStatus === "PENDING" ||
+      detail.previewStatus === "PROCESSING")
+  )
 }
 
 function getDirectPreviewKey(detail: ResourcePreviewDetail): string {
@@ -132,10 +155,7 @@ export function ResourcePreviewDrawer({
           detail.mimeType,
           false,
         )
-        const isConverting =
-          presentation.mode === "status" &&
-          (detail.previewStatus === "PENDING" ||
-            detail.previewStatus === "PROCESSING")
+        const isConverting = isPreviewConverting(detail, presentation)
         const timedOut = isConverting && Date.now() - startedAt >= PREVIEW_POLL_TIMEOUT_MS
         setState({
           phase: "loaded",
@@ -271,7 +291,7 @@ export function ResourcePreviewDrawer({
       )
     }
 
-    if (detail.previewStatus === "PENDING" || detail.previewStatus === "PROCESSING") {
+    if (isPreviewConverting(detail, presentation)) {
       return (
         <div className="flex h-full min-h-[520px] flex-col items-center justify-center px-8 text-center">
           <div className="relative mb-6 flex size-20 items-center justify-center rounded-2xl border border-primary/20 bg-primary/5">
@@ -282,7 +302,7 @@ export function ResourcePreviewDrawer({
             )}
           </div>
           <p className="text-lg font-semibold text-foreground">
-            {state.timedOut ? "转换时间较长" : "预览版本转换中"}
+            {state.timedOut ? "转换时间较长" : "转换中，请稍候"}
           </p>
           <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
             {state.timedOut
