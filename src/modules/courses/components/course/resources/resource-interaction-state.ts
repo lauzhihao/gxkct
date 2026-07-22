@@ -59,9 +59,22 @@ export interface ResourcePasteEligibility {
   isSubmitting: boolean
 }
 
+export interface ResourcePasteDialogEligibility {
+  clipboard: ResourceClipboardSnapshot | null
+  nodeId: string | null
+  ownerType: ResourceClipboardOwnerType
+  courseEditable: boolean
+  isSubmitting: boolean
+}
+
 export interface ResourceBatchActionOutcome {
   succeededIds: readonly string[]
   failedIds: readonly string[]
+  failedItems: ReadonlyArray<{
+    objectId: string
+    errorCode: string
+    message: string
+  }>
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -155,6 +168,30 @@ export function canPasteResourceClipboard(
     return false
   }
   if (eligibility.isLoading) {
+    return false
+  }
+  if (eligibility.isSubmitting) {
+    return false
+  }
+  return true
+}
+
+export function canOpenResourcePasteDialog(
+  eligibility: ResourcePasteDialogEligibility,
+): boolean {
+  if (eligibility.clipboard === null) {
+    return false
+  }
+  if (!eligibility.courseEditable) {
+    return false
+  }
+  if (eligibility.nodeId === null) {
+    return false
+  }
+  if (eligibility.clipboard.sourceNodeId !== eligibility.nodeId) {
+    return false
+  }
+  if (eligibility.clipboard.sourceOwnerType !== eligibility.ownerType) {
     return false
   }
   if (eligibility.isSubmitting) {
@@ -353,6 +390,11 @@ export function parseResourceBatchActionOutcome(
 
   const succeededIds: string[] = []
   const failedIds: string[] = []
+  const failedItems: Array<{
+    objectId: string
+    errorCode: string
+    message: string
+  }> = []
   const returnedIds = new Set<string>()
   for (const succeededValue of value.succeeded) {
     const succeededId = readRequiredIdentifier(
@@ -376,8 +418,14 @@ export function parseResourceBatchActionOutcome(
       failedValue.objectId,
       "失败资源对象 ID",
     )
-    readRequiredIdentifier(failedValue.errorCode, "批量操作错误码")
-    readRequiredIdentifier(failedValue.message, "批量操作错误信息")
+    const errorCode = readRequiredIdentifier(
+      failedValue.errorCode,
+      "批量操作错误码",
+    )
+    const message = readRequiredIdentifier(
+      failedValue.message,
+      "批量操作错误信息",
+    )
     if (!requestedIds.has(failedId)) {
       throw new Error("批量操作响应包含未请求的失败对象")
     }
@@ -386,12 +434,13 @@ export function parseResourceBatchActionOutcome(
     }
     returnedIds.add(failedId)
     failedIds.push(failedId)
+    failedItems.push({ objectId: failedId, errorCode, message })
   }
   if (returnedIds.size !== requestedIds.size) {
     throw new Error("批量操作响应未覆盖全部请求对象")
   }
 
-  return { succeededIds, failedIds }
+  return { succeededIds, failedIds, failedItems }
 }
 
 export function toggleResourceSelection(

@@ -22,7 +22,9 @@ import { ResourceBreadcrumb } from "./ResourceBreadcrumb"
 import { ResourceSearchBar } from "./ResourceSearchBar"
 import { ResourceObjectList } from "./ResourceObjectList"
 import { ResourcePreviewDrawer } from "./ResourcePreviewDrawer"
+import { ResourceDestinationPickerDialog } from "./ResourceDestinationPickerDialog"
 import {
+  canOpenResourcePasteDialog,
   canPasteResourceClipboard,
   canStartResourceBatchTransfer,
   changeResourceInteractionMode,
@@ -127,6 +129,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
   const [isBatchDownloading, setIsBatchDownloading] = useState(false)
   const [resourceClipboard, setResourceClipboard] = useState<ResourceClipboardSnapshot | null>(null)
   const [isPasting, setIsPasting] = useState(false)
+  const [isDestinationPickerOpen, setIsDestinationPickerOpen] = useState(false)
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false)
   const [newFolderName, setNewFolderName] = useState("")
   const [folderNameError, setFolderNameError] = useState<string | null>(null)
@@ -171,6 +174,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
     }
     clipboardRequestIdRef.current += 1
     setResourceClipboard(null)
+    setIsDestinationPickerOpen(false)
   }, [nodeId, normalizedOwnerType])
 
   useEffect(() => {
@@ -386,6 +390,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
       selectedIds,
     )
     setResourceClipboard(clipboard)
+    setIsDestinationPickerOpen(false)
     const nextState = changeResourceInteractionMode("normal")
     setInteractionMode(nextState.mode)
     setSelectedIds(nextState.selectedIds)
@@ -413,19 +418,41 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
     handlePrepareBatchTransfer("move")
   }, [handlePrepareBatchTransfer])
 
-  const handlePaste = useCallback(async () => {
+  const handleOpenDestinationPicker = useCallback(() => {
+    const canOpen = canOpenResourcePasteDialog({
+      clipboard: resourceClipboard,
+      nodeId,
+      ownerType: normalizedOwnerType,
+      courseEditable,
+      isSubmitting: isPasting,
+    })
+    if (!canOpen) {
+      showError("当前状态无法选择粘贴目标")
+      return
+    }
+    setIsDestinationPickerOpen(true)
+  }, [courseEditable, isPasting, nodeId, normalizedOwnerType, resourceClipboard])
+
+  const handleDestinationPickerOpenChange = useCallback((open: boolean) => {
+    if (!open && isPasting) {
+      return
+    }
+    setIsDestinationPickerOpen(open)
+  }, [isPasting])
+
+  const handlePaste = useCallback(async (targetFolderId: string) => {
     const clipboard = resourceClipboard
     const canPaste = canPasteResourceClipboard({
       clipboard,
       nodeId,
       ownerType: normalizedOwnerType,
-      targetFolderId: currentParentId,
+      targetFolderId,
       courseEditable,
-      isLoading,
+      isLoading: false,
       isSubmitting: isPasting,
     })
     if (!canPaste) {
-      showError("当前目录无法粘贴剪贴板资源")
+      showError("当前目标文件夹无法粘贴剪贴板资源")
       return
     }
     if (clipboard === null) {
@@ -434,12 +461,11 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
     if (nodeId === null) {
       throw new Error("粘贴操作缺少目标节点 ID")
     }
-    if (currentParentId === null) {
-      throw new Error("资源根目录不能作为粘贴目标")
-    }
 
     let ignoredCount = clipboard.items.filter((item) => item.fingerprint === null).length
     let attemptedCount = clipboard.items.length - ignoredCount
+    let shouldConsumeClipboard = false
+    let shouldClosePicker = false
     setIsPasting(true)
     try {
       const verificationResults = await Promise.all(
@@ -477,6 +503,8 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
       ignoredCount = clipboard.items.length - verifiedObjectIds.length
       attemptedCount = verifiedObjectIds.length
       if (verifiedObjectIds.length === 0) {
+        shouldConsumeClipboard = true
+        shouldClosePicker = true
         showError(`粘贴未执行：成功 0 个，失败 0 个，忽略 ${ignoredCount} 个`)
         return
       }
@@ -487,7 +515,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
       const response = await courseResourcesApi.batchAction(nodeId, {
         action: clipboard.action,
         sourceFolderId: clipboard.sourceFolderId,
-        targetFolderId: currentParentId,
+        targetFolderId,
         objectIds: verifiedObjectIds,
       }, normalizedOwnerType)
       if (response.error !== null) {
@@ -510,32 +538,44 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
       const succeededCount = outcome.succeededIds.length
       const failedCount = outcome.failedIds.length
       if (succeededCount > 0) {
+        shouldConsumeClipboard = true
+        shouldClosePicker = true
         refreshCurrentLevel()
       }
       if (failedCount === 0) {
         showSuccess(`粘贴完成：成功 ${succeededCount} 个，失败 0 个，忽略 ${ignoredCount} 个`)
         return
       }
-      showError(`粘贴部分完成：成功 ${succeededCount} 个，失败 ${failedCount} 个，忽略 ${ignoredCount} 个`)
+      const firstFailure = outcome.failedItems[0]
+      if (firstFailure === undefined) {
+        throw new Error("批量操作失败项缺失")
+      }
+      const resultLabel = succeededCount > 0 ? "粘贴部分完成" : "粘贴失败"
+      showError(
+        `${resultLabel}：成功 ${succeededCount} 个，失败 ${failedCount} 个，忽略 ${ignoredCount} 个；${firstFailure.message}`,
+      )
     } catch (error) {
       const message = error instanceof Error ? error.message : "粘贴失败"
       showError(`粘贴失败：成功 0 个，失败 ${attemptedCount} 个，忽略 ${ignoredCount} 个；${message}`)
     } finally {
-      setResourceClipboard((currentClipboard) => {
-        if (currentClipboard === null) {
+      if (shouldConsumeClipboard) {
+        setResourceClipboard((currentClipboard) => {
+          if (currentClipboard === null) {
+            return null
+          }
+          if (currentClipboard.requestId !== clipboard.requestId) {
+            return currentClipboard
+          }
           return null
-        }
-        if (currentClipboard.requestId !== clipboard.requestId) {
-          return currentClipboard
-        }
-        return null
-      })
+        })
+      }
+      if (shouldClosePicker) {
+        setIsDestinationPickerOpen(false)
+      }
       setIsPasting(false)
     }
   }, [
     courseEditable,
-    currentParentId,
-    isLoading,
     isPasting,
     nodeId,
     normalizedOwnerType,
@@ -1056,13 +1096,11 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
     isBatchTransferring: isPasting,
   })
 
-  const canPasteClipboard = canPasteResourceClipboard({
+  const canOpenDestinationPicker = canOpenResourcePasteDialog({
     clipboard: resourceClipboard,
     nodeId,
     ownerType: normalizedOwnerType,
-    targetFolderId: currentParentId,
     courseEditable,
-    isLoading,
     isSubmitting: isPasting,
   })
 
@@ -1128,9 +1166,9 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
               interactionMode={interactionMode}
               onToggleBatchMode={isPasting ? undefined : handleToggleBatchMode}
               showPaste={resourceClipboard !== null}
-              disablePaste={!canPasteClipboard}
+              disablePaste={!canOpenDestinationPicker}
               isPasting={isPasting}
-              onPaste={() => void handlePaste()}
+              onPaste={handleOpenDestinationPicker}
             />
             <div className="flex items-center gap-2">
               <Button
@@ -1291,6 +1329,18 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
         </div>
       )}
       </div>
+      {resourceClipboard === null ? null : (
+        <ResourceDestinationPickerDialog
+          nodeId={resourceClipboard.sourceNodeId}
+          ownerType={resourceClipboard.sourceOwnerType}
+          sourceFolderId={resourceClipboard.sourceFolderId}
+          clipboardPhase={resourceClipboard.phase}
+          open={isDestinationPickerOpen}
+          isSubmitting={isPasting}
+          onOpenChange={handleDestinationPickerOpenChange}
+          onConfirm={(targetFolderId) => void handlePaste(targetFolderId)}
+        />
+      )}
       <Dialog open={isCreateFolderOpen} onOpenChange={handleCreateFolderOpenChange}>
         <DialogContent>
           <DialogHeader>

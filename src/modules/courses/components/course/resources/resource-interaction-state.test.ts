@@ -190,6 +190,7 @@ test("completed clipboard distinguishes verifiable and ignored items", async () 
 
 test("paste eligibility enforces ready same context non-root different target and pending flags", async () => {
   const {
+    canOpenResourcePasteDialog,
     canPasteResourceClipboard,
     completeResourceClipboard,
     createPreparingResourceClipboard,
@@ -219,6 +220,19 @@ test("paste eligibility enforces ready same context non-root different target an
   }
 
   assert.equal(normalizeResourceClipboardOwnerType(undefined), "course")
+  const dialogEligibility = {
+    clipboard: preparing,
+    nodeId: "node-1",
+    ownerType: "course" as const,
+    courseEditable: true,
+    isSubmitting: false,
+  }
+  assert.equal(canOpenResourcePasteDialog(dialogEligibility), true)
+  assert.equal(canOpenResourcePasteDialog({ ...dialogEligibility, clipboard: null }), false)
+  assert.equal(canOpenResourcePasteDialog({ ...dialogEligibility, nodeId: "node-2" }), false)
+  assert.equal(canOpenResourcePasteDialog({ ...dialogEligibility, ownerType: "major" }), false)
+  assert.equal(canOpenResourcePasteDialog({ ...dialogEligibility, courseEditable: false }), false)
+  assert.equal(canOpenResourcePasteDialog({ ...dialogEligibility, isSubmitting: true }), false)
   assert.equal(canPasteResourceClipboard(eligibility), true)
   assert.equal(canPasteResourceClipboard({ ...eligibility, clipboard: preparing }), false)
   assert.equal(canPasteResourceClipboard({ ...eligibility, clipboard: null }), false)
@@ -239,7 +253,7 @@ test("batch action outcome parses full and partial success", async () => {
       { succeeded: ["object-1", "object-2"], failed: [] },
       ["object-1", "object-2"],
     ),
-    { succeededIds: ["object-1", "object-2"], failedIds: [] },
+    { succeededIds: ["object-1", "object-2"], failedIds: [], failedItems: [] },
   )
   assert.deepEqual(
     parseResourceBatchActionOutcome(
@@ -249,7 +263,13 @@ test("batch action outcome parses full and partial success", async () => {
       },
       ["object-1", "object-2"],
     ),
-    { succeededIds: ["object-1"], failedIds: ["object-2"] },
+    {
+      succeededIds: ["object-1"],
+      failedIds: ["object-2"],
+      failedItems: [
+        { objectId: "object-2", errorCode: "MOVE_FAILED", message: "移动失败" },
+      ],
+    },
   )
 })
 
@@ -344,10 +364,10 @@ test("batch object list omits individual actions while normal mode exposes acces
     new URL("../../dialogs/course-resource-picker-dialog.tsx", import.meta.url),
     "utf8",
   )
-  const destinationPickerUrl = new URL(
+  const destinationPickerSource = await readFile(new URL(
     "./ResourceDestinationPickerDialog.tsx",
     import.meta.url,
-  )
+  ), "utf8")
   const dataHookSource = await readFile(
     new URL("../../../hooks/use-course-resources.ts", import.meta.url),
     "utf8",
@@ -501,25 +521,44 @@ test("batch object list omits individual actions while normal mode exposes acces
 
   assert.match(
     containerSource,
-    /action: clipboard\.action,[\s\S]*sourceFolderId: clipboard\.sourceFolderId,[\s\S]*targetFolderId: currentParentId,[\s\S]*objectIds: verifiedObjectIds/,
+    /action: clipboard\.action,[\s\S]*sourceFolderId: clipboard\.sourceFolderId,[\s\S]*targetFolderId,[\s\S]*objectIds: verifiedObjectIds/,
   )
   assert.match(
     containerSource,
     /getObjectDetail\([\s\S]*resourceFingerprintMatches\(item\.fingerprint, response\.data\)[\s\S]*verifiedObjectIds\.push\(verificationResult\)/,
   )
-  assert.match(containerSource, /if \(succeededCount > 0\) \{\s*refreshCurrentLevel\(\)/)
+  assert.match(
+    containerSource,
+    /if \(succeededCount > 0\) \{[\s\S]*shouldConsumeClipboard = true[\s\S]*shouldClosePicker = true[\s\S]*refreshCurrentLevel\(\)/,
+  )
   assert.match(containerSource, /setResourceClipboard\(\(currentClipboard\) => \{[\s\S]*currentClipboard\.requestId !== clipboard\.requestId[\s\S]*return null/)
   assert.match(containerSource, /粘贴完成：成功 \$\{succeededCount\} 个，失败 0 个，忽略 \$\{ignoredCount\} 个/)
   assert.match(
     containerSource,
-    /粘贴部分完成：成功 \$\{succeededCount\} 个，失败 \$\{failedCount\} 个，忽略 \$\{ignoredCount\} 个/,
+    /const resultLabel = succeededCount > 0 \? "粘贴部分完成" : "粘贴失败"/,
+  )
+  assert.match(
+    containerSource,
+    /\$\{resultLabel\}：成功 \$\{succeededCount\} 个，失败 \$\{failedCount\} 个，忽略 \$\{ignoredCount\} 个；\$\{firstFailure\.message\}/,
   )
   assert.match(containerSource, /clipboard\.items\.filter\(\(item\) => item\.fingerprint === null\)/)
   assert.match(containerSource, /sourceNodeId[\s\S]*sourceOwnerType[\s\S]*sourceFolderId/)
   assert.match(containerSource, /\[nodeId, normalizedOwnerType\]/)
-  assert.doesNotMatch(containerSource, /ResourceDestinationPickerDialog|batchTransferSnapshot/)
+  assert.match(containerSource, /import \{ ResourceDestinationPickerDialog \}/)
+  assert.match(containerSource, /setIsDestinationPickerOpen\(true\)/)
+  assert.match(
+    containerSource,
+    /<ResourceDestinationPickerDialog[\s\S]*sourceFolderId=\{resourceClipboard\.sourceFolderId\}[\s\S]*onConfirm=\{\(targetFolderId\) => void handlePaste\(targetFolderId\)\}/,
+  )
+  assert.match(containerSource, /if \(shouldConsumeClipboard\) \{[\s\S]*setResourceClipboard/)
+  assert.match(containerSource, /if \(shouldClosePicker\) \{[\s\S]*setIsDestinationPickerOpen\(false\)/)
+  assert.doesNotMatch(containerSource, /batchTransferSnapshot/)
   assert.doesNotMatch(containerSource, /localStorage|sessionStorage|navigator\.clipboard/)
-  await assert.rejects(readFile(destinationPickerUrl, "utf8"), /ENOENT/)
+  assert.match(destinationPickerSource, /<DialogTitle>选择粘贴位置<\/DialogTitle>/)
+  assert.match(destinationPickerSource, /clipboardPhase === "preparing"/)
+  assert.match(destinationPickerSource, /currentParentId === sourceFolderId/)
+  assert.match(destinationPickerSource, /粘贴到此文件夹/)
+  assert.match(destinationPickerSource, /useCourseResources\(nodeId, ownerType\)/)
 
   const batchButtonIndex = searchBarSource.indexOf(
     '{interactionMode === "batch" ? "退出批量操作" : "批量操作"}',
@@ -528,6 +567,8 @@ test("batch object list omits individual actions while normal mode exposes acces
   assert.ok(batchButtonIndex >= 0)
   assert.ok(pasteButtonIndex > batchButtonIndex)
   assert.match(searchBarSource, /\{showPaste && \([\s\S]*disabled=\{disablePaste\}/)
+  assert.match(containerSource, /disablePaste=\{!canOpenDestinationPicker\}/)
+  assert.match(containerSource, /onPaste=\{handleOpenDestinationPicker\}/)
   assert.match(typesSource, /showPaste: boolean[\s\S]*disablePaste: boolean[\s\S]*isPasting: boolean/)
   assert.ok(
     containerSource.indexOf("<ResourceSearchBar") <
