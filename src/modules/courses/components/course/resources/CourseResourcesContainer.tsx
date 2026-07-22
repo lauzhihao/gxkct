@@ -21,11 +21,18 @@ import {
 import { ResourceBreadcrumb } from "./ResourceBreadcrumb"
 import { ResourceSearchBar } from "./ResourceSearchBar"
 import { ResourceObjectList } from "./ResourceObjectList"
+import { ResourceDestinationPickerDialog } from "./ResourceDestinationPickerDialog"
 import { ResourcePreviewDrawer } from "./ResourcePreviewDrawer"
 import { resolveSafeResourceUrl } from "./resource-preview-types"
 import {
+  canConfirmResourceDestination,
+  canStartResourceBatchTransfer,
   changeResourceInteractionMode,
+  createResourceBatchTransferSnapshot,
+  parseResourceBatchActionOutcome,
   toggleResourceSelection,
+  type ResourceBatchTransferAction,
+  type ResourceBatchTransferSnapshot,
   type ResourceInteractionMode,
 } from "./resource-interaction-state"
 import { validateCompleteFileName, validateFolderName } from "./resource-name-validation"
@@ -114,6 +121,8 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
   const [interactionMode, setInteractionMode] = useState<ResourceInteractionMode>("normal")
   const [isDeleting, setIsDeleting] = useState(false)
   const [isBatchDownloading, setIsBatchDownloading] = useState(false)
+  const [batchTransferSnapshot, setBatchTransferSnapshot] = useState<ResourceBatchTransferSnapshot | null>(null)
+  const [isBatchTransferring, setIsBatchTransferring] = useState(false)
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false)
   const [newFolderName, setNewFolderName] = useState("")
   const [folderNameError, setFolderNameError] = useState<string | null>(null)
@@ -144,6 +153,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
     setIsPreviewOpen(false)
     setDeleteTarget(null)
     setIsDeletingTarget(false)
+    setBatchTransferSnapshot(null)
   }, [currentParentId, nodeId])
 
   useEffect(() => {
@@ -187,6 +197,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
     const nextState = changeResourceInteractionMode(nextMode)
     setInteractionMode(nextState.mode)
     setSelectedIds(nextState.selectedIds)
+    setBatchTransferSnapshot(null)
   }, [interactionMode])
 
   const handleFolderClick = useCallback((folder: Parameters<typeof enterFolder>[0]) => {
@@ -278,6 +289,136 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
       setIsBatchDownloading(false)
     }
   }, [courseEditable, nodeId, ownerType, selectedIds])
+
+  const handleOpenBatchTransfer = useCallback((action: ResourceBatchTransferAction) => {
+    const canStartTransfer = canStartResourceBatchTransfer({
+      mode: interactionMode,
+      courseEditable,
+      selectedCount: selectedIds.size,
+      nodeId,
+      sourceFolderId: currentParentId,
+      needInitialization,
+      isLoading,
+      isBatchDownloading,
+      isDeleting,
+      isBatchTransferring,
+    })
+    if (!canStartTransfer) {
+      showError("当前状态无法执行批量复制或移动")
+      return
+    }
+    if (currentParentId === null) {
+      throw new Error("批量操作缺少源目录 ID")
+    }
+    setBatchTransferSnapshot(
+      createResourceBatchTransferSnapshot(action, currentParentId, selectedIds),
+    )
+  }, [
+    courseEditable,
+    currentParentId,
+    interactionMode,
+    isBatchDownloading,
+    isBatchTransferring,
+    isDeleting,
+    isLoading,
+    needInitialization,
+    nodeId,
+    selectedIds,
+  ])
+
+  const handleCopySelected = useCallback(() => {
+    handleOpenBatchTransfer("copy")
+  }, [handleOpenBatchTransfer])
+
+  const handleCutSelected = useCallback(() => {
+    handleOpenBatchTransfer("move")
+  }, [handleOpenBatchTransfer])
+
+  const handleBatchTransferOpenChange = useCallback((open: boolean) => {
+    if (!open && !isBatchTransferring) {
+      setBatchTransferSnapshot(null)
+    }
+  }, [isBatchTransferring])
+
+  const handleConfirmBatchTransfer = useCallback(async (targetFolderId: string) => {
+    if (batchTransferSnapshot === null) {
+      showError("批量操作上下文已失效，请重新选择文件")
+      return
+    }
+    if (!courseEditable) {
+      showError("当前资源不可编辑")
+      return
+    }
+    if (nodeId === null) {
+      showError("当前资源不可编辑")
+      return
+    }
+    const canConfirmDestination = canConfirmResourceDestination({
+      sourceFolderId: batchTransferSnapshot.sourceFolderId,
+      targetFolderId,
+      isLoading: false,
+      isSubmitting: isBatchTransferring,
+    })
+    if (!canConfirmDestination) {
+      showError("请选择与源目录不同的有效目标目录")
+      return
+    }
+
+    setIsBatchTransferring(true)
+    try {
+      const response = await courseResourcesApi.batchAction(nodeId, {
+        action: batchTransferSnapshot.action,
+        sourceFolderId: batchTransferSnapshot.sourceFolderId,
+        targetFolderId,
+        objectIds: [...batchTransferSnapshot.objectIds],
+      }, ownerType)
+      if (response.error !== null) {
+        showError(response.error)
+        return
+      }
+      if (response.data === null) {
+        showError("批量复制或移动响应为空")
+        return
+      }
+
+      const outcome = parseResourceBatchActionOutcome(
+        response.data,
+        batchTransferSnapshot.objectIds,
+      )
+      const succeededCount = outcome.succeededIds.length
+      const failedCount = outcome.failedIds.length
+      const actionLabel = batchTransferSnapshot.action === "copy" ? "复制" : "移动"
+
+      if (batchTransferSnapshot.action === "move" && succeededCount > 0) {
+        refreshCurrentLevel()
+      }
+      setBatchTransferSnapshot(null)
+      if (failedCount === 0) {
+        const nextState = changeResourceInteractionMode("normal")
+        setInteractionMode(nextState.mode)
+        setSelectedIds(nextState.selectedIds)
+        showSuccess(`${actionLabel}成功：成功 ${succeededCount} 个，失败 0 个`)
+        return
+      }
+
+      setInteractionMode("batch")
+      setSelectedIds(new Set(outcome.failedIds))
+      const resultLabel = succeededCount > 0 ? "部分完成" : "失败"
+      showError(`${actionLabel}${resultLabel}：成功 ${succeededCount} 个，失败 ${failedCount} 个`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "批量复制或移动失败"
+      showError(message)
+    } finally {
+      setIsBatchTransferring(false)
+    }
+  }, [
+    batchTransferSnapshot,
+    courseEditable,
+    isBatchTransferring,
+    nodeId,
+    ownerType,
+    refreshCurrentLevel,
+  ])
 
   const calculateChecksum = useCallback(async (file: File) => {
     const buffer = await file.arrayBuffer()
@@ -779,6 +920,18 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
   )
 
   const selectedCount = selectedIds.size
+  const canStartBatchTransfer = canStartResourceBatchTransfer({
+    mode: interactionMode,
+    courseEditable,
+    selectedCount,
+    nodeId,
+    sourceFolderId: currentParentId,
+    needInitialization,
+    isLoading,
+    isBatchDownloading,
+    isDeleting,
+    isBatchTransferring,
+  })
 
   const filteredDirectories = useMemo(() => {
     if (!isRootLevel || !rootFolderSearch.trim()) {
@@ -912,29 +1065,35 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
                     ) : (
                       <>
                         <Download className="h-4 w-4" />
-                        批量下载
+                        下载
                       </>
                     )}
                   </Button>
                 )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled
-                  className="gap-1 text-muted-foreground transition-colors hover:bg-primary hover:text-white hover:[&>svg]:text-white"
-                >
-                  <Copy className="h-4 w-4" />
-                  复制
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled
-                  className="gap-1 text-muted-foreground transition-colors hover:bg-primary hover:text-white hover:[&>svg]:text-white"
-                >
-                  <Scissors className="h-4 w-4" />
-                  剪切
-                </Button>
+                {canManageCourseResource && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!canStartBatchTransfer}
+                    onClick={handleCopySelected}
+                    className="gap-1 text-muted-foreground transition-colors hover:bg-primary hover:text-white hover:[&>svg]:text-white"
+                  >
+                    <Copy className="h-4 w-4" />
+                    复制
+                  </Button>
+                )}
+                {canManageCourseResource && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!canStartBatchTransfer}
+                    onClick={handleCutSelected}
+                    className="gap-1 text-muted-foreground transition-colors hover:bg-primary hover:text-white hover:[&>svg]:text-white"
+                  >
+                    <Scissors className="h-4 w-4" />
+                    剪切
+                  </Button>
+                )}
                 {canManageCourseResource && (
                   <Button
                     variant="destructive"
@@ -1026,6 +1185,18 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {batchTransferSnapshot === null ? null : (
+        <ResourceDestinationPickerDialog
+          open
+          nodeId={nodeId}
+          ownerType={ownerType}
+          sourceFolderId={batchTransferSnapshot.sourceFolderId}
+          action={batchTransferSnapshot.action}
+          isSubmitting={isBatchTransferring}
+          onOpenChange={handleBatchTransferOpenChange}
+          onConfirm={(targetFolderId) => void handleConfirmBatchTransfer(targetFolderId)}
+        />
+      )}
       <Dialog open={renameTarget !== null} onOpenChange={handleRenameOpenChange}>
         <DialogContent>
           <DialogHeader>

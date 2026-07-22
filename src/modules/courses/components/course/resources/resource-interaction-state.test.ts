@@ -38,6 +38,148 @@ test("batch mode toggles multiple files and mode changes clear selection", async
   assert.equal(nextState.selectedIds.size, 0)
 })
 
+test("batch transfer eligibility requires editable batch state with persisted selections", async () => {
+  const { canStartResourceBatchTransfer } = await loadInteractionState()
+  const eligibleState = {
+    mode: "batch" as const,
+    courseEditable: true,
+    selectedCount: 2,
+    nodeId: "course-1",
+    sourceFolderId: "folder-source",
+    needInitialization: false,
+    isLoading: false,
+    isBatchDownloading: false,
+    isDeleting: false,
+    isBatchTransferring: false,
+  }
+
+  assert.equal(canStartResourceBatchTransfer(eligibleState), true)
+  assert.equal(canStartResourceBatchTransfer({ ...eligibleState, selectedCount: 1 }), true)
+  assert.equal(canStartResourceBatchTransfer({ ...eligibleState, mode: "normal" }), false)
+  assert.equal(canStartResourceBatchTransfer({ ...eligibleState, courseEditable: false }), false)
+  assert.equal(canStartResourceBatchTransfer({ ...eligibleState, selectedCount: 0 }), false)
+  assert.equal(canStartResourceBatchTransfer({ ...eligibleState, nodeId: null }), false)
+  assert.equal(canStartResourceBatchTransfer({ ...eligibleState, sourceFolderId: null }), false)
+  assert.equal(canStartResourceBatchTransfer({ ...eligibleState, needInitialization: true }), false)
+  assert.equal(canStartResourceBatchTransfer({ ...eligibleState, isLoading: true }), false)
+  assert.equal(canStartResourceBatchTransfer({ ...eligibleState, isBatchDownloading: true }), false)
+  assert.equal(canStartResourceBatchTransfer({ ...eligibleState, isDeleting: true }), false)
+  assert.equal(canStartResourceBatchTransfer({ ...eligibleState, isBatchTransferring: true }), false)
+  assert.throws(
+    () => canStartResourceBatchTransfer({ ...eligibleState, selectedCount: 1.5 }),
+    /批量选择数量无效/,
+  )
+})
+
+test("destination eligibility rejects root source and pending states", async () => {
+  const { canConfirmResourceDestination } = await loadInteractionState()
+  const eligibleDestination = {
+    sourceFolderId: "folder-source",
+    targetFolderId: "folder-target",
+    isLoading: false,
+    isSubmitting: false,
+  }
+
+  assert.equal(canConfirmResourceDestination(eligibleDestination), true)
+  assert.equal(canConfirmResourceDestination({ ...eligibleDestination, targetFolderId: null }), false)
+  assert.equal(
+    canConfirmResourceDestination({ ...eligibleDestination, targetFolderId: "folder-source" }),
+    false,
+  )
+  assert.equal(canConfirmResourceDestination({ ...eligibleDestination, isLoading: true }), false)
+  assert.equal(canConfirmResourceDestination({ ...eligibleDestination, isSubmitting: true }), false)
+})
+
+test("batch transfer snapshot preserves action source and selected object ids", async () => {
+  const { createResourceBatchTransferSnapshot } = await loadInteractionState()
+  const selectedIds = new Set(["object-1", "object-2"])
+  const snapshot = createResourceBatchTransferSnapshot(
+    "copy",
+    "folder-source",
+    selectedIds,
+  )
+  selectedIds.clear()
+
+  assert.deepEqual(snapshot, {
+    action: "copy",
+    sourceFolderId: "folder-source",
+    objectIds: ["object-1", "object-2"],
+  })
+  assert.throws(
+    () => createResourceBatchTransferSnapshot("move", "folder-source", new Set()),
+    /未选择要处理的资源/,
+  )
+  assert.throws(
+    () => createResourceBatchTransferSnapshot("move", " ", new Set(["object-1"])),
+    /源目录 ID缺失或无效/,
+  )
+})
+
+test("batch action outcome parses full and partial success", async () => {
+  const { parseResourceBatchActionOutcome } = await loadInteractionState()
+
+  assert.deepEqual(
+    parseResourceBatchActionOutcome(
+      { succeeded: ["object-1", "object-2"], failed: [] },
+      ["object-1", "object-2"],
+    ),
+    { succeededIds: ["object-1", "object-2"], failedIds: [] },
+  )
+  assert.deepEqual(
+    parseResourceBatchActionOutcome(
+      {
+        succeeded: ["object-1"],
+        failed: [{ objectId: "object-2", errorCode: "MOVE_FAILED", message: "移动失败" }],
+      },
+      ["object-1", "object-2"],
+    ),
+    { succeededIds: ["object-1"], failedIds: ["object-2"] },
+  )
+})
+
+test("batch action outcome rejects malformed incomplete and unexpected responses", async () => {
+  const { parseResourceBatchActionOutcome } = await loadInteractionState()
+  const failedItem = { objectId: "object-2", errorCode: "COPY_FAILED", message: "复制失败" }
+
+  assert.throws(() => parseResourceBatchActionOutcome(null, ["object-1"]), /响应格式无效/)
+  assert.throws(
+    () => parseResourceBatchActionOutcome({ failed: [] }, ["object-1"]),
+    /succeeded 缺失或无效/,
+  )
+  assert.throws(
+    () => parseResourceBatchActionOutcome({ succeeded: [] }, ["object-1"]),
+    /failed 缺失或无效/,
+  )
+  assert.throws(
+    () => parseResourceBatchActionOutcome({ succeeded: ["object-1"], failed: [] }, []),
+    /请求对象为空/,
+  )
+  assert.throws(
+    () => parseResourceBatchActionOutcome({ succeeded: ["object-1"], failed: [] }, ["object-1", "object-1"]),
+    /请求资源对象 ID 重复/,
+  )
+  assert.throws(
+    () => parseResourceBatchActionOutcome({ succeeded: [], failed: [] }, ["object-1"]),
+    /未覆盖全部请求对象/,
+  )
+  assert.throws(
+    () => parseResourceBatchActionOutcome({ succeeded: ["object-3"], failed: [] }, ["object-1"]),
+    /未请求的成功对象/,
+  )
+  assert.throws(
+    () => parseResourceBatchActionOutcome({ succeeded: ["object-1", "object-1"], failed: [] }, ["object-1"]),
+    /重复对象/,
+  )
+  assert.throws(
+    () => parseResourceBatchActionOutcome({ succeeded: ["object-1"], failed: [failedItem] }, ["object-1"]),
+    /未请求的失败对象/,
+  )
+  assert.throws(
+    () => parseResourceBatchActionOutcome({ succeeded: [], failed: [{ objectId: "object-1", errorCode: "", message: "复制失败" }] }, ["object-1"]),
+    /批量操作错误码缺失或无效/,
+  )
+})
+
 test("complete file names accept extensions spaces hyphens underscores and multiple dots", async () => {
   const { validateCompleteFileName } = await loadNameValidation()
 
@@ -84,6 +226,10 @@ test("batch object list omits individual actions while normal mode exposes acces
   )
   const pickerSource = await readFile(
     new URL("../../dialogs/course-resource-picker-dialog.tsx", import.meta.url),
+    "utf8",
+  )
+  const destinationPickerSource = await readFile(
+    new URL("./ResourceDestinationPickerDialog.tsx", import.meta.url),
     "utf8",
   )
   const dataHookSource = await readFile(
@@ -201,7 +347,35 @@ test("batch object list omits individual actions while normal mode exposes acces
   const batchToolbarSource = containerSource.slice(batchToolbarStart, objectListStart)
   assert.ok(batchToolbarStart >= 0)
   assert.ok(objectListStart > batchToolbarStart)
-  assert.ok(batchToolbarSource.indexOf("批量下载") < batchToolbarSource.indexOf("复制"))
+  assert.doesNotMatch(batchToolbarSource, /批量下载/)
+  assert.ok(batchToolbarSource.indexOf("下载") < batchToolbarSource.indexOf("复制"))
+  assert.match(batchToolbarSource, /onClick=\{handleCopySelected\}/)
+  assert.match(batchToolbarSource, /onClick=\{handleCutSelected\}/)
+  assert.equal(
+    Array.from(batchToolbarSource.matchAll(/disabled=\{!canStartBatchTransfer\}/g)).length,
+    2,
+  )
+  assert.match(
+    containerSource,
+    /action: batchTransferSnapshot\.action,[\s\S]*sourceFolderId: batchTransferSnapshot\.sourceFolderId,[\s\S]*targetFolderId,[\s\S]*objectIds: \[\.\.\.batchTransferSnapshot\.objectIds\]/,
+  )
+  assert.match(
+    containerSource,
+    /batchTransferSnapshot\.action === "move" && succeededCount > 0[\s\S]*refreshCurrentLevel\(\)/,
+  )
+  assert.match(containerSource, /setSelectedIds\(new Set\(outcome\.failedIds\)\)/)
+  assert.match(containerSource, /showError\("批量复制或移动响应为空"\)/)
+  assert.match(containerSource, /showSuccess\(`\$\{actionLabel\}成功：成功 \$\{succeededCount\} 个，失败 0 个`\)/)
+  assert.match(
+    containerSource,
+    /showError\(`\$\{actionLabel\}\$\{resultLabel\}：成功 \$\{succeededCount\} 个，失败 \$\{failedCount\} 个`\)/,
+  )
+  assert.match(destinationPickerSource, /useCourseResources\(nodeId, ownerType\)/)
+  assert.match(destinationPickerSource, /directories\.map\(\(folder\) =>/)
+  assert.doesNotMatch(destinationPickerSource, /objects\.map|type: "object"/)
+  assert.match(destinationPickerSource, /targetFolderId: currentParentId/)
+  assert.match(destinationPickerSource, /currentParentId === sourceFolderId/)
+  assert.match(destinationPickerSource, /<ResourceBreadcrumb path=\{breadcrumbs\}/)
   assert.match(
     containerSource,
     /import \{ useResourceViewPreference \} from "@\/modules\/courses\/hooks\/use-resource-view-preference"/,
