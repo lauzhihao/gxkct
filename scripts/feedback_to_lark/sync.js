@@ -108,12 +108,70 @@ function runLark(args) {
   }
 }
 
+// lark-cli 新版把 OpenAPI 结果包装为 { ok, data, error }，旧版则直接返回
+// { code, data }。两条调用路径必须共用同一判定，避免同步主流程与附件重试语义漂移。
+function inspectLarkResponse(json) {
+  if (!json || typeof json !== "object" || Array.isArray(json)) {
+    return { recognized: false, ok: false, errorCode: null, errorMessage: "" }
+  }
+
+  if (typeof json.code === "number") {
+    if (json.code === 0) {
+      return { recognized: true, ok: true, errorCode: null, errorMessage: "" }
+    }
+    let errorMessage = ""
+    if (typeof json.msg === "string" && json.msg.length > 0) {
+      errorMessage = json.msg
+    }
+    return { recognized: true, ok: false, errorCode: json.code, errorMessage }
+  }
+
+  if (typeof json.ok === "boolean") {
+    if (json.ok) {
+      return { recognized: true, ok: true, errorCode: null, errorMessage: "" }
+    }
+
+    let errorCode = null
+    let errorMessage = ""
+    if (json.error && typeof json.error === "object" && !Array.isArray(json.error)) {
+      if (typeof json.error.code === "number") {
+        errorCode = json.error.code
+      }
+      if (typeof json.error.message === "string" && json.error.message.length > 0) {
+        errorMessage = json.error.message
+      } else if (typeof json.error.msg === "string" && json.error.msg.length > 0) {
+        errorMessage = json.error.msg
+      }
+    } else if (typeof json.error === "string" && json.error.length > 0) {
+      errorMessage = json.error
+    }
+    return { recognized: true, ok: false, errorCode, errorMessage }
+  }
+
+  return { recognized: false, ok: false, errorCode: null, errorMessage: "" }
+}
+
+function formatLarkError(response, json) {
+  const parts = []
+  if (response.errorCode !== null) {
+    parts.push(`code ${response.errorCode}`)
+  }
+  if (response.errorMessage.length > 0) {
+    parts.push(response.errorMessage)
+  }
+  if (parts.length > 0) {
+    return parts.join(": ")
+  }
+  return JSON.stringify(json)
+}
+
 function assertLarkOk(json, context) {
-  if (!json || typeof json.code !== "number") {
+  const response = inspectLarkResponse(json)
+  if (!response.recognized) {
     fail(`${context} 返回结构异常: ${JSON.stringify(json)}`)
   }
-  if (json.code !== 0) {
-    fail(`${context} 失败: ${json.msg || JSON.stringify(json)}`)
+  if (!response.ok) {
+    fail(`${context} 失败: ${formatLarkError(response, json)}`)
   }
 }
 
@@ -126,21 +184,45 @@ function runLarkSafe(args) {
   }
   const stdout = (result.stdout || "").trim()
   const stderr = (result.stderr || "").trim()
-  if (result.status !== 0) {
-    return { ok: false, error: `lark-cli 退出码 ${result.status}: ${stderr || stdout || "(空)"}` }
+  if (!stdout) {
+    if (result.status !== 0) {
+      return { ok: false, error: `lark-cli 退出码 ${result.status}: ${stderr || "(空)"}` }
+    }
+    return { ok: true, json: null }
   }
-  if (!stdout) return { ok: true, json: null }
   let json
   try {
     json = JSON.parse(stdout)
   } catch {
+    if (result.status !== 0) {
+      return { ok: false, error: `lark-cli 退出码 ${result.status}: ${stderr || stdout}` }
+    }
     return { ok: false, error: `lark-cli 输出非 JSON: ${stdout.slice(0, 200)}` }
   }
-  if (!json || typeof json.code !== "number") {
+  const response = inspectLarkResponse(json)
+  // 新版 CLI 的 API 错误会携带非零退出码；先保留 envelope 中的业务码，
+  // record 存活检查才能区分“已删除”和暂时不可判定。
+  if (result.status !== 0) {
+    if (response.recognized && !response.ok) {
+      return {
+        ok: false,
+        error: `lark-cli 退出码 ${result.status}: ${formatLarkError(response, json)}`,
+        errorCode: response.errorCode,
+        json,
+      }
+    }
+    return { ok: false, error: `lark-cli 退出码 ${result.status}: ${stderr || stdout}`, json }
+  }
+  if (!response.recognized) {
     return { ok: false, error: `返回结构异常: ${JSON.stringify(json).slice(0, 200)}` }
   }
-  if (json.code !== 0) {
-    return { ok: false, error: `业务码 ${json.code}: ${json.msg || ""}`, json }
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: formatLarkError(response, json),
+      errorCode: response.errorCode,
+      json,
+    }
   }
   return { ok: true, json }
 }
@@ -441,7 +523,7 @@ function checkRecordExists(recordId) {
     "--as", "bot",
   ])
   if (res.ok) return "exists"
-  if (res.json && (res.json.code === 1254043 || res.json.code === 1254044 || res.json.code === 1254045)) {
+  if (res.errorCode === 1254043 || res.errorCode === 1254044 || res.errorCode === 1254045) {
     return "gone"
   }
   return "unknown"
