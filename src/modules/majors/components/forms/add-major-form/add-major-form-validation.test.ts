@@ -53,14 +53,15 @@ test("major level radio group uses roving focus and complete keyboard navigation
 
   assert.match(sectionSource, /role="radiogroup"/)
   assert.match(sectionSource, /role="radio"/)
-  assert.match(sectionSource, /aria-disabled=\{!canManageMajor\}/)
+  assert.doesNotMatch(sectionSource, /department\.major\.create/)
+  assert.doesNotMatch(sectionSource, /if \(!canManageMajor\) return/)
   assert.match(
     sectionSource,
-    /tabIndex=\{\s*canManageMajor && tabbableMajorLevelIndex === index \? 0 : -1\s*\}/
+    /tabIndex=\{tabbableMajorLevelIndex === index \? 0 : -1\}/
   )
   assert.match(
     sectionSource,
-    /case "majorLevel":\s*if \(canManageMajor\) \{\s*majorLevelOptionRefs\.current\[0\]\?\.focus\(\)/
+    /case "majorLevel":\s*majorLevelOptionRefs\.current\[0\]\?\.focus\(\)/
   )
   assert.match(sectionSource, /case "ArrowDown":[\s\S]*case "ArrowRight":/)
   assert.match(sectionSource, /case "ArrowUp":[\s\S]*case "ArrowLeft":/)
@@ -68,5 +69,23 @@ test("major level radio group uses roving focus and complete keyboard navigation
   assert.match(
     sectionSource,
     /event\.preventDefault\(\)[\s\S]*handleSetMajorLevel\(nextOption\.value\)[\s\S]*majorLevelOptionRefs\.current\[nextIndex\]\?\.focus\(\)/
+  )
+})
+
+test("graduation requirements use the form entry permission while preserving semester readonly", async () => {
+  const sectionSource = await readSource("./sections/GraduationRequirementsSection.tsx")
+
+  assert.doesNotMatch(sectionSource, /major\.course\.create/)
+  assert.doesNotMatch(sectionSource, /canManageGraduationRequirement/)
+  assert.match(sectionSource, /const isSemesterReadonly = useSemesterReadonly\(\)/)
+  assert.match(sectionSource, /disabled=\{isUploadDisabled \|\| isSemesterReadonly\}/)
+  assert.match(sectionSource, /rows=\{4\}\s*disabled=\{isSemesterReadonly\}/)
+  assert.match(
+    sectionSource,
+    /!isSemesterReadonly && graduationRequirements\.length > 1/
+  )
+  assert.match(
+    sectionSource,
+    /!isSemesterReadonly && requirement\.indicators\.length > 1/
   )
 })

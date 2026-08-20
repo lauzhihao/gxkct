@@ -10,8 +10,6 @@ import { FieldError } from "@/shared/components/ui/field"
 import { Input } from "@/shared/components/ui/input"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { Label } from "@/shared/components/ui/label"
-import { usePermission } from "@/shared/hooks/use-permission"
-import type { PermissionAction } from "@/shared/permissions/types"
 import type { MajorBasicInfoSectionProps } from "@/modules/majors/types/components"
 import { X } from "lucide-react"
 import { useEffect, useRef, type ChangeEvent, type KeyboardEvent } from "react"
@@ -21,8 +19,6 @@ export type {
   MajorBasicInfoField,
 } from "@/modules/majors/types/components"
 
-const MANAGE_MAJOR_ACTION: PermissionAction = "department.major.create"
-const MANAGE_MAJOR_CONTEXT = { scope: "department" as const }
 const MAJOR_CODE_ERROR_ID = "major-code-error"
 const MAJOR_NAME_ERROR_ID = "major-name-error"
 const MAJOR_LEVEL_LABEL_ID = "major-level-label"
@@ -50,8 +46,6 @@ export function MajorBasicInfoSection({
   focusField,
   onFieldValidationChange,
 }: MajorBasicInfoSectionProps) {
-  const { can } = usePermission()
-  const canManageMajor = can(MANAGE_MAJOR_ACTION, MANAGE_MAJOR_CONTEXT)
   const majorCodeRef = useRef<HTMLInputElement>(null)
   const majorNameRef = useRef<HTMLInputElement>(null)
   const majorLevelOptionRefs = useRef<Array<HTMLButtonElement | null>>([])
@@ -74,14 +68,12 @@ export function MajorBasicInfoSection({
         majorNameRef.current?.focus()
         return
       case "majorLevel":
-        if (canManageMajor) {
-          majorLevelOptionRefs.current[0]?.focus()
-        }
+        majorLevelOptionRefs.current[0]?.focus()
         return
       case "educationalFeatures":
         educationalFeaturesRef.current?.focus()
     }
-  }, [canManageMajor, focusField, validationAttempt])
+  }, [focusField, validationAttempt])
 
   const handleMajorCodeChange = (event: ChangeEvent<HTMLInputElement>) => {
     const nextValue = event.target.value.slice(0, 20)
@@ -102,19 +94,16 @@ export function MajorBasicInfoSection({
   }
 
   const handleClearMajorCode = () => {
-    if (!can(MANAGE_MAJOR_ACTION, MANAGE_MAJOR_CONTEXT)) return
     setMajorCode("")
     onFieldValidationChange("majorCode", "")
   }
 
   const handleClearMajorName = () => {
-    if (!can(MANAGE_MAJOR_ACTION, MANAGE_MAJOR_CONTEXT)) return
     setMajorName("")
     onFieldValidationChange("majorName", "")
   }
 
   const handleSetMajorLevel = (level: MajorLevelValue) => {
-    if (!canManageMajor) return
     setMajorLevel(level)
     onFieldValidationChange("majorLevel", level)
   }
@@ -123,8 +112,6 @@ export function MajorBasicInfoSection({
     event: KeyboardEvent<HTMLButtonElement>,
     currentIndex: number
   ) => {
-    if (!canManageMajor) return
-
     let nextIndex: number | null = null
 
     switch (event.key) {
@@ -153,7 +140,6 @@ export function MajorBasicInfoSection({
   }
 
   const handleClearEducationalFeatures = () => {
-    if (!can(MANAGE_MAJOR_ACTION, MANAGE_MAJOR_CONTEXT)) return
     setEducationalFeatures("")
     onFieldValidationChange("educationalFeatures", "")
   }
@@ -194,7 +180,7 @@ export function MajorBasicInfoSection({
             />
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
               <span className="text-xs text-muted-foreground">{majorCode.length}/20</span>
-              {canManageMajor && majorCode && (
+              {majorCode && (
                 <button
                   type="button"
                   onClick={handleClearMajorCode}
@@ -230,7 +216,7 @@ export function MajorBasicInfoSection({
             />
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
               <span className="text-xs text-muted-foreground">{majorName.length}/20</span>
-              {canManageMajor && majorName && (
+              {majorName && (
                 <button
                   type="button"
                   onClick={handleClearMajorName}
@@ -276,13 +262,10 @@ export function MajorBasicInfoSection({
                 onKeyDown={(event) => handleMajorLevelKeyDown(event, index)}
                 role="radio"
                 aria-checked={majorLevel === option.value}
-                aria-disabled={!canManageMajor}
                 aria-describedby={
                   majorLevelError !== undefined ? MAJOR_LEVEL_ERROR_ID : undefined
                 }
-                tabIndex={
-                  canManageMajor && tabbableMajorLevelIndex === index ? 0 : -1
-                }
+                tabIndex={tabbableMajorLevelIndex === index ? 0 : -1}
               >
                 {option.label}
               </Button>
@@ -314,7 +297,7 @@ export function MajorBasicInfoSection({
             />
             <div className="absolute right-2 top-2 flex items-center gap-2">
               <span className="text-xs text-muted-foreground">{educationalFeatures.length}/200</span>
-              {canManageMajor && educationalFeatures && (
+              {educationalFeatures && (
                 <button
                   type="button"
                   onClick={handleClearEducationalFeatures}

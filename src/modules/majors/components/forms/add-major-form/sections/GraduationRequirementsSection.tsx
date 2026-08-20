@@ -12,13 +12,9 @@ import { FileUpload } from "@/shared/components/ui/file-upload"
 import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 import { Popover, PopoverTrigger, PopoverContent } from "@/shared/components/ui/popover"
 import { SupportLabel } from "@/shared/components/support-label"
-import { usePermission } from "@/shared/hooks/use-permission"
-import type { PermissionAction } from "@/shared/permissions/types"
+import { useSemesterReadonly } from "@/shared/hooks/use-semester-readonly"
 import type { UseGraduationRequirementsResult } from "@/modules/majors/hooks/use-graduation-requirements"
 import type { UseMajorFormStateResult } from "@/modules/majors/hooks/use-major-form-state"
-
-const MANAGE_GRADUATION_REQUIREMENT_ACTION: PermissionAction = "major.course.create"
-const MANAGE_GRADUATION_REQUIREMENT_CONTEXT = { scope: "major" as const }
 
 type ToastInvoker = (options: {
   title: string
@@ -92,29 +88,25 @@ export function GraduationRequirementsSection({
   void focusedRequirementId
   void focusedIndicatorKey
 
-  const { can } = usePermission()
-  const canManageGraduationRequirement = can(
-    MANAGE_GRADUATION_REQUIREMENT_ACTION,
-    MANAGE_GRADUATION_REQUIREMENT_CONTEXT,
-  )
+  const isSemesterReadonly = useSemesterReadonly()
 
   const handleAddGraduationRequirement = () => {
-    if (!can(MANAGE_GRADUATION_REQUIREMENT_ACTION, MANAGE_GRADUATION_REQUIREMENT_CONTEXT)) return
+    if (isSemesterReadonly) return
     addGraduationRequirement()
   }
 
   const handleRemoveGraduationRequirement = (requirementId: string) => {
-    if (!can(MANAGE_GRADUATION_REQUIREMENT_ACTION, MANAGE_GRADUATION_REQUIREMENT_CONTEXT)) return
+    if (isSemesterReadonly) return
     removeGraduationRequirement(requirementId)
   }
 
   const handleAddIndicator = (requirementId: string) => {
-    if (!can(MANAGE_GRADUATION_REQUIREMENT_ACTION, MANAGE_GRADUATION_REQUIREMENT_CONTEXT)) return
+    if (isSemesterReadonly) return
     addIndicator(requirementId)
   }
 
   const handleRemoveIndicator = (requirementId: string, indicatorIndex: number) => {
-    if (!can(MANAGE_GRADUATION_REQUIREMENT_ACTION, MANAGE_GRADUATION_REQUIREMENT_CONTEXT)) return
+    if (isSemesterReadonly) return
     removeIndicator(requirementId, indicatorIndex)
   }
 
@@ -141,7 +133,7 @@ export function GraduationRequirementsSection({
               <Star className="w-4 h-4" />
               AI一键生成
             </Button> */}
-            {canManageGraduationRequirement && (
+            {!isSemesterReadonly && (
               <Button
                 size="sm"
                 variant="outline"
@@ -160,12 +152,12 @@ export function GraduationRequirementsSection({
               accept=".xlsx,.xls"
               onDownloadTemplate={onDownloadGraduationTemplate}
               onUpload={onUploadGraduationRequirements}
-              disabled={isUploadDisabled || !canManageGraduationRequirement}
+              disabled={isUploadDisabled || isSemesterReadonly}
             />
           </div>
         </div>
         <div className="border-t border-dashed border-border" />
-        {!isUploadDisabled && canManageGraduationRequirement && (
+        {!isUploadDisabled && !isSemesterReadonly && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 space-y-1">
             <p className="font-medium">重要提醒</p>
             <p>1、上传新的毕业要求表会覆盖原有毕业要求表，并导致该专业下所有课程的三级矩阵数据失效，请谨慎上传。</p>
@@ -182,6 +174,7 @@ export function GraduationRequirementsSection({
               size="sm"
               variant="ghost"
               onClick={() => setUploadedFile(null)}
+              disabled={isSemesterReadonly}
               className="gap-2 text-red-500 hover:text-red-600"
             >
               <X className="w-4 h-4" />
@@ -208,9 +201,10 @@ export function GraduationRequirementsSection({
                         placeholder="输入毕业要求内容（最多200字）"
                         maxLength={200}
                         rows={4}
+                        disabled={isSemesterReadonly}
                       />
                     </div>
-                    {canManageGraduationRequirement && graduationRequirements.length > 1 && (
+                    {!isSemesterReadonly && graduationRequirements.length > 1 && (
                       <Button
                         size="sm"
                         variant="ghost"
@@ -225,7 +219,7 @@ export function GraduationRequirementsSection({
                   <div className="pl-4 border-l-2 border-primary/30 space-y-2">
                     <div className="flex items-center justify-between">
                       <Label className="text-xs text-muted-foreground">指标点</Label>
-                      {canManageGraduationRequirement && (
+                      {!isSemesterReadonly && (
                         <Button
                           size="sm"
                           variant="ghost"
@@ -265,6 +259,7 @@ export function GraduationRequirementsSection({
                                     placeholder="输入指标点内容"
                                     maxLength={200}
                                     rows={4}
+                                    disabled={isSemesterReadonly}
                                   />
                                 </div>
                                 <Popover>
@@ -297,7 +292,7 @@ export function GraduationRequirementsSection({
                                     )}
                                   </PopoverContent>
                                 </Popover>
-                                {canManageGraduationRequirement && requirement.indicators.length > 1 && (
+                                {!isSemesterReadonly && requirement.indicators.length > 1 && (
                                   <Button
                                     size="sm"
                                     variant="ghost"
