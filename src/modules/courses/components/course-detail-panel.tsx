@@ -1350,7 +1350,7 @@ export function CourseDetail({
 
   if (contentView === "syllabus") {
     return (
-      <div className="flex h-[calc(100vh-10rem)] min-h-0 flex-col overflow-hidden rounded-md border border-border bg-card">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-border bg-card">
         <CourseSyllabusPreview
           courseId={Number(courseNode.id)}
           courseName={courseNameData.name}
