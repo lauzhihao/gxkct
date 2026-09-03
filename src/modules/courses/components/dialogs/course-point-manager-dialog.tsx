@@ -11,6 +11,7 @@ import {
 } from "@/shared/components/ui/alert-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
 import { Button } from "@/shared/components/ui/button"
+import { cn } from "@/shared/utils/utils"
 import { Input } from "@/shared/components/ui/input"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { Check, Pencil, Plus, Search, Sparkles, Trash2, X } from "lucide-react"
@@ -138,7 +139,7 @@ export const CoursePointManagerDialog = () => {
     <>
       <Dialog open={isShowCoursePointsDialog} onOpenChange={handleCoursePointsDialogOpenChange}>
         <DialogContent
-          className="!max-w-2xl max-h-[80vh] flex flex-col p-0 gap-0"
+          className={cn("!max-w-2xl max-h-[80vh] flex flex-col p-0 gap-0", isSmartParseExpanded && "h-[80vh]")}
           onEscapeKeyDown={(event) => {
             event.preventDefault()
           }}
@@ -189,10 +190,11 @@ export const CoursePointManagerDialog = () => {
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
           {isSmartParseExpanded ? (
-            <div className="flex-1 px-6 pb-6">
-              <div className="flex h-full flex-col gap-3 rounded-lg border border-dashed border-border p-4">
+            <div className="flex flex-1 min-h-0 flex-col px-6 pb-6">
+              {/* [MOD] 智能解析模式弹窗定高 + min-h-0 链: Textarea(field-sizing-content) 随内容增高时改为内部滚动, 避免长文本把操作按钮顶出弹窗 */}
+              <div className="flex flex-1 min-h-0 flex-col gap-3 rounded-lg border border-dashed border-border p-4">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm text-muted-foreground">按换行符或英文分号分隔，系统会按输入顺序自动生成新的课点序号。</p>
                   <div className="flex items-center gap-2">
@@ -217,7 +219,7 @@ export const CoursePointManagerDialog = () => {
                   value={smartParseInput}
                   onChange={(event) => setSmartParseInput(event.target.value)}
                   placeholder="请输入课点描述，每行一个。"
-                  className="min-h-[280px] flex-1 resize-none"
+                  className="min-h-0 flex-1 resize-none"
                   disabled={isSmartParsingCoursePoints}
                 />
               </div>
