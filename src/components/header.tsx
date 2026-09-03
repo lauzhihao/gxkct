@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { ChevronDown, Palette, Eye, EyeOff, MessageSquareWarning } from "lucide-react"
+import { BookOpen, ChevronDown, Palette, Eye, EyeOff, MessageSquareWarning } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import {
   DropdownMenu,
@@ -54,7 +54,7 @@ const WORKSHOP_MANAGEMENT_CONTEXT = { scope: "root" } as const
 
 const COLOR_THEMES = {
   green: {
-    name: "NaiveUI 绿色",
+    name: "墨绿",
     primary: "#18a058",
     primaryDark: "#0c7a43",
     primaryLight: "#36ad6a",
@@ -62,23 +62,19 @@ const COLOR_THEMES = {
     primaryPressed: "rgba(24, 160, 88, 0.18)",
     primaryActive: "rgba(24, 160, 88, 0.1)",
     oklchPrimary: "oklch(0.58 0.15 155)",
-    oklchAccent: "oklch(0.62 0.16 155)",
-    hue: 155,
   },
   vercelBlue: {
-    name: "Vercel 蓝色",
-    primary: "#0070f3",
-    primaryDark: "#0051cc",
-    primaryLight: "#3291ff",
-    primaryHover: "rgba(0, 112, 243, 0.12)",
-    primaryPressed: "rgba(0, 112, 243, 0.18)",
-    primaryActive: "rgba(0, 112, 243, 0.1)",
-    oklchPrimary: "oklch(0.58 0.2 240)",
-    oklchAccent: "oklch(0.62 0.21 240)",
-    hue: 240,
+    name: "默认蓝",
+    primary: "#1D5FBF",
+    primaryDark: "#17509F",
+    primaryLight: "#3B7FD4",
+    primaryHover: "rgba(29, 95, 191, 0.10)",
+    primaryPressed: "rgba(29, 95, 191, 0.16)",
+    primaryActive: "rgba(29, 95, 191, 0.08)",
+    oklchPrimary: "oklch(0.501 0.165 258.7)",
   },
   antBlue: {
-    name: "Ant Design 蓝色",
+    name: "亮蓝",
     primary: "#1890ff",
     primaryDark: "#096dd9",
     primaryLight: "#40a9ff",
@@ -86,11 +82,9 @@ const COLOR_THEMES = {
     primaryPressed: "rgba(24, 144, 255, 0.18)",
     primaryActive: "rgba(24, 144, 255, 0.1)",
     oklchPrimary: "oklch(0.62 0.22 245)",
-    oklchAccent: "oklch(0.66 0.23 245)",
-    hue: 245,
   },
   microsoftBlue: {
-    name: "微软蓝色",
+    name: "钢蓝",
     primary: "#0078d4",
     primaryDark: "#005a9e",
     primaryLight: "#2b88d8",
@@ -98,11 +92,9 @@ const COLOR_THEMES = {
     primaryPressed: "rgba(0, 120, 212, 0.18)",
     primaryActive: "rgba(0, 120, 212, 0.1)",
     oklchPrimary: "oklch(0.56 0.18 235)",
-    oklchAccent: "oklch(0.6 0.19 235)",
-    hue: 235,
   },
   tailwindBlue: {
-    name: "Tailwind 蓝色",
+    name: "天蓝",
     primary: "#2563eb",
     primaryDark: "#1e40af",
     primaryLight: "#3b82f6",
@@ -110,11 +102,9 @@ const COLOR_THEMES = {
     primaryPressed: "rgba(37, 99, 235, 0.18)",
     primaryActive: "rgba(37, 99, 235, 0.1)",
     oklchPrimary: "oklch(0.55 0.24 250)",
-    oklchAccent: "oklch(0.59 0.25 250)",
-    hue: 250,
   },
   claudeOrange: {
-    name: "Claude 橙色",
+    name: "暖橙",
     primary: "#E87C3E",
     primaryDark: "#C5621F",
     primaryLight: "#FF9B5E",
@@ -122,11 +112,9 @@ const COLOR_THEMES = {
     primaryPressed: "rgba(232, 124, 62, 0.18)",
     primaryActive: "rgba(232, 124, 62, 0.1)",
     oklchPrimary: "oklch(0.65 0.16 45)",
-    oklchAccent: "oklch(0.69 0.17 45)",
-    hue: 45,
   },
   hermesOrange: {
-    name: "爱马仕橙色",
+    name: "赤橙",
     primary: "#F37021",
     primaryDark: "#D85A0D",
     primaryLight: "#FF9B5E",
@@ -134,11 +122,9 @@ const COLOR_THEMES = {
     primaryPressed: "rgba(243, 112, 33, 0.18)",
     primaryActive: "rgba(243, 112, 33, 0.1)",
     oklchPrimary: "oklch(0.68 0.16 35)",
-    oklchAccent: "oklch(0.72 0.17 35)",
-    hue: 35,
   },
   appleBlue: {
-    name: "Apple 蓝色",
+    name: "湖蓝",
     primary: "#0071e3",
     primaryDark: "#0051B3",
     primaryLight: "#3A8FE8",
@@ -146,11 +132,9 @@ const COLOR_THEMES = {
     primaryPressed: "rgba(0, 113, 227, 0.18)",
     primaryActive: "rgba(0, 113, 227, 0.1)",
     oklchPrimary: "oklch(0.56 0.19 238)",
-    oklchAccent: "oklch(0.6 0.2 238)",
-    hue: 238,
   },
   notionPurple: {
-    name: "Tsinghua 清华紫",
+    name: "清华紫",
     primary: "#9B59B6",
     primaryDark: "#7D3C98",
     primaryLight: "#BB8FCE",
@@ -158,11 +142,9 @@ const COLOR_THEMES = {
     primaryPressed: "rgba(155, 89, 182, 0.18)",
     primaryActive: "rgba(155, 89, 182, 0.1)",
     oklchPrimary: "oklch(0.52 0.15 310)",
-    oklchAccent: "oklch(0.56 0.16 310)",
-    hue: 310,
   },
   slackAubergine: {
-    name: "Slack 茄紫",
+    name: "茄紫",
     primary: "#611f69",
     primaryDark: "#4A1850",
     primaryLight: "#7E3B85",
@@ -170,11 +152,9 @@ const COLOR_THEMES = {
     primaryPressed: "rgba(97, 31, 105, 0.18)",
     primaryActive: "rgba(97, 31, 105, 0.1)",
     oklchPrimary: "oklch(0.35 0.12 320)",
-    oklchAccent: "oklch(0.39 0.13 320)",
-    hue: 320,
   },
   linearPurple: {
-    name: "Linear 紫色",
+    name: "靛紫",
     primary: "#5E6AD2",
     primaryDark: "#4854B8",
     primaryLight: "#7B85E0",
@@ -182,8 +162,6 @@ const COLOR_THEMES = {
     primaryPressed: "rgba(94, 106, 210, 0.18)",
     primaryActive: "rgba(94, 106, 210, 0.1)",
     oklchPrimary: "oklch(0.54 0.16 270)",
-    oklchAccent: "oklch(0.58 0.17 270)",
-    hue: 270,
   },
 }
 
@@ -196,7 +174,7 @@ interface HeaderProps {
   treeData?: import("@/types").TreeNode | null
 }
 
-export function Header({ currentPath, treeData }: HeaderProps) {
+export function Header({ currentPath, selectedNodeName, treeData }: HeaderProps) {
   const router = useRouter()
   const { can } = usePermission()
   const [courseDevDrawerOpen, setCourseDevDrawerOpen] = useState(false)
@@ -361,15 +339,7 @@ export function Header({ currentPath, treeData }: HeaderProps) {
     root.style.setProperty("--naive-primary-pressed", theme.primaryPressed)
     root.style.setProperty("--naive-primary-active", theme.primaryActive)
     root.style.setProperty("--primary", theme.oklchPrimary)
-    root.style.setProperty("--accent", theme.oklchAccent)
     root.style.setProperty("--ring", theme.oklchPrimary)
-
-    // Update chart colors with theme hue
-    root.style.setProperty("--chart-1", `oklch(0.58 0.2 ${theme.hue})`)
-    root.style.setProperty("--chart-2", `oklch(0.62 0.21 ${theme.hue})`)
-    root.style.setProperty("--chart-3", `oklch(0.54 0.19 ${theme.hue})`)
-    root.style.setProperty("--chart-4", `oklch(0.5 0.18 ${theme.hue})`)
-    root.style.setProperty("--chart-5", `oklch(0.66 0.22 ${theme.hue})`)
 
     // Save to localStorage
     await api.config.setTheme(themeKey)
@@ -377,11 +347,20 @@ export function Header({ currentPath, treeData }: HeaderProps) {
   }
 
   return (
-    <header className="relative mb-6" data-current-path={currentPath ?? undefined}>
-      <div className="flex items-center justify-between h-16 w-full px-6 rounded-2xl bg-white/40 backdrop-blur-md border border-primary/20 shadow-lg">
-        {/* Left side - Welcome text */}
-        <div className="flex flex-col">
-          <h1 className="text-xl font-semibold text-foreground">欢迎使用高校课程通</h1>
+    <header className="relative" data-current-path={currentPath ?? undefined}>
+      <div className="flex items-center justify-between h-[52px] w-full px-5 bg-card border-b border-border">
+        {/* Left side - Brand and current location */}
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-[5px] bg-primary">
+            <BookOpen className="h-4 w-4 text-primary-foreground" />
+          </div>
+          <span className="text-[15px] font-semibold text-foreground">高校课程通</span>
+          {selectedNodeName ? (
+            <>
+              <div className="w-px h-[18px] flex-shrink-0 bg-border" />
+              <span className="truncate text-[13px] text-muted-foreground">{selectedNodeName}</span>
+            </>
+          ) : null}
         </div>
 
         {/* Right side - User info and search */}
@@ -400,11 +379,11 @@ export function Header({ currentPath, treeData }: HeaderProps) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="text-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+                  className="h-[30px] w-[30px] text-foreground hover:bg-accent hover:text-foreground transition-colors"
                   onClick={() => setFeedbackDialogOpen(true)}
                   aria-label="问题反馈"
                 >
-                  <MessageSquareWarning className="h-5 w-5" />
+                  <MessageSquareWarning className="h-[17px] w-[17px]" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom">问题反馈</TooltipContent>
@@ -414,11 +393,11 @@ export function Header({ currentPath, treeData }: HeaderProps) {
           {/* Color Palette */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-foreground hover:bg-primary/10 hover:text-primary transition-colors">
-                <Palette className="h-5 w-5" />
+              <Button variant="ghost" size="icon" className="h-[30px] w-[30px] text-foreground hover:bg-accent hover:text-foreground transition-colors">
+                <Palette className="h-[17px] w-[17px]" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 bg-white/95 backdrop-blur-md border-primary/20">
+            <DropdownMenuContent align="end" className="w-56 bg-popover border-border">
               <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">选择主题色</div>
               <DropdownMenuSeparator />
               {Object.entries(COLOR_THEMES).map(([key, theme]) => (
@@ -442,8 +421,8 @@ export function Header({ currentPath, treeData }: HeaderProps) {
           </DropdownMenu>
 
           {/* User Avatar */}
-          <Avatar className="h-9 w-9 border-2 border-primary/30">
-            <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
+          <Avatar className="h-7 w-7 border border-border">
+            <AvatarFallback className="bg-primary/10 text-primary text-[11px] font-semibold">
               {avatarText}
             </AvatarFallback>
           </Avatar>
@@ -451,12 +430,12 @@ export function Header({ currentPath, treeData }: HeaderProps) {
           {/* User Name and Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="group flex items-center gap-2 text-foreground hover:bg-primary/10 hover:text-primary transition-colors">
-                <span className="text-sm font-medium">{userName}</span>
-                <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+              <Button variant="ghost" className="group flex h-[30px] items-center gap-2 px-2 text-foreground hover:bg-accent hover:text-foreground transition-colors">
+                <span className="text-[13px] font-medium">{userName}</span>
+                <ChevronDown className="h-[15px] w-[15px] text-muted-foreground group-hover:text-foreground transition-colors" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 bg-white/95 backdrop-blur-md border-primary/20">
+            <DropdownMenuContent align="end" className="w-48 bg-popover border-border">
               <DropdownMenuItem className={userMenuItemClassName} onClick={() => setIdentitySwitchDialogOpen(true)}>
                 切换身份
               </DropdownMenuItem>
@@ -486,16 +465,16 @@ export function Header({ currentPath, treeData }: HeaderProps) {
           <Button
             variant="ghost"
             onClick={handleAiButtonClick}
-            className="p-3 hover:bg-transparent group"
+            className="p-1.5 hover:bg-transparent group"
             disabled={isAiLoading}
           >
             <Image
               src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAE4AAAAqCAMAAAAqEZ1jAAAAAXNSR0IArs4c6QAAAAlwSFlzAAAhOAAAITgBRZYxYAAAAKJQTFRFAAAAenb/RpP/k2j/XXf7cXX6P5z7i2n8W3j7ZHP7jmn9VID7Qpf8jWn8Xnr6iWr8YHb7i2n8RJb9dWz8WXr8mWj9RpP8W3n8bW/8l2j+QJz9Q5f9ToT8fWv9ZW/8lWj9VID8YnX7Pp79QZr9pWb+RJT8m2f9k2j9SYz8jWn9hmr8UIT8fmv8VX78Xnn7d2z8ZHT7WHr7bm77Xnb7Z3D7YHH7RJOQRAAAACJ0Uk5TABAgICAwQEBAWF5gZXBwgICbn5+fo7+/vsLP39/f3urv73XwOA8AAAKfSURBVHja7dbJcuIwFIXhIzCxMTMNcdwMDoMZY4NxeP9X66srEckYQlPVvcvPBhZ8dVSIAvz03xNV/Luq4Xq9Hgo8nfDqjXq97hS1yXZNhXg2Z3o+f1KnLqx62y17Pp5smp+158EUaW6I52rkxLF3eoNpt1Ne+bR+Fd8U5Oc8Px6P5M0Evgq11ytpy0jgbk6e5cSxd2pb7yKOikpTouWyhbsNMsnpefZpOzsCI7c8brkM74/LqFSC7HkwVTu9lsB14ZJy745LlDdV5+3iQTXC7s9z3pNEggOh9s3woOFqJT2BmzUSLnMQEEeeh2+rkraiOrjZeL+XXEBwyp71Ybg+hWL+iltGt8ftKQI9QMzSlDxz9VofssIMdxitdJEvbo3jxqAGKXtt6N4OkpvgkmiFa50Ch1UU8zab/Ya4Br/IUnnewHCHg+FEh7/ExUIXdq+KG4N7z3hfzXDkaa5FmGpdMENrYWWjaoDrJtJLu4ajFFfbUduryN1ue4brb2KpjSvgvETe53R24U6Ggz+RYJnsCTMujmMJ9qELErkv9y7cyXAGtNCoI2Dqx9ymAl1bcYMLJ2NO5fZ2dmHLxiBGrJlxEAl7M1HkTFUzseeiWHOxYK+CrwLltRX3qTk7/4PbTXDdaBHLxytMdcllaaA56U1RSEyU56M0jotfYBLvynM091ni0GGtPO73nLkR7AaK6yqOKnG1g+wXrnqZz9nrw87bszdjjn/dDGffbgdX9YmT4HykaoLTp/UABGfyypx7a1yFNb0wpl7BddW8geSO5JU5TE63xhmOPb2uok8reN1Nrn4qjQNBlmfdvkB5beaoMgdP4LpFgbNuX3svtSwABoZ7WPOKa0Inxgl7DurMdfFXVV7savjK8WQ1/cz5+Q9e7A/jUZeiPQO0fwAAAABJRU5ErkJggg=="
               alt="课程开发助手"
-              width={48}
-              height={48}
+              width={28}
+              height={28}
               unoptimized
-              className="object-contain transition-transform duration-200 group-hover:scale-[1.5]"
+              className="object-contain"
             />
           </Button>
         </div>

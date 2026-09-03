@@ -79,7 +79,7 @@ export default function Page() {
 
 function PageLoadingState() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[oklch(0.97_0.005_240)] via-[oklch(0.96_0.005_240)] to-[oklch(0.95_0.008_240)]">
+    <div className="min-h-screen bg-background">
       <LoadingState title="加载中..." className="h-screen" />
     </div>
   )
@@ -547,7 +547,7 @@ function PageContent() {
   }
 
   return (
-    <div className="h-screen bg-gradient-to-br from-[oklch(0.97_0.005_240)] via-[oklch(0.96_0.005_240)] to-[oklch(0.95_0.008_240)] px-6 py-6 md:py-8 overflow-hidden flex flex-col">
+    <div className="h-screen bg-background overflow-hidden flex flex-col">
       <div className="w-full flex flex-col flex-1 min-h-0">
         <Header
           onResetData={handleResetData}
@@ -557,11 +557,11 @@ function PageContent() {
           treeData={treeData}
         />
 
-        <div className="flex gap-3 relative w-full flex-1 min-h-0">
+        <div className="flex relative w-full flex-1 min-h-0">
           <div
             className={cn(
               "flex-shrink-0 transition-all duration-300 ease-in-out relative",
-              isTreeCollapsed ? "w-[70px]" : "w-[calc(23%-0.375rem)]"
+              isTreeCollapsed ? "w-[56px]" : "w-[288px]"
             )}
           >
             <TreeView
@@ -582,10 +582,7 @@ function PageContent() {
           </div>
           <div
             ref={detailPanelContainerRef}
-            className={cn(
-              "flex-shrink-0 transition-all duration-300 ease-in-out overflow-y-auto",
-              isTreeCollapsed ? "w-[calc(100%-70px-0.75rem)]" : "w-[calc(77%-0.375rem)]"
-            )}
+            className="flex-1 min-w-0 transition-all duration-300 ease-in-out overflow-y-auto"
           >
             {canRenderDetailPanel ? (
               <DetailPanel
@@ -606,7 +603,7 @@ function PageContent() {
               />
             ) : currentSelectionError !== null ? (
               <div
-                className="flex min-h-[500px] items-center justify-center rounded-xl border border-border bg-card/30 p-6 shadow-2xl backdrop-blur-md"
+                className="flex min-h-[500px] items-center justify-center rounded-md border border-border bg-card p-6"
                 role="alert"
               >
                 <div className="max-w-lg text-center">
