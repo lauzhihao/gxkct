@@ -213,7 +213,7 @@ export function Header({ currentPath, selectedNodeName, treeData }: HeaderProps)
   const authUserId = getStoredAuthUser()?.id ?? null
   const avatarText = userName.trim().charAt(0).toUpperCase() || "U"
   const userMenuItemClassName =
-    "cursor-pointer hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground data-[highlighted]:bg-primary data-[highlighted]:text-primary-foreground"
+    "cursor-pointer hover:bg-accent hover:text-foreground focus:bg-accent focus:text-foreground data-[highlighted]:bg-accent data-[highlighted]:text-foreground"
   const canManageWorkshop = can(WORKSHOP_MANAGEMENT_ACTION, WORKSHOP_MANAGEMENT_CONTEXT)
 
   // 处理退出登录
@@ -406,11 +406,11 @@ export function Header({ currentPath, selectedNodeName, treeData }: HeaderProps)
                   onClick={() => applyTheme(key as keyof typeof COLOR_THEMES)}
                   className={cn(
                     "cursor-pointer flex items-center gap-3 py-2.5",
-                    currentTheme === key ? "bg-primary/10" : "hover:bg-primary/5",
+                    currentTheme === key ? "bg-primary/10" : "hover:bg-accent",
                   )}
                 >
                   <div
-                    className="w-6 h-6 rounded border-2 border-white shadow-sm"
+                    className="w-6 h-6 rounded border border-border"
                     style={{ backgroundColor: theme.primary }}
                   />
                   <span className="text-sm">{theme.name}</span>
@@ -448,12 +448,12 @@ export function Header({ currentPath, selectedNodeName, treeData }: HeaderProps)
                 </>
               )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem className={cn("text-orange-600", userMenuItemClassName)} onClick={() => setResetPasswordDialogOpen(true)}>
+              <DropdownMenuItem className={cn(userMenuItemClassName, "text-orange-600 hover:text-orange-600 focus:text-orange-600 data-[highlighted]:text-orange-600")} onClick={() => setResetPasswordDialogOpen(true)}>
                 重置密码
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                className={cn("text-red-600", userMenuItemClassName)}
+                className={cn(userMenuItemClassName, "text-red-600 hover:text-red-600 focus:text-red-600 data-[highlighted]:text-red-600")}
                 onClick={handleLogout}
               >
                 退出登录
