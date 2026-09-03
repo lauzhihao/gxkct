@@ -59,7 +59,7 @@ function highlightText(text: string, searchTerm: string): React.ReactNode {
   return (
     <>
       {before}
-      <span className="bg-yellow-300/60 text-foreground font-semibold px-0.5 rounded">{match}</span>
+      <span className="bg-warning/20 text-foreground font-semibold px-0.5 rounded">{match}</span>
       {highlightText(after, searchTerm)}
     </>
   )
@@ -323,7 +323,10 @@ function TreeNodeComponent({
   }
 
   const renderNodeIcon = () => {
-    const iconClassName = "w-5 h-5 text-primary"
+    const iconClassName = cn(
+      "w-[15px] h-[15px] flex-shrink-0",
+      isSelected ? "text-primary" : "text-muted-foreground",
+    )
 
     switch (node.nodeType) {
       case "university":
@@ -346,7 +349,7 @@ function TreeNodeComponent({
             <TooltipTrigger asChild>
               <div
                 className={cn(
-                  "font-medium text-foreground group-hover:text-primary transition-colors truncate cursor-pointer",
+                  "flex-1 min-w-0 truncate text-[13.5px] text-foreground group-hover:text-primary transition-colors cursor-pointer",
                   isSelected && "text-primary",
                 )}
               >
@@ -361,7 +364,7 @@ function TreeNodeComponent({
       ) : (
         <div
           className={cn(
-            "font-medium text-foreground group-hover:text-primary transition-colors truncate",
+            "flex-1 min-w-0 truncate text-[13.5px] text-foreground group-hover:text-primary transition-colors",
             isSelected && "text-primary",
           )}
         >
@@ -369,7 +372,7 @@ function TreeNodeComponent({
         </div>
       )}
       {node.description && (
-        <div className="text-xs text-muted-foreground mt-0.5 truncate">
+        <div className="flex-shrink-0 max-w-[45%] truncate text-[11.5px] text-muted-foreground tabular-nums">
           {highlightText(node.description, searchTerm)}
         </div>
       )}
@@ -382,16 +385,16 @@ function TreeNodeComponent({
           <div
             onClick={handleStarClick}
             className={cn(
-              "flex-shrink-0 p-1.5 rounded-md transition-all duration-200 cursor-pointer",
-              "hover:bg-primary/20",
-              isStarred ? "text-yellow-500" : "text-muted-foreground hover:text-yellow-500",
+              "flex-shrink-0 p-1 rounded-md transition-colors cursor-pointer",
+              "hover:bg-accent",
+              isStarred ? "text-warning" : "text-muted-foreground hover:text-warning",
             )}
             aria-label={isStarred ? "已设为星标" : "设为星标"}
             role="button"
             tabIndex={0}
             onKeyDown={handleStarToggleFromKeyboard}
           >
-            <Star className={cn("w-5 h-5 transition-all", isStarred && "fill-yellow-500")} />
+            <Star className={cn("w-4 h-4", isStarred && "fill-current")} />
           </div>
         )
       : null
@@ -402,23 +405,18 @@ function TreeNodeComponent({
           <button
             onClick={handleLoadMore}
             className={cn(
-              "w-full flex items-center gap-3 py-3 rounded-lg transition-all duration-200",
-              "backdrop-blur-sm border border-dashed border-primary/30",
-              "hover:bg-primary/10 hover:border-primary/50",
+              "w-full h-8 flex items-center gap-1.5 rounded-md transition-colors",
+              "hover:bg-accent",
               "focus:outline-none focus:ring-2 focus:ring-primary/50",
               "group",
             )}
-            style={{ paddingLeft: `${16 + (level + 1) * 24}px`, paddingRight: "16px" }}
+            style={{ paddingLeft: `${12 + (level + 1) * 16}px`, paddingRight: "6px" }}
           >
-            <div className="w-4 flex-shrink-0" />
+            <div className="w-3.5 flex-shrink-0" />
 
-            <div className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center bg-primary/10 border border-primary/30 group-hover:bg-primary/20">
-              <MoreHorizontal className="w-5 h-5 text-primary" />
-            </div>
+            <MoreHorizontal className="w-[15px] h-[15px] flex-shrink-0 text-primary" />
 
-            <div className="flex-1 text-left">
-              <div className="font-medium text-primary">更多{remainingCount}门课程</div>
-            </div>
+            <div className="flex-1 min-w-0 truncate text-left text-[13px] text-primary">更多{remainingCount}门课程</div>
           </button>
         )
       : null
@@ -426,7 +424,7 @@ function TreeNodeComponent({
   const childrenContent =
     isExpanded
       ? (
-          <div className="mt-2 space-y-2">
+          <div>
             {displayChildren.length > 0 ? (
               displayChildren.map((child, index) => (
                 <TreeNodeComponent
@@ -455,10 +453,10 @@ function TreeNodeComponent({
               ))
             ) : isSearching && (node.nodeType === "department" || node.nodeType === "major") ? (
               <div
-                className="flex items-center gap-2 text-sm text-muted-foreground py-2"
-                style={{ paddingLeft: `${16 + (level + 1) * 24}px` }}
+                className="h-8 flex items-center gap-1.5 text-[13px] text-muted-foreground"
+                style={{ paddingLeft: `${12 + (level + 1) * 16}px` }}
               >
-                <Spinner className="w-4 h-4" />
+                <Spinner className="w-3.5 h-3.5" />
                 <span>加载中...</span>
               </div>
             ) : null}
@@ -469,35 +467,24 @@ function TreeNodeComponent({
       : null
 
   const iconNode = renderNodeIcon()
-  const indentPadding = level * 24
+  const indentPadding = level * 16
 
   const rowContent = (
     <>
       {hasChildren && (
         <div className="flex-shrink-0">
           {isExpanded ? (
-            <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform" />
+            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
           ) : (
-            <ChevronRight className="w-4 h-4 text-muted-foreground transition-transform" />
+            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
           )}
         </div>
       )}
-      {!hasChildren && <div className="w-4 flex-shrink-0" />}
+      {!hasChildren && <div className="w-3.5 flex-shrink-0" />}
 
-      <div
-        className={cn(
-          "flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center",
-          "bg-gradient-to-br from-primary/20 to-accent/20",
-          "border border-primary/30",
-          "group-hover:from-primary/30 group-hover:to-accent/30",
-          "transition-all duration-200",
-          isSelected && "from-primary/30 to-accent/30 border-primary/50",
-        )}
-      >
-        {iconNode}
-      </div>
+      {iconNode}
 
-      <div className="flex-1 text-left min-w-0 overflow-hidden">{nodeMetaContent}</div>
+      <div className="flex-1 min-w-0 flex items-center gap-2 text-left">{nodeMetaContent}</div>
 
       {starButton}
     </>
@@ -508,15 +495,15 @@ function TreeNodeComponent({
       ref={nodeRef}
       onClick={handleClick}
       className={cn(
-        "w-full flex items-center gap-3 py-3 rounded-lg transition-all duration-200",
-        "backdrop-blur-sm border",
-        "hover:bg-card/50 hover:border-primary/50 hover:shadow-lg",
+        "relative w-full h-8 flex items-center gap-1.5 rounded-md transition-colors",
+        "hover:bg-accent",
         "focus:outline-none focus:ring-2 focus:ring-primary/50",
         "group",
-        isSelected && "bg-primary/10 border-primary/50 shadow-md",
+        isSelected && "bg-primary/10 text-primary font-medium",
       )}
-      style={{ paddingLeft: `${16 + indentPadding}px`, paddingRight: "16px" }}
+      style={{ paddingLeft: `${6 + indentPadding}px`, paddingRight: "6px" }}
     >
+      {isSelected && <span className="absolute left-0 top-0 h-full w-0.5 bg-primary" />}
       {rowContent}
     </button>
   )
@@ -893,15 +880,15 @@ export const TreeView = React.forwardRef<
     <div className="flex flex-col h-full">
       {/* 收起状态下显示搜索图标和选中路径首字 */}
       {isCollapsed && (
-        <div className="rounded-t-xl border border-b-0 border-border bg-card/30 backdrop-blur-md shadow-2xl p-2 flex-1 min-h-0 flex flex-col items-center">
+        <div className="flex-1 min-h-0 flex flex-col items-center bg-card border-r border-border p-2">
           {/* 搜索图标 - 点击展开侧边栏 */}
           {onToggleCollapse && (
             <button
               onClick={onToggleCollapse}
-              className="w-12 h-12 flex items-center justify-center hover:bg-primary rounded-md transition-all group flex-shrink-0"
+              className="w-8 h-8 flex items-center justify-center hover:bg-accent rounded-md transition-colors group flex-shrink-0"
               aria-label="展开侧边栏"
             >
-              <Search className="w-5 h-5 text-muted-foreground group-hover:text-white transition-colors" />
+              <Search className="w-4 h-4 text-muted-foreground" />
             </button>
           )}
 
@@ -923,10 +910,10 @@ export const TreeView = React.forwardRef<
                       <button
                         onClick={() => onNodeSelect(node)}
                         className={cn(
-                          "w-10 h-10 flex items-center justify-center rounded-full transition-all text-sm font-medium flex-shrink-0",
+                          "w-8 h-8 flex items-center justify-center rounded-md transition-colors text-[13px] font-medium flex-shrink-0",
                           isCurrentSelected
-                            ? "bg-primary text-white shadow-md"
-                            : "bg-card/60 text-foreground hover:bg-primary/20 hover:shadow-sm border border-border/50"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-secondary text-foreground hover:bg-accent border border-border"
                         )}
                         aria-label={node.nodeName}
                       >
@@ -945,17 +932,17 @@ export const TreeView = React.forwardRef<
       )}
 
       {!isCollapsed && (
-      <div className="rounded-t-xl border border-b-0 border-border bg-card/30 backdrop-blur-md shadow-2xl p-6 flex-1 min-h-0 overflow-y-auto">
-        <div className="mb-4">
+      <div className="flex-1 min-h-0 flex flex-col bg-card border-r border-border">
+        <div className="px-3 py-2.5 border-b border-border flex-shrink-0">
           <div className="flex items-center gap-2">
-            <div className="relative flex-1 h-9">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
               <Input
                 type="text"
                 placeholder="快速查找"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-10 bg-white/40 backdrop-blur-sm border-primary/20 focus:border-primary/50"
+                className="h-8 pl-8 pr-8 text-[13px]"
               />
               {searchTerm && !isSearching && (
                 <button
@@ -963,15 +950,15 @@ export const TreeView = React.forwardRef<
                     setSearchTerm("")
                     clearSearch()
                   }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                   aria-label="清空搜索"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               )}
               {isSearching && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center">
-                  <Spinner className="w-4 h-4 text-primary" />
+                <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center justify-center">
+                  <Spinner className="w-3.5 h-3.5 text-primary" />
                 </div>
               )}
             </div>
@@ -981,15 +968,15 @@ export const TreeView = React.forwardRef<
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="flex-shrink-0 hover:bg-primary/10 disabled:opacity-100 disabled:cursor-not-allowed"
+                  className="flex-shrink-0 h-8 w-8 hover:bg-accent disabled:opacity-100 disabled:cursor-not-allowed"
                   aria-label="新增学校/工作坊"
                   disabled={isDataLoading || isSearching}
                   onClick={() => setIsCreateWorkshopDialogOpen(true)}
                 >
                   {isDataLoading || isSearching ? (
-                    <Spinner className="w-5 h-5 text-primary" />
+                    <Spinner className="w-4 h-4 text-primary" />
                   ) : (
-                    <Plus className="w-5 h-5 text-primary" />
+                    <Plus className="w-4 h-4 text-primary" />
                   )}
                 </Button>
               </PermissionGate>
@@ -1006,13 +993,13 @@ export const TreeView = React.forwardRef<
 
           {/* 搜索无结果提示 */}
           {searchTerm.trim() && !isSearching && searchResults.length === 0 && (
-            <div className="mt-2 text-sm text-muted-foreground text-center py-2">
+            <div className="mt-2 text-[13px] text-muted-foreground text-center py-1.5">
               未找到包含&quot;{searchTerm}&quot;的节点
             </div>
           )}
         </div>
 
-        <div className="space-y-2">
+        <div className="flex-1 min-h-0 overflow-y-auto px-1.5 py-1.5">
           {treeData.children?.filter(shouldShowNode).map((child) => (
             <TreeNodeComponent
               key={child.nodeId}
@@ -1046,13 +1033,13 @@ export const TreeView = React.forwardRef<
       {onToggleCollapse && (
         <button
           onClick={onToggleCollapse}
-          className="w-full h-8 bg-card border border-border border-t-0 rounded-b-xl shadow-md hover:bg-primary hover:border-primary transition-all flex items-center justify-center group flex-shrink-0"
+          className="w-full h-8 bg-card border-t border-r border-border hover:bg-accent transition-colors flex items-center justify-center group flex-shrink-0"
           aria-label={isCollapsed ? "展开侧边栏" : "收起侧边栏"}
         >
           {isCollapsed ? (
-            <ChevronsRight className="text-primary group-hover:text-primary-foreground transition-colors" style={{ width: '21px', height: '21px' }} />
+            <ChevronsRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
           ) : (
-            <ChevronsLeft className="text-primary group-hover:text-primary-foreground transition-colors" style={{ width: '21px', height: '21px' }} />
+            <ChevronsLeft className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
           )}
         </button>
       )}
