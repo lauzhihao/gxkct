@@ -169,12 +169,11 @@ interface HeaderProps {
   onResetData?: () => void
   isTreeCollapsed?: boolean
   currentPath?: string
-  selectedNodeName?: string | null
   /** 树形结构数据（用于AI助手保存向导选择专业） */
   treeData?: import("@/types").TreeNode | null
 }
 
-export function Header({ currentPath, selectedNodeName, treeData }: HeaderProps) {
+export function Header({ currentPath, treeData }: HeaderProps) {
   const router = useRouter()
   const { can } = usePermission()
   const [courseDevDrawerOpen, setCourseDevDrawerOpen] = useState(false)
@@ -360,12 +359,6 @@ export function Header({ currentPath, selectedNodeName, treeData }: HeaderProps)
             className="h-[26px] w-auto flex-shrink-0"
           />
           <span className="text-[15px] font-semibold text-foreground">高校课程通</span>
-          {selectedNodeName ? (
-            <>
-              <div className="w-px h-[18px] flex-shrink-0 bg-border" />
-              <span className="truncate text-[13px] text-muted-foreground">{selectedNodeName}</span>
-            </>
-          ) : null}
         </div>
 
         {/* Right side - User info and search */}

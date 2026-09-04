@@ -553,7 +553,6 @@ function PageContent() {
           onResetData={handleResetData}
           isTreeCollapsed={isTreeCollapsed}
           currentPath={pathname}
-          selectedNodeName={effectiveSelectedNode?.nodeName}
           treeData={treeData}
         />
 
