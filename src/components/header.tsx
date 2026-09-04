@@ -64,7 +64,7 @@ const COLOR_THEMES = {
     oklchPrimary: "oklch(0.58 0.15 155)",
   },
   vercelBlue: {
-    name: "默认蓝",
+    name: "宝蓝",
     primary: "#1D5FBF",
     primaryDark: "#17509F",
     primaryLight: "#3B7FD4",
@@ -178,7 +178,7 @@ export function Header({ currentPath, selectedNodeName, treeData }: HeaderProps)
   const router = useRouter()
   const { can } = usePermission()
   const [courseDevDrawerOpen, setCourseDevDrawerOpen] = useState(false)
-  const [currentTheme, setCurrentTheme] = useState<keyof typeof COLOR_THEMES>("vercelBlue")
+  const [currentTheme, setCurrentTheme] = useState<keyof typeof COLOR_THEMES>("appleBlue")
   const [userName, setUserName] = useState<string>("用户")
   const [aiInitialCanvasData, setAiInitialCanvasData] = useState<InitialCanvasData | null>(null)
   const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false)

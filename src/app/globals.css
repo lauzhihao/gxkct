@@ -13,7 +13,7 @@
   --popover-foreground: oklch(0.209 0.010 268.2);
 
   /* 机构蓝 #1D5FBF：主操作、选中、链接 */
-  --primary: oklch(0.501 0.165 258.7);
+  --primary: oklch(0.56 0.19 238);
   --primary-foreground: oklch(1 0 0);
 
   --secondary: oklch(0.966 0.005 258.3);
@@ -30,7 +30,7 @@
   --destructive-foreground: oklch(1 0 0);
   --border: oklch(0.924 0.008 260.7);
   --input: oklch(0.924 0.008 260.7);
-  --ring: oklch(0.501 0.165 258.7);
+  --ring: oklch(0.56 0.19 238);
 
   /* 语义状态色 */
   --success: oklch(0.529 0.106 154.6);
@@ -38,7 +38,7 @@
   --info: oklch(0.501 0.165 258.7);
 
   /* 图表五色：蓝 / 绿 / 琥珀 / 红 / 紫，按色相区分 */
-  --chart-1: oklch(0.55 0.15 258);
+  --chart-1: oklch(0.55 0.15 238);
   --chart-2: oklch(0.55 0.12 155);
   --chart-3: oklch(0.60 0.13 70);
   --chart-4: oklch(0.55 0.16 20);
@@ -57,12 +57,12 @@
   --sidebar-ring: var(--ring);
 
   /* 主题切换器运行时变量（机构蓝） */
-  --naive-primary: #1D5FBF;
-  --naive-primary-hover: rgba(29, 95, 191, 0.10);
-  --naive-primary-pressed: rgba(29, 95, 191, 0.16);
-  --naive-primary-active: rgba(29, 95, 191, 0.08);
-  --naive-primary-dark: #17509F;
-  --naive-primary-light: #3B7FD4;
+  --naive-primary: #0071e3;
+  --naive-primary-hover: rgba(0, 113, 227, 0.12);
+  --naive-primary-pressed: rgba(0, 113, 227, 0.18);
+  --naive-primary-active: rgba(0, 113, 227, 0.1);
+  --naive-primary-dark: #0051B3;
+  --naive-primary-light: #3A8FE8;
 }
 
 .dark {
