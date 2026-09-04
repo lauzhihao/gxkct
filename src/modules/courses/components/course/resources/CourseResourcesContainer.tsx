@@ -1200,7 +1200,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
         )}
       </div>
       {needInitialization ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-primary/40 py-12 text-center">
+        <div className="mb-[5px] flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-primary/40 py-12 text-center">
           <FolderPlus className="h-10 w-10 text-primary" />
           <p className="text-sm text-muted-foreground">尚未初始化资源目录</p>
           <Button

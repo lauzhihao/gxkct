@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import type { DetailPanelProps } from "@/components/detail-panel/types"
 import { convertCourseToCanvasComplete } from "@/lib/utils/course-to-canvas"
-import { Calendar, History, Pencil, Trash2, User } from "lucide-react"
+import { Calendar, History, Pencil, Trash2, User, ClipboardCheck, FolderOpen, Grid3x3, Info } from "lucide-react"
 import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
 import { cn } from "@/shared/utils/utils"
@@ -1505,10 +1505,10 @@ export function CourseDetail({
         <div>
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="w-full h-10 bg-secondary/50 border-b border-border rounded-none p-0">
-              <TabsTrigger value="info" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">课程信息</TabsTrigger>
-              <TabsTrigger value="resources" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">课程资源</TabsTrigger>
-              <TabsTrigger value="matrix" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">矩阵管理</TabsTrigger>
-              <TabsTrigger value="supervision" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">质量评价</TabsTrigger>
+              <TabsTrigger value="info" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors"><Info className="h-4 w-4 text-primary" />课程信息</TabsTrigger>
+              <TabsTrigger value="resources" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors"><FolderOpen className="h-4 w-4 text-primary" />课程资源</TabsTrigger>
+              <TabsTrigger value="matrix" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors"><Grid3x3 className="h-4 w-4 text-primary" />矩阵管理</TabsTrigger>
+              <TabsTrigger value="supervision" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors"><ClipboardCheck className="h-4 w-4 text-primary" />质量评价</TabsTrigger>
             </TabsList>
 
             <TabsContent value="info" className="space-y-6 mt-4 px-6">
