@@ -1574,7 +1574,7 @@ function AddCourseForm({
     <div className="space-y-6 mr-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={onCancel} className="gap-2 hover:text-white">
+          <Button variant="ghost" size="sm" onClick={onCancel} className="gap-2 hover:text-foreground">
             <ArrowLeft className="w-4 h-4" />
             返回
           </Button>
@@ -1791,7 +1791,7 @@ function AddCourseForm({
                               setCourseNatureId(option.id)
                               setCourseNaturePopoverOpen(false)
                             }}
-                            className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-accent hover:text-white ${
+                            className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-accent hover:text-foreground ${
                               courseNatureId === option.id ? "bg-[var(--naive-primary)] text-white" : ""
                             }`}
                           >

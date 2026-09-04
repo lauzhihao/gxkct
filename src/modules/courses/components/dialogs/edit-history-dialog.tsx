@@ -224,7 +224,7 @@ export function EditHistoryDialog({ open, onOpenChange, courseId, courseName }: 
                         item.more ? "cursor-pointer hover:bg-accent" : "cursor-default"
                       )}
                     >
-                      <span className="flex items-center text-muted-foreground group-hover:text-white">
+                      <span className="flex items-center text-muted-foreground group-hover:text-foreground">
                         {item.more ? (
                           isExpanded ? (
                             <ChevronDown className="h-4 w-4" />
@@ -233,19 +233,19 @@ export function EditHistoryDialog({ open, onOpenChange, courseId, courseName }: 
                           )
                         ) : null}
                       </span>
-                      <span className="whitespace-nowrap text-xs text-muted-foreground group-hover:text-white/90">
+                      <span className="whitespace-nowrap text-xs text-muted-foreground group-hover:text-foreground">
                         {item.time}
                       </span>
                       <Badge
                         variant="outline"
-                        className="justify-self-start whitespace-nowrap group-hover:border-white/50 group-hover:text-white"
+                        className="justify-self-start whitespace-nowrap group-hover:border-border group-hover:text-foreground"
                       >
                         {item.type}
                       </Badge>
-                      <span className="truncate text-sm font-medium group-hover:text-white">
+                      <span className="truncate text-sm font-medium group-hover:text-foreground">
                         {item.editor}
                       </span>
-                      <span className="truncate text-sm text-muted-foreground group-hover:text-white/90">
+                      <span className="truncate text-sm text-muted-foreground group-hover:text-foreground">
                         {item.detail}
                       </span>
                     </button>

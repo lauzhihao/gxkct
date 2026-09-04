@@ -383,7 +383,7 @@ export function CanvasObjectiveEditor({
             size="sm"
             variant="ghost"
             onClick={onClose}
-            className="gap-2 hover:text-white"
+            className="gap-2 hover:text-foreground"
           >
             <ArrowLeft className="w-4 h-4" />
             返回
@@ -504,7 +504,7 @@ export function CanvasObjectiveEditor({
                                         size="sm"
                                         variant="ghost"
                                         onClick={restoreObjectivesFromBaseline}
-                                        className="mt-0 h-10 w-10 p-0 text-muted-foreground hover:text-white"
+                                        className="mt-0 h-10 w-10 p-0 text-muted-foreground hover:text-foreground"
                                         title="取消"
                                         disabled={isSaving}
                                       >
@@ -570,7 +570,7 @@ export function CanvasObjectiveEditor({
                                                   variant="ghost"
                                                   onClick={restoreObjectivesFromBaseline}
                                                   disabled={isSavingObjective || isDeletingObjective || isSaving}
-                                                  className="h-10 w-10 p-0 text-muted-foreground hover:text-white"
+                                                  className="h-10 w-10 p-0 text-muted-foreground hover:text-foreground"
                                                   title="取消"
                                                 >
                                                   <X className="w-4 h-4" />

@@ -155,7 +155,7 @@ export function CareerTrainingSection({
                                 setProvincePopoverOpen(false)
                                 setProvinceSearch("")
                               }}
-                              className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-accent hover:text-white ${
+                              className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-accent hover:text-foreground ${
                                 selectedProvince === province ? "bg-[var(--naive-primary)] text-white" : ""
                               }`}
                             >

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { BookOpen, ChevronDown, Palette, Eye, EyeOff, MessageSquareWarning } from "lucide-react"
+import { ChevronDown, Palette, Eye, EyeOff, MessageSquareWarning } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import {
   DropdownMenu,
@@ -351,9 +351,14 @@ export function Header({ currentPath, selectedNodeName, treeData }: HeaderProps)
       <div className="flex items-center justify-between h-[52px] w-full px-5 bg-card border-b border-border">
         {/* Left side - Brand and current location */}
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-[5px] bg-primary">
-            <BookOpen className="h-4 w-4 text-primary-foreground" />
-          </div>
+          <Image
+            src="/assets/brand/gxkct-mark.png"
+            alt="高校课程通"
+            width={122}
+            height={142}
+            priority
+            className="h-[26px] w-auto flex-shrink-0"
+          />
           <span className="text-[15px] font-semibold text-foreground">高校课程通</span>
           {selectedNodeName ? (
             <>

@@ -1504,11 +1504,11 @@ export function CourseDetail({
         {/* Content */}
         <div>
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="h-9 w-full justify-start gap-5 bg-transparent border-b border-border rounded-none p-0 px-6">
-              <TabsTrigger value="info" className="flex-none h-9 border-0 px-0 py-0 rounded-none cursor-pointer text-[13.5px] font-normal text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary transition-colors">课程信息</TabsTrigger>
-              <TabsTrigger value="resources" className="flex-none h-9 border-0 px-0 py-0 rounded-none cursor-pointer text-[13.5px] font-normal text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary transition-colors">课程资源</TabsTrigger>
-              <TabsTrigger value="matrix" className="flex-none h-9 border-0 px-0 py-0 rounded-none cursor-pointer text-[13.5px] font-normal text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary transition-colors">矩阵管理</TabsTrigger>
-              <TabsTrigger value="supervision" className="flex-none h-9 border-0 px-0 py-0 rounded-none cursor-pointer text-[13.5px] font-normal text-muted-foreground hover:text-foreground data-[state=active]:text-primary data-[state=active]:font-medium data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary transition-colors">质量评价</TabsTrigger>
+            <TabsList className="w-full h-10 bg-secondary/50 border-b border-border rounded-none p-0">
+              <TabsTrigger value="info" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">课程信息</TabsTrigger>
+              <TabsTrigger value="resources" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">课程资源</TabsTrigger>
+              <TabsTrigger value="matrix" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">矩阵管理</TabsTrigger>
+              <TabsTrigger value="supervision" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">质量评价</TabsTrigger>
             </TabsList>
 
             <TabsContent value="info" className="space-y-6 mt-4 px-6">

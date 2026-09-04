@@ -471,7 +471,7 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
             variant="ghost"
             size="sm"
             onClick={onBack}
-            className="gap-2 hover:text-white"
+            className="gap-2 hover:text-foreground"
           >
             <ArrowLeft className="w-4 h-4" />
             返回
@@ -493,7 +493,7 @@ export function TeachingTaskFormPage({ task: initialTask, onBack, onSubmit, onAu
               variant="ghost"
               size="sm"
               onClick={onBack}
-              className="gap-2 hover:text-white"
+              className="gap-2 hover:text-foreground"
               disabled={isSaving || isLoading}
             >
               <ArrowLeft className="w-4 h-4" />

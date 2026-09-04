@@ -317,20 +317,20 @@ export function MajorDetail(props: MajorDetailProps) {
 
         <div className="flex-1 overflow-auto">
           <Tabs defaultValue="courses" className="w-full" onValueChange={handleTabChange}>
-            <TabsList className="w-full h-10 bg-secondary/50 backdrop-blur-sm border-b border-border rounded-none p-0">
-              <TabsTrigger value="courses" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
+            <TabsList className="w-full h-10 bg-secondary/50 border-b border-border rounded-none p-0">
+              <TabsTrigger value="courses" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">
                 课程管理
               </TabsTrigger>
-              <TabsTrigger value="details" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
+              <TabsTrigger value="details" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">
                 专业详情
               </TabsTrigger>
-              <TabsTrigger value="matrix" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
+              <TabsTrigger value="matrix" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">
                 专业矩阵
               </TabsTrigger>
-              <TabsTrigger value="resources" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
+              <TabsTrigger value="resources" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">
                 资源管理
               </TabsTrigger>
-              <TabsTrigger value="teaching-quality" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
+              <TabsTrigger value="teaching-quality" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">
                 质量评价
               </TabsTrigger>
             </TabsList>
