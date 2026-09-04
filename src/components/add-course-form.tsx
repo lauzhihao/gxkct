@@ -1791,8 +1791,10 @@ function AddCourseForm({
                               setCourseNatureId(option.id)
                               setCourseNaturePopoverOpen(false)
                             }}
-                            className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-accent hover:text-foreground ${
-                              courseNatureId === option.id ? "bg-[var(--naive-primary)] text-white" : ""
+                            className={`w-full text-left px-3 py-2 rounded text-sm ${
+                              courseNatureId === option.id
+                                ? "bg-[var(--naive-primary)] text-white hover:bg-[var(--naive-primary-dark)] hover:text-white"
+                                : "hover:bg-accent hover:text-foreground"
                             }`}
                           >
                             {option.name}

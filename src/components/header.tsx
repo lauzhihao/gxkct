@@ -61,7 +61,7 @@ const COLOR_THEMES = {
     primaryHover: "rgba(24, 160, 88, 0.12)",
     primaryPressed: "rgba(24, 160, 88, 0.18)",
     primaryActive: "rgba(24, 160, 88, 0.1)",
-    oklchPrimary: "oklch(0.58 0.15 155)",
+    oklchPrimary: "oklch(0.621 0.153 153.2)",
   },
   vercelBlue: {
     name: "宝蓝",
@@ -81,7 +81,7 @@ const COLOR_THEMES = {
     primaryHover: "rgba(24, 144, 255, 0.12)",
     primaryPressed: "rgba(24, 144, 255, 0.18)",
     primaryActive: "rgba(24, 144, 255, 0.1)",
-    oklchPrimary: "oklch(0.62 0.22 245)",
+    oklchPrimary: "oklch(0.651 0.191 252.8)",
   },
   microsoftBlue: {
     name: "钢蓝",
@@ -91,7 +91,7 @@ const COLOR_THEMES = {
     primaryHover: "rgba(0, 120, 212, 0.12)",
     primaryPressed: "rgba(0, 120, 212, 0.18)",
     primaryActive: "rgba(0, 120, 212, 0.1)",
-    oklchPrimary: "oklch(0.56 0.18 235)",
+    oklchPrimary: "oklch(0.568 0.167 251.3)",
   },
   tailwindBlue: {
     name: "天蓝",
@@ -101,7 +101,7 @@ const COLOR_THEMES = {
     primaryHover: "rgba(37, 99, 235, 0.12)",
     primaryPressed: "rgba(37, 99, 235, 0.18)",
     primaryActive: "rgba(37, 99, 235, 0.1)",
-    oklchPrimary: "oklch(0.55 0.24 250)",
+    oklchPrimary: "oklch(0.546 0.215 262.9)",
   },
   claudeOrange: {
     name: "暖橙",
@@ -111,7 +111,7 @@ const COLOR_THEMES = {
     primaryHover: "rgba(232, 124, 62, 0.12)",
     primaryPressed: "rgba(232, 124, 62, 0.18)",
     primaryActive: "rgba(232, 124, 62, 0.1)",
-    oklchPrimary: "oklch(0.65 0.16 45)",
+    oklchPrimary: "oklch(0.697 0.153 48.1)",
   },
   hermesOrange: {
     name: "赤橙",
@@ -121,7 +121,7 @@ const COLOR_THEMES = {
     primaryHover: "rgba(243, 112, 33, 0.12)",
     primaryPressed: "rgba(243, 112, 33, 0.18)",
     primaryActive: "rgba(243, 112, 33, 0.1)",
-    oklchPrimary: "oklch(0.68 0.16 35)",
+    oklchPrimary: "oklch(0.692 0.181 46.2)",
   },
   appleBlue: {
     name: "湖蓝",
@@ -141,7 +141,7 @@ const COLOR_THEMES = {
     primaryHover: "rgba(155, 89, 182, 0.12)",
     primaryPressed: "rgba(155, 89, 182, 0.18)",
     primaryActive: "rgba(155, 89, 182, 0.1)",
-    oklchPrimary: "oklch(0.52 0.15 310)",
+    oklchPrimary: "oklch(0.577 0.152 315.3)",
   },
   slackAubergine: {
     name: "茄紫",
@@ -151,7 +151,7 @@ const COLOR_THEMES = {
     primaryHover: "rgba(97, 31, 105, 0.12)",
     primaryPressed: "rgba(97, 31, 105, 0.18)",
     primaryActive: "rgba(97, 31, 105, 0.1)",
-    oklchPrimary: "oklch(0.35 0.12 320)",
+    oklchPrimary: "oklch(0.374 0.136 323.2)",
   },
   linearPurple: {
     name: "靛紫",
@@ -161,7 +161,7 @@ const COLOR_THEMES = {
     primaryHover: "rgba(94, 106, 210, 0.12)",
     primaryPressed: "rgba(94, 106, 210, 0.18)",
     primaryActive: "rgba(94, 106, 210, 0.1)",
-    oklchPrimary: "oklch(0.54 0.16 270)",
+    oklchPrimary: "oklch(0.567 0.159 275.2)",
   },
 }
 
@@ -411,7 +411,9 @@ export function Header({ currentPath, selectedNodeName, treeData }: HeaderProps)
                   onClick={() => applyTheme(key as keyof typeof COLOR_THEMES)}
                   className={cn(
                     "cursor-pointer flex items-center gap-3 py-2.5",
-                    currentTheme === key ? "bg-primary/10" : "hover:bg-accent",
+                    currentTheme === key
+                      ? "bg-primary/10 focus:bg-primary/10 data-[highlighted]:bg-primary/10"
+                      : "hover:bg-accent focus:bg-accent data-[highlighted]:bg-accent",
                   )}
                 >
                   <div

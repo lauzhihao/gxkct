@@ -212,7 +212,7 @@ export function ResourceObjectList({
           className={cn(
             baseTileClass,
             "group w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-            "hover:border-primary hover:bg-primary/80",
+            "hover:border-primary hover:bg-primary/10",
           )}
         >
           {showFilesCount
@@ -221,8 +221,8 @@ export function ResourceObjectList({
                 "absolute right-2 top-2",
               )
             : null}
-          <Folder className="h-10 w-10 text-primary transition-colors group-hover:text-white" aria-hidden="true" />
-          <span className="w-full truncate text-sm font-medium text-foreground transition-colors group-hover:text-white">
+          <Folder className="h-10 w-10 text-primary transition-colors" aria-hidden="true" />
+          <span className="w-full truncate text-sm font-medium text-foreground transition-colors">
             {name}
           </span>
         </button>
@@ -465,13 +465,13 @@ export function ResourceObjectList({
                 baseTileClass,
                 "group w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                 checked
-                  ? "border-primary bg-primary/80 text-white"
-                  : "hover:border-primary hover:bg-primary/70 hover:text-white",
+                  ? "border-primary bg-primary text-white"
+                  : "hover:border-primary hover:bg-primary/10",
               )}
               aria-pressed={checked}
             >
-              <Icon className={cn("h-10 w-10", checked ? "text-white" : "text-primary group-hover:text-white")} aria-hidden="true" />
-              <span className={cn("w-full truncate text-sm font-medium", checked ? "text-white" : "text-foreground group-hover:text-white")}>{entry.object.name}</span>
+              <Icon className={cn("h-10 w-10", checked ? "text-white" : "text-primary")} aria-hidden="true" />
+              <span className={cn("w-full truncate text-sm font-medium", checked ? "text-white" : "text-foreground")}>{entry.object.name}</span>
             </button>
             {objectActions}
           </div>
