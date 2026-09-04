@@ -131,7 +131,7 @@ const COLOR_THEMES = {
     primaryHover: "rgba(0, 113, 227, 0.12)",
     primaryPressed: "rgba(0, 113, 227, 0.18)",
     primaryActive: "rgba(0, 113, 227, 0.1)",
-    oklchPrimary: "oklch(0.56 0.19 238)",
+    oklchPrimary: "oklch(0.563 0.193 256.2)",
   },
   notionPurple: {
     name: "清华紫",
