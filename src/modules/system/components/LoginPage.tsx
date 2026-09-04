@@ -64,8 +64,11 @@ export function LoginPage() {
       </div>
 
       {/* 页脚 */}
-      <footer className="mt-auto w-full h-12 flex items-center justify-center border-t border-gray-200 text-center text-sm text-gray-600">
+      <footer className="mt-auto w-full h-12 flex items-center justify-center gap-3 border-t border-gray-200 text-center text-sm text-gray-600">
         <p>粤ICP备2021028610号-1</p>
+        <span aria-hidden="true">·</span>
+        {/* MiSans 许可要求：使用方应在软件中特别注明使用了 MiSans 字体 */}
+        <p>本站使用了 MiSans 字体</p>
       </footer>
     </div>
   )

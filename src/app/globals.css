@@ -3,6 +3,44 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * MiSans Latin 只接管 ASCII 段（数字、拉丁字母、ASCII 标点）。
+ * 思源黑体的拉丁与数字字形是为配合汉字等宽而画的，字腔闭、末端平，
+ * 单独看数字明显钝于系统 UI 字体；这三档把该段换掉，汉字仍走思源黑体。
+ * unicode-range 刻意不含 U+00B7 / U+2014 / U+2026 / U+201C-201D，
+ * 中文标点继续由思源黑体渲染，保留全角字面与居中位置。
+ *
+ * 文件取自小米官方 MiSans_Latin.zip，逐字节未修改（sha256 见交付记录）。
+ * 许可: https://hyperos.mi.com/font/zh/download —— 使用前提含"应在软件中
+ * 特别注明使用了 MiSans 字体"，该署名在登录页页脚。
+ */
+@font-face {
+  font-family: "MiSans Latin";
+  src: url("/fonts/MiSansLatin-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0020-007E;
+}
+
+@font-face {
+  font-family: "MiSans Latin";
+  src: url("/fonts/MiSansLatin-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0020-007E;
+}
+
+@font-face {
+  font-family: "MiSans Latin";
+  src: url("/fonts/MiSansLatin-Semibold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0020-007E;
+}
+
 :root {
   /* 方案 A 机构蓝配色：纯色底、实心面板、中性 accent */
   --background: oklch(0.973 0.003 264.5);
@@ -101,7 +139,7 @@
 }
 
 @theme inline {
-  --font-sans: var(--font-noto-sans-sc), "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
+  --font-sans: "MiSans Latin", var(--font-noto-sans-sc), "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
