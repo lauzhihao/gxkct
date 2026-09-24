@@ -55,7 +55,7 @@ export function buildMajorSample(seed: number, departmentName: string, majorName
     }
 
     // 未完成的课程：至少缺一项，负责人空缺或齐备项少于两项视为未开始
-    const ownerName = index % 5 === 4 ? null : SAMPLE_TEACHERS[index % SAMPLE_TEACHERS.length]
+    const ownerName = index % 2 === 1 ? null : SAMPLE_TEACHERS[index % SAMPLE_TEACHERS.length]
     const flags = {
       setupComplete: index % 3 !== 0,
       hasSyllabus: index % 4 !== 1,

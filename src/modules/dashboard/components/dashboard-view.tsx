@@ -16,8 +16,8 @@ import { TierSwitcher } from "@/modules/dashboard/components/tier-switcher"
 import { resolveDefaultTier, resolveReturnPath } from "@/modules/dashboard/tiers"
 import type { DashboardFocus, DashboardTier } from "@/modules/dashboard/types"
 
-/** 示例数据阶段的默认下钻对象 */
-const DEFAULT_FOCUS: DashboardFocus = { departmentName: "信息工程学院", majorName: "软件技术" }
+/** 示例数据阶段的默认下钻对象：专业取中等偏下的一个，评审时能看到缺项与预警 */
+const DEFAULT_FOCUS: DashboardFocus = { departmentName: "信息工程学院", majorName: "物联网应用技术" }
 
 export function DashboardView() {
   const router = useRouter()
