@@ -38,6 +38,7 @@ export function MajorDashboard({ collegeId, semesterId, majorId }: MajorDashboar
           <MajorWarningPanel
             ownerMissingCourseNames={data.ownerMissingCourseNames}
             unpreparedCourseNames={data.unpreparedCourseNames}
+            staleCourseNames={data.staleCourseNames}
           />
         </DashboardPanel>
         <DashboardPanel title="评估记录" description="本专业各课程在本学期各次评估中的得分">

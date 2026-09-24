@@ -31,7 +31,7 @@ export function CourseMatrixTable({ courses }: CourseMatrixTableProps) {
               <TableHead className="text-center">课件</TableHead>
               <TableHead className="text-right">资源数</TableHead>
               <TableHead className="text-right">最近上传</TableHead>
-              <TableHead className="text-center">最近更新</TableHead>
+              <TableHead className="text-right">最近更新</TableHead>
               <TableHead className="text-right">评估分（专业内排名）</TableHead>
               <TableHead className="text-center">阶段</TableHead>
             </TableRow>
@@ -62,8 +62,12 @@ export function CourseMatrixTable({ courses }: CourseMatrixTableProps) {
                 <TableCell className="text-right tabular-nums text-muted-foreground">
                   {course.latestUploadDate !== null ? course.latestUploadDate : "从未上传"}
                 </TableCell>
-                <TableCell className="text-center">
-                  <NaValue reason={NA_REASONS.lastUpdated} />
+                <TableCell className="text-right tabular-nums text-muted-foreground">
+                  {course.lastUpdatedDate !== null ? (
+                    course.lastUpdatedDate
+                  ) : (
+                    <NaValue reason={NA_REASONS.courseUpdateMissing} />
+                  )}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
                   {course.evaluationScore !== null && course.evaluationRank !== null ? (
@@ -84,7 +88,7 @@ export function CourseMatrixTable({ courses }: CourseMatrixTableProps) {
         </Table>
       </div>
       <p className="text-xs leading-5 text-muted-foreground">
-        大纲 / 教案 / 课件按课程资源里同名预置目录是否有文件判断；资源数为各目录下的文件与子目录数；评估分取本学期最近一次出分的评估任务。
+        大纲 / 教案 / 课件按课程资源里同名预置目录是否有文件判断；资源数为各目录下的文件与子目录数；最近更新为课程信息（基本信息与扩展信息）最后一次保存的日期，上传资源不计在内；评估分取本学期最近一次出分的评估任务。
       </p>
     </div>
   )

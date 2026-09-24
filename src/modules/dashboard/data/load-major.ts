@@ -13,6 +13,7 @@ import { classifyDeadline, isStepCompleted, isTaskCompleted, startOfToday } from
 import { buildOrgIndex, requireDepartment, requireMajor } from "@/modules/dashboard/data/org-index"
 import { summarizeCourseResources } from "@/modules/dashboard/data/resources"
 import { managerDisplayName } from "@/modules/dashboard/data/teachers"
+import { isStale, toUpdateDay } from "@/modules/dashboard/data/update-time"
 import type { CourseMatrixRow, EvaluationCell, MajorDashboardData } from "@/modules/dashboard/types"
 
 /** 评估任务按截止日期从早到晚排列；没有截止日期的排在最后 */
@@ -53,7 +54,7 @@ function toCell(entry: CourseEvaluationDto | undefined): EvaluationCell {
   return { kind: "scored", score: entry.finalScore }
 }
 
-/** 专业层：课程负责人 + 专业矩阵 + 每门课的资源目录 + 本专业评估任务与各课程得分 */
+/** 专业层：课程负责人 + 专业矩阵 + 每门课的资源目录与信息保存时间 + 本专业评估任务与各课程得分 */
 export async function loadMajorDashboard(
   collegeId: number,
   majorId: string,
@@ -73,14 +74,14 @@ export async function loadMajorDashboard(
   const majorCourses = index.courses.filter((course) => course.majorId === majorId)
   const orderedTasks = [...tasks].sort(compareTasks)
 
-  // 第二轮：本专业全部课程的资源目录一次取回
+  // 第二轮：本专业全部课程的资源目录与课程信息保存时间一次取回
   const [majorCards, detailsByCourseId, taskEvaluations] = await Promise.all([
     fetchDepartmentMajorCards(major.departmentId, semesterId),
     loadCourseDetails(
       collegeId,
       semesterId,
       majorCourses.map((course) => course.id),
-      ["folders"],
+      ["folders", "updateTime"],
     ),
     Promise.all(orderedTasks.map((task) => fetchMajorTaskCourses(task.taskId, majorId, semesterId))),
   ])
@@ -94,7 +95,8 @@ export async function loadMajorDashboard(
   const latestScores = rankLatestScores(taskEvaluations)
 
   const rows: CourseMatrixRow[] = majorCourses.map((course) => {
-    const folders = requireSection(requireCourseDetail(detailsByCourseId, course.id).folders, "folders", course.id)
+    const detail = requireCourseDetail(detailsByCourseId, course.id)
+    const folders = requireSection(detail.folders, "folders", course.id)
     const resources = summarizeCourseResources(folders)
     const points = pointsByCourseId.get(course.id)
     const ranked = latestScores.get(course.id)
@@ -108,6 +110,7 @@ export async function loadMajorDashboard(
       hasCourseware: resources.hasCourseware,
       resourceCount: resources.resourceCount,
       latestUploadDate: resources.latestUploadDate,
+      lastUpdatedDate: detail.updateTime === null ? null : toUpdateDay(detail.updateTime),
       evaluationScore: ranked === undefined ? null : ranked.score,
       evaluationRank: ranked === undefined ? null : ranked.rank,
     }
@@ -144,6 +147,10 @@ export async function loadMajorDashboard(
     courses: rows,
     ownerMissingCourseNames: rows.filter((row) => row.ownerNames.length === 0).map((row) => row.courseName),
     unpreparedCourseNames: majorCourses.filter((course) => unpreparedIds.has(course.id)).map((course) => course.name),
+    // 取不到保存时间的课程无法判断，不计入
+    staleCourseNames: rows
+      .filter((row) => row.lastUpdatedDate !== null && isStale(row.lastUpdatedDate, today))
+      .map((row) => row.courseName),
     evaluationColumns: orderedTasks.map((task) => ({ taskId: task.taskId, title: task.title, endDate: task.endDate })),
     evaluationRecords,
   }

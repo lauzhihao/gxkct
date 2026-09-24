@@ -124,6 +124,8 @@ export interface CourseMatrixRow {
   resourceCount: number
   /** 最近一次上传资源的日期；从未上传为 null */
   latestUploadDate: string | null
+  /** 课程信息（基本信息与扩展信息）最后保存的日期；取不到为 null */
+  lastUpdatedDate: string | null
   /** 最近一次出分的评估任务中的得分与专业内排名；未出分为 null */
   evaluationScore: number | null
   evaluationRank: number | null
@@ -151,6 +153,8 @@ export interface MajorDashboardData {
   ownerMissingCourseNames: string[]
   /** 30 天内到期的评估任务中尚未提交自评的课程 */
   unpreparedCourseNames: string[]
+  /** 课程信息最后保存日距今天超过 60 天的课程 */
+  staleCourseNames: string[]
   evaluationColumns: EvaluationColumn[]
   evaluationRecords: EvaluationRecord[]
 }
