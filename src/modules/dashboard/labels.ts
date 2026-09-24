@@ -91,6 +91,7 @@ export const NA_REASONS = {
   noCourses: "没有课程",
   noPreviousSemester: "没有更早的学期可对比",
   noLastYearSemester: "没有去年同学期的数据",
+  semesterUnrecognized: "当前学期的学年或学期类型识别不了，找不到对比学期",
   lastYearEmpty: "去年同学期没有课程",
   previousEmpty: "上一学期没有课程",
   sharedCourseRecords: "上一学期与本学期共用同一批课程记录，资源不按学期分开保存，无法比较",

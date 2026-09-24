@@ -61,8 +61,8 @@ function archiveCoverage(index: OrgIndex): number | null {
   return ratio(coveredNames.size, countDistinctNames(index.departments))
 }
 
-function countNewCourses(rows: readonly CourseWithStatus[], previous: OrderedSemester | null): Comparison {
-  if (previous === null) return { kind: "na", reason: NA_REASONS.noPreviousSemester }
+function countNewCourses(rows: readonly CourseWithStatus[], previous: OrderedSemester | null, missingReason: string): Comparison {
+  if (previous === null) return { kind: "na", reason: missingReason }
   return {
     kind: "value",
     value: rows.filter(({ status }) => status.lineageInBaseSemester === false).length,
@@ -70,8 +70,8 @@ function countNewCourses(rows: readonly CourseWithStatus[], previous: OrderedSem
   }
 }
 
-function compareCourseTotal(courseTotal: number, lastYear: ComparedSemester | null): Comparison {
-  if (lastYear === null) return { kind: "na", reason: NA_REASONS.noLastYearSemester }
+function compareCourseTotal(courseTotal: number, lastYear: ComparedSemester | null, missingReason: string): Comparison {
+  if (lastYear === null) return { kind: "na", reason: missingReason }
   const change = ratio(courseTotal - lastYear.index.courses.length, lastYear.index.courses.length)
   if (change === null) return { kind: "na", reason: NA_REASONS.lastYearEmpty }
   return { kind: "value", value: change, semesterName: lastYear.semester.name }
@@ -86,8 +86,9 @@ async function compareQualifiedRate(
   currentCourseIds: ReadonlySet<string>,
   currentRate: number | null,
   previous: ComparedSemester | null,
+  missingReason: string,
 ): Promise<Comparison> {
-  if (previous === null) return { kind: "na", reason: NA_REASONS.noPreviousSemester }
+  if (previous === null) return { kind: "na", reason: missingReason }
   if (currentRate === null) return { kind: "na", reason: NA_REASONS.noCourses }
   const previousCourses = previous.index.courses
   if (previousCourses.length === 0) return { kind: "na", reason: NA_REASONS.previousEmpty }
@@ -145,6 +146,9 @@ export async function loadSchoolDashboard(
     loadComparedSemester(collegeId, comparisons.sameTermLastYear),
   ])
   const index = buildOrgIndex(tree)
+  // 当前学期识别不了时，对比项说明这个原因，不说成没有更早的学期
+  const noPreviousReason = comparisons.currentUnrecognized ? NA_REASONS.semesterUnrecognized : NA_REASONS.noPreviousSemester
+  const noLastYearReason = comparisons.currentUnrecognized ? NA_REASONS.semesterUnrecognized : NA_REASONS.noLastYearSemester
 
   const courses = buildDrilldownCourses(index, index.courses, managersByCourseId)
   const rows = attachStatuses(courses, statusSet.statuses)
@@ -166,7 +170,7 @@ export async function loadSchoolDashboard(
   )
   const [dueByDepartment, qualifiedRateChange] = await Promise.all([
     Promise.all(dueTasks.map((task) => fetchCollegeTaskDepartments(task.taskId, collegeId, semesterId))),
-    compareQualifiedRate(collegeId, courseIds, qualifiedRate, previous),
+    compareQualifiedRate(collegeId, courseIds, qualifiedRate, previous, noPreviousReason),
   ])
   const dueSummary = summarizeByDepartment(
     dueByDepartment.flat().map((stat) => ({ departmentName: stat.scopeName, count: pendingCourseCount(stat) })),
@@ -190,8 +194,8 @@ export async function loadSchoolDashboard(
       participatingTeacherCount: teachers.participating.length,
       evaluationCompletedCount: tasks.reduce((sum, task) => sum + task.completedCount, 0),
       evaluationTargetCount: tasks.reduce((sum, task) => sum + task.courseCount, 0),
-      newCourses: countNewCourses(rows, comparisons.previous),
-      courseTotalChange: compareCourseTotal(courses.length, lastYear),
+      newCourses: countNewCourses(rows, comparisons.previous, noPreviousReason),
+      courseTotalChange: compareCourseTotal(courses.length, lastYear, noLastYearReason),
       archiveCoverage: archiveCoverage(index),
       qualifiedCount,
       qualifiedRateChange,

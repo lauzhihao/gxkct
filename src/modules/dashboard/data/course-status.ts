@@ -88,7 +88,7 @@ export function buildCourseStatus(summary: CourseSummaryDto): CourseStatus {
     ["大纲", folders.hasSyllabus],
     ["教案", folders.hasLessonPlan],
     ["课件", folders.hasCourseware],
-    ["KSA 课点", summary.ksaCount > 0],
+    ["KSA 课点", summary.hasKsa],
     ["专业矩阵支撑点", summary.supportedPointCount > 0],
   ]
   const setupItems: [string, boolean][] = [
@@ -106,7 +106,7 @@ export function buildCourseStatus(summary: CourseSummaryDto): CourseStatus {
     hasSyllabus: folders.hasSyllabus,
     hasLessonPlan: folders.hasLessonPlan,
     hasCourseware: folders.hasCourseware,
-    hasKsa: summary.ksaCount > 0,
+    hasKsa: summary.hasKsa,
     hasSupportedPoint: summary.supportedPointCount > 0,
     resourceCount: folders.resourceCount,
     byCategory: folders.byCategory,

@@ -412,7 +412,8 @@ export interface CourseSummaryDto {
   courseId: string
   /** 一级目录中有文件的目录：目录名 -> 目录下对象数（同名目录已合并） */
   rootFolderFileCounts: ReadonlyMap<string, number>
-  ksaCount: number
+  /** 至少有一条未删除的 KSA 课点 */
+  hasKsa: boolean
   /** 专业矩阵中 relate=1 的毕业要求指标点数量，与专业矩阵接口同口径 */
   supportedPointCount: number
   positionFilled: boolean
@@ -437,7 +438,7 @@ function parseCourseSummary(record: JsonRecord, context: string): CourseSummaryD
   return {
     courseId: readId(record, "courseId", context),
     rootFolderFileCounts: parseFolderFileCounts(record.rootFolderFileCounts, `${context}.rootFolderFileCounts`),
-    ksaCount: readNumber(record, "ksaCount", context),
+    hasKsa: readBoolean(record, "hasKsa", context),
     supportedPointCount: readNumber(record, "supportedPointCount", context),
     positionFilled: readBoolean(record, "positionFilled", context),
     introductionFilled: readBoolean(record, "introductionFilled", context),
