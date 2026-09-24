@@ -7,17 +7,19 @@ import { MajorWarningPanel } from "@/modules/dashboard/components/major/major-wa
 import { DashboardPanel } from "@/modules/dashboard/components/shared/dashboard-panel"
 import { LoadState } from "@/modules/dashboard/components/shared/load-state"
 import { loadMajorDashboard } from "@/modules/dashboard/data/load-major"
+import { comparisonKey, type SemesterComparisons } from "@/modules/dashboard/data/semesters"
 import { useDashboardQuery } from "@/modules/dashboard/data/use-dashboard-query"
 
 interface MajorDashboardProps {
   collegeId: number
   semesterId: number | null
+  comparisons: SemesterComparisons
   majorId: string
 }
 
-export function MajorDashboard({ collegeId, semesterId, majorId }: MajorDashboardProps) {
-  const { state, retry } = useDashboardQuery(`major|${collegeId}|${semesterId}|${majorId}`, () =>
-    loadMajorDashboard(collegeId, majorId, semesterId, new Date()),
+export function MajorDashboard({ collegeId, semesterId, comparisons, majorId }: MajorDashboardProps) {
+  const { state, retry } = useDashboardQuery(`major|${collegeId}|${semesterId}|${comparisonKey(comparisons)}|${majorId}`, () =>
+    loadMajorDashboard(collegeId, majorId, semesterId, comparisons, new Date()),
   )
 
   if (state.status !== "ready") {
@@ -29,7 +31,7 @@ export function MajorDashboard({ collegeId, semesterId, majorId }: MajorDashboar
     <div className="space-y-4">
       <MajorKpiRow overview={data.overview} />
 
-      <DashboardPanel title="课程建设状态" description="每门课的负责人、支撑的毕业要求指标点、材料是否齐备与评估情况">
+      <DashboardPanel title="课程建设状态" description="每门课的负责人、支撑的毕业要求指标点、材料是否齐备、建设阶段与评估情况">
         <CourseMatrixTable courses={data.courses} />
       </DashboardPanel>
 

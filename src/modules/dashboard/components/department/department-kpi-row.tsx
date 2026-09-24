@@ -1,9 +1,8 @@
 import { BookOpen, CircleCheckBig, Trophy, Users } from "lucide-react"
 import { Meter } from "@/modules/dashboard/components/shared/meter"
-import { NaValue } from "@/modules/dashboard/components/shared/na-value"
 import { StatTile } from "@/modules/dashboard/components/shared/stat-tile"
 import { formatCount, formatPercent, ratio } from "@/modules/dashboard/format"
-import { NA_REASONS } from "@/modules/dashboard/labels"
+import { DEFINITIONS, NA_REASONS } from "@/modules/dashboard/labels"
 import type { DepartmentOverview } from "@/modules/dashboard/types"
 
 interface DepartmentKpiRowProps {
@@ -13,6 +12,7 @@ interface DepartmentKpiRowProps {
 
 export function DepartmentKpiRow({ overview, onOpenCourses }: DepartmentKpiRowProps) {
   const participation = ratio(overview.participatingTeacherCount, overview.registeredTeacherCount)
+  const qualifiedRate = ratio(overview.qualifiedCount, overview.courseTotal)
   return (
     <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
       <StatTile
@@ -21,8 +21,8 @@ export function DepartmentKpiRow({ overview, onOpenCourses }: DepartmentKpiRowPr
         value={{ kind: "value", text: formatCount(overview.courseTotal) }}
         onClick={onOpenCourses}
         detail={
-          <span>
-            在建 <NaValue reason={NA_REASONS.stage} /> · 待建 <NaValue reason={NA_REASONS.stage} />
+          <span title={DEFINITIONS.stage}>
+            在建 {formatCount(overview.buildingCount)} · 待建 {formatCount(overview.notStartedCount)}
           </span>
         }
       />
@@ -42,14 +42,18 @@ export function DepartmentKpiRow({ overview, onOpenCourses }: DepartmentKpiRowPr
       <StatTile
         icon={CircleCheckBig}
         label="本系达标率"
-        value={{ kind: "na", reason: NA_REASONS.qualified }}
-        detail="已达标课程占本系课程比例"
+        value={qualifiedRate === null ? { kind: "na", reason: NA_REASONS.noCourses } : { kind: "value", text: formatPercent(qualifiedRate) }}
+        detail={<span title={DEFINITIONS.qualified}>已达标 {formatCount(overview.qualifiedCount)} / {formatCount(overview.courseTotal)} 门</span>}
       />
       <StatTile
         icon={Trophy}
         label="全校排名"
-        value={{ kind: "na", reason: NA_REASONS.qualified }}
-        detail="按达标率在全部院系中排名"
+        value={
+          overview.schoolRank.kind === "value"
+            ? { kind: "value", text: `第 ${overview.schoolRank.rank}`, suffix: `/ ${overview.schoolRank.total}` }
+            : { kind: "na", reason: overview.schoolRank.reason }
+        }
+        detail="按达标率在全部院系中排名（同名院系合并）"
       />
     </div>
   )

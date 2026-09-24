@@ -1,6 +1,13 @@
 import { loadCourseDetails, requireCourseDetail, requireSection } from "@/modules/dashboard/data/course-details"
 import { loadCourseOwners, requireCourseManagers } from "@/modules/dashboard/data/course-owners"
 import {
+  averageCompletion,
+  countQualified,
+  loadCourseStatuses,
+  requireCourseStatus,
+  type CourseStatusSet,
+} from "@/modules/dashboard/data/course-status"
+import {
   fetchDepartmentMajorCards,
   fetchMajorMatrix,
   fetchMajorTaskCourses,
@@ -11,6 +18,7 @@ import {
 } from "@/modules/dashboard/data/dashboard-api"
 import { classifyDeadline, isStepCompleted, isTaskCompleted, startOfToday } from "@/modules/dashboard/data/evaluation"
 import { buildOrgIndex, requireDepartment, requireMajor } from "@/modules/dashboard/data/org-index"
+import type { SemesterComparisons } from "@/modules/dashboard/data/semesters"
 import { summarizeCourseResources } from "@/modules/dashboard/data/resources"
 import { managerDisplayName } from "@/modules/dashboard/data/teachers"
 import { isStale, toUpdateDay } from "@/modules/dashboard/data/update-time"
@@ -31,42 +39,54 @@ interface RankedScore {
   rank: number
 }
 
+/** 已出分：学校评价（最后一级）已完成且有总分 */
+function schoolScore(entry: CourseEvaluationDto): number | null {
+  if (!isStepCompleted(entry.schoolEvaluationStatus)) return null
+  return entry.schoolTotalScore
+}
+
 /** 取最近一次有出分的评估，在专业内按得分排名：名次 = 1 + 得分更高的课程数（同分同名次） */
 function rankLatestScores(taskEvaluations: CourseEvaluationDto[][]): Map<string, RankedScore> {
   for (let taskIndex = taskEvaluations.length - 1; taskIndex >= 0; taskIndex -= 1) {
-    const scored = taskEvaluations[taskIndex].filter(
-      (entry): entry is CourseEvaluationDto & { finalScore: number } => entry.finalScore !== null,
-    )
+    const scored = taskEvaluations[taskIndex].flatMap((entry) => {
+      const score = schoolScore(entry)
+      return score === null ? [] : [{ courseId: entry.courseId, score }]
+    })
     if (scored.length === 0) continue
     return new Map(
       scored.map((entry) => [
         entry.courseId,
-        { score: entry.finalScore, rank: 1 + scored.filter((other) => other.finalScore > entry.finalScore).length },
+        { score: entry.score, rank: 1 + scored.filter((other) => other.score > entry.score).length },
       ]),
     )
   }
   return new Map()
 }
 
-function toCell(entry: CourseEvaluationDto | undefined): EvaluationCell {
+/** 是否合格取课程概况里同一任务的学校评价得分率；该任务没有满分可算时为 null */
+function toCell(entry: CourseEvaluationDto | undefined, taskId: string, statusSet: CourseStatusSet): EvaluationCell {
   if (entry === undefined) return { kind: "absent" }
-  if (entry.finalScore === null) return { kind: "pending" }
-  return { kind: "scored", score: entry.finalScore }
+  const score = schoolScore(entry)
+  if (score === null) return { kind: "pending" }
+  const result = statusSet.evaluations.find((item) => item.courseId === entry.courseId && item.result.taskId === taskId)
+  return { kind: "scored", score, passed: result === undefined ? null : result.result.passed }
 }
 
-/** 专业层：课程负责人 + 专业矩阵 + 每门课的资源目录与信息保存时间 + 本专业评估任务与各课程得分 */
+/** 专业层：课程负责人 + 专业矩阵 + 课程建设概况 + 每门课的资源目录与信息保存时间 + 本专业评估任务与各课程得分 */
 export async function loadMajorDashboard(
   collegeId: number,
   majorId: string,
   semesterId: number | null,
+  comparisons: SemesterComparisons,
   now: Date,
 ): Promise<MajorDashboardData> {
   // 第一轮：不依赖组织树的请求与组织树并行
-  const [tree, managersByCourseId, matrix, tasks] = await Promise.all([
+  const [tree, managersByCourseId, matrix, tasks, statusSet] = await Promise.all([
     fetchTree(collegeId, semesterId),
     loadCourseOwners(collegeId, semesterId),
     fetchMajorMatrix(majorId),
     fetchMajorTasks(majorId, semesterId),
+    loadCourseStatuses(collegeId, semesterId, comparisons.previous),
   ])
   const index = buildOrgIndex(tree)
   const major = requireMajor(index, majorId)
@@ -93,6 +113,7 @@ export async function loadMajorDashboard(
   // 专业矩阵只返回有勾选记录的课程；不在其中的课程没有支撑任何指标点
   const pointsByCourseId = new Map(matrix.map((item) => [item.courseId, item.supportedPointCount]))
   const latestScores = rankLatestScores(taskEvaluations)
+  const majorStatuses = majorCourses.map((course) => requireCourseStatus(statusSet.statuses, course.id))
 
   const rows: CourseMatrixRow[] = majorCourses.map((course) => {
     const detail = requireCourseDetail(detailsByCourseId, course.id)
@@ -100,6 +121,7 @@ export async function loadMajorDashboard(
     const resources = summarizeCourseResources(folders)
     const points = pointsByCourseId.get(course.id)
     const ranked = latestScores.get(course.id)
+    const status = requireCourseStatus(statusSet.statuses, course.id)
     return {
       id: course.id,
       courseName: course.name,
@@ -111,6 +133,9 @@ export async function loadMajorDashboard(
       resourceCount: resources.resourceCount,
       latestUploadDate: resources.latestUploadDate,
       lastUpdatedDate: detail.updateTime === null ? null : toUpdateDay(detail.updateTime),
+      setupComplete: status.setupComplete,
+      setupMissing: status.setupMissing,
+      stage: status.stage,
       evaluationScore: ranked === undefined ? null : ranked.score,
       evaluationRank: ranked === undefined ? null : ranked.rank,
     }
@@ -132,7 +157,13 @@ export async function loadMajorDashboard(
     .map((course) => ({
       courseId: course.id,
       courseName: course.name,
-      cells: taskEvaluations.map((entries) => toCell(entries.find((entry) => entry.courseId === course.id))),
+      cells: taskEvaluations.map((entries, taskIndex) =>
+        toCell(
+          entries.find((entry) => entry.courseId === course.id),
+          orderedTasks[taskIndex].taskId,
+          statusSet,
+        ),
+      ),
     }))
     .filter((record) => record.cells.some((cell) => cell.kind !== "absent"))
 
@@ -143,6 +174,8 @@ export async function loadMajorDashboard(
       departmentName: department.name,
       courseCount: majorCourses.length,
       leadNames: leadCard.managers.map(managerDisplayName),
+      completion: averageCompletion(majorStatuses),
+      qualifiedCount: countQualified(majorStatuses),
     },
     courses: rows,
     ownerMissingCourseNames: rows.filter((row) => row.ownerNames.length === 0).map((row) => row.courseName),

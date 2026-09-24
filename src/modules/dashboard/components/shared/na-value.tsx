@@ -7,7 +7,7 @@ interface NaValueProps {
   className?: string
 }
 
-/** 行内的取不到指标：显示 N/A 并给出原因 */
+/** 行内的取不到指标：显示 N/A 并给出原因；relative 让绝对定位的读屏文字留在行内，不撑高页面 */
 export function NaValue({ reason, showReason = false, className }: NaValueProps) {
   if (showReason) {
     return (
@@ -18,7 +18,7 @@ export function NaValue({ reason, showReason = false, className }: NaValueProps)
   }
 
   return (
-    <span className={cn("font-medium text-muted-foreground", className)} title={reason}>
+    <span className={cn("relative font-medium text-muted-foreground", className)} title={reason}>
       N/A
       <span className="sr-only">（{reason}）</span>
     </span>
