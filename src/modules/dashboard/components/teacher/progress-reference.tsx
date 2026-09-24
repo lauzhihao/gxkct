@@ -2,7 +2,7 @@ import { Lock } from "lucide-react"
 import { NaPanelBody } from "@/modules/dashboard/components/shared/na-panel-body"
 import { NA_REASONS } from "@/modules/dashboard/labels"
 
-/** 进度参照：只给本人所处区间，不公开个人排名；建设进度口径待定义，暂显示 N/A */
+/** 进度参照：只给本人所处区间，不公开个人排名；需要全系数据，教师账号看不到，暂显示 N/A */
 export function ProgressReference() {
   return (
     <div className="flex flex-1 flex-col gap-3">

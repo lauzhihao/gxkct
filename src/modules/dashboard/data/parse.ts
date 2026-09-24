@@ -63,6 +63,14 @@ export function readSqlSum(record: JsonRecord, key: string, context: string): nu
   return value === null ? 0 : value
 }
 
+export function readBoolean(record: JsonRecord, key: string, context: string): boolean {
+  const value = record[key]
+  if (typeof value !== "boolean") {
+    throw new Error(`${context}.${key}: expected boolean`)
+  }
+  return value
+}
+
 export function readNullableBoolean(record: JsonRecord, key: string, context: string): boolean | null {
   const value = record[key]
   if (value === null) return null

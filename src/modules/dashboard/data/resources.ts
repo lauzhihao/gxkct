@@ -62,6 +62,33 @@ function toDate(timestamp: string): string {
   return match[0]
 }
 
+export type FolderCountSummary = Omit<CourseResourceSummary, "latestUploadDate">
+
+/**
+ * 按汇总接口给出的"有文件的一级目录 -> 对象数"归类，口径与 summarizeCourseResources 相同
+ * （汇总接口与资源目录分区取的是同一批一级目录，空目录不在其中）。
+ */
+export function summarizeFolderFileCounts(counts: ReadonlyMap<string, number>): FolderCountSummary {
+  const byCategory: Record<ResourceCategory, number> = { document: 0, video: 0, questionBank: 0, other: 0 }
+  counts.forEach((count, name) => {
+    const category = FOLDER_CATEGORY.get(name)
+    byCategory[category === undefined ? "other" : category] += count
+  })
+
+  const hasFiles = (folderName: string) => {
+    const count = counts.get(folderName)
+    return count !== undefined && count > 0
+  }
+
+  return {
+    hasSyllabus: hasFiles(SYLLABUS_FOLDER),
+    hasLessonPlan: hasFiles(LESSON_PLAN_FOLDER),
+    hasCourseware: hasFiles(COURSEWARE_FOLDER),
+    resourceCount: byCategory.document + byCategory.video + byCategory.questionBank + byCategory.other,
+    byCategory,
+  }
+}
+
 export function summarizeCourseResources(entries: ResourceFolderDto[]): CourseResourceSummary {
   const byCategory: Record<ResourceCategory, number> = { document: 0, video: 0, questionBank: 0, other: 0 }
   const folderCounts = new Map<string, number>()

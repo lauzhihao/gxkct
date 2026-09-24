@@ -8,17 +8,20 @@ import { MyResources } from "@/modules/dashboard/components/teacher/my-resources
 import { MyTodoList } from "@/modules/dashboard/components/teacher/my-todo-list"
 import { ProgressReference } from "@/modules/dashboard/components/teacher/progress-reference"
 import { loadTeacherDashboard, type TeacherIdentity } from "@/modules/dashboard/data/load-teacher"
+import { comparisonKey, type SemesterComparisons } from "@/modules/dashboard/data/semesters"
 import { useDashboardQuery } from "@/modules/dashboard/data/use-dashboard-query"
 
 interface TeacherDashboardProps {
   collegeId: number
   semesterId: number | null
+  comparisons: SemesterComparisons
   identity: TeacherIdentity
 }
 
-export function TeacherDashboard({ collegeId, semesterId, identity }: TeacherDashboardProps) {
-  const { state, retry } = useDashboardQuery(`teacher|${collegeId}|${semesterId}|${identity.userId}`, () =>
-    loadTeacherDashboard(collegeId, semesterId, identity, new Date()),
+export function TeacherDashboard({ collegeId, semesterId, comparisons, identity }: TeacherDashboardProps) {
+  const { state, retry } = useDashboardQuery(
+    `teacher|${collegeId}|${semesterId}|${comparisonKey(comparisons)}|${identity.userId}`,
+    () => loadTeacherDashboard(collegeId, semesterId, comparisons, identity, new Date()),
   )
 
   if (state.status !== "ready") {
@@ -28,7 +31,7 @@ export function TeacherDashboard({ collegeId, semesterId, identity }: TeacherDas
 
   return (
     <div className="space-y-4">
-      <DashboardPanel title="我的课程" description={`${data.teacherName}担任负责人的课程：建设进度、矩阵完成情况与 KSA 课点数量`}>
+      <DashboardPanel title="我的课程" description={`${data.teacherName}担任负责人的课程：建设阶段、5 项建设内容完成情况、矩阵分级与 KSA 课点数量`}>
         {data.courses.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">本学期没有担任负责人的课程</p>
         ) : (

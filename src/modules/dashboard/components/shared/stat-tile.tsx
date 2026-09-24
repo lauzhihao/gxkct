@@ -39,7 +39,7 @@ export function StatTile({ icon: Icon, label, value, detail, critical = false, o
             {value.suffix !== undefined ? <span className="text-sm text-muted-foreground">{value.suffix}</span> : null}
           </>
         ) : (
-          <span className="text-[28px] font-semibold leading-none text-muted-foreground" title={value.reason}>
+          <span className="relative text-[28px] font-semibold leading-none text-muted-foreground" title={value.reason}>
             N/A
             <span className="sr-only">（{value.reason}）</span>
           </span>

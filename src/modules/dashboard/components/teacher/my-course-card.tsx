@@ -1,8 +1,11 @@
 import { Download } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
-import { NaValue } from "@/modules/dashboard/components/shared/na-value"
+import { CheckMark } from "@/modules/dashboard/components/shared/check-mark"
+import { Meter } from "@/modules/dashboard/components/shared/meter"
+import { StageBadge } from "@/modules/dashboard/components/shared/stage-badge"
+import { COMPLETION_ITEM_COUNT } from "@/modules/dashboard/data/course-status"
 import { formatCount } from "@/modules/dashboard/format"
-import { NA_REASONS } from "@/modules/dashboard/labels"
+import { DEFINITIONS } from "@/modules/dashboard/labels"
 import type { TeacherCourse } from "@/modules/dashboard/types"
 
 const EXPORTS = ["矩阵表", "课点清单", "产出测量表"] as const
@@ -21,19 +24,25 @@ export function MyCourseCard({ course }: MyCourseCardProps) {
           </h4>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">{course.majorName}</p>
         </div>
-        <span className="shrink-0 text-xs text-muted-foreground">
-          阶段 <NaValue reason={NA_REASONS.stage} />
-        </span>
+        <StageBadge stage={course.stage} />
       </header>
 
       <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
         <dt className="text-muted-foreground">建设进度</dt>
-        <dd className="text-right">
-          <NaValue reason={NA_REASONS.completion} />
+        <dd
+          className="flex items-center justify-end gap-2 tabular-nums text-foreground"
+          title={course.missingItems.length > 0 ? `未完成：${course.missingItems.join("、")}` : DEFINITIONS.completion}
+        >
+          <Meter value={course.completedItems / COMPLETION_ITEM_COUNT} ariaLabel="建设进度" className="w-16" />
+          {course.completedItems} / {COMPLETION_ITEM_COUNT} 项
         </dd>
-        <dt className="text-muted-foreground">一 / 二 / 三级矩阵</dt>
-        <dd className="text-right">
-          <NaValue reason={NA_REASONS.matrixLevel} />
+        <dt className="text-muted-foreground" title="专业矩阵 / 课程矩阵 / 项目矩阵是否已有勾选的关联">
+          一 / 二 / 三级矩阵
+        </dt>
+        <dd className="flex items-center justify-end gap-1.5">
+          <CheckMark done={course.matrixLevels.level1} label="一级矩阵（专业矩阵）" />
+          <CheckMark done={course.matrixLevels.level2} label="二级矩阵（课程矩阵）" />
+          <CheckMark done={course.matrixLevels.level3} label="三级矩阵（项目矩阵）" />
         </dd>
         <dt className="text-muted-foreground">课程资源</dt>
         <dd className="text-right tabular-nums text-foreground">{formatCount(course.resourceCount)} 个</dd>

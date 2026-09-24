@@ -1,4 +1,11 @@
-import type { DashboardTier, DepartmentTaskStatus, EvaluationStatus, ResourceCategory, TeacherTodoKind } from "@/modules/dashboard/types"
+import type {
+  CourseStage,
+  DashboardTier,
+  DepartmentTaskStatus,
+  EvaluationStatus,
+  ResourceCategory,
+  TeacherTodoKind,
+} from "@/modules/dashboard/types"
 
 export const TIER_LABELS: Record<DashboardTier, string> = {
   school: "校级大盘",
@@ -43,35 +50,51 @@ export const TEACHER_TODO_LABELS: Record<TeacherTodoKind, string> = {
   dueSoon: "临期任务",
 }
 
+export const STAGE_LABELS: Record<CourseStage, string> = {
+  notStarted: "未开始",
+  building: "建设中",
+  awaitingEvaluation: "待评估",
+  qualified: "已达标",
+}
+
+/** 各建设阶段的判定，进度分布里逐行列出 */
+export const STAGE_RULES: Record<CourseStage, string> = {
+  notStarted: "5 项都没做",
+  building: "5 项做了一部分",
+  awaitingEvaluation: "5 项做完，还没有学校评价出分",
+  qualified: "5 项做完，已有学校评价出分",
+}
+
+/** 口径说明，页面脚注与悬停提示共用（判定逻辑见 data/course-status.ts） */
+export const DEFINITIONS = {
+  qualified: "达标：大纲、教案、课件三项齐备",
+  completion: "完成率：每门课 5 项（大纲、教案、课件、KSA 课点、专业矩阵支撑点）完成的比例，专业、院系取课程平均",
+  stage:
+    "阶段：5 项都没做为未开始；做了部分为建设中；5 项做完、还没有学校评价出分为待评估；5 项做完且已出分为已达标（评价未达合格线的另计待整改）",
+  passLine: "合格线：学校评价得分率（总分 ÷ 各评价标准满分之和）达到 60%，五级制相当于平均 C 级及以上",
+  score: "得分取学校评价（最后一级）的总分",
+  setup: "设置完整：课程定位、简介、标准都已填写，且学时大于 0",
+  idle: "零建设教师：在册教师中近 60 天没有课程建设操作（创建、编辑、复制课程）的人",
+  activity: "按自然月统计：新增课程为课程创建时间落在该月、不是由学期复制产生的课程；编辑次数来自课程操作日志",
+} as const
+
 /**
- * 取不到的指标显示 N/A 时附带的原因。
- * "口径待定义"需要客户先给出判定标准；"系统暂无"是系统里没有记录这类数据；
- * "暂未汇总统计"是数据存在，但只能逐门课或按课程分批查询，这一层暂不汇总。
+ * 取不到的指标显示 N/A 时附带的原因：系统里没有这类数据，或当前账号看不到对比所需的数据。
  */
 export const NA_REASONS = {
-  stage: "建设阶段（未开始 / 建设中 / 待评估 / 已达标）口径待定义",
-  qualified: "达标口径待定义",
-  completion: "建设完成率口径待定义",
-  passLine: "评估通过线待定义",
-  rectification: "系统暂无整改记录",
-  archiveCoverage: "院系建档覆盖率口径待定义",
-  newCourse: "系统暂无开课时间",
-  yoy: "学期同期对应口径待定义",
-  lastUpdated: "课程信息保存时间暂未按全校汇总统计，可进入专业看板查看",
-  courseUpdateMissing: "未取到该课程的信息保存时间",
-  activity: "系统暂无开课时间，资源更新暂未按月汇总统计",
-  recentUpdates: "课程信息保存记录暂未按全校汇总统计",
-  schoolResources: "全校资源暂未汇总统计",
-  departmentResources: "院系层资源暂未汇总统计，可进入专业看板逐门查看",
-  comparison: "达标率口径待定义，资源量暂未汇总统计",
   grade: "系统暂无年级数据",
-  setupComplete: "“设置完整”口径待定义",
   returned: "系统暂无退回记录",
-  matrixLevel: "矩阵分级完成口径待定义",
   resourceRequirement: "专业资源要求未设定",
-  evaluationLevel: "评估等级口径待定义",
-  rectifyComment: "系统暂无整改意见与时限",
-  percentile: "建设进度口径待定义",
-  idleActivity: "系统暂无建设活动记录",
+  rectificationDeadline: "系统没有整改时限，无法判断是否逾期",
+  courseUpdateMissing: "未取到该课程的信息保存时间",
   noTeachers: "没有在册教师",
+  noCourses: "没有课程",
+  noPreviousSemester: "没有更早的学期可对比",
+  noLastYearSemester: "没有去年同学期的数据",
+  lastYearEmpty: "去年同学期没有课程",
+  previousEmpty: "上一学期没有课程",
+  sharedCourseRecords: "上一学期与本学期共用同一批课程记录，资源不按学期分开保存，无法比较",
+  schoolScopeOnly: "只有校级账号能看到全校数据",
+  noScored: "本学期还没有学校评价出分的课程",
+  percentile: "需要读取全系课程数据，教师账号目前没有这个权限，待确认是否开放",
 } as const

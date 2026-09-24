@@ -2,8 +2,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { CheckMark } from "@/modules/dashboard/components/shared/check-mark"
 import { NaValue } from "@/modules/dashboard/components/shared/na-value"
 import { OwnerNames } from "@/modules/dashboard/components/shared/owner-names"
+import { StageBadge } from "@/modules/dashboard/components/shared/stage-badge"
 import { formatCount, formatScore } from "@/modules/dashboard/format"
-import { NA_REASONS } from "@/modules/dashboard/labels"
+import { DEFINITIONS, NA_REASONS } from "@/modules/dashboard/labels"
 import type { CourseMatrixRow } from "@/modules/dashboard/types"
 
 interface CourseMatrixTableProps {
@@ -25,7 +26,9 @@ export function CourseMatrixTable({ courses }: CourseMatrixTableProps) {
               <TableHead>课程</TableHead>
               <TableHead>负责人</TableHead>
               <TableHead className="text-right">支撑指标点</TableHead>
-              <TableHead className="text-center">设置完整</TableHead>
+              <TableHead className="text-center" title={DEFINITIONS.setup}>
+                设置完整
+              </TableHead>
               <TableHead className="text-center">大纲</TableHead>
               <TableHead className="text-center">教案</TableHead>
               <TableHead className="text-center">课件</TableHead>
@@ -33,7 +36,7 @@ export function CourseMatrixTable({ courses }: CourseMatrixTableProps) {
               <TableHead className="text-right">最近上传</TableHead>
               <TableHead className="text-right">最近更新</TableHead>
               <TableHead className="text-right">评估分（专业内排名）</TableHead>
-              <TableHead className="text-center">阶段</TableHead>
+              <TableHead title={DEFINITIONS.stage}>阶段</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -47,7 +50,11 @@ export function CourseMatrixTable({ courses }: CourseMatrixTableProps) {
                   {course.supportedPointCount > 0 ? `${course.supportedPointCount} 个` : <span className="text-muted-foreground">未关联</span>}
                 </TableCell>
                 <TableCell className="text-center">
-                  <NaValue reason={NA_REASONS.setupComplete} />
+                  <CheckMark
+                    done={course.setupComplete}
+                    label="设置完整"
+                    hint={course.setupComplete ? undefined : `未填写${course.setupMissing.join("、")}`}
+                  />
                 </TableCell>
                 <TableCell className="text-center">
                   <CheckMark done={course.hasSyllabus} label="大纲" />
@@ -79,8 +86,8 @@ export function CourseMatrixTable({ courses }: CourseMatrixTableProps) {
                     <span className="text-muted-foreground">未出分</span>
                   )}
                 </TableCell>
-                <TableCell className="text-center">
-                  <NaValue reason={NA_REASONS.stage} />
+                <TableCell>
+                  <StageBadge stage={course.stage} />
                 </TableCell>
               </TableRow>
             ))}
@@ -88,7 +95,7 @@ export function CourseMatrixTable({ courses }: CourseMatrixTableProps) {
         </Table>
       </div>
       <p className="text-xs leading-5 text-muted-foreground">
-        大纲 / 教案 / 课件按课程资源里同名预置目录是否有文件判断；资源数为各目录下的文件与子目录数；最近更新为课程信息（基本信息与扩展信息）最后一次保存的日期，上传资源不计在内；评估分取本学期最近一次出分的评估任务。
+        大纲 / 教案 / 课件按课程资源里同名预置目录是否有文件判断；资源数为各目录下的文件与子目录数；最近更新为课程信息（基本信息与扩展信息）最后一次保存的日期，上传资源不计在内；{DEFINITIONS.setup}；评估分取本学期最近一次出分的评估任务，{DEFINITIONS.score}；{DEFINITIONS.stage}。
       </p>
     </div>
   )

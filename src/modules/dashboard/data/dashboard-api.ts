@@ -3,6 +3,7 @@ import { cachedRequest } from "@/modules/dashboard/data/request-cache"
 import {
   asArray,
   asRecord,
+  readBoolean,
   readId,
   readNullableBoolean,
   readNullableNumber,
@@ -215,19 +216,27 @@ export async function fetchMajorTasks(majorId: string, semesterId: number | null
   return parseList(await getJson(endpoint), "majorTasks", parseTaskStat)
 }
 
+/**
+ * 课程在某次评估中的状态与得分。
+ * 发布关系的 final_score 没有任何代码写入，看板以学校评价（最后一级）完成后的总分作为终评得分。
+ */
 export interface CourseEvaluationDto {
   courseId: string
   selfEvaluationStatus: string | null
+  deptEvaluationStatus: string | null
+  schoolEvaluationStatus: string | null
   overallStatus: string | null
-  finalScore: number | null
+  schoolTotalScore: number | null
 }
 
 function parseCourseEvaluation(record: JsonRecord, context: string): CourseEvaluationDto {
   return {
     courseId: readId(record, "courseId", context),
     selfEvaluationStatus: readNullableString(record, "selfEvaluationStatus", context),
+    deptEvaluationStatus: readNullableString(record, "deptEvaluationStatus", context),
+    schoolEvaluationStatus: readNullableString(record, "schoolEvaluationStatus", context),
     overallStatus: readNullableString(record, "overallStatus", context),
-    finalScore: readNullableNumber(record, "finalScore", context),
+    schoolTotalScore: readNullableNumber(record, "schoolTotalScore", context),
   }
 }
 
@@ -377,4 +386,219 @@ export async function fetchCourseDetails(
     }),
   )
   return results.flat()
+}
+
+/* ---------- 看板汇总接口二期（全校课程概况 / 建设操作 / 矩阵分级） ---------- */
+
+/** 课程的一次学校评价（最后一级评价）：总分 = 各标准满分 × 等级系数之和，fullScore 为该任务各标准满分之和 */
+export interface SchoolEvaluationDto {
+  taskId: string
+  score: number | null
+  fullScore: number | null
+  submittedAt: string | null
+}
+
+function parseSchoolEvaluation(record: JsonRecord, context: string): SchoolEvaluationDto {
+  return {
+    taskId: readId(record, "taskId", context),
+    score: readNullableNumber(record, "score", context),
+    fullScore: readNullableNumber(record, "fullScore", context),
+    submittedAt: readNullableString(record, "submittedAt", context),
+  }
+}
+
+/** 可见课程的建设概况；课程集合与组织树、课程负责人接口一致 */
+export interface CourseSummaryDto {
+  courseId: string
+  /** 一级目录中有文件的目录：目录名 -> 目录下对象数（同名目录已合并） */
+  rootFolderFileCounts: ReadonlyMap<string, number>
+  ksaCount: number
+  /** 专业矩阵中 relate=1 的毕业要求指标点数量，与专业矩阵接口同口径 */
+  supportedPointCount: number
+  positionFilled: boolean
+  introductionFilled: boolean
+  criterionFilled: boolean
+  /** 理论学时 + 实践学时 > 0 */
+  periodFilled: boolean
+  /** 课程信息最后保存时间，同 course-details 的 updateTime */
+  updateTime: string | null
+  /** 对比学期里是否有同一门逻辑课程（lineage）；没传对比学期或本学期没有学期课程记录时为 null */
+  lineageInBaseSemester: boolean | null
+  /** 已完成的学校评价，按提交时间从早到晚 */
+  schoolEvaluations: SchoolEvaluationDto[]
+}
+
+function parseFolderFileCounts(value: unknown, context: string): ReadonlyMap<string, number> {
+  const record = asRecord(value, context)
+  return new Map(Object.keys(record).map((name) => [name, readNumber(record, name, context)]))
+}
+
+function parseCourseSummary(record: JsonRecord, context: string): CourseSummaryDto {
+  return {
+    courseId: readId(record, "courseId", context),
+    rootFolderFileCounts: parseFolderFileCounts(record.rootFolderFileCounts, `${context}.rootFolderFileCounts`),
+    ksaCount: readNumber(record, "ksaCount", context),
+    supportedPointCount: readNumber(record, "supportedPointCount", context),
+    positionFilled: readBoolean(record, "positionFilled", context),
+    introductionFilled: readBoolean(record, "introductionFilled", context),
+    criterionFilled: readBoolean(record, "criterionFilled", context),
+    periodFilled: readBoolean(record, "periodFilled", context),
+    updateTime: readNullableString(record, "updateTime", context),
+    lineageInBaseSemester: readNullableBoolean(record, "lineageInBaseSemester", context),
+    schoolEvaluations: parseList(record.schoolEvaluations, `${context}.schoolEvaluations`, parseSchoolEvaluation),
+  }
+}
+
+/** 当前用户在该校该学期可见的全部课程的建设概况（一次请求） */
+export async function fetchCourseSummaries(
+  collegeId: number,
+  semesterId: number | null,
+  baseSemesterId: number | null,
+): Promise<CourseSummaryDto[]> {
+  const endpoint = withQuery("/api/v5/dashboard/course-summaries", { collegeId, semesterId, baseSemesterId })
+  return parseList(await getJson(endpoint), "courseSummaries", parseCourseSummary)
+}
+
+export interface ActivityMonthDto {
+  /** yyyy-MM */
+  month: string
+  newCourseCount: number
+  courseEditCount: number
+}
+
+export interface RecentOperationDto {
+  userId: string
+  userName: string | null
+  courseId: string
+  courseName: string
+  operation: string
+  operatedAt: string
+}
+
+export interface LastOperationDto {
+  userId: string
+  lastOperatedAt: string
+}
+
+/** 课程建设操作（创建 / 编辑 / 复制课程等，来自操作日志），只含可见课程 */
+export interface ActivityDto {
+  /** 近 6 个自然月，从早到晚 */
+  months: ActivityMonthDto[]
+  /** 最近 10 条，从新到旧 */
+  recentOperations: RecentOperationDto[]
+  /** 每个有过建设操作的用户最近一次操作的时间 */
+  lastOperations: LastOperationDto[]
+}
+
+function parseActivity(value: unknown): ActivityDto {
+  const record = asRecord(value, "activity")
+  return {
+    months: parseList(record.months, "activity.months", (item, context) => ({
+      month: readString(item, "month", context),
+      newCourseCount: readNumber(item, "newCourseCount", context),
+      courseEditCount: readNumber(item, "courseEditCount", context),
+    })),
+    recentOperations: parseList(record.recentOperations, "activity.recentOperations", (item, context) => ({
+      userId: readId(item, "userId", context),
+      userName: readNullableString(item, "userName", context),
+      courseId: readId(item, "courseId", context),
+      courseName: readString(item, "courseName", context),
+      operation: readString(item, "operation", context),
+      operatedAt: readString(item, "operatedAt", context),
+    })),
+    lastOperations: parseList(record.lastOperations, "activity.lastOperations", (item, context) => ({
+      userId: readId(item, "userId", context),
+      lastOperatedAt: readString(item, "lastOperatedAt", context),
+    })),
+  }
+}
+
+export async function fetchActivity(collegeId: number, semesterId: number | null): Promise<ActivityDto> {
+  const endpoint = withQuery("/api/v5/dashboard/activity", { collegeId, semesterId })
+  return parseActivity(await getJson(endpoint))
+}
+
+/** 一 / 二 / 三级矩阵中已勾选的关联数：专业矩阵、课程矩阵、项目矩阵 */
+export interface CourseMatrixLevelDto {
+  courseId: string
+  majorMatrixRelatedCount: number
+  courseMatrixRelatedCount: number
+  projectMatrixRelatedCount: number
+}
+
+function parseCourseMatrixLevel(record: JsonRecord, context: string): CourseMatrixLevelDto {
+  return {
+    courseId: readId(record, "courseId", context),
+    majorMatrixRelatedCount: readNumber(record, "majorMatrixRelatedCount", context),
+    courseMatrixRelatedCount: readNumber(record, "courseMatrixRelatedCount", context),
+    projectMatrixRelatedCount: readNumber(record, "projectMatrixRelatedCount", context),
+  }
+}
+
+/** 多门课程的矩阵分级，按请求顺序返回；当前用户不可见的课程不会出现在结果里 */
+export async function fetchCourseMatrixLevels(
+  collegeId: number,
+  semesterId: number | null,
+  courseIds: readonly string[],
+): Promise<CourseMatrixLevelDto[]> {
+  const batches: string[][] = []
+  for (let start = 0; start < courseIds.length; start += COURSE_DETAIL_BATCH_SIZE) {
+    batches.push(courseIds.slice(start, start + COURSE_DETAIL_BATCH_SIZE))
+  }
+  const results = await Promise.all(
+    batches.map(async (batch) => {
+      const endpoint = withQuery("/api/v5/dashboard/course-matrix-levels", {
+        collegeId,
+        semesterId,
+        courseIds: batch.join(","),
+      })
+      return parseList(await getJson(endpoint), "courseMatrixLevels", parseCourseMatrixLevel)
+    }),
+  )
+  return results.flat()
+}
+
+/* ---------- 评估明细（各评价标准的等级与评语） ---------- */
+
+export interface EvaluationMarkDto {
+  /** A / B / C / D；只填写评语时为 null */
+  level: string | null
+  comment: string | null
+}
+
+export interface EvaluationItemDto {
+  criterionSequence: number
+  criterionName: string | null
+  dept: EvaluationMarkDto | null
+  school: EvaluationMarkDto | null
+}
+
+function parseEvaluationMark(value: unknown, context: string): EvaluationMarkDto | null {
+  if (value === null) return null
+  const record = asRecord(value, context)
+  return {
+    level: readNullableString(record, "level", context),
+    comment: readNullableString(record, "comment", context),
+  }
+}
+
+function parseEvaluationItem(record: JsonRecord, context: string): EvaluationItemDto {
+  const criterion = asRecord(record.criterion, `${context}.criterion`)
+  return {
+    criterionSequence: readNumber(criterion, "sequence", `${context}.criterion`),
+    criterionName: readNullableString(criterion, "indicator", `${context}.criterion`),
+    dept: parseEvaluationMark(record.deptEvaluation, `${context}.deptEvaluation`),
+    school: parseEvaluationMark(record.schoolEvaluation, `${context}.schoolEvaluation`),
+  }
+}
+
+/** 课程在某次评估中各评价标准的院系评价与学校评价，同评估页面的评分详情接口 */
+export async function fetchCourseEvaluationItems(
+  taskId: string,
+  courseId: string,
+  semesterId: number | null,
+): Promise<EvaluationItemDto[]> {
+  const endpoint = withQuery(`/api/v5/task-evaluation/tasks/${taskId}/courses/${courseId}/evaluation`, { semesterId })
+  const record = asRecord(await getJson(endpoint), "courseEvaluation")
+  return parseList(record.items, "courseEvaluation.items", parseEvaluationItem)
 }

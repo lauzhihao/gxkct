@@ -6,7 +6,11 @@ import type { WarningSummary } from "@/modules/dashboard/types"
 interface SchoolWarningListProps {
   ownerMissing: WarningSummary
   evaluationDueSoon: WarningSummary
+  stale: WarningSummary
+  zeroResource: WarningSummary
   onOpenOwnerMissing: () => void
+  onOpenStale: () => void
+  onOpenZeroResource: () => void
 }
 
 function describeTop(summary: WarningSummary, unit: string): string {
@@ -14,15 +18,23 @@ function describeTop(summary: WarningSummary, unit: string): string {
   return `最多：${summary.topDepartmentName} ${formatCount(summary.topDepartmentCount)}${unit}`
 }
 
-/** 待办预警：按设计稿顺序列出五类；取不到的类别保留一行并标 N/A */
-export function SchoolWarningList({ ownerMissing, evaluationDueSoon, onOpenOwnerMissing }: SchoolWarningListProps) {
+/** 待办预警：按设计稿顺序列出五类；系统里没有数据的类别保留一行并标 N/A */
+export function SchoolWarningList({
+  ownerMissing,
+  evaluationDueSoon,
+  stale,
+  zeroResource,
+  onOpenOwnerMissing,
+  onOpenStale,
+  onOpenZeroResource,
+}: SchoolWarningListProps) {
   return (
     <ul className="flex flex-1 flex-col divide-y divide-border">
       <SchoolWarningRow
         label={SCHOOL_WARNING_LABELS.overdueRectification}
         tone="critical"
-        value={{ kind: "na", reason: NA_REASONS.rectification }}
-        aside={NA_REASONS.rectification}
+        value={{ kind: "na", reason: NA_REASONS.rectificationDeadline }}
+        aside={NA_REASONS.rectificationDeadline}
       />
       <SchoolWarningRow
         label={SCHOOL_WARNING_LABELS.ownerMissing}
@@ -40,14 +52,16 @@ export function SchoolWarningList({ ownerMissing, evaluationDueSoon, onOpenOwner
       <SchoolWarningRow
         label={SCHOOL_WARNING_LABELS.staleOver60Days}
         tone="warning"
-        value={{ kind: "na", reason: NA_REASONS.lastUpdated }}
-        aside={NA_REASONS.lastUpdated}
+        value={{ kind: "count", text: `${formatCount(stale.count)} 门` }}
+        aside={describeTop(stale, " 门")}
+        onClick={onOpenStale}
       />
       <SchoolWarningRow
         label={SCHOOL_WARNING_LABELS.zeroResource}
         tone="warning"
-        value={{ kind: "na", reason: NA_REASONS.schoolResources }}
-        aside={NA_REASONS.schoolResources}
+        value={{ kind: "count", text: `${formatCount(zeroResource.count)} 门` }}
+        aside={describeTop(zeroResource, " 门")}
+        onClick={onOpenZeroResource}
       />
     </ul>
   )

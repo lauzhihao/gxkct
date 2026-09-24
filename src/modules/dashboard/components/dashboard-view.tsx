@@ -16,8 +16,9 @@ import { TeacherDashboard } from "@/modules/dashboard/components/teacher/teacher
 import { TierSwitcher } from "@/modules/dashboard/components/tier-switcher"
 import { fetchTree } from "@/modules/dashboard/data/dashboard-api"
 import { buildOrgIndex, type OrgIndex } from "@/modules/dashboard/data/org-index"
+import { resolveSemesterComparisons } from "@/modules/dashboard/data/semesters"
 import { useDashboardQuery } from "@/modules/dashboard/data/use-dashboard-query"
-import { resolveAllowedTiers, resolveReturnPath } from "@/modules/dashboard/tiers"
+import { resolveAllowedTiers, resolveOwnTier, resolveReturnPath } from "@/modules/dashboard/tiers"
 import type { DashboardTier } from "@/modules/dashboard/types"
 
 interface DashboardFocus {
@@ -83,6 +84,12 @@ export function DashboardView() {
   const collegeId = authUser !== null ? authUser.collegeId : null
 
   const allowedTiers = resolveAllowedTiers(permissionId)
+  // 校级账号看得到全校课程，院系层才给出全校排名与全校对比
+  const schoolScopeVisible = resolveOwnTier(permissionId) === "school"
+  const comparisons = useMemo(
+    () => resolveSemesterComparisons(semesterList, selectedSemesterId),
+    [semesterList, selectedSemesterId],
+  )
   const [requestedTier, setRequestedTier] = useState<DashboardTier | null>(null)
   const tier = requestedTier !== null && allowedTiers.includes(requestedTier) ? requestedTier : allowedTiers[0]
   const [requestedDepartmentId, setRequestedDepartmentId] = useState<string | null>(null)
@@ -111,12 +118,13 @@ export function DashboardView() {
   if (authUser === null) {
     body = <p className="py-10 text-center text-sm text-muted-foreground">未读取到登录信息，请重新登录后再打开看板</p>
   } else if (tier === "school") {
-    body = <SchoolDashboard collegeId={authUser.collegeId} semesterId={selectedSemesterId} />
+    body = <SchoolDashboard collegeId={authUser.collegeId} semesterId={selectedSemesterId} comparisons={comparisons} />
   } else if (tier === "teacher") {
     body = (
       <TeacherDashboard
         collegeId={authUser.collegeId}
         semesterId={selectedSemesterId}
+        comparisons={comparisons}
         identity={{ userId: authUser.id, userName: authUser.userName, email: authUser.email }}
       />
     )
@@ -129,14 +137,23 @@ export function DashboardView() {
       <DepartmentDashboard
         collegeId={authUser.collegeId}
         semesterId={selectedSemesterId}
+        comparisons={comparisons}
         departmentId={focus.departmentId}
+        schoolScopeVisible={schoolScopeVisible}
         onDrillMajor={drillMajor}
       />
     )
   } else if (focus.majorId === null) {
     body = <p className="py-10 text-center text-sm text-muted-foreground">本学期该院系没有专业</p>
   } else {
-    body = <MajorDashboard collegeId={authUser.collegeId} semesterId={selectedSemesterId} majorId={focus.majorId} />
+    body = (
+      <MajorDashboard
+        collegeId={authUser.collegeId}
+        semesterId={selectedSemesterId}
+        comparisons={comparisons}
+        majorId={focus.majorId}
+      />
+    )
   }
 
   return (

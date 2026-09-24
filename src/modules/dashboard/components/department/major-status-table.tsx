@@ -2,8 +2,9 @@ import { ChevronRight } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/components/ui/table"
 import { NaValue } from "@/modules/dashboard/components/shared/na-value"
 import { OwnerNames } from "@/modules/dashboard/components/shared/owner-names"
-import { formatCount } from "@/modules/dashboard/format"
-import { NA_REASONS } from "@/modules/dashboard/labels"
+import { StageComposition } from "@/modules/dashboard/components/shared/stage-composition"
+import { formatCount, formatPercent } from "@/modules/dashboard/format"
+import { DEFINITIONS, NA_REASONS } from "@/modules/dashboard/labels"
 import type { MajorStatus } from "@/modules/dashboard/types"
 
 interface MajorStatusTableProps {
@@ -26,8 +27,12 @@ export function MajorStatusTable({ majors, onSelectMajor }: MajorStatusTableProp
           <TableHead className="text-right">课程数</TableHead>
           <TableHead className="text-right">负责人未设置</TableHead>
           <TableHead className="text-right" title="课程每参加一次评估任务计一门次">本学期评估完成（门次）</TableHead>
-          <TableHead className="text-center">建设阶段构成</TableHead>
-          <TableHead className="text-center">完成率</TableHead>
+          <TableHead className="min-w-[140px]" title={DEFINITIONS.stage}>
+            建设阶段构成
+          </TableHead>
+          <TableHead className="text-right" title={DEFINITIONS.completion}>
+            完成率
+          </TableHead>
           <TableHead className="w-8" />
         </TableRow>
       </TableHeader>
@@ -51,11 +56,11 @@ export function MajorStatusTable({ majors, onSelectMajor }: MajorStatusTableProp
                 ? `${formatCount(major.evaluationCompletedCount)} / ${formatCount(major.evaluationTargetCount)}`
                 : "未参评"}
             </TableCell>
-            <TableCell className="text-center">
-              <NaValue reason={NA_REASONS.stage} />
+            <TableCell>
+              <StageComposition counts={major.stageCounts} />
             </TableCell>
-            <TableCell className="text-center">
-              <NaValue reason={NA_REASONS.completion} />
+            <TableCell className="text-right tabular-nums">
+              {major.completion === null ? <NaValue reason={NA_REASONS.noCourses} /> : formatPercent(major.completion)}
             </TableCell>
             <TableCell>
               <ChevronRight className="size-4 text-muted-foreground" aria-hidden />

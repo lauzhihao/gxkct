@@ -1,12 +1,16 @@
 import { formatCount, formatPercent, ratio } from "@/modules/dashboard/format"
 import type { DepartmentDashboardData, SchoolDashboardData } from "@/modules/dashboard/types"
 
-/** 校级一句话结论：总量 + 负责人空缺最集中的院系 + 临期评估；口径未定义的指标明确说明 */
+/** 校级一句话结论：总量与达标 + 负责人空缺最集中的院系 + 临期评估 + 待整改 */
 export function buildSchoolConclusion(data: SchoolDashboardData): string {
   const { overview, ownerMissing, evaluationDueSoon } = data
+  const qualifiedRate = ratio(overview.qualifiedCount, overview.courseTotal)
   const parts = [
     `本学期共 ${formatCount(overview.courseTotal)} 门课程，分布在 ${overview.majorCount} 个专业、${overview.departmentCount} 个院系`,
   ]
+  if (qualifiedRate !== null) {
+    parts.push(`大纲、教案、课件齐备的课程 ${formatCount(overview.qualifiedCount)} 门，达标率 ${formatPercent(qualifiedRate)}`)
+  }
 
   if (ownerMissing.topDepartmentName !== null) {
     parts.push(
@@ -24,10 +28,14 @@ export function buildSchoolConclusion(data: SchoolDashboardData): string {
     parts.push("近 30 天没有临期评估")
   }
 
-  return `${parts.join("；")}。达标率、评估通过率等指标口径待定义，暂显示 N/A。`
+  if (overview.rectifyCount > 0) {
+    parts.push(`最近一次学校评价未达合格线、待整改 ${formatCount(overview.rectifyCount)} 门`)
+  }
+
+  return `${parts.join("；")}。`
 }
 
-/** 院系一句话结论：课程量 + 负责人空缺最多的专业 + 教师参与率 */
+/** 院系一句话结论：课程量与建设阶段 + 达标率 + 负责人空缺最多的专业 + 教师参与率 */
 export function buildDepartmentConclusion(data: DepartmentDashboardData): string {
   const { overview, majors } = data
   const participation = ratio(overview.participatingTeacherCount, overview.registeredTeacherCount)
@@ -41,5 +49,8 @@ export function buildDepartmentConclusion(data: DepartmentDashboardData): string
       : `负责人未设置 ${data.ownerMissingCourses.length} 门，${worstMajor.majorName}最多（${worstMajor.ownerMissingCount} 门）`
   const participationText = participation === null ? "没有在册教师" : `教师参与率 ${formatPercent(participation)}`
 
-  return `${overview.departmentName}本学期课程 ${formatCount(overview.courseTotal)} 门；${ownerText}；${participationText}。达标率、建设阶段口径待定义，暂显示 N/A。`
+  const qualifiedRate = ratio(overview.qualifiedCount, overview.courseTotal)
+  const qualifiedText = qualifiedRate === null ? "没有课程" : `达标率 ${formatPercent(qualifiedRate)}`
+
+  return `${overview.departmentName}本学期课程 ${formatCount(overview.courseTotal)} 门，在建 ${formatCount(overview.buildingCount)} 门、待建 ${formatCount(overview.notStartedCount)} 门，${qualifiedText}；${ownerText}；${participationText}。`
 }

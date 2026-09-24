@@ -1,8 +1,7 @@
 import type { ReactNode } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/components/ui/table"
-import { NaValue } from "@/modules/dashboard/components/shared/na-value"
 import { formatScore } from "@/modules/dashboard/format"
-import { NA_REASONS } from "@/modules/dashboard/labels"
+import { DEFINITIONS } from "@/modules/dashboard/labels"
 import type { EvaluationCell, EvaluationColumn, EvaluationRecord } from "@/modules/dashboard/types"
 
 interface EvaluationRecordsTableProps {
@@ -10,9 +9,18 @@ interface EvaluationRecordsTableProps {
   records: EvaluationRecord[]
 }
 
+/** 已出分的格子：未达合格线的在分数旁标"不合格"，不只靠颜色 */
 function renderCell(cell: EvaluationCell): ReactNode {
   if (cell.kind === "absent") return <span className="text-muted-foreground">-</span>
   if (cell.kind === "pending") return <span className="text-muted-foreground">未出分</span>
+  if (cell.passed === false) {
+    return (
+      <span className="text-destructive">
+        {formatScore(cell.score)}
+        <span className="ml-1 text-xs">不合格</span>
+      </span>
+    )
+  }
   return formatScore(cell.score)
 }
 
@@ -50,8 +58,8 @@ export function EvaluationRecordsTable({ columns, records }: EvaluationRecordsTa
           </TableBody>
         </Table>
       </div>
-      <p className="text-xs text-muted-foreground">
-        合格线 <NaValue reason={NA_REASONS.passLine} showReason />；得分为评估任务的最终得分。
+      <p className="text-xs leading-5 text-muted-foreground">
+        {DEFINITIONS.score}，未完成学校评价显示"未出分"；{DEFINITIONS.passLine}。
       </p>
     </div>
   )
