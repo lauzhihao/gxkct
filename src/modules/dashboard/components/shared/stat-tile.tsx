@@ -30,7 +30,7 @@ export function StatTile({ icon: Icon, label, value, detail, critical = false, o
         </span>
         <span className="truncate">{label}</span>
       </div>
-      <div className="mt-2 flex items-baseline gap-1">
+      <div className="mt-2 flex items-baseline justify-center gap-1">
         {value.kind === "value" ? (
           <>
             <span className={cn("text-[28px] font-semibold leading-none", emphasizeCritical ? "text-destructive" : "text-foreground")}>
@@ -45,7 +45,7 @@ export function StatTile({ icon: Icon, label, value, detail, critical = false, o
           </span>
         )}
       </div>
-      <div className="mt-2 min-h-4 text-xs text-muted-foreground">{detail}</div>
+      <div className="mt-2 min-h-4 text-center text-xs text-muted-foreground">{detail}</div>
     </>
   )
 

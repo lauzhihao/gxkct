@@ -23,7 +23,7 @@ export function SchoolKpiRow({ overview, ownerMissingCount, onOpenAllCourses, on
         value={{ kind: "value", text: formatCount(overview.courseTotal) }}
         onClick={onOpenAllCourses}
         detail={
-          <span className="inline-flex flex-wrap items-center gap-x-2">
+          <span className="inline-flex flex-wrap items-center justify-center gap-x-2">
             <span>
               本学期新开 <NaValue reason={NA_REASONS.newCourse} />
             </span>
@@ -48,7 +48,7 @@ export function SchoolKpiRow({ overview, ownerMissingCount, onOpenAllCourses, on
         label="已达标课程"
         value={{ kind: "na", reason: NA_REASONS.qualified }}
         detail={
-          <span className="inline-flex flex-wrap items-center gap-x-2">
+          <span className="inline-flex flex-wrap items-center justify-center gap-x-2">
             <span>
               达标率 <NaValue reason={NA_REASONS.qualified} />
             </span>
