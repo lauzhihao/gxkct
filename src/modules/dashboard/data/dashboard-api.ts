@@ -317,7 +317,7 @@ export async function fetchCourseOwners(collegeId: number, semesterId: number | 
   return parseList(await getJson(endpoint), "courseOwners", parseCourseOwners)
 }
 
-export type CourseDetailSection = "folders" | "ksa" | "tasks"
+export type CourseDetailSection = "folders" | "ksa" | "tasks" | "updateTime"
 
 /** 未请求的部分为 null；请求了的部分与原逐课程接口逐字段一致 */
 export interface CourseDetailDto {
@@ -331,6 +331,11 @@ export interface CourseDetailDto {
   ksaTitles: (string | null)[] | null
   /** 课程参与的评估任务（发布关系），同 /api/v5/task-evaluation/courses/{id}/tasks */
   tasks: CourseTaskDto[] | null
+  /**
+   * 课程信息最后保存时间：course_unit_list 与 course_unit_ext 的 update_time 取较晚者，ISO 8601 带时区偏移。
+   * 请求了 updateTime 时，只有课程行已不存在才为 null。
+   */
+  updateTime: string | null
 }
 
 /** 后端单次上限 500 门；按 200 门一批，控制 URL 长度 */
@@ -344,6 +349,7 @@ function parseCourseDetail(sections: ReadonlySet<CourseDetailSection>) {
       ? parseList(record.ksas, `${context}.ksas`, (item, itemContext) => readNullableString(item, "title", itemContext))
       : null,
     tasks: sections.has("tasks") ? parseList(record.tasks, `${context}.tasks`, parseCourseTask) : null,
+    updateTime: sections.has("updateTime") ? readNullableString(record, "updateTime", context) : null,
   })
 }
 

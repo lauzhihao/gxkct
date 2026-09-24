@@ -46,7 +46,7 @@ export const TEACHER_TODO_LABELS: Record<TeacherTodoKind, string> = {
 /**
  * 取不到的指标显示 N/A 时附带的原因。
  * "口径待定义"需要客户先给出判定标准；"系统暂无"是系统里没有记录这类数据；
- * "暂未汇总统计"是数据存在，但现有接口只能逐门课查询，这一层暂不汇总。
+ * "暂未汇总统计"是数据存在，但只能逐门课或按课程分批查询，这一层暂不汇总。
  */
 export const NA_REASONS = {
   stage: "建设阶段（未开始 / 建设中 / 待评估 / 已达标）口径待定义",
@@ -57,9 +57,10 @@ export const NA_REASONS = {
   archiveCoverage: "院系建档覆盖率口径待定义",
   newCourse: "系统暂无开课时间",
   yoy: "学期同期对应口径待定义",
-  lastUpdated: "系统暂无课程内容更新时间",
+  lastUpdated: "课程信息保存时间暂未按全校汇总统计，可进入专业看板查看",
+  courseUpdateMissing: "未取到该课程的信息保存时间",
   activity: "系统暂无开课时间，资源更新暂未按月汇总统计",
-  recentUpdates: "系统暂无课程内容更新记录",
+  recentUpdates: "课程信息保存记录暂未按全校汇总统计",
   schoolResources: "全校资源暂未汇总统计",
   departmentResources: "院系层资源暂未汇总统计，可进入专业看板逐门查看",
   comparison: "达标率口径待定义，资源量暂未汇总统计",
