@@ -2,7 +2,7 @@
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/components/ui/table"
-import { StageTag } from "@/modules/dashboard/components/shared/stage-tag"
+import { OwnerNames } from "@/modules/dashboard/components/shared/owner-names"
 import type { DrilldownRequest } from "@/modules/dashboard/types"
 
 interface DrilldownDialogProps {
@@ -19,10 +19,7 @@ export function DrilldownDialog({ request, onClose }: DrilldownDialogProps) {
           <>
             <DialogHeader>
               <DialogTitle>{request.title}</DialogTitle>
-              <DialogDescription>
-                共 {request.total} 门课程
-                {request.total > request.courses.length ? `，示例数据仅列出前 ${request.courses.length} 门` : ""}
-              </DialogDescription>
+              <DialogDescription>共 {request.courses.length} 门课程</DialogDescription>
             </DialogHeader>
             <div className="max-h-[60vh] overflow-auto rounded-md border border-border">
               <Table>
@@ -32,8 +29,6 @@ export function DrilldownDialog({ request, onClose }: DrilldownDialogProps) {
                     <TableHead>专业</TableHead>
                     <TableHead>院系</TableHead>
                     <TableHead>负责人</TableHead>
-                    <TableHead>建设阶段</TableHead>
-                    <TableHead className="text-right">最近更新</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -43,12 +38,8 @@ export function DrilldownDialog({ request, onClose }: DrilldownDialogProps) {
                       <TableCell>{course.majorName}</TableCell>
                       <TableCell>{course.departmentName}</TableCell>
                       <TableCell>
-                        {course.ownerName !== null ? course.ownerName : <span className="text-destructive">未设置</span>}
+                        <OwnerNames names={course.ownerNames} />
                       </TableCell>
-                      <TableCell>
-                        <StageTag stage={course.stage} />
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums text-muted-foreground">{course.lastUpdated}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

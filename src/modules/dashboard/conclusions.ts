@@ -1,46 +1,45 @@
-import { formatPercent } from "@/modules/dashboard/format"
-import type { DepartmentDashboardData, SchoolDashboardData, SchoolWarningKind } from "@/modules/dashboard/types"
+import { formatCount, formatPercent, ratio } from "@/modules/dashboard/format"
+import type { DepartmentDashboardData, SchoolDashboardData } from "@/modules/dashboard/types"
 
-function describeChange(deltaPp: number): string {
-  if (deltaPp > 0) return `提升 ${deltaPp.toFixed(1)} 个百分点`
-  if (deltaPp < 0) return `下降 ${Math.abs(deltaPp).toFixed(1)} 个百分点`
-  return "持平"
-}
-
-function requireWarning(data: SchoolDashboardData, kind: SchoolWarningKind) {
-  const warning = data.warnings.find((item) => item.kind === kind)
-  if (!warning) {
-    throw new Error(`School warning missing: ${kind}`)
-  }
-  return warning
-}
-
-/** 校级一句话结论：达标率变化 + 末位院系 + 负责人空缺最多的院系 + 逾期整改最多的院系 */
+/** 校级一句话结论：总量 + 负责人空缺最集中的院系 + 临期评估；口径未定义的指标明确说明 */
 export function buildSchoolConclusion(data: SchoolDashboardData): string {
-  const { overview, departmentRanking } = data
-  if (departmentRanking.length === 0) {
-    throw new Error("Department ranking is empty")
-  }
-  const lowest = departmentRanking[departmentRanking.length - 1]
-  const ownerMissing = requireWarning(data, "ownerMissing")
-  const overdue = requireWarning(data, "overdueRectification")
+  const { overview, ownerMissing, evaluationDueSoon } = data
+  const parts = [
+    `本学期共 ${formatCount(overview.courseTotal)} 门课程，分布在 ${overview.majorCount} 个专业、${overview.departmentCount} 个院系`,
+  ]
 
-  return (
-    `本学期达标率 ${formatPercent(overview.qualifiedRate)}，较上学期${describeChange(overview.qualifiedRateDeltaPp)}；` +
-    `质量评估通过率 ${formatPercent(overview.evaluationPassRate)}。` +
-    `需重点关注：${lowest.departmentName}达标率 ${formatPercent(lowest.qualifiedRate)}，居全校末位；` +
-    `${ownerMissing.topDepartmentName}负责人空缺最多（${ownerMissing.topDepartmentCount} 门）；` +
-    `${overdue.topDepartmentName}逾期未整改 ${overdue.topDepartmentCount} 门。建议优先推动负责人认领与逾期整改。`
-  )
+  if (ownerMissing.topDepartmentName !== null) {
+    parts.push(
+      `负责人未设置 ${formatCount(ownerMissing.count)} 门，${ownerMissing.topDepartmentName}空缺最多（${ownerMissing.topDepartmentCount} 门），建议重点跟进`,
+    )
+  } else {
+    parts.push("所有课程均已设置负责人")
+  }
+
+  if (evaluationDueSoon.topDepartmentName !== null) {
+    parts.push(
+      `30 天内有 ${formatCount(evaluationDueSoon.count)} 门次评估临期，${evaluationDueSoon.topDepartmentName}最多（${evaluationDueSoon.topDepartmentCount} 门次）`,
+    )
+  } else {
+    parts.push("近 30 天没有临期评估")
+  }
+
+  return `${parts.join("；")}。达标率、评估通过率等指标口径待定义，暂显示 N/A。`
 }
 
-/** 院系一句话结论：本系与全校对比 + 落后专业 + 最集中的建设断点 */
-export function buildDepartmentConclusion(data: DepartmentDashboardData, lagging: string[], topBreakpointLabel: string): string {
-  const { overview } = data
-  const laggingText = lagging.length > 0 ? `${lagging.join("、")}进度落后，` : ""
-  return (
-    `${overview.departmentName}达标率 ${formatPercent(overview.qualifiedRate)}，` +
-    `全校排名第 ${overview.schoolRank}/${overview.departmentCount}；` +
-    `${laggingText}未达标课程主要卡在"${topBreakpointLabel}"，建议按专业逐门催办。`
-  )
+/** 院系一句话结论：课程量 + 负责人空缺最多的专业 + 教师参与率 */
+export function buildDepartmentConclusion(data: DepartmentDashboardData): string {
+  const { overview, majors } = data
+  const participation = ratio(overview.participatingTeacherCount, overview.registeredTeacherCount)
+  const worstMajor = [...majors]
+    .filter((major) => major.ownerMissingCount > 0)
+    .sort((left, right) => right.ownerMissingCount - left.ownerMissingCount)[0]
+
+  const ownerText =
+    worstMajor === undefined
+      ? "所有课程均已设置负责人"
+      : `负责人未设置 ${data.ownerMissingCourses.length} 门，${worstMajor.majorName}最多（${worstMajor.ownerMissingCount} 门）`
+  const participationText = participation === null ? "没有在册教师" : `教师参与率 ${formatPercent(participation)}`
+
+  return `${overview.departmentName}本学期课程 ${formatCount(overview.courseTotal)} 门；${ownerText}；${participationText}。达标率、建设阶段口径待定义，暂显示 N/A。`
 }

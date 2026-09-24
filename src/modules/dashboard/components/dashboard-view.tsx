@@ -1,23 +1,76 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, CalendarDays } from "lucide-react"
+import { ArrowLeft, CalendarDays, Info } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
+import { getStoredAuthUser } from "@/lib/api/auth-config"
 import { usePermission } from "@/shared/hooks/use-permission"
 import { useSemesterStore } from "@/shared/stores/semester-store"
-import { DashboardBreadcrumb } from "@/modules/dashboard/components/dashboard-breadcrumb"
 import { DepartmentDashboard } from "@/modules/dashboard/components/department/department-dashboard"
+import { FocusSelect } from "@/modules/dashboard/components/focus-select"
 import { MajorDashboard } from "@/modules/dashboard/components/major/major-dashboard"
 import { SchoolDashboard } from "@/modules/dashboard/components/school/school-dashboard"
-import { SampleDataBadge } from "@/modules/dashboard/components/shared/sample-data-badge"
+import { LoadState } from "@/modules/dashboard/components/shared/load-state"
 import { TeacherDashboard } from "@/modules/dashboard/components/teacher/teacher-dashboard"
 import { TierSwitcher } from "@/modules/dashboard/components/tier-switcher"
-import { resolveDefaultTier, resolveReturnPath } from "@/modules/dashboard/tiers"
-import type { DashboardFocus, DashboardTier } from "@/modules/dashboard/types"
+import { fetchTree } from "@/modules/dashboard/data/dashboard-api"
+import { buildOrgIndex, type OrgIndex } from "@/modules/dashboard/data/org-index"
+import { useDashboardQuery } from "@/modules/dashboard/data/use-dashboard-query"
+import { resolveAllowedTiers, resolveReturnPath } from "@/modules/dashboard/tiers"
+import type { DashboardTier } from "@/modules/dashboard/types"
 
-/** 示例数据阶段的默认下钻对象：专业取中等偏下的一个，评审时能看到缺项与预警 */
-const DEFAULT_FOCUS: DashboardFocus = { departmentName: "信息工程学院", majorName: "物联网应用技术" }
+interface DashboardFocus {
+  departmentId: string | null
+  majorId: string | null
+}
+
+/** 课程数最多的一项；并列时取列表中靠前的；列表为空返回 null */
+function pickLargest<T extends { id: string }>(items: readonly T[], courseCountOf: (item: T) => number): string | null {
+  let bestId: string | null = null
+  let bestCount = -1
+  items.forEach((item) => {
+    const count = courseCountOf(item)
+    if (count > bestCount) {
+      bestId = item.id
+      bestCount = count
+    }
+  })
+  return bestId
+}
+
+/**
+ * 解析当前下钻对象：用户选过且仍在本学期组织树里的院系 / 专业优先；
+ * 还没选过，或切换学期后原选择已不存在时，默认看课程最多的院系、专业。
+ */
+function resolveFocus(index: OrgIndex, requestedDepartmentId: string | null, requestedMajorId: string | null): DashboardFocus {
+  const coursesByMajor = new Map<string, number>()
+  index.courses.forEach((course) => {
+    const current = coursesByMajor.get(course.majorId)
+    coursesByMajor.set(course.majorId, current === undefined ? 1 : current + 1)
+  })
+  const majorCourseCount = (majorId: string) => {
+    const count = coursesByMajor.get(majorId)
+    return count === undefined ? 0 : count
+  }
+
+  const departmentId =
+    requestedDepartmentId !== null && index.departmentById.has(requestedDepartmentId)
+      ? requestedDepartmentId
+      : pickLargest(index.departments, (department) =>
+          index.majors
+            .filter((major) => major.departmentId === department.id)
+            .reduce((sum, major) => sum + majorCourseCount(major.id), 0),
+        )
+  if (departmentId === null) return { departmentId: null, majorId: null }
+
+  const majors = index.majors.filter((major) => major.departmentId === departmentId)
+  const majorId =
+    requestedMajorId !== null && majors.some((major) => major.id === requestedMajorId)
+      ? requestedMajorId
+      : pickLargest(majors, (major) => majorCourseCount(major.id))
+  return { departmentId, majorId }
+}
 
 export function DashboardView() {
   const router = useRouter()
@@ -25,49 +78,104 @@ export function DashboardView() {
   const { permissionId } = usePermission()
   const selectedSemesterId = useSemesterStore((state) => state.selectedSemesterId)
   const semesterList = useSemesterStore((state) => state.semesterList)
+  // 页面在挂载后才渲染本组件，可以直接读取本地登录信息
+  const authUser = useMemo(() => getStoredAuthUser(), [])
+  const collegeId = authUser !== null ? authUser.collegeId : null
 
-  const [tier, setTier] = useState<DashboardTier>(() => resolveDefaultTier(permissionId))
-  const [focus, setFocus] = useState<DashboardFocus>(DEFAULT_FOCUS)
-  const tierTouchedRef = useRef(false)
+  const allowedTiers = resolveAllowedTiers(permissionId)
+  const [requestedTier, setRequestedTier] = useState<DashboardTier | null>(null)
+  const tier = requestedTier !== null && allowedTiers.includes(requestedTier) ? requestedTier : allowedTiers[0]
+  const [requestedDepartmentId, setRequestedDepartmentId] = useState<string | null>(null)
+  const [requestedMajorId, setRequestedMajorId] = useState<string | null>(null)
 
-  // 权限编码在挂载后才从本地存储读到时，按身份重新定一次默认层级（用户手动切过则不覆盖）
-  useEffect(() => {
-    if (!tierTouchedRef.current) setTier(resolveDefaultTier(permissionId))
-  }, [permissionId])
+  const needsFocus = tier === "department" || tier === "major"
+  const orgQuery = useDashboardQuery(
+    collegeId !== null && needsFocus ? `org|${collegeId}|${selectedSemesterId}` : null,
+    async () => {
+      if (collegeId === null) throw new Error("Auth user has no college")
+      return buildOrgIndex(await fetchTree(collegeId, selectedSemesterId))
+    },
+  )
+  const orgIndex = needsFocus && orgQuery.state.status === "ready" ? orgQuery.state.data : null
+  const focus = orgIndex !== null ? resolveFocus(orgIndex, requestedDepartmentId, requestedMajorId) : null
 
   const selectedSemester = semesterList.find((semester) => semester.id === selectedSemesterId)
   const semesterLabel = selectedSemester !== undefined ? selectedSemester.name : "未选择学期"
-  const seed = selectedSemesterId !== null ? selectedSemesterId : 0
 
-  const changeTier = (next: DashboardTier) => {
-    tierTouchedRef.current = true
-    setTier(next)
+  const drillMajor = (majorId: string) => {
+    setRequestedMajorId(majorId)
+    setRequestedTier("major")
   }
 
-  const drillDepartment = (departmentName: string) => {
-    setFocus({ departmentName, majorName: DEFAULT_FOCUS.majorName })
-    changeTier("department")
-  }
-
-  const drillMajor = (majorName: string) => {
-    setFocus((current) => ({ ...current, majorName }))
-    changeTier("major")
+  let body: ReactNode
+  if (authUser === null) {
+    body = <p className="py-10 text-center text-sm text-muted-foreground">未读取到登录信息，请重新登录后再打开看板</p>
+  } else if (tier === "school") {
+    body = <SchoolDashboard collegeId={authUser.collegeId} semesterId={selectedSemesterId} />
+  } else if (tier === "teacher") {
+    body = (
+      <TeacherDashboard
+        collegeId={authUser.collegeId}
+        semesterId={selectedSemesterId}
+        identity={{ userId: authUser.id, userName: authUser.userName, email: authUser.email }}
+      />
+    )
+  } else if (orgQuery.state.status !== "ready") {
+    body = <LoadState state={orgQuery.state} loadingText="正在读取组织结构" onRetry={orgQuery.retry} />
+  } else if (focus === null || focus.departmentId === null) {
+    body = <p className="py-10 text-center text-sm text-muted-foreground">本学期没有可查看的院系</p>
+  } else if (tier === "department") {
+    body = (
+      <DepartmentDashboard
+        collegeId={authUser.collegeId}
+        semesterId={selectedSemesterId}
+        departmentId={focus.departmentId}
+        onDrillMajor={drillMajor}
+      />
+    )
+  } else if (focus.majorId === null) {
+    body = <p className="py-10 text-center text-sm text-muted-foreground">本学期该院系没有专业</p>
+  } else {
+    body = <MajorDashboard collegeId={authUser.collegeId} semesterId={selectedSemesterId} majorId={focus.majorId} />
   }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-card px-5 py-2.5">
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
           <h2 className="text-base font-semibold text-foreground">数据看板</h2>
-          <SampleDataBadge />
           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
             <CalendarDays className="size-3.5" aria-hidden />
             {semesterLabel}
           </span>
-          <DashboardBreadcrumb tier={tier} focus={focus} onNavigate={changeTier} />
+          {orgIndex !== null && focus !== null && focus.departmentId !== null ? (
+            <FocusSelect
+              label="院系"
+              value={focus.departmentId}
+              options={orgIndex.departments.map((department) => ({ value: department.id, label: department.name }))}
+              onChange={(departmentId) => {
+                setRequestedDepartmentId(departmentId)
+                setRequestedMajorId(null)
+              }}
+            />
+          ) : null}
+          {tier === "major" && orgIndex !== null && focus !== null && focus.majorId !== null ? (
+            <FocusSelect
+              label="专业"
+              value={focus.majorId}
+              options={orgIndex.majors
+                .filter((major) => major.departmentId === focus.departmentId)
+                .map((major) => ({ value: major.id, label: major.name }))}
+              onChange={setRequestedMajorId}
+            />
+          ) : null}
+          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+            <Info className="size-3.5" aria-hidden />
+            N/A 表示暂取不到的指标，悬停可看原因
+          </span>
         </div>
         <div className="ml-auto flex items-center gap-3">
-          <TierSwitcher value={tier} onChange={changeTier} />
+          {allowedTiers.length > 1 ? <TierSwitcher tiers={allowedTiers} value={tier} onChange={setRequestedTier} /> : null}
           <Button
             type="button"
             variant="outline"
@@ -81,14 +189,7 @@ export function DashboardView() {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-        {tier === "school" ? <SchoolDashboard seed={seed} onDrillDepartment={drillDepartment} /> : null}
-        {tier === "department" ? (
-          <DepartmentDashboard seed={seed} departmentName={focus.departmentName} onDrillMajor={drillMajor} />
-        ) : null}
-        {tier === "major" ? <MajorDashboard seed={seed} departmentName={focus.departmentName} majorName={focus.majorName} /> : null}
-        {tier === "teacher" ? <TeacherDashboard seed={seed} /> : null}
-      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{body}</div>
     </div>
   )
 }
