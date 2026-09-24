@@ -19,4 +19,5 @@ export const PERMISSION_ACTION_CATALOG: Record<PermissionAction, string> = {
   "department.member.resetPassword": "院系成员重置密码",
   "college.qa.create": "学校质量评价新增",
   "college.qa.manage": "学校质量评价管理",
+  "college.dashboard.view": "数据看板查看（按身份显示对应层级）",
 }
