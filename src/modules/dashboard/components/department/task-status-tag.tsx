@@ -1,18 +1,20 @@
-import { AlertOctagon, Clock, Loader } from "lucide-react"
+import { AlertOctagon, CalendarClock, CheckCircle2, Clock } from "lucide-react"
 import { DEPARTMENT_TASK_STATUS_LABELS } from "@/modules/dashboard/labels"
 import type { DepartmentTaskStatus } from "@/modules/dashboard/types"
 import { cn } from "@/shared/utils/utils"
 
 const STATUS_ICON = {
-  pending: Loader,
+  pending: CalendarClock,
   dueSoon: Clock,
   overdue: AlertOctagon,
+  completed: CheckCircle2,
 } as const
 
 const STATUS_TONE: Record<DepartmentTaskStatus, string> = {
   pending: "text-muted-foreground",
   dueSoon: "text-warning",
   overdue: "text-destructive",
+  completed: "text-success",
 }
 
 interface TaskStatusTagProps {

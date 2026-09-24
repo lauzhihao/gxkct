@@ -17,7 +17,7 @@ export default function DashboardPage() {
 
 function DashboardPageContent() {
   const router = useRouter()
-  // 看板的默认层级与学期取自 localStorage，挂载后再渲染，避免水合不一致与层级闪变
+  // 页头（当前学校、学期）与看板（登录信息、层级、学期）都取自 localStorage，挂载后再渲染，避免水合不一致
   const hasMounted = useHasMounted()
 
   useEffect(() => {
@@ -29,10 +29,12 @@ function DashboardPageContent() {
 
   return (
     <div className="h-screen bg-background overflow-hidden flex flex-col">
-      <div className="w-full flex flex-col flex-1 min-h-0">
-        <Header currentPath="/dashboard" />
-        {hasMounted ? <DashboardView /> : <div className="flex-1" />}
-      </div>
+      {hasMounted ? (
+        <div className="w-full flex flex-col flex-1 min-h-0">
+          <Header currentPath="/dashboard" />
+          <DashboardView />
+        </div>
+      ) : null}
     </div>
   )
 }
