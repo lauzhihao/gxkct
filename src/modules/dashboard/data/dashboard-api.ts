@@ -313,9 +313,12 @@ export async function fetchMajorMatrix(majorId: string): Promise<MajorMatrixCour
   return parseList(await getJson(`/api/v5/matrix/majormatrix/${majorId}`), "majorMatrix", parseMajorMatrixCourse)
 }
 
-/** 课程的 KSA 课点标题列表（标题为 K / S / A，个别历史数据带星号或空格） */
-export async function fetchCourseKsaTitles(courseId: string): Promise<string[]> {
+/**
+ * 课程的 KSA 课点标题列表（标题为 K / S / A，个别历史数据带星号或空格）。
+ * ksa_list.title 是可空列，后端原样返回，标题为空的课点保留为 null。
+ */
+export async function fetchCourseKsaTitles(courseId: string): Promise<(string | null)[]> {
   const endpoint = withQuery("/api/matrix/ksanrelate", { courseId })
   const record = asRecord(await getJson(endpoint), "ksanrelate")
-  return parseList(record.ksas, "ksanrelate.ksas", (item, itemContext) => readString(item, "title", itemContext))
+  return parseList(record.ksas, "ksanrelate.ksas", (item, itemContext) => readNullableString(item, "title", itemContext))
 }

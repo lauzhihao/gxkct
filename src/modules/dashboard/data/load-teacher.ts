@@ -14,10 +14,11 @@ export interface TeacherIdentity {
 
 const RESOURCE_CATEGORY_ORDER: ResourceCategory[] = ["document", "video", "questionBank", "other"]
 
-/** KSA 课点标题为 K / S / A；个别历史数据带星号（重点课点）或空格，归一后计入对应类别，其余不计 */
-function countKsa(titles: readonly string[]): KsaCount {
+/** KSA 课点标题为 K / S / A；个别历史数据带星号（重点课点）或空格，归一后计入对应类别；标题为空或为其他值的不计 */
+function countKsa(titles: readonly (string | null)[]): KsaCount {
   const count: KsaCount = { knowledge: 0, skill: 0, attitude: 0 }
   titles.forEach((title) => {
+    if (title === null) return
     const normalized = title.replace(/[★\s]/g, "").toUpperCase()
     if (normalized === "K") count.knowledge += 1
     else if (normalized === "S") count.skill += 1
