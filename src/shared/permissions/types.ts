@@ -17,6 +17,7 @@ export type PermissionAction =
   | "department.member.resetPassword"
   | "college.qa.create"
   | "college.qa.manage"
+  | "college.dashboard.view"
 
 export interface PermissionContext {
   scope?: "root" | "college" | "department" | "major" | "course"

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { ChevronDown, Palette, Eye, EyeOff, MessageSquareWarning } from "lucide-react"
+import { ChevronDown, Palette, Eye, EyeOff, MessageSquareWarning, LayoutDashboard } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import {
   DropdownMenu,
@@ -28,6 +28,7 @@ import { cn, extractNumericId } from "@/shared/utils/utils"
 import { api, getStoredAuthUser, clearAllAuthData } from "@/lib/api"
 import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
 import { usePermission } from "@/shared/hooks/use-permission"
+import { useHasMounted } from "@/shared/hooks/use-has-mounted"
 import { AiAssistantDrawer } from "./ai-assistant-drawer"
 import { useLoadingStore } from "@/shared/stores/loading-store"
 import { useAiCanvasStore } from "@/shared/stores/ai-canvas-store"
@@ -51,6 +52,8 @@ const EMPTY_INITIAL_CANVAS_DATA: InitialCanvasData = {
 
 const WORKSHOP_MANAGEMENT_ACTION = "root.college.create" as const
 const WORKSHOP_MANAGEMENT_CONTEXT = { scope: "root" } as const
+const DASHBOARD_ACTION = "college.dashboard.view" as const
+const DASHBOARD_PATH = "/dashboard"
 
 const COLOR_THEMES = {
   green: {
@@ -214,6 +217,10 @@ export function Header({ currentPath, treeData }: HeaderProps) {
   const userMenuItemClassName =
     "cursor-pointer hover:bg-accent hover:text-foreground focus:bg-accent focus:text-foreground data-[highlighted]:bg-accent data-[highlighted]:text-foreground"
   const canManageWorkshop = can(WORKSHOP_MANAGEMENT_ACTION, WORKSHOP_MANAGEMENT_CONTEXT)
+  const canViewDashboard = can(DASHBOARD_ACTION)
+  const isOnDashboard = currentPath === DASHBOARD_PATH
+  // 权限取自 localStorage，服务端渲染时读不到；挂载后再渲染入口，避免水合不一致
+  const hasMounted = useHasMounted()
 
   // 处理退出登录
   const handleLogout = () => {
@@ -223,6 +230,12 @@ export function Header({ currentPath, treeData }: HeaderProps) {
 
   const handleOpenWorkshopManagement = useCallback(() => {
     router.push("/workshop-management")
+  }, [router])
+
+  // 带上来源地址（含 ?nodeId=），看板页"返回"时回到原来选中的节点
+  const handleOpenDashboard = useCallback(() => {
+    const from = `${window.location.pathname}${window.location.search}`
+    router.push(`${DASHBOARD_PATH}?from=${encodeURIComponent(from)}`)
   }, [router])
 
   const handleResetPassword = useCallback(async () => {
@@ -419,6 +432,30 @@ export function Header({ currentPath, treeData }: HeaderProps) {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* Data Dashboard */}
+          {hasMounted && canViewDashboard ? (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "h-[30px] w-[30px] text-foreground hover:bg-accent hover:text-foreground transition-colors",
+                      isOnDashboard && "bg-accent text-primary hover:text-primary",
+                    )}
+                    onClick={isOnDashboard ? undefined : handleOpenDashboard}
+                    aria-label="数据看板"
+                    aria-current={isOnDashboard ? "page" : undefined}
+                  >
+                    <LayoutDashboard className="h-[17px] w-[17px]" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">数据看板</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
 
           {/* User Avatar */}
           <Avatar className="h-7 w-7 border border-border">
