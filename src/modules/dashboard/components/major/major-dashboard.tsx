@@ -21,7 +21,7 @@ export function MajorDashboard({ collegeId, semesterId, majorId }: MajorDashboar
   )
 
   if (state.status !== "ready") {
-    return <LoadState state={state} loadingText="正在读取本专业课程、资源与评估数据（逐门课程读取资源目录）" onRetry={retry} />
+    return <LoadState state={state} loadingText="正在读取本专业课程、资源与评估数据" onRetry={retry} />
   }
   const data = state.data
 

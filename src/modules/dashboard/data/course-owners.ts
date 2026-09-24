@@ -1,26 +1,33 @@
-import { DASHBOARD_REQUEST_CONCURRENCY, mapWithConcurrency } from "@/modules/dashboard/data/concurrency"
-import { fetchMajorCourseCards, type CardDto } from "@/modules/dashboard/data/dashboard-api"
-import { requireDepartment, requireMajor, type OrgCourse, type OrgIndex, type OrgMajor } from "@/modules/dashboard/data/org-index"
+import { fetchCourseOwners, type ManagerRef } from "@/modules/dashboard/data/dashboard-api"
+import { requireDepartment, requireMajor, type OrgCourse, type OrgIndex } from "@/modules/dashboard/data/org-index"
 import { managerDisplayName } from "@/modules/dashboard/data/teachers"
 import type { DrilldownCourse, WarningSummary } from "@/modules/dashboard/types"
 
-/** 逐专业拉课程卡片（带负责人），按课程 ID 建索引 */
-export async function loadCourseCards(majors: readonly OrgMajor[], semesterId: number | null): Promise<Map<string, CardDto>> {
-  const lists = await mapWithConcurrency(majors, DASHBOARD_REQUEST_CONCURRENCY, (major) =>
-    fetchMajorCourseCards(major.id, semesterId),
-  )
-  const byCourseId = new Map<string, CardDto>()
-  lists.forEach((cards) => cards.forEach((card) => byCourseId.set(card.id, card)))
-  return byCourseId
+/** 全校可见课程的负责人（一次请求），按课程 ID 建索引 */
+export async function loadCourseOwners(collegeId: number, semesterId: number | null): Promise<Map<string, ManagerRef[]>> {
+  const owners = await fetchCourseOwners(collegeId, semesterId)
+  return new Map(owners.map((item) => [item.courseId, item.managers]))
 }
 
-export function requireCourseCard(cardsByCourseId: ReadonlyMap<string, CardDto>, courseId: string): CardDto {
-  const card = cardsByCourseId.get(courseId)
-  if (card === undefined) {
-    // 组织树与课程卡片走同一套权限与学期过滤，缺卡片说明两边口径不一致
-    throw new Error(`Course ${courseId} missing from major course cards`)
+export function requireCourseManagers(managersByCourseId: ReadonlyMap<string, ManagerRef[]>, courseId: string): ManagerRef[] {
+  const managers = managersByCourseId.get(courseId)
+  if (managers === undefined) {
+    // 负责人接口与组织树走同一次可见范围计算，缺课程说明两边口径不一致
+    throw new Error(`Course ${courseId} missing from course owners`)
   }
-  return card
+  return managers
+}
+
+/** 范围内课程的全部负责人 value（邮箱，邮箱为空时为用户 ID） */
+export function collectManagerValues(
+  courses: readonly OrgCourse[],
+  managersByCourseId: ReadonlyMap<string, ManagerRef[]>,
+): Set<string> {
+  const values = new Set<string>()
+  courses.forEach((course) =>
+    requireCourseManagers(managersByCourseId, course.id).forEach((manager) => values.add(manager.value)),
+  )
+  return values
 }
 
 export interface DrilldownCourseWithDepartment extends DrilldownCourse {
@@ -31,7 +38,7 @@ export interface DrilldownCourseWithDepartment extends DrilldownCourse {
 export function buildDrilldownCourses(
   index: OrgIndex,
   courses: readonly OrgCourse[],
-  cardsByCourseId: ReadonlyMap<string, CardDto>,
+  managersByCourseId: ReadonlyMap<string, ManagerRef[]>,
 ): DrilldownCourseWithDepartment[] {
   return courses.map((course) => {
     const major = requireMajor(index, course.majorId)
@@ -43,7 +50,7 @@ export function buildDrilldownCourses(
       majorName: major.name,
       departmentId: department.id,
       departmentName: department.name,
-      ownerNames: requireCourseCard(cardsByCourseId, course.id).managers.map(managerDisplayName),
+      ownerNames: requireCourseManagers(managersByCourseId, course.id).map(managerDisplayName),
     }
   })
 }

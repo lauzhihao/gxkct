@@ -28,7 +28,7 @@ export function SchoolDashboard({ collegeId, semesterId }: SchoolDashboardProps)
   const [drilldown, setDrilldown] = useState<DrilldownRequest | null>(null)
 
   if (state.status !== "ready") {
-    return <LoadState state={state} loadingText="正在汇总全校数据（逐个专业读取课程负责人，约需数秒）" onRetry={retry} />
+    return <LoadState state={state} loadingText="正在汇总全校数据" onRetry={retry} />
   }
   const data = state.data
 

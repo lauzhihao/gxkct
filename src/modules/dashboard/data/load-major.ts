@@ -1,12 +1,10 @@
-import { requireCourseCard } from "@/modules/dashboard/data/course-cards"
-import { DASHBOARD_REQUEST_CONCURRENCY, mapWithConcurrency } from "@/modules/dashboard/data/concurrency"
+import { loadCourseDetails, requireCourseDetail, requireSection } from "@/modules/dashboard/data/course-details"
+import { loadCourseOwners, requireCourseManagers } from "@/modules/dashboard/data/course-owners"
 import {
   fetchDepartmentMajorCards,
-  fetchMajorCourseCards,
   fetchMajorMatrix,
   fetchMajorTaskCourses,
   fetchMajorTasks,
-  fetchResourceFolders,
   fetchTree,
   type CourseEvaluationDto,
   type TaskStatDto,
@@ -62,27 +60,31 @@ export async function loadMajorDashboard(
   semesterId: number | null,
   now: Date,
 ): Promise<MajorDashboardData> {
-  const index = buildOrgIndex(await fetchTree(collegeId, semesterId))
+  // 第一轮：不依赖组织树的请求与组织树并行
+  const [tree, managersByCourseId, matrix, tasks] = await Promise.all([
+    fetchTree(collegeId, semesterId),
+    loadCourseOwners(collegeId, semesterId),
+    fetchMajorMatrix(majorId),
+    fetchMajorTasks(majorId, semesterId),
+  ])
+  const index = buildOrgIndex(tree)
   const major = requireMajor(index, majorId)
   const department = requireDepartment(index, major.departmentId)
   const majorCourses = index.courses.filter((course) => course.majorId === majorId)
+  const orderedTasks = [...tasks].sort(compareTasks)
 
-  const [courseCards, majorCards, matrix, resourceSummaries, tasks] = await Promise.all([
-    fetchMajorCourseCards(majorId, semesterId),
+  // 第二轮：本专业全部课程的资源目录一次取回
+  const [majorCards, detailsByCourseId, taskEvaluations] = await Promise.all([
     fetchDepartmentMajorCards(major.departmentId, semesterId),
-    fetchMajorMatrix(majorId),
-    mapWithConcurrency(majorCourses, DASHBOARD_REQUEST_CONCURRENCY, async (course) =>
-      summarizeCourseResources(await fetchResourceFolders(course.id)),
+    loadCourseDetails(
+      collegeId,
+      semesterId,
+      majorCourses.map((course) => course.id),
+      ["folders"],
     ),
-    fetchMajorTasks(majorId, semesterId),
+    Promise.all(orderedTasks.map((task) => fetchMajorTaskCourses(task.taskId, majorId, semesterId))),
   ])
 
-  const orderedTasks = [...tasks].sort(compareTasks)
-  const taskEvaluations = await Promise.all(
-    orderedTasks.map((task) => fetchMajorTaskCourses(task.taskId, majorId, semesterId)),
-  )
-
-  const cardsByCourseId = new Map(courseCards.map((card) => [card.id, card]))
   const leadCard = majorCards.find((card) => card.id === majorId)
   if (leadCard === undefined) {
     throw new Error(`Major ${majorId} missing from department major cards`)
@@ -91,14 +93,15 @@ export async function loadMajorDashboard(
   const pointsByCourseId = new Map(matrix.map((item) => [item.courseId, item.supportedPointCount]))
   const latestScores = rankLatestScores(taskEvaluations)
 
-  const rows: CourseMatrixRow[] = majorCourses.map((course, courseIndex) => {
-    const resources = resourceSummaries[courseIndex]
+  const rows: CourseMatrixRow[] = majorCourses.map((course) => {
+    const folders = requireSection(requireCourseDetail(detailsByCourseId, course.id).folders, "folders", course.id)
+    const resources = summarizeCourseResources(folders)
     const points = pointsByCourseId.get(course.id)
     const ranked = latestScores.get(course.id)
     return {
       id: course.id,
       courseName: course.name,
-      ownerNames: requireCourseCard(cardsByCourseId, course.id).managers.map(managerDisplayName),
+      ownerNames: requireCourseManagers(managersByCourseId, course.id).map(managerDisplayName),
       supportedPointCount: points === undefined ? 0 : points,
       hasSyllabus: resources.hasSyllabus,
       hasLessonPlan: resources.hasLessonPlan,

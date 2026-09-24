@@ -1,4 +1,4 @@
-import type { CardDto, ManagerRef, MemberDto } from "@/modules/dashboard/data/dashboard-api"
+import type { ManagerRef, MemberDto } from "@/modules/dashboard/data/dashboard-api"
 
 /**
  * 教师口径：
@@ -18,12 +18,6 @@ function memberKeys(member: MemberDto): string[] {
   const keys = [member.id]
   if (member.account !== null && member.account.trim() !== "") keys.push(member.account)
   return keys
-}
-
-export function collectManagerValues(cards: readonly CardDto[]): Set<string> {
-  const values = new Set<string>()
-  cards.forEach((card) => card.managers.forEach((manager) => values.add(manager.value)))
-  return values
 }
 
 export interface TeacherParticipation {
