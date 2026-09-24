@@ -1,6 +1,6 @@
-import { AlertOctagon, Loader2, RotateCw } from "lucide-react"
+import { AlertOctagon, RotateCw } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
-import { Skeleton } from "@/shared/components/ui/skeleton"
+import { LoadingState } from "@/shared/components/ui/loading-state"
 
 interface LoadStateProps {
   state: { status: "loading" } | { status: "error"; message: string }
@@ -8,7 +8,7 @@ interface LoadStateProps {
   onRetry: () => void
 }
 
-/** 看板取数中 / 取数失败：加载时保留骨架版位，失败时给出原因与重试 */
+/** 看板取数中 / 取数失败：加载时用系统进入时的 loading 样式，失败时给出原因与重试 */
 export function LoadState({ state, loadingText, onRetry }: LoadStateProps) {
   if (state.status === "error") {
     return (
@@ -27,21 +27,8 @@ export function LoadState({ state, loadingText, onRetry }: LoadStateProps) {
   }
 
   return (
-    <div className="space-y-4" aria-busy="true">
-      <p className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-        <Loader2 className="size-3.5 animate-spin" aria-hidden />
-        {loadingText}
-      </p>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        {Array.from({ length: 6 }, (_, index) => (
-          <Skeleton key={index} className="h-[104px] rounded-md" />
-        ))}
-      </div>
-      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-        {Array.from({ length: 3 }, (_, index) => (
-          <Skeleton key={index} className="h-[260px] rounded-md" />
-        ))}
-      </div>
+    <div className="h-full" aria-busy="true">
+      <LoadingState title={loadingText} className="min-h-[360px]" />
     </div>
   )
 }

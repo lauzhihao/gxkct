@@ -14,7 +14,8 @@ import {
 } from "@/modules/dashboard/data/parse"
 
 /**
- * 看板只读取数：全部复用系统现有接口（组织树、专业/课程卡片、成员、质量评估统计、课程资源目录、矩阵）。
+ * 看板只读取数：组织树、专业卡片、成员、质量评估统计、矩阵复用系统现有接口；
+ * 课程负责人与课程明细（资源目录 / KSA / 评估任务）走看板汇总接口，一次请求取回，不再逐专业、逐课程请求。
  * 每个请求按 URL 缓存，切换层级时不重复拉取。
  */
 
@@ -103,12 +104,6 @@ function parseCard(record: JsonRecord, context: string): CardDto {
     name: readString(self, "label", `${context}.self`),
     managers: parseList(record.manager, `${context}.manager`, parseManager),
   }
-}
-
-/** 专业下的课程卡片，manager 为课程负责人（任课关系） */
-export async function fetchMajorCourseCards(majorId: string, semesterId: number | null): Promise<CardDto[]> {
-  const endpoint = withQuery(`/api/v5/tree/majors/${majorId}/courses`, { lang: CARD_LANG, semesterId })
-  return parseList(await getJson(endpoint), "majorCourses", parseCard)
 }
 
 /** 院系下的专业卡片，manager 为专业负责人 */
@@ -261,12 +256,6 @@ function parseCourseTask(record: JsonRecord, context: string): CourseTaskDto {
   }
 }
 
-/** 某门课程参与的评估任务（发布关系） */
-export async function fetchCourseTasks(courseId: string, semesterId: number | null): Promise<CourseTaskDto[]> {
-  const endpoint = withQuery(`/api/v5/task-evaluation/courses/${courseId}/tasks`, { semesterId })
-  return parseList(await getJson(endpoint), "courseTasks", parseCourseTask)
-}
-
 /* ---------- 课程资源目录 ---------- */
 
 export interface ResourceFolderDto {
@@ -284,11 +273,6 @@ function parseResourceFolder(record: JsonRecord, context: string): ResourceFolde
     filesCount: readNullableNumber(record, "filesCount", context),
     latestUploadedAt: readNullableString(record, "latestUploadedAt", context),
   }
-}
-
-/** 课程资源的一级目录（只读查询，不会初始化目录） */
-export async function fetchResourceFolders(courseId: string): Promise<ResourceFolderDto[]> {
-  return parseList(await getJson(`/api/v5/courses/${courseId}/resource-folders`), "resourceFolders", parseResourceFolder)
 }
 
 /* ---------- 矩阵 ---------- */
@@ -313,12 +297,78 @@ export async function fetchMajorMatrix(majorId: string): Promise<MajorMatrixCour
   return parseList(await getJson(`/api/v5/matrix/majormatrix/${majorId}`), "majorMatrix", parseMajorMatrixCourse)
 }
 
-/**
- * 课程的 KSA 课点标题列表（标题为 K / S / A，个别历史数据带星号或空格）。
- * ksa_list.title 是可空列，后端原样返回，标题为空的课点保留为 null。
- */
-export async function fetchCourseKsaTitles(courseId: string): Promise<(string | null)[]> {
-  const endpoint = withQuery("/api/matrix/ksanrelate", { courseId })
-  const record = asRecord(await getJson(endpoint), "ksanrelate")
-  return parseList(record.ksas, "ksanrelate.ksas", (item, itemContext) => readNullableString(item, "title", itemContext))
+/* ---------- 看板汇总接口 ---------- */
+
+export interface CourseOwnersDto {
+  courseId: string
+  managers: ManagerRef[]
+}
+
+function parseCourseOwners(record: JsonRecord, context: string): CourseOwnersDto {
+  return {
+    courseId: readId(record, "courseId", context),
+    managers: parseList(record.managers, `${context}.managers`, parseManager),
+  }
+}
+
+/** 当前用户在该校该学期可见的全部课程及其负责人；课程集合与组织树的课程节点一致，负责人与课程卡片的 manager 一致 */
+export async function fetchCourseOwners(collegeId: number, semesterId: number | null): Promise<CourseOwnersDto[]> {
+  const endpoint = withQuery("/api/v5/dashboard/course-owners", { collegeId, semesterId })
+  return parseList(await getJson(endpoint), "courseOwners", parseCourseOwners)
+}
+
+export type CourseDetailSection = "folders" | "ksa" | "tasks"
+
+/** 未请求的部分为 null；请求了的部分与原逐课程接口逐字段一致 */
+export interface CourseDetailDto {
+  courseId: string
+  /** 资源一级目录，同 /api/v5/courses/{id}/resource-folders（只读查询，不会初始化目录） */
+  folders: ResourceFolderDto[] | null
+  /**
+   * KSA 课点标题，同 /api/matrix/ksanrelate 的 ksas（标题为 K / S / A，个别历史数据带星号或空格）。
+   * ksa_list.title 是可空列，后端原样返回，标题为空的课点保留为 null。
+   */
+  ksaTitles: (string | null)[] | null
+  /** 课程参与的评估任务（发布关系），同 /api/v5/task-evaluation/courses/{id}/tasks */
+  tasks: CourseTaskDto[] | null
+}
+
+/** 后端单次上限 500 门；按 200 门一批，控制 URL 长度 */
+const COURSE_DETAIL_BATCH_SIZE = 200
+
+function parseCourseDetail(sections: ReadonlySet<CourseDetailSection>) {
+  return (record: JsonRecord, context: string): CourseDetailDto => ({
+    courseId: readId(record, "courseId", context),
+    folders: sections.has("folders") ? parseList(record.folders, `${context}.folders`, parseResourceFolder) : null,
+    ksaTitles: sections.has("ksa")
+      ? parseList(record.ksas, `${context}.ksas`, (item, itemContext) => readNullableString(item, "title", itemContext))
+      : null,
+    tasks: sections.has("tasks") ? parseList(record.tasks, `${context}.tasks`, parseCourseTask) : null,
+  })
+}
+
+/** 多门课程的明细，按请求顺序返回；当前用户不可见的课程不会出现在结果里 */
+export async function fetchCourseDetails(
+  collegeId: number,
+  semesterId: number | null,
+  courseIds: readonly string[],
+  sections: readonly CourseDetailSection[],
+): Promise<CourseDetailDto[]> {
+  const batches: string[][] = []
+  for (let start = 0; start < courseIds.length; start += COURSE_DETAIL_BATCH_SIZE) {
+    batches.push(courseIds.slice(start, start + COURSE_DETAIL_BATCH_SIZE))
+  }
+  const parse = parseCourseDetail(new Set(sections))
+  const results = await Promise.all(
+    batches.map(async (batch) => {
+      const endpoint = withQuery("/api/v5/dashboard/course-details", {
+        collegeId,
+        semesterId,
+        courseIds: batch.join(","),
+        sections: sections.join(","),
+      })
+      return parseList(await getJson(endpoint), "courseDetails", parse)
+    }),
+  )
+  return results.flat()
 }

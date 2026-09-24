@@ -1,6 +1,6 @@
-import { loadCourseCards, requireCourseCard } from "@/modules/dashboard/data/course-cards"
-import { DASHBOARD_REQUEST_CONCURRENCY, mapWithConcurrency } from "@/modules/dashboard/data/concurrency"
-import { fetchCourseKsaTitles, fetchCourseTasks, fetchResourceFolders, fetchTree } from "@/modules/dashboard/data/dashboard-api"
+import { loadCourseDetails, requireCourseDetail, requireSection } from "@/modules/dashboard/data/course-details"
+import { loadCourseOwners, requireCourseManagers } from "@/modules/dashboard/data/course-owners"
+import { fetchTree } from "@/modules/dashboard/data/dashboard-api"
 import { classifyDeadline, isStepCompleted, isTaskCompleted, startOfToday, toEvaluationStatus } from "@/modules/dashboard/data/evaluation"
 import { buildOrgIndex, requireMajor } from "@/modules/dashboard/data/org-index"
 import { summarizeCourseResources } from "@/modules/dashboard/data/resources"
@@ -34,31 +34,32 @@ export async function loadTeacherDashboard(
   identity: TeacherIdentity,
   now: Date,
 ): Promise<TeacherDashboardData> {
-  const index = buildOrgIndex(await fetchTree(collegeId, semesterId))
-  const majorIds = new Set(index.courses.map((course) => course.majorId))
-  const cardsByCourseId = await loadCourseCards(
-    index.majors.filter((major) => majorIds.has(major.id)),
-    semesterId,
-  )
+  const [tree, managersByCourseId] = await Promise.all([
+    fetchTree(collegeId, semesterId),
+    loadCourseOwners(collegeId, semesterId),
+  ])
+  const index = buildOrgIndex(tree)
 
   // 负责人 value 为邮箱，邮箱为空时为用户 ID
   const myKeys = new Set([String(identity.userId), identity.email])
   const myCourses = index.courses.filter((course) =>
-    requireCourseCard(cardsByCourseId, course.id).managers.some((manager) => myKeys.has(manager.value)),
+    requireCourseManagers(managersByCourseId, course.id).some((manager) => myKeys.has(manager.value)),
   )
 
-  const details = await mapWithConcurrency(myCourses, DASHBOARD_REQUEST_CONCURRENCY, async (course) => {
-    const [folders, ksaTitles, tasks] = await Promise.all([
-      fetchResourceFolders(course.id),
-      fetchCourseKsaTitles(course.id),
-      fetchCourseTasks(course.id, semesterId),
-    ])
+  const detailsByCourseId = await loadCourseDetails(
+    collegeId,
+    semesterId,
+    myCourses.map((course) => course.id),
+    ["folders", "ksa", "tasks"],
+  )
+  const details = myCourses.map((course) => {
+    const detail = requireCourseDetail(detailsByCourseId, course.id)
     return {
       course,
       majorName: requireMajor(index, course.majorId).name,
-      resources: summarizeCourseResources(folders),
-      ksa: countKsa(ksaTitles),
-      tasks,
+      resources: summarizeCourseResources(requireSection(detail.folders, "folders", course.id)),
+      ksa: countKsa(requireSection(detail.ksaTitles, "ksa", course.id)),
+      tasks: requireSection(detail.tasks, "tasks", course.id),
     }
   })
 
