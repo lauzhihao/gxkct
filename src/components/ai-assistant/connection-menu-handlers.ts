@@ -397,6 +397,12 @@ async function handlePanelOption(
   option: string,
   panelType: CanvasComponentType
 ): Promise<void> {
+  console.log("[connection-menu] panel option selected", {
+    option,
+    panelType,
+    canvasElementTypes: ctx.canvasElements.map((el) => ({ id: el.id, type: el.type })),
+  })
+
   // 防御性兜底：单例面板（如课点信息）如果已存在则忽略重复创建
   const panelExists = ctx.canvasElements.some((el) => el.type === panelType)
   if (panelExists) {
