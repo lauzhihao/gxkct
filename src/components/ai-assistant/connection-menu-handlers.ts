@@ -411,6 +411,7 @@ async function handlePanelOption(
 
   if (option === "chapter") {
     const readiness = getChapterGenerationReadiness(ctx.canvasElements)
+    console.log("[connection-menu] chapter readiness", readiness)
     if (!readiness.ready) {
       toast.error(readiness.message)
       return
@@ -438,7 +439,9 @@ async function handlePanelOption(
   }
 
   const fillHandler = fillHandlers[option]
+  console.log("[connection-menu] panel created", { option, panelId, hasFillHandler: Boolean(fillHandler) })
   if (fillHandler) {
+    console.log("[connection-menu] invoking fill handler", { option, panelId })
     await runFillAfterCanvasReady(ctx, fillHandler)
   }
 }
