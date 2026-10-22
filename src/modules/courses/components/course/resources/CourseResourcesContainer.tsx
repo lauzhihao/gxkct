@@ -1147,8 +1147,11 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
 
   return (
     <>
-      <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div
+        data-resource-view={viewMode}
+        className={viewMode === "list" ? "flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto" : "space-y-4"}
+      >
+      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <ResourceBreadcrumb path={breadcrumbs} onCrumbClick={handleBreadcrumbClick} />
         {showActions ? (
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
@@ -1219,9 +1222,9 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
           {error}
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className={viewMode === "list" ? "flex min-h-0 flex-1 flex-col gap-4" : "space-y-4"}>
           {interactionMode === "batch" && hasSelectableObjects && (
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <span>已选 {selectedCount} 个对象</span>
               <div className="flex flex-wrap items-center gap-2">
                 {canManageCourseResource && (
@@ -1288,8 +1291,8 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
             className={
               viewMode === "list"
                 ? isDropActive
-                  ? "relative box-border h-[480px] min-h-0 overflow-hidden rounded-xl border-2 border-dashed border-primary bg-primary/5 transition-colors"
-                  : "relative box-border h-[480px] min-h-0 overflow-hidden rounded-xl border-2 border-dashed border-transparent transition-colors"
+                  ? "relative box-border min-h-0 flex-1 overflow-hidden rounded-xl border-2 border-dashed border-primary bg-primary/5 transition-colors"
+                  : "relative box-border min-h-0 flex-1 overflow-hidden rounded-xl border-2 border-dashed border-transparent transition-colors"
                 : isDropActive
                   ? "relative rounded-xl border-2 border-dashed border-primary bg-primary/5 p-3 pb-[15px] transition-colors"
                   : "relative pb-[15px]"

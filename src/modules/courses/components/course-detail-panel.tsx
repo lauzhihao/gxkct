@@ -1399,9 +1399,15 @@ export function CourseDetail({
 
   return (
     <>
-      <div className="rounded-md border border-border bg-card overflow-hidden">
+      <div
+        className={cn(
+          "rounded-md border border-border bg-card overflow-hidden",
+          activeTab === "resources" &&
+            "has-[[data-resource-view=list]]:flex has-[[data-resource-view=list]]:h-full has-[[data-resource-view=list]]:min-h-0 has-[[data-resource-view=list]]:flex-col",
+        )}
+      >
         {/* Header */}
-        <div className="border-b border-border bg-card px-6 py-4">
+        <div className="shrink-0 border-b border-border bg-card px-6 py-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-4">
@@ -1502,9 +1508,22 @@ export function CourseDetail({
         )}
 
         {/* Content */}
-        <div>
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="w-full h-10 bg-secondary/50 border-b border-border rounded-none p-0">
+        <div
+          className={cn(
+            activeTab === "resources" &&
+              "has-[[data-resource-view=list]]:flex has-[[data-resource-view=list]]:min-h-0 has-[[data-resource-view=list]]:flex-1 has-[[data-resource-view=list]]:flex-col",
+          )}
+        >
+          <Tabs
+            value={activeTab}
+            onValueChange={handleTabChange}
+            className={cn(
+              "w-full",
+              activeTab === "resources" &&
+                "has-[[data-resource-view=list]]:min-h-0 has-[[data-resource-view=list]]:flex-1",
+            )}
+          >
+            <TabsList className="w-full h-10 shrink-0 bg-secondary/50 border-b border-border rounded-none p-0">
               <TabsTrigger value="info" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors"><Info className="h-4 w-4 text-primary" />课程信息</TabsTrigger>
               <TabsTrigger value="resources" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors"><FolderOpen className="h-4 w-4 text-primary" />课程资源</TabsTrigger>
               <TabsTrigger value="matrix" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors"><Grid3x3 className="h-4 w-4 text-primary" />矩阵管理</TabsTrigger>
@@ -1541,7 +1560,10 @@ export function CourseDetail({
               </Accordion>
             </TabsContent>
 
-            <TabsContent value="resources" className="space-y-4 mt-4 px-6">
+            <TabsContent
+              value="resources"
+              className="space-y-4 mt-4 px-6 data-[state=active]:has-[[data-resource-view=list]]:flex data-[state=active]:has-[[data-resource-view=list]]:min-h-0 data-[state=active]:has-[[data-resource-view=list]]:flex-col"
+            >
               <CourseResources nodeId={courseNode.id || courseNode.nodeId} courseEditable={courseEditable} />
             </TabsContent>
 
