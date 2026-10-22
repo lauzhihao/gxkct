@@ -380,7 +380,7 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
                 size="sm"
                 variant="ghost"
                 onClick={onClose}
-                className="gap-2 hover:text-white"
+                className="gap-2 hover:text-foreground"
               >
                 <ArrowLeft className="w-4 h-4" />
                 返回
@@ -516,7 +516,7 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
                                             size="sm"
                                             variant="ghost"
                                             onClick={() => void syncObjectivesFromServer()}
-                                            className="mt-0 h-10 w-10 p-0 text-muted-foreground hover:text-white"
+                                            className="mt-0 h-10 w-10 p-0 text-muted-foreground hover:text-foreground"
                                             title="取消"
                                           >
                                           <X className="w-4 h-4" />
@@ -564,7 +564,7 @@ export function TeachingObjectivesEditor(props: TeachingObjectivesEditorProps) {
                                                     variant="ghost"
                                                     onClick={() => void restoreGoalObjective()}
                                                     disabled={isSavingObjective || isDeletingObjective || isSyncingObjectives}
-                                                    className="h-10 w-10 p-0 text-muted-foreground hover:text-white"
+                                                    className="h-10 w-10 p-0 text-muted-foreground hover:text-foreground"
                                                     title="取消"
                                                   >
                                                     <X className="w-4 h-4" />

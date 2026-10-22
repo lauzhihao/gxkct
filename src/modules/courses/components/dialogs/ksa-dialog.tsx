@@ -285,6 +285,13 @@ export function KsaDialog({
   const batchSummaryTimerRef = useRef<Partial<Record<KsaTitle, ReturnType<typeof setTimeout>>>>({})
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const tempRowCounterRef = useRef(0)
+  const courseKey = JSON.stringify([majorId, courseId])
+  const lastClickedKsaIdsRef = useRef(new Map<string, Partial<Record<KsaTitle, number>>>())
+  const listElementsRef = useRef<Partial<Record<KsaTitle, HTMLDivElement>>>({})
+  const rowElementsRef = useRef(new Map<string, HTMLDivElement>())
+  const initializedDraftRowsRef = useRef<KsaDraftItem[] | null>(null)
+  const pendingScrollRestoreRef = useRef(false)
+  const [dialogContent, setDialogContent] = useState<HTMLDivElement | null>(null)
 
   const createDraftRows = (items: readonly KsaItem[]): KsaDraftItem[] =>
     items.map((item) => ({
@@ -326,6 +333,10 @@ export function KsaDialog({
   }
 
   useEffect(() => {
+    pendingScrollRestoreRef.current = ksaDialogOpen
+  }, [ksaDialogOpen, courseKey])
+
+  useEffect(() => {
     if (!ksaDialogOpen) {
       setDraftRows([])
       setFocusedRowKey(null)
@@ -333,10 +344,43 @@ export function KsaDialog({
       return
     }
 
-    setDraftRows(createDraftRows(normalizeKsaListItems(ksaListData)))
+    const nextDraftRows = createDraftRows(normalizeKsaListItems(ksaListData))
+    initializedDraftRowsRef.current = nextDraftRows
+    setDraftRows(nextDraftRows)
     setFocusedRowKey(null)
     setPendingFocusRowKey(null)
-  }, [ksaDialogOpen, ksaListData])
+  }, [ksaDialogOpen, ksaListData, courseKey])
+
+  useEffect(() => {
+    if (!ksaDialogOpen || !dialogContent || !pendingScrollRestoreRef.current ||
+        draftRows !== initializedDraftRowsRef.current) {
+      return
+    }
+
+    // 等待 Portal 和列表布局就绪；一次打开只恢复一次，避免编辑或搜索时抢滚动。
+    const frame = requestAnimationFrame(() => {
+      pendingScrollRestoreRef.current = false
+      const lastClickedIds = lastClickedKsaIdsRef.current.get(courseKey)
+      if (!lastClickedIds) {
+        return
+      }
+
+      for (const title of KSA_TITLES) {
+        const id = lastClickedIds[title]
+        if (id === undefined) {
+          continue
+        }
+
+        const listElement = listElementsRef.current[title]
+        const rowElement = rowElementsRef.current.get(`existing-${id}`)
+        if (listElement && rowElement && listElement.contains(rowElement)) {
+          listElement.scrollTop = rowElement.offsetTop
+        }
+      }
+    })
+
+    return () => cancelAnimationFrame(frame)
+  }, [ksaDialogOpen, courseKey, dialogContent, draftRows])
 
   useEffect(() => {
     const activeTimers = batchSummaryTimerRef.current
@@ -841,7 +885,16 @@ export function KsaDialog({
         </div>
       ) : (
       /* List - Scrollable */
-      <div className="flex-1 overflow-y-auto min-h-0 bg-background">
+      <div
+        ref={(element) => {
+          if (element) {
+            listElementsRef.current[ksaType] = element
+          } else {
+            delete listElementsRef.current[ksaType]
+          }
+        }}
+        className="relative flex-1 overflow-y-auto min-h-0 bg-background"
+      >
         <div className="p-3 space-y-2.5">
           {/* KSA points */}
           {filteredPoints.length > 0 ? (
@@ -854,6 +907,26 @@ export function KsaDialog({
               return (
                 <div
                   key={point.rowKey}
+                  ref={(element) => {
+                    if (element) {
+                      rowElementsRef.current.set(point.rowKey, element)
+                    } else {
+                      rowElementsRef.current.delete(point.rowKey)
+                    }
+                  }}
+                  onClickCapture={() => {
+                    if (point.isTemporary) {
+                      return
+                    }
+
+                    // capture 可记录行内 stopPropagation 按钮的点选。
+                    const lastClickedIds = lastClickedKsaIdsRef.current.get(courseKey)
+                    if (lastClickedIds) {
+                      lastClickedIds[ksaType] = point.id
+                    } else {
+                      lastClickedKsaIdsRef.current.set(courseKey, { [ksaType]: point.id })
+                    }
+                  }}
                   onClick={() => {
                     if (isGlobalMode) {
                       focusDraftRow(point.rowKey)
@@ -1044,7 +1117,7 @@ export function KsaDialog({
   return (
     <TooltipProvider delayDuration={0}>
       <Dialog open={ksaDialogOpen} onOpenChange={setKsaDialogOpen}>
-        <DialogContent className="h-[85vh] flex flex-col" style={{ width: "75vw", maxWidth: "75vw" }}>
+        <DialogContent ref={setDialogContent} className="h-[85vh] flex flex-col" style={{ width: "75vw", maxWidth: "75vw" }}>
         <DialogHeader>
           <DialogTitle>KSA管理</DialogTitle>
           <DialogDescription>点击下方卡片可以编辑KSA，您也可以通过智能解析进行批量新增</DialogDescription>

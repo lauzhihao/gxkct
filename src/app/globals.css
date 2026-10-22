@@ -3,62 +3,104 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * MiSans Latin 只接管 ASCII 段（数字、拉丁字母、ASCII 标点）。
+ * 思源黑体的拉丁与数字字形是为配合汉字等宽而画的，字腔闭、末端平，
+ * 单独看数字明显钝于系统 UI 字体；这三档把该段换掉，汉字仍走思源黑体。
+ * unicode-range 刻意不含 U+00B7 / U+2014 / U+2026 / U+201C-201D，
+ * 中文标点继续由思源黑体渲染，保留全角字面与居中位置。
+ *
+ * 文件取自小米官方 MiSans_Latin.zip，逐字节未修改（sha256 见交付记录）。
+ * 许可: https://hyperos.mi.com/font/zh/download —— 使用前提含"应在软件中
+ * 特别注明使用了 MiSans 字体"，该署名在登录页页脚。
+ */
+@font-face {
+  font-family: "MiSans Latin";
+  src: url("/fonts/MiSansLatin-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0020-007E;
+}
+
+@font-face {
+  font-family: "MiSans Latin";
+  src: url("/fonts/MiSansLatin-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0020-007E;
+}
+
+@font-face {
+  font-family: "MiSans Latin";
+  src: url("/fonts/MiSansLatin-Semibold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0020-007E;
+}
+
 :root {
-  /* Keeping light gray background, applying Vercel blue (#0070f3) to interactive elements */
-  --background: oklch(0.96 0.005 240);
-  --foreground: oklch(0.25 0.01 240);
-  --card: oklch(0.98 0.003 240);
-  --card-foreground: oklch(0.25 0.01 240);
-  --popover: oklch(0.975 0.004 240);
-  --popover-foreground: oklch(0.25 0.01 240);
+  /* 方案 A 机构蓝配色：纯色底、实心面板、中性 accent */
+  --background: oklch(0.973 0.003 264.5);
+  --foreground: oklch(0.209 0.010 268.2);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.209 0.010 268.2);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.209 0.010 268.2);
 
-  /* Vercel blue: #0070f3 converted to OKLCH */
-  --primary: oklch(0.58 0.2 240);
-  --primary-foreground: oklch(0.99 0.002 240);
+  /* 机构蓝 #1D5FBF：主操作、选中、链接 */
+  --primary: oklch(0.563 0.193 256.2);
+  --primary-foreground: oklch(1 0 0);
 
-  /* Blue hover state */
-  --secondary: oklch(0.92 0.008 240);
-  --secondary-foreground: oklch(0.3 0.01 240);
+  --secondary: oklch(0.966 0.005 258.3);
+  --secondary-foreground: oklch(0.209 0.010 268.2);
 
-  --muted: oklch(0.94 0.006 240);
-  --muted-foreground: oklch(0.48 0.02 240);
+  --muted: oklch(0.966 0.005 258.3);
+  --muted-foreground: oklch(0.501 0.022 258.4);
 
-  /* Vercel accent blue for highlights */
-  --accent: oklch(0.62 0.21 240);
-  --accent-foreground: oklch(0.99 0.002 240);
+  /* accent 为中性灰，供菜单/下拉/tab/ghost 的 hover 底使用，不是品牌蓝 */
+  --accent: oklch(0.954 0.005 258.3);
+  --accent-foreground: oklch(0.209 0.010 268.2);
 
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.99 0.002 240);
-  --border: oklch(0.88 0.008 240);
-  --input: oklch(0.95 0.005 240);
+  --destructive: oklch(0.543 0.174 29.7);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.924 0.008 260.7);
+  --input: oklch(0.924 0.008 260.7);
+  --ring: oklch(0.563 0.193 256.2);
 
-  /* Ring color matches primary blue */
-  --ring: oklch(0.58 0.2 240);
+  /* 语义状态色 */
+  --success: oklch(0.529 0.106 154.6);
+  --warning: oklch(0.626 0.125 70.4);
+  --info: oklch(0.501 0.165 258.7);
 
-  /* Chart colors using blue variations */
-  --chart-1: oklch(0.58 0.2 240);
-  --chart-2: oklch(0.62 0.21 240);
-  --chart-3: oklch(0.54 0.19 240);
-  --chart-4: oklch(0.5 0.18 240);
-  --chart-5: oklch(0.66 0.22 240);
+  /* 图表五色：蓝 / 绿 / 琥珀 / 红 / 紫，按色相区分 */
+  --chart-1: oklch(0.55 0.15 256);
+  --chart-2: oklch(0.55 0.12 155);
+  --chart-3: oklch(0.60 0.13 70);
+  --chart-4: oklch(0.55 0.16 20);
+  --chart-5: oklch(0.55 0.14 305);
 
-  --radius: 0.75rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --radius: 0.375rem;
 
-  /* Vercel blue color variables for different states */
-  --naive-primary: #0070f3;
-  --naive-primary-hover: rgba(0, 112, 243, 0.12);
-  --naive-primary-pressed: rgba(0, 112, 243, 0.18);
-  --naive-primary-active: rgba(0, 112, 243, 0.1);
-  --naive-primary-dark: #0051cc;
-  --naive-primary-light: #3291ff;
+  /* sidebar 组对齐主 token，不再是 shadcn 原版中性灰 */
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  /* 主题切换器运行时变量（机构蓝） */
+  --naive-primary: #0071e3;
+  --naive-primary-hover: rgba(0, 113, 227, 0.12);
+  --naive-primary-pressed: rgba(0, 113, 227, 0.18);
+  --naive-primary-active: rgba(0, 113, 227, 0.1);
+  --naive-primary-dark: #0051B3;
+  --naive-primary-light: #3A8FE8;
 }
 
 .dark {
@@ -97,7 +139,7 @@
 }
 
 @theme inline {
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-sans: "MiSans Latin", var(--font-noto-sans-sc), "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -118,6 +160,9 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);

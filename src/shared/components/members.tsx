@@ -1085,8 +1085,8 @@ export function Members({ node }: MembersProps) {
                               className={cn(
                                 "gap-2",
                                 resetPasswordStatus === "success"
-                                  ? "text-green-600 hover:text-white"
-                                  : "text-orange-600 hover:text-white"
+                                  ? "text-green-600 hover:text-green-600"
+                                  : "text-orange-600 hover:text-orange-600"
                               )}
                               disabled={resetPasswordStatus === "loading"}
                             >
@@ -1126,7 +1126,7 @@ export function Members({ node }: MembersProps) {
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="gap-2 text-destructive hover:text-white"
+                              className="gap-2 text-destructive hover:text-destructive"
                               disabled={isDeleteLoading}
                             >
                               {isDeleteLoading ? (
@@ -1258,8 +1258,8 @@ export function Members({ node }: MembersProps) {
                       className={cn(
                         "shrink-0 mt-0.5",
                         editingResetPasswordStatus === "success"
-                          ? "text-green-600 hover:text-white"
-                          : "text-orange-600 hover:text-white"
+                          ? "text-green-600 hover:text-green-600"
+                          : "text-orange-600 hover:text-orange-600"
                       )}
                       disabled={!editingUserId || editingResetPasswordStatus === "loading"}
                       onClick={() => {
@@ -1309,8 +1309,10 @@ export function Members({ node }: MembersProps) {
                           setNewUserRole(role)
                           setUserRolePopoverOpen(false)
                         }}
-                        className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-accent hover:text-white ${
-                          newUserRole === role ? "bg-[var(--naive-primary)] text-white" : ""
+                        className={`w-full text-left px-3 py-2 rounded text-sm ${
+                          newUserRole === role
+                            ? "bg-[var(--naive-primary)] text-white hover:bg-[var(--naive-primary-dark)] hover:text-white"
+                            : "hover:bg-accent hover:text-foreground"
                         }`}
                       >
                         {role}
@@ -1360,8 +1362,10 @@ export function Members({ node }: MembersProps) {
                                 setDepartmentPopoverOpen(false)
                               }}
                               className={cn(
-                                "w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-white",
-                                selectedDepartmentNodeId === item.nodeId && "bg-[var(--naive-primary)] text-white"
+                                "w-full text-left px-3 py-2 text-sm",
+                                selectedDepartmentNodeId === item.nodeId
+                                  ? "bg-[var(--naive-primary)] text-white hover:bg-[var(--naive-primary-dark)] hover:text-white"
+                                  : "hover:bg-accent hover:text-foreground"
                               )}
                             >
                               {item.nodeName}
@@ -1414,8 +1418,10 @@ export function Members({ node }: MembersProps) {
                                 setMajorPopoverOpen(false)
                               }}
                               className={cn(
-                                "w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-white",
-                                selectedOrganizationNodeId === item.nodeId && "bg-[var(--naive-primary)] text-white"
+                                "w-full text-left px-3 py-2 text-sm",
+                                selectedOrganizationNodeId === item.nodeId
+                                  ? "bg-[var(--naive-primary)] text-white hover:bg-[var(--naive-primary-dark)] hover:text-white"
+                                  : "hover:bg-accent hover:text-foreground"
                               )}
                             >
                               {item.nodeName}

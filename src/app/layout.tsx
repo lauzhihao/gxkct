@@ -9,7 +9,7 @@ import { GlobalLoadingCursor } from "@/shared/components/ui/global-loading-curso
 const notoSansScFont = Noto_Sans_SC({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
-  display: "optional",
+  display: "swap",
   preload: true,
   variable: "--font-noto-sans-sc",
   fallback: ["PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", "DengXian", "sans-serif"],
@@ -17,8 +17,7 @@ const notoSansScFont = Noto_Sans_SC({
 
 export const metadata: Metadata = {
   title: "高校课程通",
-  description: "Created with v0",
-  generator: "v0.app",
+  description: "高校课程通 - 高校课程与教学质量管理平台",
   icons: {
     icon: "/favicon.ico",
   },

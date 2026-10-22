@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { ChevronDown, Palette, Eye, EyeOff, MessageSquareWarning } from "lucide-react"
+import { ChevronDown, Palette, Eye, EyeOff, MessageSquareWarning, LayoutDashboard } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import {
   DropdownMenu,
@@ -28,6 +28,7 @@ import { cn, extractNumericId } from "@/shared/utils/utils"
 import { api, getStoredAuthUser, clearAllAuthData } from "@/lib/api"
 import { useActivePageTracker } from "@/shared/hooks/use-active-page-tracker"
 import { usePermission } from "@/shared/hooks/use-permission"
+import { useHasMounted } from "@/shared/hooks/use-has-mounted"
 import { AiAssistantDrawer } from "./ai-assistant-drawer"
 import { useLoadingStore } from "@/shared/stores/loading-store"
 import { useAiCanvasStore } from "@/shared/stores/ai-canvas-store"
@@ -51,139 +52,119 @@ const EMPTY_INITIAL_CANVAS_DATA: InitialCanvasData = {
 
 const WORKSHOP_MANAGEMENT_ACTION = "root.college.create" as const
 const WORKSHOP_MANAGEMENT_CONTEXT = { scope: "root" } as const
+const DASHBOARD_ACTION = "college.dashboard.view" as const
+const DASHBOARD_PATH = "/dashboard"
 
 const COLOR_THEMES = {
   green: {
-    name: "NaiveUI 绿色",
+    name: "墨绿",
     primary: "#18a058",
     primaryDark: "#0c7a43",
     primaryLight: "#36ad6a",
     primaryHover: "rgba(24, 160, 88, 0.12)",
     primaryPressed: "rgba(24, 160, 88, 0.18)",
     primaryActive: "rgba(24, 160, 88, 0.1)",
-    oklchPrimary: "oklch(0.58 0.15 155)",
-    oklchAccent: "oklch(0.62 0.16 155)",
-    hue: 155,
+    oklchPrimary: "oklch(0.621 0.153 153.2)",
   },
   vercelBlue: {
-    name: "Vercel 蓝色",
-    primary: "#0070f3",
-    primaryDark: "#0051cc",
-    primaryLight: "#3291ff",
-    primaryHover: "rgba(0, 112, 243, 0.12)",
-    primaryPressed: "rgba(0, 112, 243, 0.18)",
-    primaryActive: "rgba(0, 112, 243, 0.1)",
-    oklchPrimary: "oklch(0.58 0.2 240)",
-    oklchAccent: "oklch(0.62 0.21 240)",
-    hue: 240,
+    name: "宝蓝",
+    primary: "#1D5FBF",
+    primaryDark: "#17509F",
+    primaryLight: "#3B7FD4",
+    primaryHover: "rgba(29, 95, 191, 0.10)",
+    primaryPressed: "rgba(29, 95, 191, 0.16)",
+    primaryActive: "rgba(29, 95, 191, 0.08)",
+    oklchPrimary: "oklch(0.501 0.165 258.7)",
   },
   antBlue: {
-    name: "Ant Design 蓝色",
+    name: "亮蓝",
     primary: "#1890ff",
     primaryDark: "#096dd9",
     primaryLight: "#40a9ff",
     primaryHover: "rgba(24, 144, 255, 0.12)",
     primaryPressed: "rgba(24, 144, 255, 0.18)",
     primaryActive: "rgba(24, 144, 255, 0.1)",
-    oklchPrimary: "oklch(0.62 0.22 245)",
-    oklchAccent: "oklch(0.66 0.23 245)",
-    hue: 245,
+    oklchPrimary: "oklch(0.651 0.191 252.8)",
   },
   microsoftBlue: {
-    name: "微软蓝色",
+    name: "钢蓝",
     primary: "#0078d4",
     primaryDark: "#005a9e",
     primaryLight: "#2b88d8",
     primaryHover: "rgba(0, 120, 212, 0.12)",
     primaryPressed: "rgba(0, 120, 212, 0.18)",
     primaryActive: "rgba(0, 120, 212, 0.1)",
-    oklchPrimary: "oklch(0.56 0.18 235)",
-    oklchAccent: "oklch(0.6 0.19 235)",
-    hue: 235,
+    oklchPrimary: "oklch(0.568 0.167 251.3)",
   },
   tailwindBlue: {
-    name: "Tailwind 蓝色",
+    name: "天蓝",
     primary: "#2563eb",
     primaryDark: "#1e40af",
     primaryLight: "#3b82f6",
     primaryHover: "rgba(37, 99, 235, 0.12)",
     primaryPressed: "rgba(37, 99, 235, 0.18)",
     primaryActive: "rgba(37, 99, 235, 0.1)",
-    oklchPrimary: "oklch(0.55 0.24 250)",
-    oklchAccent: "oklch(0.59 0.25 250)",
-    hue: 250,
+    oklchPrimary: "oklch(0.546 0.215 262.9)",
   },
   claudeOrange: {
-    name: "Claude 橙色",
+    name: "暖橙",
     primary: "#E87C3E",
     primaryDark: "#C5621F",
     primaryLight: "#FF9B5E",
     primaryHover: "rgba(232, 124, 62, 0.12)",
     primaryPressed: "rgba(232, 124, 62, 0.18)",
     primaryActive: "rgba(232, 124, 62, 0.1)",
-    oklchPrimary: "oklch(0.65 0.16 45)",
-    oklchAccent: "oklch(0.69 0.17 45)",
-    hue: 45,
+    oklchPrimary: "oklch(0.697 0.153 48.1)",
   },
   hermesOrange: {
-    name: "爱马仕橙色",
+    name: "赤橙",
     primary: "#F37021",
     primaryDark: "#D85A0D",
     primaryLight: "#FF9B5E",
     primaryHover: "rgba(243, 112, 33, 0.12)",
     primaryPressed: "rgba(243, 112, 33, 0.18)",
     primaryActive: "rgba(243, 112, 33, 0.1)",
-    oklchPrimary: "oklch(0.68 0.16 35)",
-    oklchAccent: "oklch(0.72 0.17 35)",
-    hue: 35,
+    oklchPrimary: "oklch(0.692 0.181 46.2)",
   },
   appleBlue: {
-    name: "Apple 蓝色",
+    name: "湖蓝",
     primary: "#0071e3",
     primaryDark: "#0051B3",
     primaryLight: "#3A8FE8",
     primaryHover: "rgba(0, 113, 227, 0.12)",
     primaryPressed: "rgba(0, 113, 227, 0.18)",
     primaryActive: "rgba(0, 113, 227, 0.1)",
-    oklchPrimary: "oklch(0.56 0.19 238)",
-    oklchAccent: "oklch(0.6 0.2 238)",
-    hue: 238,
+    oklchPrimary: "oklch(0.563 0.193 256.2)",
   },
   notionPurple: {
-    name: "Tsinghua 清华紫",
+    name: "清华紫",
     primary: "#9B59B6",
     primaryDark: "#7D3C98",
     primaryLight: "#BB8FCE",
     primaryHover: "rgba(155, 89, 182, 0.12)",
     primaryPressed: "rgba(155, 89, 182, 0.18)",
     primaryActive: "rgba(155, 89, 182, 0.1)",
-    oklchPrimary: "oklch(0.52 0.15 310)",
-    oklchAccent: "oklch(0.56 0.16 310)",
-    hue: 310,
+    oklchPrimary: "oklch(0.577 0.152 315.3)",
   },
   slackAubergine: {
-    name: "Slack 茄紫",
+    name: "茄紫",
     primary: "#611f69",
     primaryDark: "#4A1850",
     primaryLight: "#7E3B85",
     primaryHover: "rgba(97, 31, 105, 0.12)",
     primaryPressed: "rgba(97, 31, 105, 0.18)",
     primaryActive: "rgba(97, 31, 105, 0.1)",
-    oklchPrimary: "oklch(0.35 0.12 320)",
-    oklchAccent: "oklch(0.39 0.13 320)",
-    hue: 320,
+    oklchPrimary: "oklch(0.374 0.136 323.2)",
   },
   linearPurple: {
-    name: "Linear 紫色",
+    name: "靛紫",
     primary: "#5E6AD2",
     primaryDark: "#4854B8",
     primaryLight: "#7B85E0",
     primaryHover: "rgba(94, 106, 210, 0.12)",
     primaryPressed: "rgba(94, 106, 210, 0.18)",
     primaryActive: "rgba(94, 106, 210, 0.1)",
-    oklchPrimary: "oklch(0.54 0.16 270)",
-    oklchAccent: "oklch(0.58 0.17 270)",
-    hue: 270,
+    oklchPrimary: "oklch(0.567 0.159 275.2)",
   },
 }
 
@@ -191,7 +172,6 @@ interface HeaderProps {
   onResetData?: () => void
   isTreeCollapsed?: boolean
   currentPath?: string
-  selectedNodeName?: string | null
   /** 树形结构数据（用于AI助手保存向导选择专业） */
   treeData?: import("@/types").TreeNode | null
 }
@@ -200,7 +180,7 @@ export function Header({ currentPath, treeData }: HeaderProps) {
   const router = useRouter()
   const { can } = usePermission()
   const [courseDevDrawerOpen, setCourseDevDrawerOpen] = useState(false)
-  const [currentTheme, setCurrentTheme] = useState<keyof typeof COLOR_THEMES>("vercelBlue")
+  const [currentTheme, setCurrentTheme] = useState<keyof typeof COLOR_THEMES>("appleBlue")
   const [userName, setUserName] = useState<string>("用户")
   const [aiInitialCanvasData, setAiInitialCanvasData] = useState<InitialCanvasData | null>(null)
   const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false)
@@ -235,8 +215,12 @@ export function Header({ currentPath, treeData }: HeaderProps) {
   const authUserId = getStoredAuthUser()?.id ?? null
   const avatarText = userName.trim().charAt(0).toUpperCase() || "U"
   const userMenuItemClassName =
-    "cursor-pointer hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground data-[highlighted]:bg-primary data-[highlighted]:text-primary-foreground"
+    "cursor-pointer hover:bg-accent hover:text-foreground focus:bg-accent focus:text-foreground data-[highlighted]:bg-accent data-[highlighted]:text-foreground"
   const canManageWorkshop = can(WORKSHOP_MANAGEMENT_ACTION, WORKSHOP_MANAGEMENT_CONTEXT)
+  const canViewDashboard = can(DASHBOARD_ACTION)
+  const isOnDashboard = currentPath === DASHBOARD_PATH
+  // 权限取自 localStorage，服务端渲染时读不到；挂载后再渲染入口，避免水合不一致
+  const hasMounted = useHasMounted()
 
   // 处理退出登录
   const handleLogout = () => {
@@ -246,6 +230,12 @@ export function Header({ currentPath, treeData }: HeaderProps) {
 
   const handleOpenWorkshopManagement = useCallback(() => {
     router.push("/workshop-management")
+  }, [router])
+
+  // 带上来源地址（含 ?nodeId=），看板页"返回"时回到原来选中的节点
+  const handleOpenDashboard = useCallback(() => {
+    const from = `${window.location.pathname}${window.location.search}`
+    router.push(`${DASHBOARD_PATH}?from=${encodeURIComponent(from)}`)
   }, [router])
 
   const handleResetPassword = useCallback(async () => {
@@ -361,15 +351,7 @@ export function Header({ currentPath, treeData }: HeaderProps) {
     root.style.setProperty("--naive-primary-pressed", theme.primaryPressed)
     root.style.setProperty("--naive-primary-active", theme.primaryActive)
     root.style.setProperty("--primary", theme.oklchPrimary)
-    root.style.setProperty("--accent", theme.oklchAccent)
     root.style.setProperty("--ring", theme.oklchPrimary)
-
-    // Update chart colors with theme hue
-    root.style.setProperty("--chart-1", `oklch(0.58 0.2 ${theme.hue})`)
-    root.style.setProperty("--chart-2", `oklch(0.62 0.21 ${theme.hue})`)
-    root.style.setProperty("--chart-3", `oklch(0.54 0.19 ${theme.hue})`)
-    root.style.setProperty("--chart-4", `oklch(0.5 0.18 ${theme.hue})`)
-    root.style.setProperty("--chart-5", `oklch(0.66 0.22 ${theme.hue})`)
 
     // Save to localStorage
     await api.config.setTheme(themeKey)
@@ -377,11 +359,19 @@ export function Header({ currentPath, treeData }: HeaderProps) {
   }
 
   return (
-    <header className="relative mb-6" data-current-path={currentPath ?? undefined}>
-      <div className="flex items-center justify-between h-16 w-full px-6 rounded-2xl bg-white/40 backdrop-blur-md border border-primary/20 shadow-lg">
-        {/* Left side - Welcome text */}
-        <div className="flex flex-col">
-          <h1 className="text-xl font-semibold text-foreground">欢迎使用高校课程通</h1>
+    <header className="relative" data-current-path={currentPath ?? undefined}>
+      <div className="flex items-center justify-between h-[52px] w-full px-5 bg-card border-b border-border">
+        {/* Left side - Brand and current location */}
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Image
+            src="/assets/brand/gxkct-mark.png"
+            alt="高校课程通"
+            width={122}
+            height={142}
+            priority
+            className="h-[26px] w-auto flex-shrink-0"
+          />
+          <span className="text-[15px] font-semibold text-foreground">高校课程通</span>
         </div>
 
         {/* Right side - User info and search */}
@@ -400,11 +390,11 @@ export function Header({ currentPath, treeData }: HeaderProps) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="text-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+                  className="h-[30px] w-[30px] text-foreground hover:bg-accent hover:text-foreground transition-colors"
                   onClick={() => setFeedbackDialogOpen(true)}
                   aria-label="问题反馈"
                 >
-                  <MessageSquareWarning className="h-5 w-5" />
+                  <MessageSquareWarning className="h-[17px] w-[17px]" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom">问题反馈</TooltipContent>
@@ -414,11 +404,11 @@ export function Header({ currentPath, treeData }: HeaderProps) {
           {/* Color Palette */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-foreground hover:bg-primary/10 hover:text-primary transition-colors">
-                <Palette className="h-5 w-5" />
+              <Button variant="ghost" size="icon" className="h-[30px] w-[30px] text-foreground hover:bg-accent hover:text-foreground transition-colors">
+                <Palette className="h-[17px] w-[17px]" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 bg-white/95 backdrop-blur-md border-primary/20">
+            <DropdownMenuContent align="end" className="w-56 bg-popover border-border">
               <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">选择主题色</div>
               <DropdownMenuSeparator />
               {Object.entries(COLOR_THEMES).map(([key, theme]) => (
@@ -427,11 +417,13 @@ export function Header({ currentPath, treeData }: HeaderProps) {
                   onClick={() => applyTheme(key as keyof typeof COLOR_THEMES)}
                   className={cn(
                     "cursor-pointer flex items-center gap-3 py-2.5",
-                    currentTheme === key ? "bg-primary/10" : "hover:bg-primary/5",
+                    currentTheme === key
+                      ? "bg-primary/10 focus:bg-primary/10 data-[highlighted]:bg-primary/10"
+                      : "hover:bg-accent focus:bg-accent data-[highlighted]:bg-accent",
                   )}
                 >
                   <div
-                    className="w-6 h-6 rounded border-2 border-white shadow-sm"
+                    className="w-6 h-6 rounded border border-border"
                     style={{ backgroundColor: theme.primary }}
                   />
                   <span className="text-sm">{theme.name}</span>
@@ -441,9 +433,33 @@ export function Header({ currentPath, treeData }: HeaderProps) {
             </DropdownMenuContent>
           </DropdownMenu>
 
+          {/* Data Dashboard */}
+          {hasMounted && canViewDashboard ? (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "h-[30px] w-[30px] text-foreground hover:bg-accent hover:text-foreground transition-colors",
+                      isOnDashboard && "bg-accent text-primary hover:text-primary",
+                    )}
+                    onClick={isOnDashboard ? undefined : handleOpenDashboard}
+                    aria-label="数据看板"
+                    aria-current={isOnDashboard ? "page" : undefined}
+                  >
+                    <LayoutDashboard className="h-[17px] w-[17px]" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">数据看板</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
+
           {/* User Avatar */}
-          <Avatar className="h-9 w-9 border-2 border-primary/30">
-            <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
+          <Avatar className="h-7 w-7 border border-border">
+            <AvatarFallback className="bg-primary/10 text-primary text-[11px] font-semibold">
               {avatarText}
             </AvatarFallback>
           </Avatar>
@@ -451,12 +467,12 @@ export function Header({ currentPath, treeData }: HeaderProps) {
           {/* User Name and Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="group flex items-center gap-2 text-foreground hover:bg-primary/10 hover:text-primary transition-colors">
-                <span className="text-sm font-medium">{userName}</span>
-                <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+              <Button variant="ghost" className="group flex h-[30px] items-center gap-2 px-2 text-foreground hover:bg-accent hover:text-foreground transition-colors">
+                <span className="text-[13px] font-medium">{userName}</span>
+                <ChevronDown className="h-[15px] w-[15px] text-muted-foreground group-hover:text-foreground transition-colors" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 bg-white/95 backdrop-blur-md border-primary/20">
+            <DropdownMenuContent align="end" className="w-48 bg-popover border-border">
               <DropdownMenuItem className={userMenuItemClassName} onClick={() => setIdentitySwitchDialogOpen(true)}>
                 切换身份
               </DropdownMenuItem>
@@ -469,12 +485,12 @@ export function Header({ currentPath, treeData }: HeaderProps) {
                 </>
               )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem className={cn("text-orange-600", userMenuItemClassName)} onClick={() => setResetPasswordDialogOpen(true)}>
+              <DropdownMenuItem className={cn(userMenuItemClassName, "text-orange-600 hover:text-orange-600 focus:text-orange-600 data-[highlighted]:text-orange-600")} onClick={() => setResetPasswordDialogOpen(true)}>
                 重置密码
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                className={cn("text-red-600", userMenuItemClassName)}
+                className={cn(userMenuItemClassName, "text-red-600 hover:text-red-600 focus:text-red-600 data-[highlighted]:text-red-600")}
                 onClick={handleLogout}
               >
                 退出登录

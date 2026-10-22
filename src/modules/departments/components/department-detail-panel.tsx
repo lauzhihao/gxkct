@@ -1,6 +1,6 @@
 "use client"
 
-import { GraduationCap, Pencil, Plus, Upload } from "lucide-react"
+import { GraduationCap, Pencil, Plus, Upload, ClipboardCheck, FolderOpen, LayoutDashboard, Users } from "lucide-react"
 import { extractNumericId } from "@/shared/utils/utils"
 import { api } from "@/lib/api"
 import { useToast } from "@/shared/hooks/use-toast"
@@ -191,18 +191,18 @@ export function DepartmentDetail({
       {/* Tabs for Overview and Members */}
       <div className="flex-1 overflow-auto">
         <Tabs defaultValue="overview" className="w-full" onValueChange={handleTabChange}>
-          <TabsList className="w-full h-10 bg-secondary/50 backdrop-blur-sm border-b border-border rounded-none p-0">
-            <TabsTrigger value="overview" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
-              院系概览
+          <TabsList className="w-full h-10 bg-secondary/50 border-b border-border rounded-none p-0">
+            <TabsTrigger value="overview" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">
+              <LayoutDashboard className="h-4 w-4 text-primary" />院系概览
             </TabsTrigger>
-            <TabsTrigger value="members" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
-              成员管理
+            <TabsTrigger value="members" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">
+              <Users className="h-4 w-4 text-primary" />成员管理
             </TabsTrigger>
-            <TabsTrigger value="resources" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
-              资源管理
+            <TabsTrigger value="resources" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">
+              <FolderOpen className="h-4 w-4 text-primary" />资源管理
             </TabsTrigger>
-            <TabsTrigger value="teaching-quality" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
-              质量评价
+            <TabsTrigger value="teaching-quality" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">
+              <ClipboardCheck className="h-4 w-4 text-primary" />质量评价
             </TabsTrigger>
           </TabsList>
 

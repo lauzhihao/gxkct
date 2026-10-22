@@ -7,7 +7,6 @@ import { LoadingState } from "@/shared/components/ui/loading-state"
 import { Spinner } from "@/shared/components/ui/spinner"
 import { cn } from "@/shared/utils/utils"
 import type { TreeNode, TreeNodeMenuItem } from "@/types"
-import { TreeApi } from "@/lib/api/tree-api"
 import { api } from "@/lib/api"
 import type { MajorMatrixItemResponse } from "@/lib/api/matrix-api"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip"
@@ -15,8 +14,6 @@ import { extractNumericId } from "@/shared/utils/utils"
 import { getMajorCache } from "@/shared/utils/major-cache"
 import { usePermission } from "@/shared/hooks/use-permission"
 import { useSemesterStore } from "@/shared/stores/semester-store"
-
-const treeApiInstance = new TreeApi()
 
 // [MOD] 与专业详情编辑按钮使用相同的权限控制方式
 interface NodeMetadataWithMenus {
@@ -43,10 +40,12 @@ interface CourseMatrixRelationDiff {
 interface MajorMatrixProps {
   node: TreeNode
   onUpdateNode?: (nodeId: string, updates: any) => void
+  /** 毕业要求由 major-detail-panel 在进入专业页时随专业详情一并拉取后传入，本组件不再重复请求详情接口 */
+  requiresVOS: any[]
 }
 
 export function MajorMatrix(props: MajorMatrixProps) {
-  const { node } = props
+  const { node, requiresVOS } = props
 
   // [MOD] 与专业详情删除按钮保持一致：补齐 source 与 btnMenus 的缓存回退链路
   const currentMajorId = useMemo(() => {
@@ -91,7 +90,6 @@ export function MajorMatrix(props: MajorMatrixProps) {
   const [expandedIndicators, setExpandedIndicators] = useState<Set<string>>(new Set())
   const [clampedIndicators, setClampedIndicators] = useState<Set<string>>(new Set())
   const indicatorRefsMap = useRef<Map<string, HTMLDivElement>>(new Map())
-  const [requiresVOS, setRequiresVOS] = useState<any[]>([])
   const [isLoadingMatrix, setIsLoadingMatrix] = useState(false)
   // [MOD] 用于动态测量第一行表头高度，作为第二行表头 sticky top 偏移
   const firstHeaderRowRef = useRef<HTMLTableRowElement | null>(null)
@@ -183,14 +181,8 @@ export function MajorMatrix(props: MajorMatrixProps) {
       try {
         // [MOD] 复用课程管理 Tab 的接口（api.tree.getMajorCourses），
         // 移除原本直接 fetch /api/v4/webpage/majorindex/courses 的重复实现
-        const [majorDetailResponse, courseListResponse] = await Promise.all([
-          treeApiInstance.getMajorDetail(majorId),
-          api.tree.getMajorCourses(majorId, selectedSemesterId),
-        ])
-
-        if (majorDetailResponse.data?.requiresVOS) {
-          setRequiresVOS(majorDetailResponse.data.requiresVOS)
-        }
+        // 毕业要求走父级预加载的专业详情，这里只拉课程列表
+        const courseListResponse = await api.tree.getMajorCourses(majorId, selectedSemesterId)
 
         if (courseListResponse.error) {
           const errorText = typeof courseListResponse.error === "string"

@@ -1,0 +1,190 @@
+import { loadCourseDetails, requireCourseDetail, requireSection } from "@/modules/dashboard/data/course-details"
+import { loadCourseOwners, requireCourseManagers } from "@/modules/dashboard/data/course-owners"
+import {
+  averageCompletion,
+  countQualified,
+  loadCourseStatuses,
+  requireCourseStatus,
+  type CourseStatusSet,
+} from "@/modules/dashboard/data/course-status"
+import {
+  fetchDepartmentMajorCards,
+  fetchMajorMatrix,
+  fetchMajorTaskCourses,
+  fetchMajorTasks,
+  fetchTree,
+  type CourseEvaluationDto,
+  type TaskStatDto,
+} from "@/modules/dashboard/data/dashboard-api"
+import { classifyDeadline, isStepCompleted, isTaskCompleted, startOfToday } from "@/modules/dashboard/data/evaluation"
+import { buildOrgIndex, requireDepartment, requireMajor } from "@/modules/dashboard/data/org-index"
+import type { SemesterComparisons } from "@/modules/dashboard/data/semesters"
+import { summarizeCourseResources } from "@/modules/dashboard/data/resources"
+import { managerDisplayName } from "@/modules/dashboard/data/teachers"
+import { isStale, toUpdateDay } from "@/modules/dashboard/data/update-time"
+import type { CourseMatrixRow, EvaluationCell, MajorDashboardData } from "@/modules/dashboard/types"
+
+/** 评估任务按截止日期从早到晚排列；没有截止日期的排在最后 */
+function compareTasks(left: TaskStatDto, right: TaskStatDto): number {
+  if (left.endDate !== right.endDate) {
+    if (left.endDate === null) return 1
+    if (right.endDate === null) return -1
+    return left.endDate < right.endDate ? -1 : 1
+  }
+  return Number(left.taskId) - Number(right.taskId)
+}
+
+interface RankedScore {
+  score: number
+  rank: number
+}
+
+/** 已出分：学校评价（最后一级）已完成且有总分 */
+function schoolScore(entry: CourseEvaluationDto): number | null {
+  if (!isStepCompleted(entry.schoolEvaluationStatus)) return null
+  return entry.schoolTotalScore
+}
+
+/** 取最近一次有出分的评估，在专业内按得分排名：名次 = 1 + 得分更高的课程数（同分同名次） */
+function rankLatestScores(taskEvaluations: CourseEvaluationDto[][]): Map<string, RankedScore> {
+  for (let taskIndex = taskEvaluations.length - 1; taskIndex >= 0; taskIndex -= 1) {
+    const scored = taskEvaluations[taskIndex].flatMap((entry) => {
+      const score = schoolScore(entry)
+      return score === null ? [] : [{ courseId: entry.courseId, score }]
+    })
+    if (scored.length === 0) continue
+    return new Map(
+      scored.map((entry) => [
+        entry.courseId,
+        { score: entry.score, rank: 1 + scored.filter((other) => other.score > entry.score).length },
+      ]),
+    )
+  }
+  return new Map()
+}
+
+/** 是否合格取课程概况里同一任务的学校评价得分率；该任务没有满分可算时为 null */
+function toCell(entry: CourseEvaluationDto | undefined, taskId: string, statusSet: CourseStatusSet): EvaluationCell {
+  if (entry === undefined) return { kind: "absent" }
+  const score = schoolScore(entry)
+  if (score === null) return { kind: "pending" }
+  const result = statusSet.evaluations.find((item) => item.courseId === entry.courseId && item.result.taskId === taskId)
+  return { kind: "scored", score, passed: result === undefined ? null : result.result.passed }
+}
+
+/** 专业层：课程负责人 + 专业矩阵 + 课程建设概况 + 每门课的资源目录与信息保存时间 + 本专业评估任务与各课程得分 */
+export async function loadMajorDashboard(
+  collegeId: number,
+  majorId: string,
+  semesterId: number | null,
+  comparisons: SemesterComparisons,
+  now: Date,
+): Promise<MajorDashboardData> {
+  // 第一轮：不依赖组织树的请求与组织树并行
+  const [tree, managersByCourseId, matrix, tasks, statusSet] = await Promise.all([
+    fetchTree(collegeId, semesterId),
+    loadCourseOwners(collegeId, semesterId),
+    fetchMajorMatrix(majorId),
+    fetchMajorTasks(majorId, semesterId),
+    loadCourseStatuses(collegeId, semesterId, comparisons.previous),
+  ])
+  const index = buildOrgIndex(tree)
+  const major = requireMajor(index, majorId)
+  const department = requireDepartment(index, major.departmentId)
+  const majorCourses = index.courses.filter((course) => course.majorId === majorId)
+  const orderedTasks = [...tasks].sort(compareTasks)
+
+  // 第二轮：本专业全部课程的资源目录与课程信息保存时间一次取回
+  const [majorCards, detailsByCourseId, taskEvaluations] = await Promise.all([
+    fetchDepartmentMajorCards(major.departmentId, semesterId),
+    loadCourseDetails(
+      collegeId,
+      semesterId,
+      majorCourses.map((course) => course.id),
+      ["folders", "updateTime"],
+    ),
+    Promise.all(orderedTasks.map((task) => fetchMajorTaskCourses(task.taskId, majorId, semesterId))),
+  ])
+
+  const leadCard = majorCards.find((card) => card.id === majorId)
+  if (leadCard === undefined) {
+    throw new Error(`Major ${majorId} missing from department major cards`)
+  }
+  // 专业矩阵只返回有勾选记录的课程；不在其中的课程没有支撑任何指标点
+  const pointsByCourseId = new Map(matrix.map((item) => [item.courseId, item.supportedPointCount]))
+  const latestScores = rankLatestScores(taskEvaluations)
+  const majorStatuses = majorCourses.map((course) => requireCourseStatus(statusSet.statuses, course.id))
+
+  const rows: CourseMatrixRow[] = majorCourses.map((course) => {
+    const detail = requireCourseDetail(detailsByCourseId, course.id)
+    const folders = requireSection(detail.folders, "folders", course.id)
+    const resources = summarizeCourseResources(folders)
+    const points = pointsByCourseId.get(course.id)
+    const ranked = latestScores.get(course.id)
+    const status = requireCourseStatus(statusSet.statuses, course.id)
+    return {
+      id: course.id,
+      courseName: course.name,
+      ownerNames: requireCourseManagers(managersByCourseId, course.id).map(managerDisplayName),
+      supportedPointCount: points === undefined ? 0 : points,
+      hasSyllabus: resources.hasSyllabus,
+      hasLessonPlan: resources.hasLessonPlan,
+      hasCourseware: resources.hasCourseware,
+      resourceCount: resources.resourceCount,
+      latestUploadDate: resources.latestUploadDate,
+      lastUpdatedDate: detail.updateTime === null ? null : toUpdateDay(detail.updateTime),
+      setupComplete: status.setupComplete,
+      setupMissing: status.setupMissing,
+      stage: status.stage,
+      evaluationScore: ranked === undefined ? null : ranked.score,
+      evaluationRank: ranked === undefined ? null : ranked.rank,
+    }
+  })
+
+  // 临近评估批次未准备：30 天内到期且未结束的任务里，尚未提交自评的课程
+  const today = startOfToday(now)
+  const unpreparedIds = new Set<string>()
+  orderedTasks.forEach((task, taskIndex) => {
+    if (isTaskCompleted(task.status) || task.endDate === null) return
+    if (classifyDeadline(task.endDate, today) !== "dueSoon") return
+    taskEvaluations[taskIndex]
+      .filter((entry) => !isStepCompleted(entry.selfEvaluationStatus))
+      .forEach((entry) => unpreparedIds.add(entry.courseId))
+  })
+
+  // 评估记录只列本学期组织树里的课程；至少参评过一次才出现
+  const evaluationRecords = majorCourses
+    .map((course) => ({
+      courseId: course.id,
+      courseName: course.name,
+      cells: taskEvaluations.map((entries, taskIndex) =>
+        toCell(
+          entries.find((entry) => entry.courseId === course.id),
+          orderedTasks[taskIndex].taskId,
+          statusSet,
+        ),
+      ),
+    }))
+    .filter((record) => record.cells.some((cell) => cell.kind !== "absent"))
+
+  return {
+    overview: {
+      majorId: major.id,
+      majorName: major.name,
+      departmentName: department.name,
+      courseCount: majorCourses.length,
+      leadNames: leadCard.managers.map(managerDisplayName),
+      completion: averageCompletion(majorStatuses),
+      qualifiedCount: countQualified(majorStatuses),
+    },
+    courses: rows,
+    ownerMissingCourseNames: rows.filter((row) => row.ownerNames.length === 0).map((row) => row.courseName),
+    unpreparedCourseNames: majorCourses.filter((course) => unpreparedIds.has(course.id)).map((course) => course.name),
+    // 取不到保存时间的课程无法判断，不计入
+    staleCourseNames: rows
+      .filter((row) => row.lastUpdatedDate !== null && isStale(row.lastUpdatedDate, today))
+      .map((row) => row.courseName),
+    evaluationColumns: orderedTasks.map((task) => ({ taskId: task.taskId, title: task.title, endDate: task.endDate })),
+    evaluationRecords,
+  }
+}

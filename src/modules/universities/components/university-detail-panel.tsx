@@ -1,6 +1,6 @@
 "use client"
 
-import { Building2, Plus, BookOpen } from "lucide-react"
+import { Building2, Plus, BookOpen, ClipboardCheck, LayoutDashboard, Users } from "lucide-react"
 import { extractNumericId } from "@/shared/utils/utils"
 import { Button } from "@/shared/components/ui/button"
 import {
@@ -139,15 +139,15 @@ export function UniversityDetail({ node, onNodeSelect, onSetCurrentSchool, curre
       {/* Tabs for Overview and Members */}
       <div className="flex-1 overflow-auto">
         <Tabs defaultValue="overview" className="w-full" onValueChange={handleTabChange}>
-          <TabsList className="w-full h-10 bg-secondary/50 backdrop-blur-sm border-b border-border rounded-none p-0">
-            <TabsTrigger value="overview" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
-              学校概览
+          <TabsList className="w-full h-10 bg-secondary/50 border-b border-border rounded-none p-0">
+            <TabsTrigger value="overview" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">
+              <LayoutDashboard className="h-4 w-4 text-primary" />学校概览
             </TabsTrigger>
-            <TabsTrigger value="members" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
-              成员管理
+            <TabsTrigger value="members" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">
+              <Users className="h-4 w-4 text-primary" />成员管理
             </TabsTrigger>
-            <TabsTrigger value="teaching-quality" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
-              质量评价
+            <TabsTrigger value="teaching-quality" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">
+              <ClipboardCheck className="h-4 w-4 text-primary" />质量评价
             </TabsTrigger>
           </TabsList>
 

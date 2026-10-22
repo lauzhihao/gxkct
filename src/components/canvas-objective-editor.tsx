@@ -305,7 +305,7 @@ export function CanvasObjectiveEditor({
   }
 
   const handleDeleteSingleObjective = (goalId: string, objectiveId: string) => {
-    const confirmed = window.confirm("确定要删除该教学目标吗？\n引用它的二级矩阵数据将立即失效，且此操作不可逆")
+    const confirmed = window.confirm("确定要删除该教学目标吗？\n课程矩阵中引用该目标的关联会失效，原有课点支撑数据将保留。\n更新课程前需重新生成课程矩阵；重做会移除相连的下游组件，需重新生成。")
     if (!confirmed) {
       return
     }
@@ -383,7 +383,7 @@ export function CanvasObjectiveEditor({
             size="sm"
             variant="ghost"
             onClick={onClose}
-            className="gap-2 hover:text-white"
+            className="gap-2 hover:text-foreground"
           >
             <ArrowLeft className="w-4 h-4" />
             返回
@@ -504,7 +504,7 @@ export function CanvasObjectiveEditor({
                                         size="sm"
                                         variant="ghost"
                                         onClick={restoreObjectivesFromBaseline}
-                                        className="mt-0 h-10 w-10 p-0 text-muted-foreground hover:text-white"
+                                        className="mt-0 h-10 w-10 p-0 text-muted-foreground hover:text-foreground"
                                         title="取消"
                                         disabled={isSaving}
                                       >
@@ -570,7 +570,7 @@ export function CanvasObjectiveEditor({
                                                   variant="ghost"
                                                   onClick={restoreObjectivesFromBaseline}
                                                   disabled={isSavingObjective || isDeletingObjective || isSaving}
-                                                  className="h-10 w-10 p-0 text-muted-foreground hover:text-white"
+                                                  className="h-10 w-10 p-0 text-muted-foreground hover:text-foreground"
                                                   title="取消"
                                                 >
                                                   <X className="w-4 h-4" />

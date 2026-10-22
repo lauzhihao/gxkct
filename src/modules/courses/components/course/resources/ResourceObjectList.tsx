@@ -28,7 +28,7 @@ function getObjectIcon(mimeType?: string, name?: string) {
 }
 
 const gridClass = "grid grid-cols-1 gap-3 pb-[15px] sm:grid-cols-2 xl:grid-cols-3"
-const listClass = "mb-[15px] divide-y divide-border overflow-x-auto rounded-lg border border-border bg-card/40"
+const listClass = "h-full min-h-0 divide-y divide-border overflow-auto rounded-lg border border-border bg-card/40"
 const listRowClass = "grid min-w-[46rem] grid-cols-[minmax(15rem,1fr)_8rem_6rem_10rem_7rem] items-center"
 const listPrimaryColumnsClass = "col-span-4 grid min-h-14 grid-cols-[minmax(15rem,1fr)_8rem_6rem_10rem] items-center"
 const listNameCellClass = "flex min-w-0 items-center gap-3 px-3"
@@ -212,7 +212,7 @@ export function ResourceObjectList({
           className={cn(
             baseTileClass,
             "group w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-            "hover:border-primary hover:bg-primary/80",
+            "hover:border-primary hover:bg-primary/10",
           )}
         >
           {showFilesCount
@@ -221,8 +221,8 @@ export function ResourceObjectList({
                 "absolute right-2 top-2",
               )
             : null}
-          <Folder className="h-10 w-10 text-primary transition-colors group-hover:text-white" aria-hidden="true" />
-          <span className="w-full truncate text-sm font-medium text-foreground transition-colors group-hover:text-white">
+          <Folder className="h-10 w-10 text-primary transition-colors" aria-hidden="true" />
+          <span className="w-full truncate text-sm font-medium text-foreground transition-colors">
             {name}
           </span>
         </button>
@@ -337,7 +337,12 @@ export function ResourceObjectList({
     const folders = entries.filter((entry) => entry.type === "folder")
     if (!folders.length) {
       return (
-        <div className="flex min-h-[200px] items-center justify-center rounded-lg border border-dashed border-border/60 text-sm text-muted-foreground">
+        <div
+          className={cn(
+            "flex items-center justify-center rounded-lg border border-dashed border-border/60 text-sm text-muted-foreground",
+            isListView ? "h-full min-h-0" : "min-h-[200px]",
+          )}
+        >
           暂无子目录
         </div>
       )
@@ -360,7 +365,12 @@ export function ResourceObjectList({
 
   if (!entries.length) {
     return (
-      <div className="flex min-h-[220px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 px-6 text-center transition-colors hover:border-primary/60 hover:bg-primary/10">
+      <div
+        className={cn(
+          "flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 px-6 text-center transition-colors hover:border-primary/60 hover:bg-primary/10",
+          isListView ? "h-full min-h-0" : "min-h-[220px]",
+        )}
+      >
         <div className="mb-4 rounded-full bg-primary/10 p-4">
           <Upload className="h-8 w-8 text-primary" />
         </div>
@@ -465,13 +475,13 @@ export function ResourceObjectList({
                 baseTileClass,
                 "group w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                 checked
-                  ? "border-primary bg-primary/80 text-white"
-                  : "hover:border-primary hover:bg-primary/70 hover:text-white",
+                  ? "border-primary bg-primary text-white"
+                  : "hover:border-primary hover:bg-primary/10",
               )}
               aria-pressed={checked}
             >
-              <Icon className={cn("h-10 w-10", checked ? "text-white" : "text-primary group-hover:text-white")} aria-hidden="true" />
-              <span className={cn("w-full truncate text-sm font-medium", checked ? "text-white" : "text-foreground group-hover:text-white")}>{entry.object.name}</span>
+              <Icon className={cn("h-10 w-10", checked ? "text-white" : "text-primary")} aria-hidden="true" />
+              <span className={cn("w-full truncate text-sm font-medium", checked ? "text-white" : "text-foreground")}>{entry.object.name}</span>
             </button>
             {objectActions}
           </div>

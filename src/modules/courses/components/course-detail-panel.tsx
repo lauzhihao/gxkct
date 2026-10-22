@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import type { DetailPanelProps } from "@/components/detail-panel/types"
 import { convertCourseToCanvasComplete } from "@/lib/utils/course-to-canvas"
-import { BookOpen, Calendar, History, Pencil, Trash2, User } from "lucide-react"
+import { Calendar, History, Pencil, Trash2, User, ClipboardCheck, FolderOpen, Grid3x3, Info } from "lucide-react"
 import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
 import { cn } from "@/shared/utils/utils"
@@ -1258,7 +1258,7 @@ export function CourseDetail({
 
   const renderCourseEditError = (title: string, description: string) => (
     <div
-      className="flex min-h-[500px] items-center justify-center rounded-xl border border-border bg-card/30 p-6 shadow-2xl backdrop-blur-md"
+      className="flex min-h-[500px] items-center justify-center rounded-md border border-border bg-card p-6"
       role="alert"
     >
       <div className="max-w-lg text-center">
@@ -1350,7 +1350,7 @@ export function CourseDetail({
 
   if (contentView === "syllabus") {
     return (
-      <div className="flex h-[calc(100vh-10rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card/30 shadow-2xl backdrop-blur-md">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-border bg-card">
         <CourseSyllabusPreview
           courseId={Number(courseNode.id)}
           courseName={courseNameData.name}
@@ -1399,17 +1399,20 @@ export function CourseDetail({
 
   return (
     <>
-      <div className="rounded-xl border border-border bg-card/30 backdrop-blur-md shadow-2xl overflow-hidden">
+      <div
+        className={cn(
+          "rounded-md border border-border bg-card overflow-hidden",
+          activeTab === "resources" &&
+            "has-[[data-resource-view=list]]:flex has-[[data-resource-view=list]]:h-full has-[[data-resource-view=list]]:min-h-0 has-[[data-resource-view=list]]:flex-col",
+        )}
+      >
         {/* Header */}
-        <div className="border-b border-border bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6">
+        <div className="shrink-0 border-b border-border bg-card px-6 py-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-4">
-                <div className="w-16 h-16 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center flex-shrink-0">
-                  <BookOpen className="w-8 h-8 text-primary" />
-                </div>
                 <div className="flex min-w-0 flex-col gap-1">
-                  <h2 className="truncate text-2xl font-bold leading-tight text-foreground">
+                  <h2 className="truncate text-xl font-semibold leading-tight text-foreground">
                     {courseNameData.name}
                   </h2>
                   <div className="flex flex-wrap gap-1 items-center">
@@ -1417,7 +1420,7 @@ export function CourseDetail({
                       <div
                         key={index}
                         className={cn(
-                          "flex items-center gap-1 px-1.5 py-0.5 rounded border text-xs",
+                          "flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] border text-[11.5px]",
                           isInstructorSet()
                             ? "bg-primary border-primary"
                             : "bg-muted border-muted-foreground/30",
@@ -1436,17 +1439,17 @@ export function CourseDetail({
                       </div>
                     ))}
                     {majorName && (
-                      <Badge variant="secondary" className="text-sm px-2 py-0.5 w-fit">@{majorName}</Badge>
+                      <Badge variant="secondary" className="rounded-[3px] px-2 py-0.5 text-[11.5px] w-fit">@{majorName}</Badge>
                     )}
                   </div>
                 </div>
               </div>
               <div className="mt-2 flex flex-wrap gap-2">
                 {courseNameData.department?.name && (
-                  <Badge variant="outline">{courseNameData.department.name}</Badge>
+                  <Badge variant="outline" className="rounded-[3px] text-[11.5px]">{courseNameData.department.name}</Badge>
                 )}
                 {courseNameData.college?.name && (
-                  <Badge variant="outline">
+                  <Badge variant="outline" className="rounded-[3px] text-[11.5px]">
                     <Calendar className="w-3 h-3 mr-1" />
                     {courseNameData.college.name}
                   </Badge>
@@ -1459,7 +1462,7 @@ export function CourseDetail({
                   size="sm"
                   variant="ghost"
                   onClick={() => setShowEditHistory(true)}
-                  className="gap-2 px-3 whitespace-nowrap hover:bg-primary/10"
+                  className="h-[30px] gap-2 px-3 whitespace-nowrap hover:bg-accent"
                   title="查看课程修改记录"
                 >
                   <History className="w-4 h-4 text-primary" />
@@ -1472,7 +1475,7 @@ export function CourseDetail({
                     size="sm"
                     variant="ghost"
                     onClick={handleStartEditCourse}
-                    className="gap-2 px-3 whitespace-nowrap hover:bg-primary/10"
+                    className="h-[30px] gap-2 px-3 whitespace-nowrap hover:bg-accent"
                     title="编辑课程"
                   >
                     <Pencil className="w-4 h-4 text-primary" />
@@ -1483,7 +1486,7 @@ export function CourseDetail({
                     variant="ghost"
                     onClick={handleDeleteCourse}
                     disabled={isDeleting}
-                    className="gap-2 px-3 whitespace-nowrap hover:bg-destructive/10"
+                    className="h-[30px] gap-2 px-3 whitespace-nowrap hover:bg-destructive/10"
                     title="删除课程"
                   >
                     <Trash2 className="w-4 h-4 text-destructive" />
@@ -1505,13 +1508,26 @@ export function CourseDetail({
         )}
 
         {/* Content */}
-        <div>
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="w-full h-10 bg-secondary/50 backdrop-blur-sm border-b border-border rounded-none p-0">
-              <TabsTrigger value="info" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">课程信息</TabsTrigger>
-              <TabsTrigger value="resources" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">课程资源</TabsTrigger>
-              <TabsTrigger value="matrix" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">矩阵管理</TabsTrigger>
-              <TabsTrigger value="supervision" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">质量评价</TabsTrigger>
+        <div
+          className={cn(
+            activeTab === "resources" &&
+              "has-[[data-resource-view=list]]:flex has-[[data-resource-view=list]]:min-h-0 has-[[data-resource-view=list]]:flex-1 has-[[data-resource-view=list]]:flex-col",
+          )}
+        >
+          <Tabs
+            value={activeTab}
+            onValueChange={handleTabChange}
+            className={cn(
+              "w-full",
+              activeTab === "resources" &&
+                "has-[[data-resource-view=list]]:min-h-0 has-[[data-resource-view=list]]:flex-1",
+            )}
+          >
+            <TabsList className="w-full h-10 shrink-0 bg-secondary/50 border-b border-border rounded-none p-0">
+              <TabsTrigger value="info" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors"><Info className="h-4 w-4 text-primary" />课程信息</TabsTrigger>
+              <TabsTrigger value="resources" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors"><FolderOpen className="h-4 w-4 text-primary" />课程资源</TabsTrigger>
+              <TabsTrigger value="matrix" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors"><Grid3x3 className="h-4 w-4 text-primary" />矩阵管理</TabsTrigger>
+              <TabsTrigger value="supervision" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors"><ClipboardCheck className="h-4 w-4 text-primary" />质量评价</TabsTrigger>
             </TabsList>
 
             <TabsContent value="info" className="space-y-6 mt-4 px-6">
@@ -1544,7 +1560,10 @@ export function CourseDetail({
               </Accordion>
             </TabsContent>
 
-            <TabsContent value="resources" className="space-y-4 mt-4 px-6">
+            <TabsContent
+              value="resources"
+              className="space-y-4 mt-4 px-6 data-[state=active]:has-[[data-resource-view=list]]:flex data-[state=active]:has-[[data-resource-view=list]]:min-h-0 data-[state=active]:has-[[data-resource-view=list]]:flex-col"
+            >
               <CourseResources nodeId={courseNode.id || courseNode.nodeId} courseEditable={courseEditable} />
             </TabsContent>
 

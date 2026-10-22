@@ -196,11 +196,11 @@ export function CanvasSourceDocumentEditor({
             <div className="px-6 pt-4">
               <TabsList className="grid w-full grid-cols-2 max-w-[240px]">
                 <TabsTrigger value="edit" className="gap-2">
-                  <Edit3 className="w-4 h-4" />
+                  <Edit3 className="w-4 h-4 text-primary" />
                   编辑
                 </TabsTrigger>
                 <TabsTrigger value="preview" className="gap-2">
-                  <Eye className="w-4 h-4" />
+                  <Eye className="w-4 h-4 text-primary" />
                   预览
                 </TabsTrigger>
               </TabsList>

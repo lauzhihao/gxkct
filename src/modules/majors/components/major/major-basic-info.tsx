@@ -1,114 +1,24 @@
 "use client"
 
 import { BookOpen, Briefcase, Award, ClipboardCheck } from "lucide-react"
-import { useEffect, useState, useRef } from "react"
 import type { TreeNode } from "@/types"
-import { TreeApi } from "@/lib/api/tree-api"
+import type {
+  MajorDetailData,
+  ProfessionVO,
+  RequirementIndicator,
+  RequirementVO,
+} from "@/modules/majors/hooks/use-major-detail"
+import { getMajorLevelText } from "@/modules/majors/hooks/use-major-detail"
 import { LoadingState } from "@/shared/components/ui/loading-state"
 
 interface MajorBasicInfoProps {
   node: TreeNode
+  /** 专业详情由 major-detail-panel 在进入专业页时统一拉取后传入，本组件不再自己请求 */
+  detailData: MajorDetailData | null
+  isLoading: boolean
 }
 
-interface ProfessionPathItem {
-  name: string
-  code?: string
-}
-
-interface ProfessionVO {
-  id: string | number
-  level?: string
-  profession?: ProfessionPathItem[]
-  direction?: {
-    category1?: string
-    category2?: string
-    category3?: string
-    category4?: string
-  }
-  task?: string
-  tasks?: string
-}
-
-interface RequirementIndicator {
-  id: string | number
-  description: string
-}
-
-interface RequirementVO {
-  id: string | number
-  description: string
-  children?: RequirementIndicator[]
-}
-
-interface MajorDetailData {
-  majorLevel?: string
-  majorClass?: string
-  feature?: string
-  careerLevel?: string
-  demandType?: string
-  demandArea?: string
-  professionsVOS?: ProfessionVO[]
-  position?: string
-  requiresVOS?: RequirementVO[]
-}
-
-// 专业层次字典映射
-const majorLevelMap: { [key: string]: string } = {
-  "2": "本科",
-  "1": "高职",
-  "0": "中职",
-}
-
-// 创建单例 TreeApi 实例
-const treeApiInstance = new TreeApi()
-
-export function MajorBasicInfo({ node }: MajorBasicInfoProps) {
-  const [detailData, setDetailData] = useState<MajorDetailData | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const hasLoadedRef = useRef(false)
-  const majorIdRef = useRef<string | null>(null)
-
-  // 获取专业层次显示文本
-  const getMajorLevelText = (level: string | undefined) => {
-    if (!level) return "未设置"
-    return majorLevelMap[level] || level
-  }
-
-  // 加载专业详情
-  useEffect(() => {
-    // 使用 node.id 作为 majorId
-    const majorId = node.id
-
-    if (!majorId) {
-      return
-    }
-
-    // 如果已经加载过这个专业，不再加载
-    if (hasLoadedRef.current && majorIdRef.current === majorId) {
-      return
-    }
-
-    // 标记为已加载，防止重复请求
-    hasLoadedRef.current = true
-    majorIdRef.current = majorId
-
-    const loadMajorDetail = async () => {
-      setIsLoading(true)
-      try {
-        const response = await treeApiInstance.getMajorDetail(majorId)
-        if (response.data) {
-          setDetailData(response.data)
-        }
-      } catch (error) {
-        console.error("加载专业详情失败:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    loadMajorDetail()
-  }, [node.id])
-
+export function MajorBasicInfo({ node, detailData, isLoading }: MajorBasicInfoProps) {
   // 使用 API 返回的详情数据
   const metadata = {
     majorLevel: detailData?.majorLevel || "",

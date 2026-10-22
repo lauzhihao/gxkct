@@ -8,6 +8,7 @@ import type { TeachingObjectiveFilterData } from "@/modules/courses/model/course
 import { CourseMatrix } from "./course-matrix"
 import { CourseProjectMatrix } from "./course-project-matrix"
 import { CourseMajorMatrix } from "./course-major-matrix"
+import { Grid3x3, LayoutGrid, Table2 } from "lucide-react"
 
 interface CourseThreeLevelMatrixProps {
   node: TreeNode
@@ -60,9 +61,9 @@ export function CourseThreeLevelMatrix({ node, onUpdateNode, treeData, majorId, 
       {/* Tabs for Course Matrix, Project Matrix and Major Matrix */}
       <Tabs value={activeMatrixTab} onValueChange={onActiveMatrixTabChange} className="w-full">
         <UnderlineTabsList className="grid grid-cols-3">
-          <UnderlineTabsTrigger value="majorMatrix">专业矩阵</UnderlineTabsTrigger>
-          <UnderlineTabsTrigger value="courseMatrix">课程矩阵</UnderlineTabsTrigger>
-          <UnderlineTabsTrigger value="projectMatrix">项目矩阵</UnderlineTabsTrigger>
+          <UnderlineTabsTrigger value="majorMatrix" className="inline-flex items-center justify-center gap-1.5"><Grid3x3 className="h-4 w-4 text-primary" />专业矩阵</UnderlineTabsTrigger>
+          <UnderlineTabsTrigger value="courseMatrix" className="inline-flex items-center justify-center gap-1.5"><Table2 className="h-4 w-4 text-primary" />课程矩阵</UnderlineTabsTrigger>
+          <UnderlineTabsTrigger value="projectMatrix" className="inline-flex items-center justify-center gap-1.5"><LayoutGrid className="h-4 w-4 text-primary" />项目矩阵</UnderlineTabsTrigger>
         </UnderlineTabsList>
 
         <TabsContent value="majorMatrix" className="mt-2 pb-2.5">

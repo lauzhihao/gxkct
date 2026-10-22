@@ -4,10 +4,12 @@ import { useState, useEffect, useMemo } from "react"
 import type { TreeNode, TreeNodeMenuItem } from "@/types"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
 import { Button } from "@/shared/components/ui/button"
-import { GraduationCap, Pencil, Trash2 } from "lucide-react"
+import { GraduationCap, Pencil, Trash2, BookOpen, ClipboardCheck, FolderOpen, Grid3x3, Info } from "lucide-react"
 import AddCourseForm from "@/components/add-course-form"
 import { AddMajorForm } from "@/modules/majors/components/forms/add-major-form"
 import { MajorBasicInfo } from "@/modules/majors/components/major/major-basic-info"
+import { Badge } from "@/shared/components/ui/badge"
+import { getMajorLevelText, useMajorDetail } from "@/modules/majors/hooks/use-major-detail"
 import { MajorMatrix } from "@/modules/majors/components/major/major-matrix"
 import { MajorCourses } from "@/modules/majors/components/major/major-courses"
 import { TeachingQualityStats } from "@/modules/majors/components/shared/teaching-quality-stats"
@@ -132,6 +134,42 @@ export function MajorDetail(props: MajorDetailProps) {
     return ""
   }, [node.id, node.nodeId])
   const cachedMajor = useMemo(() => getMajorCache(currentMajorId), [currentMajorId])
+
+  // 进入专业详情页即拉一次详情：页头标签与「专业详情」标签页共用这份结果，
+  // 标签页不再自己请求。id 取值与原先标签页内的请求保持一致，仍用 node.id。
+  const { detailData: majorDetailData, isLoading: isMajorDetailLoading } = useMajorDetail(node.id)
+
+  const majorHeaderTags = useMemo(() => {
+    if (!majorDetailData) {
+      return []
+    }
+
+    const tags: Array<{ key: string; label: string }> = []
+
+    const majorClass = majorDetailData.majorClass
+    if (typeof majorClass === "string" && majorClass.trim() !== "") {
+      tags.push({ key: "major-class", label: `专业代码 ${majorClass}` })
+    }
+
+    const majorLevel = majorDetailData.majorLevel
+    if (typeof majorLevel === "string" && majorLevel.trim() !== "") {
+      tags.push({ key: "major-level", label: getMajorLevelText(majorLevel) })
+    }
+
+    const requirementCount = Array.isArray(majorDetailData.requiresVOS) ? majorDetailData.requiresVOS.length : 0
+    if (requirementCount > 0) {
+      tags.push({ key: "requirement-count", label: `毕业要求 ${requirementCount} 项` })
+    }
+
+    return tags
+  }, [majorDetailData])
+
+  const majorRequiresVOS = useMemo(() => {
+    if (!majorDetailData || !Array.isArray(majorDetailData.requiresVOS)) {
+      return []
+    }
+    return majorDetailData.requiresVOS
+  }, [majorDetailData])
 
   const metadataSource = (node.metadata as NodeMetadataWithManagers | undefined)?.source
   const resolvedSource = typeof metadataSource === "string" && metadataSource
@@ -284,6 +322,15 @@ export function MajorDetail(props: MajorDetailProps) {
               </div>
               <div className="flex-1">
                 <h2 className="text-2xl font-bold text-foreground mb-2">{node.name}</h2>
+                {majorHeaderTags.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    {majorHeaderTags.map((tag) => (
+                      <Badge key={tag.key} variant="secondary" className="font-normal">
+                        {tag.label}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
                 {node.description && <p className="text-muted-foreground mb-3">{node.description}</p>}
               </div>
             </div>
@@ -317,30 +364,30 @@ export function MajorDetail(props: MajorDetailProps) {
 
         <div className="flex-1 overflow-auto">
           <Tabs defaultValue="courses" className="w-full" onValueChange={handleTabChange}>
-            <TabsList className="w-full h-10 bg-secondary/50 backdrop-blur-sm border-b border-border rounded-none p-0">
-              <TabsTrigger value="courses" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
-                课程管理
+            <TabsList className="w-full h-10 bg-secondary/50 border-b border-border rounded-none p-0">
+              <TabsTrigger value="courses" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">
+                <BookOpen className="h-4 w-4 text-primary" />课程管理
               </TabsTrigger>
-              <TabsTrigger value="details" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
-                专业详情
+              <TabsTrigger value="details" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">
+                <Info className="h-4 w-4 text-primary" />专业详情
               </TabsTrigger>
-              <TabsTrigger value="matrix" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
-                专业矩阵
+              <TabsTrigger value="matrix" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">
+                <Grid3x3 className="h-4 w-4 text-primary" />专业矩阵
               </TabsTrigger>
-              <TabsTrigger value="resources" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
-                资源管理
+              <TabsTrigger value="resources" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">
+                <FolderOpen className="h-4 w-4 text-primary" />资源管理
               </TabsTrigger>
-              <TabsTrigger value="teaching-quality" className="flex-1 cursor-pointer hover:bg-accent/50 hover:text-white data-[state=active]:text-primary transition-colors">
-                质量评价
+              <TabsTrigger value="teaching-quality" className="flex-1 cursor-pointer hover:bg-accent hover:text-primary data-[state=active]:text-primary transition-colors">
+                <ClipboardCheck className="h-4 w-4 text-primary" />质量评价
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="details" className="space-y-4 mt-4 px-6">
-              <MajorBasicInfo node={node} />
+              <MajorBasicInfo node={node} detailData={majorDetailData} isLoading={isMajorDetailLoading} />
             </TabsContent>
 
             <TabsContent value="matrix" className="space-y-4 mt-4 px-6">
-              <MajorMatrix node={node} onUpdateNode={onUpdateNode} />
+              <MajorMatrix node={node} onUpdateNode={onUpdateNode} requiresVOS={majorRequiresVOS} />
             </TabsContent>
 
             <TabsContent value="courses" className="space-y-4 mt-4 px-6">

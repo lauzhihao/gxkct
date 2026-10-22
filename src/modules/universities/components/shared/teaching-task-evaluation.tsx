@@ -225,7 +225,7 @@ export function TeachingTaskEvaluation({ task: initialTask, onBack, onEdit, onCo
               variant="ghost"
               size="sm"
               onClick={onBack}
-              className="gap-2 hover:text-white"
+              className="gap-2 hover:text-foreground"
             >
               <ArrowLeft className="w-4 h-4" />
               返回

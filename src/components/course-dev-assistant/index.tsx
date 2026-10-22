@@ -124,7 +124,7 @@ export function CourseDevAssistant({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 hover:text-white"
+                  className="h-8 w-8 hover:text-foreground"
                   onClick={reset}
                   title="重新开始"
                 >

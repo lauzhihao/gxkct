@@ -6,7 +6,7 @@ import { Button } from "@/shared/components/ui/button"
 import { FieldError } from "@/shared/components/ui/field"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
-import { ArrowLeft, Plus, Trash2, X, Check, Calendar, ChevronDown } from "lucide-react"
+import { ArrowLeft, Plus, Trash2, X, Check, Calendar, ChevronDown, ClipboardCheck, Info, ListChecks, ListTree } from "lucide-react"
 import { Spinner } from "@/shared/components/ui/spinner"
 import { Card } from "@/shared/components/ui/card"
 import { Tabs, TabsContent } from "@/shared/components/ui/tabs"
@@ -1574,7 +1574,7 @@ function AddCourseForm({
     <div className="space-y-6 mr-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={onCancel} className="gap-2 hover:text-white">
+          <Button variant="ghost" size="sm" onClick={onCancel} className="gap-2 hover:text-foreground">
             <ArrowLeft className="w-4 h-4" />
             返回
           </Button>
@@ -1631,18 +1631,18 @@ function AddCourseForm({
       <Card className="p-6">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <UnderlineTabsList className={`grid ${showChapterTab ? "grid-cols-4" : "grid-cols-3"}`}>
-            <UnderlineTabsTrigger value="basic">
-              基本信息
+            <UnderlineTabsTrigger value="basic" className="inline-flex items-center justify-center gap-1.5">
+              <Info className="h-4 w-4 text-primary" />基本信息
             </UnderlineTabsTrigger>
-            <UnderlineTabsTrigger value="requirements">
-              课程要求
+            <UnderlineTabsTrigger value="requirements" className="inline-flex items-center justify-center gap-1.5">
+              <ListChecks className="h-4 w-4 text-primary" />课程要求
             </UnderlineTabsTrigger>
-            <UnderlineTabsTrigger value="assessment">
-              考核评价
+            <UnderlineTabsTrigger value="assessment" className="inline-flex items-center justify-center gap-1.5">
+              <ClipboardCheck className="h-4 w-4 text-primary" />考核评价
             </UnderlineTabsTrigger>
             {showChapterTab && (
-              <UnderlineTabsTrigger value="chapters">
-                章节项目
+              <UnderlineTabsTrigger value="chapters" className="inline-flex items-center justify-center gap-1.5">
+                <ListTree className="h-4 w-4 text-primary" />章节项目
               </UnderlineTabsTrigger>
             )}
           </UnderlineTabsList>
@@ -1791,8 +1791,10 @@ function AddCourseForm({
                               setCourseNatureId(option.id)
                               setCourseNaturePopoverOpen(false)
                             }}
-                            className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-accent hover:text-white ${
-                              courseNatureId === option.id ? "bg-[var(--naive-primary)] text-white" : ""
+                            className={`w-full text-left px-3 py-2 rounded text-sm ${
+                              courseNatureId === option.id
+                                ? "bg-[var(--naive-primary)] text-white hover:bg-[var(--naive-primary-dark)] hover:text-white"
+                                : "hover:bg-accent hover:text-foreground"
                             }`}
                           >
                             {option.name}

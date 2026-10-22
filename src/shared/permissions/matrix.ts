@@ -20,6 +20,7 @@ export const PERMISSION_MATRIX: PermissionMatrix = {
     "department.member.resetPassword",
     "college.qa.create",
     "college.qa.manage",
+    "college.dashboard.view",
   ],
   88: [
     "root.college.create",
@@ -40,6 +41,7 @@ export const PERMISSION_MATRIX: PermissionMatrix = {
     "department.member.resetPassword",
     "college.qa.create",
     "college.qa.manage",
+    "college.dashboard.view",
   ],
   1001: [
     "department.major.create",
@@ -51,30 +53,36 @@ export const PERMISSION_MATRIX: PermissionMatrix = {
     "department.member.delete",
     "department.member.toggle",
     "department.member.resetPassword",
+    "college.dashboard.view",
   ],
   1031: [
     "major.course.create",
     "college.qa.manage",
     "course.detail.edit",
+    "college.dashboard.view",
   ],
   1039: [
     "major.course.create",
     "college.qa.create",
     "college.qa.manage",
     "course.detail.edit",
+    "college.dashboard.view",
   ],
   1901: [
     "department.major.create",
     "major.course.create",
     "course.detail.edit",
+    "college.dashboard.view",
   ],
   2001: [
     "department.major.create",
     "major.detail.edit",
     "major.course.create",
     "course.detail.edit",
+    "college.dashboard.view",
   ],
   3001: [
     "course.detail.edit",
+    "college.dashboard.view",
   ],
 }
