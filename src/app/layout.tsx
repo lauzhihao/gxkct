@@ -4,6 +4,7 @@ import { Noto_Sans_SC } from "next/font/google"
 // import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { Toaster } from "@/shared/components/ui/toaster"
+import { Toaster as SonnerToaster } from "@/shared/components/ui/sonner"
 import { GlobalLoadingCursor } from "@/shared/components/ui/global-loading-cursor"
 
 const notoSansScFont = Noto_Sans_SC({
@@ -34,6 +35,7 @@ export default function RootLayout({
         {children}
         {/* <Analytics /> */}
         <Toaster />
+        <SonnerToaster />
         <GlobalLoadingCursor />
       </body>
     </html>
