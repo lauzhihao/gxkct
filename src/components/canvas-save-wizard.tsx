@@ -37,6 +37,7 @@ import { getCourseTypeId } from "@/shared/utils/data-transform"
 import { findKsaByReference } from "@/shared/utils/ksa"
 import { courseCanvasSyncApi, type CourseCanvasSyncEvent } from "@/lib/api/course-canvas-sync-api"
 import { isCurrentUserCourseOwner, resolveCourseManagers } from "@/shared/utils/course-ownership"
+import { getCourseMatrixObjectiveReferenceIssues } from "@/lib/utils/course-matrix-objective-references"
 
 // ============ 常量定义 ============
 const DEFAULT_CLASS_ID = 1
@@ -926,6 +927,20 @@ export function CanvasSaveWizard({
     return result
   }, [canvasElements])
 
+  const courseMatrixObjectiveReferenceIssues = useMemo(
+    () => getCourseMatrixObjectiveReferenceIssues(objectives, courseMatrixData),
+    [objectives, courseMatrixData],
+  )
+  const courseMatrixObjectiveReferenceMessage = useMemo(() => {
+    if (courseMatrixObjectiveReferenceIssues.length === 0) return ""
+    const missingIds = [...new Set(courseMatrixObjectiveReferenceIssues.map((issue) => issue.objectiveId))]
+    const affectedChapters = [...new Set(courseMatrixObjectiveReferenceIssues
+      .filter((issue) => issue.source === "support")
+      .map((issue) => `${issue.chapterName} [${issue.chapterId}]`))]
+    const chapterMessage = affectedChapters.length > 0 ? `受影响章节：${affectedChapters.join("、")}。` : ""
+    return `课程矩阵引用了已不存在的教学目标：${missingIds.join("、")}。${chapterMessage}支撑数据已保留，请先重做课程矩阵，再更新课程。重做会移除相连的下游组件，需重新生成。`
+  }, [courseMatrixObjectiveReferenceIssues])
+
   const savedCourseId = courseInfo?.metadata?.courseId
   const savedMajorId = courseInfo?.metadata?.majorId
   const hasCurrentCourseContext = typeof savedCourseId === "number" && Number.isFinite(savedCourseId) && savedCourseId > 0
@@ -1271,6 +1286,10 @@ export function CanvasSaveWizard({
 
   // 验证保存前置条件
   const validateBeforeSave = useCallback((): boolean => {
+    if (courseMatrixObjectiveReferenceIssues.length > 0) {
+      toast.error(courseMatrixObjectiveReferenceMessage, { duration: 10000 })
+      return false
+    }
     if (!selectedPath.majorId || !courseInfo) {
       toast.error("未识别到当前画布对应的专业，无法更新课程")
       return false
@@ -1289,7 +1308,7 @@ export function CanvasSaveWizard({
       return false
     }
     return true
-  }, [selectedPath.majorId, courseInfo, shouldRequireCourseSelection, selectedCourseId, objectives])
+  }, [courseMatrixObjectiveReferenceIssues, courseMatrixObjectiveReferenceMessage, selectedPath.majorId, courseInfo, shouldRequireCourseSelection, selectedCourseId, objectives])
 
   // 获取最终更新的课程ID
   const getSelectedCourseId = useCallback((majorIdNum: number): number => {
@@ -2167,6 +2186,21 @@ export function CanvasSaveWizard({
                 : "当前画布仅支持更新已有课程，请在当前专业下选择一门课程进行更新"}
             </DialogDescription>
           </DialogHeader>
+
+        {courseMatrixObjectiveReferenceIssues.length > 0 ? (
+          <div role="alert" className="max-h-48 overflow-y-auto rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <p>{courseMatrixObjectiveReferenceMessage}</p>
+            <ul className="mt-2 list-inside list-disc">
+              {courseMatrixObjectiveReferenceIssues.map((issue, index) => (
+                <li key={`${issue.source}-${issue.objectiveId}-${issue.chapterId}-${index}`}>
+                  {issue.source === "column"
+                    ? `矩阵列：${issue.objectiveId}`
+                    : `第 ${issue.chapterIndex} 章 ${issue.chapterName} [${issue.chapterId}]：${issue.objectiveId}，保留 ${issue.coursePointCount} 个课点支撑`}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
         {/* 保存成功状态 */}
         {saveSuccess ? (

@@ -78,6 +78,8 @@ import {
 } from "./ai-assistant/connection-menu-handlers"
 import { GeminiDemoDrawer } from "./ai-assistant/gemini-demo-drawer"
 import { useDebugMode } from "@/shared/hooks/use-debug-mode"
+import type { CourseMatrixData } from "./canvas-elements/types"
+import { getCourseMatrixObjectiveReferenceIssues } from "@/lib/utils/course-matrix-objective-references"
 
 // CanvasComponentType 到 FlowNodeType 的映射（用于获取颜色配置）
 const CANVAS_TO_FLOW_TYPE: Record<CanvasComponentType, string> = {
@@ -2739,6 +2741,19 @@ export function AiAssistantDrawer({
                           data: obj as ObjectiveCardData,
                         }))
                       )
+
+                      // 只报告失效引用，保留原有矩阵与支撑，避免按新序号误绑目标。
+                      const matrixElement = canvasElements.find(el => el.type === CanvasComponentType.COURSE_MATRIX)
+                      const matrixData = matrixElement === undefined ? undefined : matrixElement.data as CourseMatrixData
+                      const referenceIssues = getCourseMatrixObjectiveReferenceIssues(objectives, matrixData)
+                      if (referenceIssues.length > 0) {
+                        const missingIds = [...new Set(referenceIssues.map(issue => issue.objectiveId))]
+                        const affectedChapters = [...new Set(referenceIssues
+                          .filter(issue => issue.source === "support")
+                          .map(issue => `${issue.chapterName} [${issue.chapterId}]`))]
+                        const chapterMessage = affectedChapters.length > 0 ? `受影响章节：${affectedChapters.join("、")}。` : ""
+                        toast.warning(`课程矩阵引用已失效：${missingIds.join("、")}。${chapterMessage}支撑数据已保留，请先重做课程矩阵再更新课程。重做会移除相连的下游组件，需重新生成。`, { duration: 10000 })
+                      }
                     }}
                     onCourseMatrixUpdate={(nodeId, matrixData) => {
                       // 更新课程矩阵节点数据，确保画布展示与保存数据源同步
