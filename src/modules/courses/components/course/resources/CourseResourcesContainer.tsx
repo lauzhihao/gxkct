@@ -1286,9 +1286,13 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
           )}
           <div
             className={
-              isDropActive
-                ? "relative rounded-xl border-2 border-dashed border-primary bg-primary/5 p-3 pb-[15px] transition-colors"
-                : "relative pb-[15px]"
+              viewMode === "list"
+                ? isDropActive
+                  ? "relative box-border h-[480px] min-h-0 overflow-hidden rounded-xl border-2 border-dashed border-primary bg-primary/5 transition-colors"
+                  : "relative box-border h-[480px] min-h-0 overflow-hidden rounded-xl border-2 border-dashed border-transparent transition-colors"
+                : isDropActive
+                  ? "relative rounded-xl border-2 border-dashed border-primary bg-primary/5 p-3 pb-[15px] transition-colors"
+                  : "relative pb-[15px]"
             }
             onDragOver={handleDropZoneDragOver}
             onDragLeave={handleDropZoneDragLeave}
@@ -1304,7 +1308,13 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
               />
             )}
             {isDropActive && (
-              <div className="pointer-events-none mb-3 flex items-center justify-center gap-2 rounded-lg border border-primary/30 bg-background/80 px-4 py-3 text-sm text-primary">
+              <div
+                className={
+                  viewMode === "list"
+                    ? "pointer-events-none absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center justify-center gap-2 rounded-lg border border-primary/30 bg-background/90 px-4 py-3 text-sm text-primary shadow-sm"
+                    : "pointer-events-none mb-3 flex items-center justify-center gap-2 rounded-lg border border-primary/30 bg-background/80 px-4 py-3 text-sm text-primary"
+                }
+              >
                 <Upload className="h-4 w-4" />
                 松开鼠标后开始上传文件
               </div>
