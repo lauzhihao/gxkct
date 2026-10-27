@@ -19,7 +19,7 @@ import {
   EmptyDescription,
 } from "@/shared/components/ui/empty"
 import { api } from "@/lib/api"
-import type { EditHistoryListItem, EditHistoryDetailItem } from "@/lib/api/edit-history-api"
+import type { EditHistoryListItem, EditHistoryDetailItem, EditHistoryPage } from "@/lib/api/edit-history-api"
 import { showError, showSuccess } from "@/shared/utils/toast-utils"
 import { cn } from "@/shared/utils/utils"
 
@@ -71,6 +71,9 @@ function getRecordKey(item: EditHistoryListItem, index: number): string {
 
 export function EditHistoryDialog({ open, onOpenChange, courseId, courseName }: EditHistoryDialogProps) {
   const [items, setItems] = useState<EditHistoryListItem[] | null>(null)
+  const [pageData, setPageData] = useState<EditHistoryPage | null>(null)
+  const [page, setPage] = useState(1)
+  const [filter, setFilter] = useState({ year: "", month: "", type: "", editor: "" })
   const [isLoading, setIsLoading] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [expandedKey, setExpandedKey] = useState<string | null>(null)
@@ -89,7 +92,7 @@ export function EditHistoryDialog({ open, onOpenChange, courseId, courseName }: 
     setExpandedKey(null)
     setDetailMap({})
     api.editHistory
-      .getCourseHistory(courseId)
+      .getCourseHistoryPage(courseId, { page, pageSize: 20, ...filter })
       .then((response) => {
         if (cancelled) {
           return
@@ -99,7 +102,8 @@ export function EditHistoryDialog({ open, onOpenChange, courseId, courseName }: 
           setItems(null)
           return
         }
-        setItems(response.data)
+        setPageData(response.data)
+        setItems(response.data?.items ?? [])
       })
       .finally(() => {
         if (!cancelled) {
@@ -109,7 +113,7 @@ export function EditHistoryDialog({ open, onOpenChange, courseId, courseName }: 
     return () => {
       cancelled = true
     }
-  }, [open, courseId])
+  }, [open, courseId, page, filter])
 
   const handleToggleRow = useCallback(
     async (item: EditHistoryListItem, key: string) => {
@@ -159,8 +163,8 @@ export function EditHistoryDialog({ open, onOpenChange, courseId, courseName }: 
     }
   }, [courseId, courseName])
 
-  // 仅展示最近 10 条记录（后端按时间倒序返回）
-  const visibleItems = items ? items.slice(0, 10) : []
+  const visibleItems = items ?? []
+  const setFilterValue = (key: keyof typeof filter, value: string) => { setPage(1); setFilter((prev) => ({ ...prev, [key]: value })) }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -182,6 +186,15 @@ export function EditHistoryDialog({ open, onOpenChange, courseId, courseName }: 
             导出 Word
           </Button>
         </DialogHeader>
+
+        <div className="flex flex-wrap gap-2">
+          {([['year','年份',pageData?.years],['month','月份',pageData?.months],['type','类型',pageData?.types],['editor','操作人',pageData?.editors]] as const).map(([key,label,options]) => (
+            <select key={key} value={filter[key]} onChange={(e) => setFilterValue(key, e.target.value)} className="h-8 rounded-md border bg-background px-2 text-sm">
+              <option value="">全部{label}</option>{(options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
+            </select>
+          ))}
+          {pageData && <span className="self-center text-xs text-muted-foreground">共 {pageData.total} 条</span>}
+        </div>
 
         <div className="flex-1 overflow-y-auto pr-1" style={{ maxHeight: "60vh" }}>
           {isLoading ? (
@@ -285,6 +298,13 @@ export function EditHistoryDialog({ open, onOpenChange, courseId, courseName }: 
               })}
             </ul>
           )}
+          {pageData && pageData.total > 20 ? (
+            <div className="flex items-center justify-center gap-3 py-3">
+              <Button size="sm" variant="outline" disabled={page <= 1 || isLoading} onClick={() => setPage((value) => value - 1)}>上一页</Button>
+              <span className="text-sm text-muted-foreground">第 {page} 页</span>
+              <Button size="sm" variant="outline" disabled={page * 20 >= pageData.total || isLoading} onClick={() => setPage((value) => value + 1)}>下一页</Button>
+            </div>
+          ) : null}
         </div>
       </DialogContent>
     </Dialog>
