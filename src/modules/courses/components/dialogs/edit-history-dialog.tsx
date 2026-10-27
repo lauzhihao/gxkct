@@ -10,6 +10,7 @@ import {
 } from "@/shared/components/ui/dialog"
 import { Button } from "@/shared/components/ui/button"
 import { Badge } from "@/shared/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
 import { Skeleton } from "@/shared/components/ui/skeleton"
 import {
   Empty,
@@ -189,9 +190,13 @@ export function EditHistoryDialog({ open, onOpenChange, courseId, courseName }: 
 
         <div className="flex flex-wrap gap-2">
           {([['year','年份',pageData?.years],['month','月份',pageData?.months],['type','类型',pageData?.types],['editor','操作人',pageData?.editors]] as const).map(([key,label,options]) => (
-            <select key={key} value={filter[key]} onChange={(e) => setFilterValue(key, e.target.value)} className="h-8 rounded-md border bg-background px-2 text-sm">
-              <option value="">全部{label}</option>{(options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
-            </select>
+            <Select key={key} value={filter[key] || "all"} onValueChange={(value) => setFilterValue(key, value === "all" ? "" : value)}>
+              <SelectTrigger className="h-8 w-[132px] text-sm"><SelectValue placeholder={`全部${label}`} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部{label}</SelectItem>
+                {(options ?? []).map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
+              </SelectContent>
+            </Select>
           ))}
           {pageData && <span className="self-center text-xs text-muted-foreground">共 {pageData.total} 条</span>}
         </div>
