@@ -20,6 +20,17 @@ export interface EditHistoryListItem {
  * Field-level detail for one edit record.
  * Backend: com.college.course.application.model.v4.support.history.EditHistoryDetail
  */
+export interface EditHistoryPage {
+  page: number
+  pageSize: number
+  total: number
+  items: EditHistoryListItem[]
+  years: string[]
+  months: string[]
+  types: string[]
+  editors: string[]
+}
+
 export interface EditHistoryDetailItem {
   editor: string
   type: string
@@ -51,6 +62,23 @@ export class EditHistoryApi {
     }
   }
 
+
+  async getCourseHistoryPage(
+    courseId: number,
+    params: { page?: number; pageSize?: number; year?: string; month?: string; type?: string; editor?: string } = {},
+  ): Promise<ApiResponse<EditHistoryPage | null>> {
+    try {
+      const query = new URLSearchParams({ id: String(courseId), page: String(params.page ?? 1), pageSize: String(params.pageSize ?? 20) })
+      for (const key of ["year", "month", "type", "editor"] as const) {
+        if (params[key]) query.set(key, params[key] as string)
+      }
+      const response = await this.storage.getFromApi<EditHistoryPage>(`/api/v4/edithistory/coursehistory/page?${query.toString()}`)
+      if (response.error) return { data: null, error: response.error, status: response.status }
+      return { data: response.data, error: null, status: 200 }
+    } catch (error) {
+      return { data: null, error: String(error), status: 500 }
+    }
+  }
   /**
    * 获取某条修改记录的字段级详情（前后对比）
    * @param courseId 课程ID
