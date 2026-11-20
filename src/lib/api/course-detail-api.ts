@@ -495,4 +495,65 @@ export class CourseDetailApi {
       }
     }
   }
+
+  async listDeletedCourses(semesterId: number, majorId: number): Promise<ApiResponse<DeletedSemesterCourse[] | null>> {
+    try {
+      const response = await this.storage.getFromApi<DeletedSemesterCourse[]>(
+        `/api/v5/matrix/semesters/${semesterId}/majors/${majorId}/deleted-courses`
+      )
+      if (response.error) {
+        return {
+          data: null,
+          error: response.error,
+          status: response.status,
+        }
+      }
+      return {
+        data: Array.isArray(response.data) ? response.data : [],
+        error: null,
+        status: 200,
+      }
+    } catch (error) {
+      return {
+        data: null,
+        error: String(error),
+        status: 500,
+      }
+    }
+  }
+
+  async restoreDeletedCourse(bindingId: number): Promise<ApiResponse<null>> {
+    try {
+      const response = await this.storage.postToApi<null>(
+        `/api/v5/matrix/semester-courses/${bindingId}/restore`
+      )
+      if (response.error) {
+        return {
+          data: null,
+          error: response.error,
+          status: response.status,
+        }
+      }
+      return {
+        data: null,
+        error: null,
+        status: 200,
+      }
+    } catch (error) {
+      return {
+        data: null,
+        error: String(error),
+        status: 500,
+      }
+    }
+  }
+}
+
+export interface DeletedSemesterCourse {
+  id: number
+  semesterId: number
+  majorId: number
+  courseUnitId: number
+  updateTime?: string | null
+  courseName?: string | null
 }
