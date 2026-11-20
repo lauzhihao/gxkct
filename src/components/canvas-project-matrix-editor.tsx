@@ -25,6 +25,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/
 import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip"
 import { findKsaByReference } from "@/shared/utils/ksa"
+import {
+  goalProductText,
+  layoutGoalColumns,
+  mergeGoalWithNext,
+  removeGoalProduct,
+  rewriteGoalText,
+  unmergeGoal,
+} from "@/modules/courses/utils/goal-product-span"
 
 type AvailableKsaItem = {
   id: string
@@ -199,9 +207,13 @@ function TaskObjectivesManageDialog({
   const handleDelete = useCallback((id: string) => {
     setDeletingObjectiveId(null)
     setLocalObjectives((prev) => {
-      const filtered = prev.filter((obj) => obj.id !== id)
-      // 重新计算索引
-      return filtered.map((obj, idx) => ({ ...obj, index: idx + 1 }))
+      const index = prev.findIndex((obj) => obj.id === id)
+      const products = index < 0
+        ? prev.map((obj) => obj.product || "")
+        : removeGoalProduct(prev.map((obj) => obj.product || ""), index)
+      return prev
+        .filter((obj) => obj.id !== id)
+        .map((obj, idx) => ({ ...obj, index: idx + 1, product: products[idx] ?? "" }))
     })
   }, [])
 
@@ -211,8 +223,9 @@ function TaskObjectivesManageDialog({
     }
 
     const searchLower = taskObjectiveSearch.toLowerCase()
+    const products = localObjectives.map((obj) => obj.product || "")
     return localObjectives.filter((obj) => {
-      const productText = typeof obj.product === "string" ? obj.product : ""
+      const productText = goalProductText(products, localObjectives.indexOf(obj))
       return (
         obj.description.toLowerCase().includes(searchLower) ||
         productText.toLowerCase().includes(searchLower)
@@ -284,7 +297,10 @@ function TaskObjectivesManageDialog({
           ) : (
             <div className="space-y-2">
               {filteredObjectives.map((obj) => {
-                const productText = typeof obj.product === "string" ? obj.product : ""
+                const productText = goalProductText(
+                  localObjectives.map((item) => item.product || ""),
+                  localObjectives.findIndex((item) => item.id === obj.id),
+                )
 
                 return (
                   <div
@@ -309,7 +325,17 @@ function TaskObjectivesManageDialog({
                         <div className="text-xs font-medium text-muted-foreground mb-1">学习产出及测量评价标准（可选）</div>
                         <ExpandableTextarea
                           value={productText}
-                          onChange={(value) => handleUpdateField(obj.id, "product", value)}
+                          onChange={(value) => {
+                            setLocalObjectives((prev) => {
+                              const index = prev.findIndex((item) => item.id === obj.id)
+                              if (index < 0) return prev
+                              const products = rewriteGoalText(prev.map((item) => item.product || ""), index, value)
+                              return prev.map((item, itemIndex) => ({
+                                ...item,
+                                product: products[itemIndex] ?? "",
+                              }))
+                            })
+                          }}
                           placeholder="请输入学习产出及测量评价标准"
                           maxLength={500}
                           rows={3}
@@ -926,6 +952,16 @@ export function CanvasProjectMatrixEditor({
     []
   )
 
+  const replaceObjectiveProducts = useCallback((products: string[]) => {
+    setLocalMatrixData((prev) => ({
+      ...prev,
+      task_objectives: prev.task_objectives.map((objective, index) => ({
+        ...objective,
+        product: products[index] ?? objective.product ?? "",
+      })),
+    }))
+  }, [])
+
   // 保存
   const handleSave = useCallback(() => {
     onSave(localMatrixData)
@@ -1213,17 +1249,37 @@ export function CanvasProjectMatrixEditor({
                   <br />
                   <span>及测量评价标准</span>
                 </td>
-                {taskObjectives.map((obj) => {
-                  const productText =
-                    typeof obj.product === "string" ? obj.product : ""
-
+                {layoutGoalColumns(taskObjectives.map((obj) => obj.product || "")).map((column, goalIndex) => {
+                  if (column.span <= 0) return null
+                  const objective = taskObjectives[goalIndex]
                   return (
                     <td
-                      key={`task-objective-product-${obj.id}`}
+                      key={`task-objective-product-${objective?.id || goalIndex}`}
+                      colSpan={column.span}
                       className="px-3 py-4 text-left align-top text-gray-700 border border-gray-200 bg-teal-50/60"
                     >
                       <div className="whitespace-normal break-words leading-relaxed [overflow-wrap:anywhere]">
-                        {productText}
+                        {column.text}
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {goalIndex + column.span < taskObjectives.length ? (
+                          <button
+                            type="button"
+                            onClick={() => replaceObjectiveProducts(mergeGoalWithNext(taskObjectives.map((item) => item.product || ""), goalIndex))}
+                            className="rounded border border-teal-200 px-2 py-1 text-xs text-teal-700 hover:bg-teal-100"
+                          >
+                            与右侧合并
+                          </button>
+                        ) : null}
+                        {column.span > 1 ? (
+                          <button
+                            type="button"
+                            onClick={() => replaceObjectiveProducts(unmergeGoal(taskObjectives.map((item) => item.product || ""), goalIndex))}
+                            className="rounded border border-teal-200 px-2 py-1 text-xs text-teal-700 hover:bg-teal-100"
+                          >
+                            拆分
+                          </button>
+                        ) : null}
                       </div>
                     </td>
                   )

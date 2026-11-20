@@ -11,6 +11,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/shared/components/ui/
 import { Button } from "@/shared/components/ui/button"
 import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
 import { projectTeachGoalApi } from "@/modules/courses/api/projectTeachGoalApi"
+import { goalProductText, removeGoalProduct, rewriteGoalText } from "@/modules/courses/utils/goal-product-span"
 import type { TaskGoalItem } from "@/lib/api/project-teach-goal-api"
 import type { ProjectMatrixData, ProjectMatrixGoal } from "@/modules/courses/hooks/use-project-matrix"
 
@@ -158,9 +159,10 @@ export function TaskObjectivesDialog({
   }
 
   const startEditing = (goal: TaskGoalItem) => {
+    const index = localGoals.indexOf(goal)
     setEditingTaskId(String(goal.id))
     setNewTaskObjective(goal.description)
-    setEditingProduct(goal.product)
+    setEditingProduct(goalProductText(localGoals.map((item) => item.product || ""), index))
   }
 
   const cancelEditing = (goal: TaskGoalItem) => {
@@ -193,19 +195,17 @@ export function TaskObjectivesDialog({
   const handleSaveGoal = async (goal: TaskGoalItem) => {
     if (!newTaskObjective.trim()) return
 
-    const applyUpdate = (g: TaskGoalItem) => ({
-      ...g,
-      description: newTaskObjective.trim(),
-      product: editingProduct.trim(),
-    })
-
-    const finalGoals = goal.id === 0
-      ? localGoals.map((g, idx) =>
-          idx === localGoals.indexOf(goal) ? applyUpdate(g) : g
-        )
-      : localGoals.map((g) =>
-          g.id === goal.id ? applyUpdate(g) : g
-        )
+    const index = localGoals.indexOf(goal)
+    const products = rewriteGoalText(
+      localGoals.map((item) => item.product || ""),
+      index,
+      editingProduct.trim(),
+    )
+    const finalGoals = localGoals.map((item, itemIndex) => ({
+      ...item,
+      description: itemIndex === index ? newTaskObjective.trim() : item.description,
+      product: products[itemIndex] ?? item.product,
+    }))
 
     setLocalGoals(finalGoals)
     setEditingTaskId(null)
@@ -217,12 +217,22 @@ export function TaskObjectivesDialog({
 
   const handleDeleteGoal = async (goal: TaskGoalItem) => {
     if (goal.id === 0) {
-      setLocalGoals(localGoals.filter((g) => g !== goal))
+      const index = localGoals.indexOf(goal)
+      const products = removeGoalProduct(localGoals.map((item) => item.product || ""), index)
+      setLocalGoals(localGoals.filter((item) => item !== goal).map((item, itemIndex) => ({
+        ...item,
+        product: products[itemIndex] ?? "",
+      })))
       return
     }
 
     setDeletingGoalId(null)
-    const remaining = localGoals.filter((g) => g.id !== goal.id)
+    const index = localGoals.indexOf(goal)
+    const products = removeGoalProduct(localGoals.map((item) => item.product || ""), index)
+    const remaining = localGoals.filter((item) => item !== goal).map((item, itemIndex) => ({
+      ...item,
+      product: products[itemIndex] ?? "",
+    }))
     const newDeleted = [...deletedGoals, goal]
     setLocalGoals(remaining)
     setDeletedGoals(newDeleted)
@@ -274,9 +284,10 @@ export function TaskObjectivesDialog({
                 .filter((goal) => {
                   if (!taskObjectiveSearch) return true
                   const searchLower = taskObjectiveSearch.toLowerCase()
+                  const visibleProduct = goalProductText(localGoals.map((item) => item.product || ""), localGoals.indexOf(goal))
                   return (
                     goal.description?.toLowerCase().includes(searchLower) ||
-                    goal.product?.toLowerCase().includes(searchLower)
+                    visibleProduct.toLowerCase().includes(searchLower)
                   )
                 })
                 .map((goal, idx) => {
@@ -336,11 +347,11 @@ export function TaskObjectivesDialog({
                         ) : (
                           <div className="space-y-1">
                             <div className="text-sm text-foreground font-medium">{goal.description || "未设置"}</div>
-                            {goal.product && (
+                            {goalProductText(localGoals.map((item) => item.product || ""), localGoals.indexOf(goal)) ? (
                               <div className="text-xs text-muted-foreground">
-                                {goal.product}
+                                {goalProductText(localGoals.map((item) => item.product || ""), localGoals.indexOf(goal))}
                               </div>
-                            )}
+                            ) : null}
                           </div>
                         )}
                       </div>
