@@ -16,6 +16,7 @@ import { useTaskObjectives } from "@/modules/courses/hooks/use-task-objectives"
 import { useKsaManagement } from "@/modules/courses/hooks/use-ksa-management"
 import type { ProjectMatrixItemProjectMatrix } from "@/modules/courses/hooks/use-project-matrix"
 import { projectMatrixApi } from "@/modules/courses/api/projectMatrixApi"
+import { collectProjectMatrixHourMismatch } from "./project-matrix-hours"
 import { ProjectMatrixTable } from "./ProjectMatrixTable"
 import { TaskObjectivesDialog } from "../../../dialogs/task-objectives-dialog"
 import { KsaDialog } from "../../../dialogs/ksa-dialog"
@@ -268,6 +269,10 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId, courseEditable
       }
       if (!projectMatrixData.data) {
         throw new Error("项目矩阵行数据不存在，无法保存")
+      }
+      const hourMismatch = collectProjectMatrixHourMismatch(projectMatrixData)
+      if (hourMismatch) {
+        throw new Error(hourMismatch)
       }
 
       setIsSavingProjectMatrix(true)
