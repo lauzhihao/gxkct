@@ -78,6 +78,15 @@ export const courseResourcesApi = {
     return api.resources.createFolder(courseId, parentId, payload, ownerType)
   },
 
+  reorderFiles(
+    courseId: string,
+    folderId: string,
+    fileIds: string[],
+    ownerType?: ResourceOwnerType,
+  ): Promise<ApiResponse<ResourceFolder[] | null>> {
+    return api.resources.reorderFiles(courseId, folderId, fileIds, ownerType)
+  },
+
   getUploadSignature(
     courseId: string,
     parentId: string,

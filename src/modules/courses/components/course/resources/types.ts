@@ -81,6 +81,8 @@ export interface ResourceObjectListProps {
   canDelete?: boolean
   onDelete?: (target: ResourceRenameTarget) => void
   onPreview?: (target: ResourcePreviewTarget) => void
+  canReorder?: boolean
+  onReorderFile?: (draggedId: string, targetId: string) => void
 }
 
 export interface FileListItem {

@@ -1,10 +1,12 @@
 "use client"
 
+import type { DragEvent } from "react"
 import { Folder, Image, FileSpreadsheet, Presentation, FileText, FileCode2, File, X, Upload } from "lucide-react"
 import { Badge } from "@/shared/components/ui/badge"
 import { cn } from "@/shared/utils/utils"
 import type { ResourceObjectListProps } from "./types"
 import { ResourceTileActions } from "./ResourceTileActions"
+import { RESOURCE_FILE_DRAG_MIME, dragTypeListIncludes } from "./move-resource-file"
 
 function getObjectIcon(mimeType?: string, name?: string) {
   const lowerMime = mimeType?.toLowerCase() ?? ""
@@ -110,6 +112,42 @@ function renderFolderFilesCountBadge(
   )
 }
 
+function bindFileReorder(
+  fileId: string,
+  enabled: boolean,
+  onReorderFile?: (draggedId: string, targetId: string) => void,
+) {
+  if (!enabled || !onReorderFile) {
+    return {}
+  }
+  return {
+    draggable: true,
+    title: "拖拽调整顺序",
+    onDragStart: (event: DragEvent<HTMLDivElement>) => {
+      event.stopPropagation()
+      event.dataTransfer.effectAllowed = "move"
+      event.dataTransfer.setData(RESOURCE_FILE_DRAG_MIME, fileId)
+    },
+    onDragOver: (event: DragEvent<HTMLDivElement>) => {
+      if (!dragTypeListIncludes(event.dataTransfer.types, RESOURCE_FILE_DRAG_MIME)) {
+        return
+      }
+      event.preventDefault()
+      event.stopPropagation()
+      event.dataTransfer.dropEffect = "move"
+    },
+    onDrop: (event: DragEvent<HTMLDivElement>) => {
+      const draggedId = event.dataTransfer.getData(RESOURCE_FILE_DRAG_MIME)
+      if (!draggedId) {
+        return
+      }
+      event.preventDefault()
+      event.stopPropagation()
+      onReorderFile(draggedId, fileId)
+    },
+  }
+}
+
 function getUploadStatusLabel(
   status: "queued" | "uploading" | "error",
   progress: number,
@@ -139,10 +177,14 @@ export function ResourceObjectList({
   canDelete = false,
   onDelete,
   onPreview,
+  canReorder = false,
+  onReorderFile,
 }: ResourceObjectListProps) {
   const isListView = viewMode === "list"
   const shouldShowRename = canRename && !isRootLevel && typeof onRename === "function"
   const shouldShowDelete = canDelete && !isRootLevel && typeof onDelete === "function"
+  const canReorderFiles =
+    canReorder && !isRootLevel && interactionMode === "normal" && typeof onReorderFile === "function"
 
   const handleFolderTileClick = (onClick: () => void) => {
     onClick()
@@ -432,15 +474,19 @@ export function ResourceObjectList({
           />
         ) : null
 
+        const reorderProps = bindFileReorder(entry.object.id, canReorderFiles, onReorderFile)
+
         if (isListView) {
           return (
             <div
               className={cn(
                 listRowClass,
                 "group/tile relative min-h-14 transition-colors",
+                canReorderFiles && "cursor-grab",
                 checked ? "bg-primary/10" : "hover:bg-primary/10",
               )}
               key={entry.object.id}
+              {...reorderProps}
             >
               <button
                 type="button"
@@ -467,7 +513,11 @@ export function ResourceObjectList({
         }
 
         return (
-          <div className="group/tile relative" key={entry.object.id}>
+          <div
+            className={cn("group/tile relative", canReorderFiles && "cursor-grab")}
+            key={entry.object.id}
+            {...reorderProps}
+          >
             <button
               type="button"
               onClick={() => handleObjectToggleSelect(entry.object.id)}
