@@ -43,6 +43,16 @@ export function isRichTextEmpty(value: string): boolean {
   return normalized.length === 0
 }
 
+export function shouldSyncRichTextContent(currentHtml: string, nextValue: string): boolean {
+  if (currentHtml === nextValue) {
+    return false
+  }
+
+  // 空编辑器的 HTML 是 <p></p>，父组件存的是 ""。这次回写没有可见变化，
+  // 但 setContent 会记进撤销历史，让「撤销」多出一步什么都不变的操作。
+  return !(nextValue === "" && isRichTextEmpty(currentHtml))
+}
+
 export function hasRichTextTable(value: string): boolean {
   return /<table[\s>]/i.test(value)
 }

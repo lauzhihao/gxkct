@@ -34,7 +34,7 @@ import { Button } from "@/shared/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
 import { useToast } from "@/shared/hooks/use-toast"
 import { cn } from "@/shared/utils/utils"
-import { getRichTextPreview, hasRichTextTable, isRichTextEmpty } from "@/shared/utils/rich-text"
+import { getRichTextPreview, hasRichTextTable, isRichTextEmpty, shouldSyncRichTextContent } from "@/shared/utils/rich-text"
 
 interface RichTextEditorProps {
   value: string
@@ -149,6 +149,33 @@ function getTableActionState(editor: NonNullable<ReturnType<typeof useEditor>>):
     canMergeCells: editor.can().mergeCells(),
     canSplitCell: editor.can().splitCell(),
     canDeleteTable: editor.can().deleteTable(),
+  }
+}
+
+function historyToolbarGroup(
+  currentEditor: NonNullable<ReturnType<typeof useEditor>>,
+  compact: boolean,
+): ToolbarGroup {
+  return {
+    key: "history",
+    buttons: [
+      {
+        key: "undo",
+        label: "撤销",
+        icon: Undo2,
+        onClick: () => currentEditor.chain().focus().undo().run(),
+        disabled: () => !currentEditor.can().undo(),
+        compact,
+      },
+      {
+        key: "redo",
+        label: "重做",
+        icon: Redo2,
+        onClick: () => currentEditor.chain().focus().redo().run(),
+        disabled: () => !currentEditor.can().redo(),
+        compact,
+      },
+    ],
   }
 }
 
@@ -268,7 +295,7 @@ export function RichTextEditor({ value, onChange, onPasteImageUpload, placeholde
     }
 
     const currentHtml = editor.getHTML()
-    if (currentHtml === value) {
+    if (!shouldSyncRichTextContent(currentHtml, value)) {
       return
     }
 
@@ -289,7 +316,7 @@ export function RichTextEditor({ value, onChange, onPasteImageUpload, placeholde
     }
 
     const currentHtml = dialogEditor.getHTML()
-    if (currentHtml === dialogDraft) {
+    if (!shouldSyncRichTextContent(currentHtml, dialogDraft)) {
       return
     }
 
@@ -522,6 +549,7 @@ export function RichTextEditor({ value, onChange, onPasteImageUpload, placeholde
         },
       ],
     },
+    historyToolbarGroup(editor, false),
     {
       key: "expand",
       buttons: [
@@ -598,27 +626,7 @@ export function RichTextEditor({ value, onChange, onPasteImageUpload, placeholde
         },
       ],
     },
-    {
-      key: "history",
-      buttons: [
-        {
-          key: "undo",
-          label: "撤销",
-          icon: Undo2,
-          onClick: () => dialogEditor.chain().focus().undo().run(),
-          disabled: () => !dialogEditor.can().undo(),
-          compact: true,
-        },
-        {
-          key: "redo",
-          label: "重做",
-          icon: Redo2,
-          onClick: () => dialogEditor.chain().focus().redo().run(),
-          disabled: () => !dialogEditor.can().redo(),
-          compact: true,
-        },
-      ],
-    },
+    historyToolbarGroup(dialogEditor, true),
   ]
 
   const editorContentClassName =
