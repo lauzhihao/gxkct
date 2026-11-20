@@ -10,10 +10,10 @@ import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { ExpandableTextarea } from "@/shared/components/ui/expandable-textarea"
-import { SortableOrderTag } from "@/shared/components/ui/sortable-order-tag"
 import { useSortableRowReorder } from "@/shared/hooks/use-sortable-row-reorder"
 import { cn } from "@/shared/utils/utils"
-import { Check, Loader2, Plus, Search, Sparkles, Trash2, X } from "lucide-react"
+import { insertionEdge, moveItemToSequence, resolveCoursePointSequence } from "./canvas-point-order"
+import { Check, GripVertical, Loader2, Plus, Search, Sparkles, Trash2, X } from "lucide-react"
 import type { CoursePointCardData } from "./canvas-elements/types"
 
 interface CanvasCoursePointEditorProps {
@@ -124,6 +124,8 @@ export function CanvasCoursePointEditor({
   const [isBatchAddExpanded, setIsBatchAddExpanded] = useState(false)
   const [batchAddInput, setBatchAddInput] = useState("")
   const [footerMessage, setFooterMessage] = useState<FooterMessage | null>(null)
+  const [sequenceDraft, setSequenceDraft] = useState<{ id: string, value: string } | null>(null)
+  const skipSequenceCommitRef = useRef(false)
   const descriptionInputRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
   const draftDescriptionInputRef = useRef<HTMLTextAreaElement | null>(null)
   const draftCoursePointId = draftCoursePoint ? draftCoursePoint.id : null
@@ -444,6 +446,50 @@ export function CanvasCoursePointEditor({
     enabled: canReorder,
     onReorderComplete: renameCoursePointNames,
   })
+  const draggedIndex = draggedItemId === null
+    ? -1
+    : localCoursePoints.findIndex((coursePoint) => coursePoint.id === draggedItemId)
+
+  const commitSequence = useCallback((coursePointId: string) => {
+    if (skipSequenceCommitRef.current) {
+      skipSequenceCommitRef.current = false
+      setSequenceDraft((current) => current?.id === coursePointId ? null : current)
+      return
+    }
+
+    const draft = sequenceDraft
+    setSequenceDraft((current) => current?.id === coursePointId ? null : current)
+    if (draft === null || draft.id !== coursePointId) {
+      return
+    }
+
+    const resolved = resolveCoursePointSequence(draft.value, localCoursePoints.length)
+    if (resolved === null) {
+      setFooterMessage({ text: "序号需要是正整数。", tone: "error" })
+      return
+    }
+
+    const fromIndex = localCoursePoints.findIndex((coursePoint) => coursePoint.id === coursePointId)
+    if (fromIndex === -1 || resolved.sequence === fromIndex + 1) {
+      return
+    }
+
+    setLocalCoursePointsWithSnapshot((prev) => {
+      const currentIndex = prev.findIndex((coursePoint) => coursePoint.id === coursePointId)
+      const nextResolved = resolveCoursePointSequence(draft.value, prev.length)
+      if (currentIndex === -1 || nextResolved === null || nextResolved.sequence === currentIndex + 1) {
+        return prev
+      }
+
+      return renameCoursePointNames(moveItemToSequence(prev, currentIndex, nextResolved.sequence))
+    })
+    setFooterMessage({
+      text: resolved.clamped
+        ? "序号超过总数，已放到最后，后面的课点顺延。"
+        : `已放到序号 ${resolved.sequence}，重复序号往后顺延。`,
+      tone: "default",
+    })
+  }, [localCoursePoints, sequenceDraft, setLocalCoursePointsWithSnapshot])
 
   // 保存并关闭
   const handleSave = useCallback(async () => {
@@ -557,7 +603,7 @@ export function CanvasCoursePointEditor({
                       disabled={isEditingLocked || filteredCoursePoints.length === 0}
                     />
                   </th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-foreground w-16">
+                  <th className="px-4 py-3 text-center text-sm font-medium text-foreground w-28">
                     序号
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-foreground w-[200px]">
@@ -637,15 +683,19 @@ export function CanvasCoursePointEditor({
                       </td>
                     </tr>
                   ) : null}
-                  {filteredCoursePoints.map((coursePoint, index) => (
+                  {filteredCoursePoints.map((coursePoint, index) => {
+                    const edge = dragOverIndex === index ? insertionEdge(draggedIndex, index) : null
+                    return (
                     <tr
                       key={coursePoint.id}
                       onDragOver={(event) => handleDragOver(event, index)}
                       onDragLeave={handleDragLeave}
                       onDrop={(event) => handleDrop(event, index)}
+                      title={edge === "before" ? "松手后插入到这个课点前面" : edge === "after" ? "松手后插入到这个课点后面" : undefined}
                       className={cn(
                         "border-b border-border transition-colors hover:bg-secondary/20",
-                        dragOverIndex === index && draggedItemId !== null ? "bg-primary/10" : "",
+                        edge === "before" && "border-t-2 border-t-primary",
+                        edge === "after" && "border-b-2 border-b-primary",
                       )}
                     >
                       <td className="px-4 py-3 text-center w-12">
@@ -657,16 +707,53 @@ export function CanvasCoursePointEditor({
                           className="w-4 h-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                       </td>
-                      <td className="px-4 py-3 text-center text-sm font-medium text-green-600 w-16">
-                        <div className="flex items-center justify-center">
-                          <SortableOrderTag
-                            order={index + 1}
+                      <td className="px-4 py-3 text-center text-sm font-medium text-green-600 w-28">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            type="button"
                             draggable={canReorder}
-                            isDragging={draggedItemId === coursePoint.id}
                             onDragStart={(event) => handleDragStart(event, coursePoint.id)}
                             onDragEnd={handleDragEnd}
+                            disabled={!canReorder}
+                            className={cn(
+                              "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border",
+                              draggedItemId === coursePoint.id
+                                ? "cursor-grabbing border-primary bg-primary text-primary-foreground"
+                                : canReorder
+                                  ? "cursor-grab border-primary/20 bg-primary/10 text-primary"
+                                  : "cursor-not-allowed border-primary/10 bg-primary/5 text-primary/50",
+                            )}
                             aria-label={`拖动调整第 ${index + 1} 行课点顺序`}
-                            title={reorderTitle}
+                            title={reorderTitle ?? (canReorder ? "拖动调整顺序" : "当前无法拖动排序")}
+                          >
+                            <GripVertical className="h-4 w-4" />
+                          </button>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={sequenceDraft?.id === coursePoint.id ? sequenceDraft.value : String(index + 1)}
+                            disabled={!canReorder}
+                            onFocus={(event) => {
+                              setSequenceDraft({ id: coursePoint.id, value: String(index + 1) })
+                              event.currentTarget.select()
+                            }}
+                            onChange={(event) => {
+                              setSequenceDraft({ id: coursePoint.id, value: event.target.value })
+                            }}
+                            onBlur={() => commitSequence(coursePoint.id)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.preventDefault()
+                                event.currentTarget.blur()
+                              }
+                              if (event.key === "Escape") {
+                                skipSequenceCommitRef.current = true
+                                setSequenceDraft(null)
+                                event.currentTarget.blur()
+                              }
+                            }}
+                            className="h-8 w-12 rounded-md border border-border bg-background text-center text-sm tabular-nums disabled:cursor-not-allowed disabled:opacity-50"
+                            aria-label={`修改第 ${index + 1} 个课点的序号`}
                           />
                         </div>
                       </td>
@@ -702,7 +789,8 @@ export function CanvasCoursePointEditor({
                         )}
                       </td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             )}
