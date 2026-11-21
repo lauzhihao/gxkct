@@ -21,6 +21,8 @@ function convertToProjectMatrixData(responseData: ProjectMatrixDataResponse["dat
       project: {
         id: p.project?.id,  // 保持数字类型
         name: p.project?.name,
+        theoryPeriod: p.project?.theoryPeriod,
+        practicePeriod: p.project?.practicePeriod,
       },
       goals: (p.goals || []).map((g) => ({
         id: g.id,
@@ -85,6 +87,8 @@ export interface ProjectMatrixItem {
 export interface ProjectMatrixProject {
   id: number
   name: string
+  theoryPeriod?: string
+  practicePeriod?: string
 }
 
 export interface ProjectMatrixGoal {

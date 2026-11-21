@@ -16,6 +16,7 @@ import type {
   ProjectMatrixItemProjectMatrix,
   ProjectMatrixProjectItem,
 } from "@/modules/courses/hooks/use-project-matrix"
+import { summarizeProjectHours } from "./project-matrix-hours"
 
 interface ProjectMatrixTableProps {
   courseEditable: boolean
@@ -111,6 +112,10 @@ export function ProjectMatrixTable({
         const goals = projectItem.goals || []
         const projectId = project.id
         const projectName = project.name || `项目${projectIdx + 1}`
+        const projectRows = (projectMatrixData.data ?? []).filter(
+          (item: ProjectMatrixItem) => item.courseMatrix?.projectId === projectId,
+        )
+        const hourSummary = summarizeProjectHours(project, projectRows)
 
         return (
           <AccordionItem key={String(projectId)} value={String(projectId)} className="border border-border rounded-lg">
@@ -143,11 +148,22 @@ export function ProjectMatrixTable({
             </div>
             <AccordionContent className="px-5 pb-5">
               <div className="border-t border-dashed border-border mb-4" />
+              <div className="mb-4 rounded-lg border border-border bg-secondary/20 px-4 py-3 text-sm text-foreground">
+                <div>
+                  章节分配：理论 {hourSummary.theoryAllocated}，实践 {hourSummary.practiceAllocated}，合计 {hourSummary.totalAllocated}
+                </div>
+                {projectRows.length > 0 && (
+                  <div>
+                    矩阵合计：理论 {hourSummary.theoryMatrix}，实践 {hourSummary.practiceMatrix}，合计 {hourSummary.totalMatrix}
+                  </div>
+                )}
+                {projectRows.length > 0 && hourSummary.detail && (
+                  <div className="mt-1 font-medium text-destructive">{hourSummary.detail}</div>
+                )}
+              </div>
 
               {/* 项目矩阵表格 */}
-              {(projectMatrixData?.data?.some(
-                (item: ProjectMatrixItem) => item.courseMatrix?.projectId === projectId
-              )) ? (
+              {projectRows.length > 0 ? (
                 <div className="w-full overflow-hidden rounded-lg border border-border bg-background">
                   <div className="w-full overflow-x-auto">
                     <table
@@ -225,9 +241,7 @@ export function ProjectMatrixTable({
                         </tr>
                       </thead>
                       <tbody>
-                        {projectMatrixData?.data
-                          ?.filter((item: ProjectMatrixItem) => item.courseMatrix?.projectId === projectId)
-                          .map((item: ProjectMatrixItem, rowIdx: number) => (
+                        {projectRows.map((item: ProjectMatrixItem, rowIdx: number) => (
                             <tr
                               key={item.courseMatrix?.id || rowIdx}
                               className="border-b border-border hover:bg-secondary/20"
@@ -443,6 +457,20 @@ export function ProjectMatrixTable({
                               </td>
                             </tr>
                           ))}
+                        <tr className="border-b border-border bg-secondary/40 font-medium">
+                          <td
+                            colSpan={goals.length + 5}
+                            className="border-r border-border p-2.5 text-left text-sm text-foreground"
+                          >
+                            合计 {hourSummary.totalMatrix}
+                          </td>
+                          <td className="border-r border-border p-2.5 text-center text-sm text-foreground">
+                            {hourSummary.theoryMatrix}
+                          </td>
+                          <td className="p-2.5 text-center text-sm text-foreground">
+                            {hourSummary.practiceMatrix}
+                          </td>
+                        </tr>
                         <tr className="border-b border-border bg-secondary/30 font-medium">
                           <td className="border-r border-border p-4 text-left align-top text-base text-foreground">
                             教学目标的学习产出及测量评价标准
