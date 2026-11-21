@@ -496,6 +496,7 @@ export function ProjectMatrixTable({
                       </tbody>
                     </table>
                 </div>
+                </div>
               ) : (
                 <div className="text-center py-6 text-muted-foreground">暂无课点支撑关系</div>
               )}
