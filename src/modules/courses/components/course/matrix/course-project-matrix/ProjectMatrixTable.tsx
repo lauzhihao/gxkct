@@ -4,6 +4,7 @@
  */
 
 import { Plus, Flag } from "lucide-react"
+import { layoutGoalColumns, rewriteGoalText } from "@/modules/courses/utils/goal-product-span"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/shared/components/ui/accordion"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/shared/components/ui/tooltip"
 import { Button } from "@/shared/components/ui/button"
@@ -32,6 +33,10 @@ interface ProjectMatrixTableProps {
   onOpenKsaDialog: (chapterId: string, coursePointId: string, taskId: string) => void
   onRemoveKsaSupport: (courseMatrixId: number | undefined, taskGoalId: number, ksaId: number) => void
   onFocusCell: (cellId: string | null) => void
+  onDraftGoalProducts: (projectId: number, products: string[]) => void
+  onCommitGoalProducts: (projectId: number, products: string[]) => void
+  onMergeGoalProducts: (projectId: number, index: number) => void
+  onUnmergeGoalProducts: (projectId: number, index: number) => void
 }
 
 export function ProjectMatrixTable({
@@ -44,6 +49,10 @@ export function ProjectMatrixTable({
   onOpenKsaDialog,
   onRemoveKsaSupport,
   onFocusCell,
+  onDraftGoalProducts,
+  onCommitGoalProducts,
+  onMergeGoalProducts,
+  onUnmergeGoalProducts,
 }: ProjectMatrixTableProps) {
   const canManageProjectMatrix = courseEditable
   const POINT_COLUMN_WIDTH = 96
@@ -475,16 +484,55 @@ export function ProjectMatrixTable({
                           <td className="border-r border-border p-4 text-left align-top text-base text-foreground">
                             教学目标的学习产出及测量评价标准
                           </td>
-                          {goals.map((goal: ProjectMatrixGoal, goalIdx: number) => (
-                            <td
-                              key={`goal-product-${goal.id || goalIdx}`}
-                              className="border-r border-border p-4 text-left align-top text-sm text-foreground"
-                            >
-                              <div className="whitespace-normal break-words leading-relaxed">
-                                {hasDisplayText(goal.product) ? goal.product : ""}
-                              </div>
-                            </td>
-                          ))}
+                          {layoutGoalColumns(goals.map((goal: ProjectMatrixGoal) => goal.product ?? "")).map((column, goalIdx) => {
+                            if (column.span <= 0) return null
+                            const goal = goals[goalIdx]
+                            const products = goals.map((item: ProjectMatrixGoal) => item.product ?? "")
+                            return (
+                              <td
+                                key={`goal-product-${goal?.id || goalIdx}`}
+                                colSpan={column.span}
+                                className="border-r border-border p-4 text-left align-top text-sm text-foreground"
+                              >
+                                {isEditingProjectMatrix ? (
+                                  <div>
+                                    <textarea
+                                      value={column.text}
+                                      rows={3}
+                                      onChange={(event) => onDraftGoalProducts(projectId, rewriteGoalText(products, goalIdx, event.target.value))}
+                                      onBlur={(event) => onCommitGoalProducts(projectId, rewriteGoalText(products, goalIdx, event.target.value))}
+                                      className="w-full rounded border border-border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                      placeholder="输入学习产出及测量评价标准"
+                                    />
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                      {goalIdx + column.span < goals.length ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => onMergeGoalProducts(projectId, goalIdx)}
+                                          className="rounded border border-border px-2 py-1 text-xs text-primary hover:bg-secondary"
+                                        >
+                                          与右侧合并
+                                        </button>
+                                      ) : null}
+                                      {column.span > 1 ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => onUnmergeGoalProducts(projectId, goalIdx)}
+                                          className="rounded border border-border px-2 py-1 text-xs text-primary hover:bg-secondary"
+                                        >
+                                          拆分
+                                        </button>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="whitespace-normal break-words leading-relaxed">
+                                    {column.text}
+                                  </div>
+                                )}
+                              </td>
+                            )
+                          })}
                           <td className="border-r border-border p-4" />
                           <td className="border-r border-border p-4" />
                           <td className="border-r border-border p-4" />

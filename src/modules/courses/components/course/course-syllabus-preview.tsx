@@ -8,6 +8,7 @@ import { ReportChapter } from "@/modules/courses/report/components/ReportChapter
 import { ReportRevisableTable } from "@/modules/courses/report/components/ReportRevisableTable"
 import { ReportTable } from "@/modules/courses/report/components/ReportTable"
 import type { ColumnOption, GraduateRequireNode, PointMatrixItem, ProjectListItem, ProjectMatrixItem, RevisableCell, RevisableTableValue, TableOption, TaskGoalGroup } from "@/modules/courses/report/types"
+import { layoutGoalColumns } from "@/modules/courses/utils/goal-product-span"
 import { getStoredSemesterContext } from "@/lib/api/auth-config"
 import { sortByCoursePointTitle } from "@/modules/courses/utils/course-matrix-utils"
 import { Button } from "@/shared/components/ui/button"
@@ -467,10 +468,11 @@ function buildPointMatrixTables(projectList: ProjectListItem[], projectMatrixIte
         ],
       }))
 
+    const goalColumns = layoutGoalColumns(goals.map((goal) => goal.product || ""))
     rows.push({
       data: [
         "学习产出及测量标准（以教学目标为单位进行考核）",
-        ...goals.map((goal) => goal.product),
+        ...goalColumns.map((column) => (column.span > 0 ? column.text : "")),
         "",
         "",
         "",
@@ -478,6 +480,7 @@ function buildPointMatrixTables(projectList: ProjectListItem[], projectMatrixIte
         "",
         "",
       ],
+      spans: [...goalColumns.map((column) => column.span), 1, 1, 1, 1, 1, 1],
     })
 
     return { options, data: rows }
@@ -538,7 +541,7 @@ export function CourseSyllabusPreview({
   const [majorMatrixExplanations, setMajorMatrixExplanations] = useState<MajorMatrixExplanationItem[]>([])
   const [projectMatrixData, setProjectMatrixData] = useState<Array<{ data: string[] }>>([])
   const [projectMatrixOptions, setProjectMatrixOptions] = useState<TableOption | null>(null)
-  const [pointMatrixTables, setPointMatrixTables] = useState<Array<{ options: TableOption; data: Array<{ data: string[] }> }>>([])
+  const [pointMatrixTables, setPointMatrixTables] = useState<Array<{ options: TableOption; data: Array<{ data: string[]; spans?: number[] }> }>>([])
 
   const scheduleOptions = useMemo(() => buildScheduleOptions(), [])
   const todayDate = useMemo(() => formatTodayDate(), [])

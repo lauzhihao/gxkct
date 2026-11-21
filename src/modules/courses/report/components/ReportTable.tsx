@@ -1,7 +1,8 @@
+import type { ReactElement } from "react"
 import type { ColumnOption, TableOption } from "../types"
 
 interface ReportTableProps {
-  data: Array<{ data: string[] }>
+  data: Array<{ data: string[]; spans?: number[] }>
   options: TableOption
   title?: string | string[]
 }
@@ -116,22 +117,41 @@ export function ReportTable({ data, options, title = "" }: ReportTableProps) {
             ))}
           </thead>
           <tbody>
-            {data.map((row, rowIndex) => (
-              <tr key={`row-${rowIndex}`}>
-                <td className="border border-slate-300 px-2 py-1 align-top whitespace-pre-wrap">
-                  {replaceSupportMark(row.data[0] ?? "")}
-                </td>
-                {leafColumns.map((_, colIndex) => (
-                <td key={`row-${rowIndex}-${colIndex}`} className="border border-slate-300 px-2 py-1 align-top whitespace-pre-wrap">
-                    {isSupportMarkOnly(replaceSupportMark(row.data[colIndex + 1] ?? "")) ? (
-                      <span className="block text-center text-[11.5pt] leading-[20pt]">{replaceSupportMark(row.data[colIndex + 1] ?? "")}</span>
+            {data.map((row, rowIndex) => {
+              const cells: ReactElement[] = []
+              let skip = 0
+              for (let colIndex = 0; colIndex < leafColumns.length; colIndex += 1) {
+                if (skip > 0) {
+                  skip -= 1
+                  continue
+                }
+                const span = row.spans?.[colIndex] ?? 1
+                if (span <= 0) continue
+                skip = span - 1
+                const value = replaceSupportMark(row.data[colIndex + 1] ?? "")
+                cells.push(
+                  <td
+                    key={`row-${rowIndex}-${colIndex}`}
+                    colSpan={span > 1 ? span : undefined}
+                    className="border border-slate-300 px-2 py-1 align-top whitespace-pre-wrap"
+                  >
+                    {isSupportMarkOnly(value) ? (
+                      <span className="block text-center text-[11.5pt] leading-[20pt]">{value}</span>
                     ) : (
-                      replaceSupportMark(row.data[colIndex + 1] ?? "")
+                      value
                     )}
                   </td>
-                ))}
-              </tr>
-            ))}
+                )
+              }
+              return (
+                <tr key={`row-${rowIndex}`}>
+                  <td className="border border-slate-300 px-2 py-1 align-top whitespace-pre-wrap">
+                    {replaceSupportMark(row.data[0] ?? "")}
+                  </td>
+                  {cells}
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

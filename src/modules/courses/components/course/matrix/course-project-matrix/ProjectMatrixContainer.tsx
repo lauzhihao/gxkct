@@ -5,6 +5,7 @@
 
 "use client"
 
+import { useRef } from "react"
 import { Grid3x3, Edit, Check, X, Settings } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Spinner } from "@/shared/components/ui/spinner"
@@ -17,12 +18,16 @@ import { useKsaManagement } from "@/modules/courses/hooks/use-ksa-management"
 import type { ProjectMatrixItemProjectMatrix } from "@/modules/courses/hooks/use-project-matrix"
 import { projectMatrixApi } from "@/modules/courses/api/projectMatrixApi"
 import { collectProjectMatrixHourMismatch } from "./project-matrix-hours"
+import { projectTeachGoalApi } from "@/modules/courses/api/projectTeachGoalApi"
+import { mergeGoalWithNext, unmergeGoal } from "@/modules/courses/utils/goal-product-span"
+import type { ProjectMatrixData } from "@/modules/courses/hooks/use-project-matrix"
 import { ProjectMatrixTable } from "./ProjectMatrixTable"
 import { TaskObjectivesDialog } from "../../../dialogs/task-objectives-dialog"
 import { KsaDialog } from "../../../dialogs/ksa-dialog"
 
 export function ProjectMatrixContainer({ node, onUpdate, majorId, courseEditable = false }: CourseProjectMatrixProps) {
   const canManageProjectMatrix = courseEditable
+  const dirtyGoalProjectsRef = useRef<Set<number>>(new Set())
 
   // 使用项目矩阵数据管理hook
   const {
@@ -42,6 +47,8 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId, courseEditable
     loadProjectMatrixData,
     updateKsaSupport,
   } = useProjectMatrix(node, majorId)
+  const projectMatrixRef = useRef(projectMatrixData)
+  projectMatrixRef.current = projectMatrixData
 
   // 使用任务目标管理hook
   const {
@@ -259,6 +266,78 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId, courseEditable
     }
   }
 
+  const replaceProjectGoalProducts = (current: ProjectMatrixData, projectId: number, products: string[]): ProjectMatrixData => ({
+    ...current,
+    projects: (current.projects || []).map((item) => {
+      if (item.project.id !== projectId) return item
+      return {
+        ...item,
+        goals: item.goals.map((goal, index) => ({
+          ...goal,
+          product: products[index] ?? goal.product ?? "",
+        })),
+      }
+    }),
+  })
+
+  const persistProjectGoalProducts = async (projectId: number, products: string[]) => {
+    const current = projectMatrixRef.current
+    const projectItem = current?.projects?.find((item) => item.project.id === projectId)
+    if (!projectItem) {
+      showError("未找到教学目标，无法保存学习产出")
+      return false
+    }
+    if (products.length !== projectItem.goals.length) {
+      showError("学习产出数量和教学目标不一致")
+      return false
+    }
+    if (projectItem.goals.some((goal) => !Number.isInteger(goal.id) || goal.id <= 0)) {
+      showError("有教学目标还没保存，先保存任务目标再合并学习产出")
+      return false
+    }
+    const response = await projectTeachGoalApi.updateTaskGoals(projectItem.goals.map((goal, index) => ({
+      id: goal.id,
+      projectId,
+      description: goal.description,
+      product: products[index] ?? "",
+    })))
+    if (response.error) {
+      showError(response.error)
+      return false
+    }
+    dirtyGoalProjectsRef.current.delete(projectId)
+    return true
+  }
+
+  const stageProjectGoalProducts = (projectId: number, products: string[]) => {
+    const current = projectMatrixRef.current
+    if (!current) return
+    const next = replaceProjectGoalProducts(current, projectId, products)
+    projectMatrixRef.current = next
+    setProjectMatrixData(next)
+    dirtyGoalProjectsRef.current.add(projectId)
+  }
+
+  const handleDraftGoalProducts = (projectId: number, products: string[]) => {
+    stageProjectGoalProducts(projectId, products)
+  }
+
+  const handleCommitGoalProducts = (projectId: number, products: string[]) => {
+    stageProjectGoalProducts(projectId, products)
+  }
+
+  const handleMergeGoalProducts = (projectId: number, index: number) => {
+    const projectItem = projectMatrixRef.current?.projects?.find((item) => item.project.id === projectId)
+    if (!projectItem) return
+    handleCommitGoalProducts(projectId, mergeGoalWithNext(projectItem.goals.map((goal) => goal.product ?? ""), index))
+  }
+
+  const handleUnmergeGoalProducts = (projectId: number, index: number) => {
+    const projectItem = projectMatrixRef.current?.projects?.find((item) => item.project.id === projectId)
+    if (!projectItem) return
+    handleCommitGoalProducts(projectId, unmergeGoal(projectItem.goals.map((goal) => goal.product ?? ""), index))
+  }
+
   // 保存项目矩阵
   const handleSaveProjectMatrix = async (isAutoSave = false) => {
     if (!courseEditable) return
@@ -276,6 +355,13 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId, courseEditable
       }
 
       setIsSavingProjectMatrix(true)
+      const dirtyProjects = Array.from(dirtyGoalProjectsRef.current)
+      for (const projectId of dirtyProjects) {
+        const projectItem = projectMatrixRef.current?.projects?.find((item) => item.project.id === projectId)
+        if (!projectItem) continue
+        const saved = await persistProjectGoalProducts(projectId, projectItem.goals.map((goal) => goal.product ?? ""))
+        if (!saved) return
+      }
       const saveResponse = await projectMatrixApi.saveProjectMatrixData(projectMatrixData.data)
       if (saveResponse.error) {
         throw new Error(saveResponse.error)
@@ -306,7 +392,7 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId, courseEditable
   const handleCancelProjectMatrix = () => {
     if (!courseEditable) return
 
-    // 取消编辑时重新加载数据
+    dirtyGoalProjectsRef.current.clear()
     loadProjectMatrixData()
     setIsEditingProjectMatrix(false)
   }
@@ -508,6 +594,10 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId, courseEditable
           onOpenKsaDialog={handleOpenKsaDialog}
           onRemoveKsaSupport={handleRemoveKsaSupport}
           onFocusCell={setFocusedCell}
+          onDraftGoalProducts={handleDraftGoalProducts}
+          onCommitGoalProducts={handleCommitGoalProducts}
+          onMergeGoalProducts={handleMergeGoalProducts}
+          onUnmergeGoalProducts={handleUnmergeGoalProducts}
         />
       )}
 
