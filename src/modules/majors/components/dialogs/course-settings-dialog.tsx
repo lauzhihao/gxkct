@@ -422,7 +422,7 @@ export function CourseSettingsDialog({
           <AlertDialogHeader>
             <AlertDialogTitle>删除课程</AlertDialogTitle>
             <AlertDialogDescription>
-              您确定要删除课程"<span className="font-semibold text-foreground">{resolvedCourseName}</span>"吗？此操作无法撤销。
+              您确定要删除课程"<span className="font-semibold text-foreground">{resolvedCourseName}</span>"吗？删除后可以在该专业的课程管理回收站里恢复。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

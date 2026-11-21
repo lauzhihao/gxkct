@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/shared/components/ui/button"
-import { BookMarked, Plus, Search, FileText, User, X, Settings } from "lucide-react"
+import { Archive, BookMarked, Plus, Search, FileText, User, X, Settings } from "lucide-react"
 import { LoadingState } from "@/shared/components/ui/loading-state"
-import { cn } from "@/shared/utils/utils"
+import { cn, extractNumericId } from "@/shared/utils/utils"
 import { usePermission } from "@/shared/hooks/use-permission"
 import type { PermissionAction } from "@/shared/permissions/types"
 import type { TreeNode, TreeNodeManager } from "@/types"
@@ -14,6 +14,7 @@ import { setCourseCacheBatch, type CourseCacheItem } from "@/shared/utils/course
 import { useSemesterStore } from "@/shared/stores/semester-store"
 import { useSemesterReadonly } from "@/shared/hooks/use-semester-readonly"
 import { CourseSettingsDialog } from "@/modules/majors/components/dialogs/course-settings-dialog"
+import { CourseRecycleDialog } from "@/modules/majors/components/dialogs/course-recycle-dialog"
 
 const MANAGE_MAJOR_COURSE_ACTION: PermissionAction = "major.course.create"
 const MANAGE_MAJOR_COURSE_CONTEXT = { scope: "major" as const }
@@ -30,6 +31,7 @@ interface MajorCoursesProps {
   canManageCourse?: boolean
   onUpdateNode?: (nodeId: string, updates: Partial<TreeNode>) => void
   onDeleteNode?: (nodeId: string) => void
+  onTreeRefresh?: () => Promise<boolean> | boolean
 }
 
 export function MajorCourses(props: MajorCoursesProps) {
@@ -43,6 +45,7 @@ export function MajorCourses(props: MajorCoursesProps) {
     canManageCourse,
     onUpdateNode,
     onDeleteNode,
+    onTreeRefresh,
   } = props
   const [courseSearchTerm, setCourseSearchTerm] = useState("")
   const { showMyCourses, setShowMyCourses } = useMajorCoursePreferences()
@@ -56,6 +59,8 @@ export function MajorCourses(props: MajorCoursesProps) {
   const [courses, setCourses] = useState<TreeNode[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [settingsCourse, setSettingsCourse] = useState<TreeNode | null>(null)
+  const [recycleOpen, setRecycleOpen] = useState(false)
+  const [courseReloadKey, setCourseReloadKey] = useState(0)
 
   const setCourseCacheFromItems = useCallback((courseItems: TreeNode[]) => {
     const cacheItems: CourseCacheItem[] = courseItems.map((course) => ({
@@ -98,7 +103,7 @@ export function MajorCourses(props: MajorCoursesProps) {
     }
 
     fetchCourses()
-  }, [node?.id, refreshKey, selectedSemesterId, setCourseCacheFromItems])
+  }, [courseReloadKey, node?.id, refreshKey, selectedSemesterId, setCourseCacheFromItems])
 
   // 获取课程ID
   const getCourseId = (course: TreeNode) => course.id || ''
@@ -281,6 +286,12 @@ export function MajorCourses(props: MajorCoursesProps) {
               我的课程
             </label>
           </div>
+          {canManageMajorCourse && typeof selectedSemesterId === "number" && (
+            <Button size="sm" variant="ghost" onClick={() => setRecycleOpen(true)} className="gap-2 hover:bg-primary/10">
+              <Archive className="w-4 h-4 text-primary" />
+              <span className="text-primary font-medium">回收站</span>
+            </Button>
+          )}
           {canManageMajorCourse && (
             <Button size="sm" variant="ghost" onClick={handleAddCourse} className="gap-2 hover:bg-primary/10">
               <Plus className="w-4 h-4 text-primary" />
@@ -406,6 +417,19 @@ export function MajorCourses(props: MajorCoursesProps) {
             </div>
           ))}
         </div>
+      )}
+
+      {recycleOpen && typeof selectedSemesterId === "number" && extractNumericId(node.id || node.nodeId || "") > 0 && (
+        <CourseRecycleDialog
+          open={recycleOpen}
+          onOpenChange={setRecycleOpen}
+          semesterId={selectedSemesterId}
+          majorId={extractNumericId(node.id || node.nodeId || "")}
+          onRestored={() => {
+            setCourseReloadKey((current) => current + 1)
+            void onTreeRefresh?.()
+          }}
+        />
       )}
 
       <CourseSettingsDialog

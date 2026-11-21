@@ -402,6 +402,7 @@ export function MajorDetail(props: MajorDetailProps) {
                 canManageCourse={canCreateCourseInMajor}
                 onUpdateNode={onUpdateNode}
                 onDeleteNode={onDeleteNode}
+                onTreeRefresh={onTreeRefresh}
               />
             </TabsContent>
 
