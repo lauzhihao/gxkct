@@ -228,7 +228,8 @@ export const ProjectMatrixNodeComponent = memo(function ProjectMatrixNodeCompone
         <div className="text-sm text-gray-400 text-center py-4">暂无课点数据</div>
       ) : (
         <>
-          <div className="max-h-[1200px] overflow-auto rounded border border-slate-200" data-scrollable>
+          {/* 框高跟着窗口走，底边横向条留在可见范围内，不再固定到 1200px 表尾 */}
+          <div className="max-h-[min(1200px,calc(100dvh-10rem))] overflow-auto rounded border border-slate-200" data-scrollable>
             <table className="w-full text-sm border-collapse">
               <thead className="bg-slate-50 sticky top-0 z-10">
                 <tr>

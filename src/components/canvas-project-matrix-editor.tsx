@@ -991,7 +991,7 @@ export function CanvasProjectMatrixEditor({
     `${(width / matrixTablePreferredWidth) * 100}%`
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex min-h-0 flex-1 flex-col">
       {/* 标题栏 */}
       <div className="px-6 py-4 flex-shrink-0 bg-teal-50 border-b border-teal-100">
         <h3 className="text-lg font-medium text-teal-700">
@@ -1003,8 +1003,8 @@ export function CanvasProjectMatrixEditor({
         </p>
       </div>
 
-      {/* 矩阵表格 */}
-      <div className="flex-1 overflow-auto">
+      {/* 矩阵表格：min-h-0 让滚动框停在抽屉可见高度，横向条留在框底 */}
+      <div className="min-h-0 flex-1 overflow-auto">
         <div className="w-full p-4">
           <table
             className="border-collapse text-sm table-fixed"

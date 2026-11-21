@@ -173,7 +173,8 @@ export function ProjectMatrixTable({
 
               {/* 项目矩阵表格 */}
               {projectRows.length > 0 ? (
-                <div className="w-full overflow-hidden rounded-lg border border-border bg-background">
+                <div className="max-h-[min(1200px,calc(100dvh-15rem))] w-full overflow-auto rounded-lg border border-border bg-background">
+                  {/* 可见框高度跟着窗口走，横向滚动条留在框底，不必滚到表尾 */}
                   <div className="w-full overflow-x-auto">
                     <table
                       className="w-full border-collapse border border-border text-sm"
@@ -191,7 +192,7 @@ export function ProjectMatrixTable({
                         <col style={{ width: SCHEDULE_COLUMN_WIDTH }} />
                         <col style={{ width: SCHEDULE_COLUMN_WIDTH }} />
                       </colgroup>
-                      <thead>
+                      <thead className="sticky top-0 z-10 bg-background">
                         {/* 第一行表头 */}
                         <tr className="bg-secondary/50 border-b border-border">
                           <th
@@ -542,7 +543,7 @@ export function ProjectMatrixTable({
                         </tr>
                       </tbody>
                     </table>
-                  </div>
+                </div>
                 </div>
               ) : (
                 <div className="text-center py-6 text-muted-foreground">暂无课点支撑关系</div>
