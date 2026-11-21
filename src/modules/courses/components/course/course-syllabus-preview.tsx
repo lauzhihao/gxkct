@@ -817,7 +817,7 @@ export function CourseSyllabusPreview({
               <div className="min-w-0 whitespace-nowrap text-left">授课教师签字：_________</div>
               <div className="min-w-0 whitespace-nowrap text-left">专业负责人（课程负责人）签字：__________</div>
               <div className="flex min-w-0 flex-col items-start gap-2 text-left">
-                <div className="whitespace-nowrap">系主任签字：_________</div>
+                <div className="whitespace-nowrap">教学副院长签字：_________</div>
                 <div>{todayDate}</div>
               </div>
             </div>
