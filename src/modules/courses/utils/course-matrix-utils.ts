@@ -53,29 +53,34 @@ export const getNextCoursePointSequence = (coursePoints: ApiCoursePoint[]) => {
   return maxSequence + 1
 }
 
-export const sortCoursePointsByTitle = (coursePoints: ApiCoursePoint[]) => {
-  const sorted = [...coursePoints]
+// 课点序号是标题里的第一个正整数。课点10 排在课点2 后面，没有数字的标题排在后面。
+export const compareCoursePointTitles = (left: string | undefined, right: string | undefined): number => {
+  const leftSequence = extractCoursePointSequence(left)
+  const rightSequence = extractCoursePointSequence(right)
 
-  sorted.sort((a, b) => {
-    const aSequence = extractCoursePointSequence(a.title)
-    const bSequence = extractCoursePointSequence(b.title)
+  if (leftSequence !== null && rightSequence !== null && leftSequence !== rightSequence) {
+    return leftSequence - rightSequence
+  }
 
-    if (aSequence !== null && bSequence !== null && aSequence !== bSequence) {
-      return aSequence - bSequence
-    }
+  if (leftSequence !== null && rightSequence === null) {
+    return -1
+  }
 
-    if (aSequence !== null && bSequence === null) {
-      return -1
-    }
+  if (leftSequence === null && rightSequence !== null) {
+    return 1
+  }
 
-    if (aSequence === null && bSequence !== null) {
-      return 1
-    }
+  return (left || "").localeCompare(right || "", "zh-CN-u-kn-true")
+}
 
-    return (a.title || "").localeCompare(b.title || "", "zh-CN-u-kn-true")
-  })
-
+export const sortByCoursePointTitle = <T>(items: readonly T[], titleOf: (item: T) => string | undefined): T[] => {
+  const sorted = [...items]
+  sorted.sort((left, right) => compareCoursePointTitles(titleOf(left), titleOf(right)))
   return sorted
+}
+
+export const sortCoursePointsByTitle = (coursePoints: ApiCoursePoint[]) => {
+  return sortByCoursePointTitle(coursePoints, (coursePoint) => coursePoint.title)
 }
 
 export const matchesCoursePointKeyword = (coursePoint: ApiCoursePoint, keyword: string) => {

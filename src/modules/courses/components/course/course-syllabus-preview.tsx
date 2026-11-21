@@ -9,6 +9,7 @@ import { ReportRevisableTable } from "@/modules/courses/report/components/Report
 import { ReportTable } from "@/modules/courses/report/components/ReportTable"
 import type { ColumnOption, GraduateRequireNode, PointMatrixItem, ProjectListItem, ProjectMatrixItem, RevisableCell, RevisableTableValue, TableOption, TaskGoalGroup } from "@/modules/courses/report/types"
 import { getStoredSemesterContext } from "@/lib/api/auth-config"
+import { sortByCoursePointTitle } from "@/modules/courses/utils/course-matrix-utils"
 import { Button } from "@/shared/components/ui/button"
 import { SafeRichTextContent } from "@/shared/components/ui/safe-rich-text-content"
 import { showError, showSuccess } from "@/shared/utils/toast-utils"
@@ -410,8 +411,10 @@ function buildProjectMatrixData(projectList: ProjectListItem[], projectMatrixIte
     const row = [project.name]
     options.column.forEach((column) => {
       column.children?.forEach((child) => {
-        const cell = projectMatrixItems
-          .filter((item) => item.projectId === project.id && item.graduateRequireId === child.id)
+        const cell = sortByCoursePointTitle(
+          projectMatrixItems.filter((item) => item.projectId === project.id && item.graduateRequireId === child.id),
+          (item) => item.point?.title,
+        )
           .map((item) => `${item.relate.relate === 0 ? "{$strong}" : "{$weak}"}${item.point.title}:${item.point.description}`)
           .join("\n")
         row.push(cell)
@@ -445,9 +448,10 @@ function buildPointMatrixTables(projectList: ProjectListItem[], projectMatrixIte
       ],
     }
 
-    const rows = projectMatrixItems
-      .filter((item) => item.projectId === project.id)
-      .map((item) => ({
+    const rows = sortByCoursePointTitle(
+      projectMatrixItems.filter((item) => item.projectId === project.id),
+      (item) => item.point?.title,
+    ).map((item) => ({
         data: [
           `${item.relate.relate === 0 ? "{$strong}" : "{$weak}"}${item.point.title}:${item.point.description}`,
           ...goals.map((goal) => pointMatrixItems
