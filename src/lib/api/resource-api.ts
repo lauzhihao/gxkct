@@ -162,6 +162,19 @@ export class ResourceApi {
     return this.http.post<ResourceFolder>(endpoint, payload)
   }
 
+  reorderFiles(
+    courseId: string,
+    folderId: string,
+    fileIds: string[],
+    ownerType?: string,
+  ): Promise<ApiResponse<ResourceFolder[] | null>> {
+    const endpoint = this.withOwner(
+      `${this.getBasePath(courseId)}/resource-folders/${folderId}/file-order`,
+      ownerType,
+    )
+    return this.http.put<ResourceFolder[]>(endpoint, { fileIds })
+  }
+
   createUploadSignature(
     courseId: string,
     parentId: string,

@@ -42,6 +42,7 @@ import {
 } from "./resource-interaction-state"
 import { validateCompleteFileName, validateFolderName } from "./resource-name-validation"
 import type { ResourceEntry, ResourcePreviewTarget, ResourceRenameTarget, TemporaryUploadItem } from "./types"
+import { RESOURCE_FILE_DRAG_MIME, dragTypeListIncludes, moveResourceFile } from "./move-resource-file"
 import { useCourseResources } from "@/modules/courses/hooks/use-course-resources"
 import { useResourceViewPreference } from "@/modules/courses/hooks/use-resource-view-preference"
 import { courseResourcesApi, type ResourceOwnerType } from "@/modules/courses/api/courseResourcesApi"
@@ -120,6 +121,7 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
     goToBreadcrumb,
     refreshCurrentLevel,
     initializeFolders,
+    reorderFiles,
   } = useCourseResources(nodeId, ownerType)
   const { viewMode, setViewMode } = useResourceViewPreference()
 
@@ -829,7 +831,13 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
   )
 
   const handleDropZoneDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    if (dragTypeListIncludes(event.dataTransfer.types, RESOURCE_FILE_DRAG_MIME)) {
+      return
+    }
     if (!courseEditable || isRootLevel) {
+      return
+    }
+    if (!dragTypeListIncludes(event.dataTransfer.types, "Files")) {
       return
     }
 
@@ -844,15 +852,35 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
 
   const handleDropZoneDrop = useCallback(
     (event: React.DragEvent<HTMLDivElement>) => {
+      if (dragTypeListIncludes(event.dataTransfer.types, RESOURCE_FILE_DRAG_MIME)) {
+        event.preventDefault()
+        setIsDropActive(false)
+        return
+      }
       if (!courseEditable || isRootLevel) {
         return
       }
 
       event.preventDefault()
       setIsDropActive(false)
+      if (!dragTypeListIncludes(event.dataTransfer.types, "Files")) {
+        return
+      }
       enqueueUploads(Array.from(event.dataTransfer.files))
     },
     [courseEditable, enqueueUploads, isRootLevel],
+  )
+
+  const canReorderFiles = courseEditable && !isRootLevel && interactionMode === "normal"
+
+  const handleReorderFile = useCallback(
+    (draggedId: string, targetId: string) => {
+      if (!canReorderFiles) return
+      const next = moveResourceFile(objects, draggedId, targetId)
+      if (!next) return
+      void reorderFiles(next.map((item) => item.id))
+    },
+    [canReorderFiles, objects, reorderFiles],
   )
 
   const resetFolderForm = useCallback(() => {
@@ -1337,6 +1365,8 @@ export function CourseResourcesContainer({ nodeId, courseEditable = false, owner
               canDelete={canManageCourseResource && !isRootLevel}
               onDelete={handleOpenDelete}
               onPreview={handleOpenPreview}
+              canReorder={canReorderFiles}
+              onReorderFile={handleReorderFile}
             />
           </div>
         </div>

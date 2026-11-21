@@ -58,6 +58,7 @@ interface UseCourseResourcesResult {
   goToBreadcrumb: (index: number) => void
   refreshCurrentLevel: () => void
   initializeFolders: () => Promise<void>
+  reorderFiles: (orderedIds: string[]) => Promise<void>
 }
 
 export function useCourseResources(courseId?: string | null, ownerType?: ResourceOwnerType): UseCourseResourcesResult {
@@ -160,6 +161,37 @@ export function useCourseResources(courseId?: string | null, ownerType?: Resourc
     void loadFolders(currentParentId, breadcrumbs)
   }, [breadcrumbs, currentParentId, loadFolders])
 
+  const reorderFiles = useCallback(
+    async (orderedIds: string[]) => {
+      if (!courseId || currentParentId === null) return
+      if (new Set(orderedIds).size !== orderedIds.length) return
+      const previous = objects
+      if (orderedIds.length !== previous.length) return
+      const byId = new Map(previous.map((item) => [item.id, item]))
+      const next: ResourceObject[] = []
+      for (const id of orderedIds) {
+        const item = byId.get(id)
+        if (!item) return
+        next.push(item)
+      }
+      setObjects(next)
+      try {
+        const response = await courseResourcesApi.reorderFiles(courseId, currentParentId, orderedIds, ownerType)
+        if (response.error) {
+          setObjects(previous)
+          showError(response.error)
+          return
+        }
+        await loadFolders(currentParentId, breadcrumbs)
+      } catch (err) {
+        setObjects(previous)
+        const message = err instanceof Error ? err.message : "保存文件顺序失败"
+        showError(message)
+      }
+    },
+    [breadcrumbs, courseId, currentParentId, loadFolders, objects, ownerType],
+  )
+
   const initializeFolders = useCallback(async () => {
     if (!courseId || isInitializing) return
     setIsInitializing(true)
@@ -220,6 +252,7 @@ export function useCourseResources(courseId?: string | null, ownerType?: Resourc
       goToBreadcrumb,
       refreshCurrentLevel,
       initializeFolders,
+      reorderFiles,
     }),
     [
       breadcrumbs,
@@ -238,6 +271,7 @@ export function useCourseResources(courseId?: string | null, ownerType?: Resourc
       goToBreadcrumb,
       refreshCurrentLevel,
       initializeFolders,
+      reorderFiles,
     ],
   )
 
