@@ -11,6 +11,11 @@ export interface GoalProductCell {
   span: number
 }
 
+interface GoalProductSlot {
+  text: string
+  emptySpan: number
+}
+
 export function hasExplicitGoalSpan(products: Array<string | null | undefined>, index: number): boolean {
   if (index < 0 || index >= products.length) return false
   const matched = GOAL_SPAN_PATTERN.exec(typeof products[index] === "string" ? products[index] : "")
@@ -43,6 +48,66 @@ function groupOf(text: string, span: number): GoalProductCell[] {
     cells.push({ text, span: 0 })
   }
   return cells
+}
+
+function expandGoalProducts(products: Array<string | null | undefined>): GoalProductSlot[] {
+  const parsed = products.map(parseProduct)
+  const slots: GoalProductSlot[] = []
+  let index = 0
+
+  while (index < parsed.length) {
+    const item = parsed[index]
+    if (item.claimed >= 2) {
+      let span = 1
+      while (span < item.claimed && index + span < parsed.length && parsed[index + span].claimed === 0) {
+        span += 1
+      }
+      const text = item.body
+      slots.push({ text, emptySpan: text.trim() ? 0 : span })
+      for (let offset = 1; offset < span; offset += 1) {
+        slots.push({ text, emptySpan: 0 })
+      }
+      index += span
+      continue
+    }
+    if (item.claimed === 0) {
+      slots.push({ text: "", emptySpan: 0 })
+      index += 1
+      continue
+    }
+    slots.push({ text: item.body, emptySpan: 0 })
+    index += 1
+  }
+
+  return slots
+}
+
+function encodeNormalizedGoalProducts(products: Array<string | null | undefined>): string[] {
+  const slots = expandGoalProducts(products)
+  const columns: GoalProductCell[] = []
+  let index = 0
+
+  while (index < slots.length) {
+    const item = slots[index]
+    if (item.text.trim()) {
+      let span = 1
+      while (index + span < slots.length && slots[index + span].text === item.text) {
+        span += 1
+      }
+      columns.push(...groupOf(item.text, span))
+      index += span
+      continue
+    }
+    if (item.emptySpan >= 2) {
+      columns.push(...groupOf("", item.emptySpan))
+      index += item.emptySpan
+      continue
+    }
+    columns.push({ text: "", span: 1 })
+    index += 1
+  }
+
+  return encodeColumns(columns)
 }
 
 export function layoutGoalColumns(products: Array<string | null | undefined>): GoalProductCell[] {
@@ -120,16 +185,16 @@ export function goalProductText(products: Array<string | null | undefined>, inde
 export function rewriteGoalText(products: Array<string | null | undefined>, index: number, text: string): string[] {
   const columns = layoutGoalColumns(products)
   if (index < 0 || index >= columns.length) {
-    return products.map((item) => item ?? "")
+    return encodeNormalizedGoalProducts(products)
   }
   const anchor = findAnchor(columns, index)
   if (anchor < 0) {
     columns[index] = { text, span: 1 }
-    return encodeColumns(columns)
+    return encodeNormalizedGoalProducts(encodeColumns(columns))
   }
   const span = columns[anchor].span
   if (index !== anchor) {
-    if (text === columns[anchor].text) return encodeColumns(columns)
+    if (text === columns[anchor].text) return encodeNormalizedGoalProducts(encodeColumns(columns))
     const left = index - anchor
     const right = span - left - 1
     const next = [
@@ -137,10 +202,10 @@ export function rewriteGoalText(products: Array<string | null | undefined>, inde
       { text, span: 1 },
       ...groupOf(columns[anchor].text, right),
     ]
-    return encodeColumns(replaceGroup(columns, anchor, span, next))
+    return encodeNormalizedGoalProducts(encodeColumns(replaceGroup(columns, anchor, span, next)))
   }
   columns[anchor] = { text, span }
-  return encodeColumns(columns)
+  return encodeNormalizedGoalProducts(encodeColumns(columns))
 }
 
 export function mergeGoalWithNext(products: Array<string | null | undefined>, index: number): string[] {
