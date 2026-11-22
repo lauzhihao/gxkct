@@ -27,8 +27,8 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/
 import { findKsaByReference } from "@/shared/utils/ksa"
 import {
   goalProductText,
+  hasExplicitGoalSpan,
   layoutGoalColumns,
-  mergeGoalWithNext,
   removeGoalProduct,
   rewriteGoalText,
   unmergeGoal,
@@ -1262,16 +1262,7 @@ export function CanvasProjectMatrixEditor({
                         {column.text}
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {goalIndex + column.span < taskObjectives.length ? (
-                          <button
-                            type="button"
-                            onClick={() => replaceObjectiveProducts(mergeGoalWithNext(taskObjectives.map((item) => item.product || ""), goalIndex))}
-                            className="rounded border border-teal-200 px-2 py-1 text-xs text-teal-700 hover:bg-teal-100"
-                          >
-                            与右侧合并
-                          </button>
-                        ) : null}
-                        {column.span > 1 ? (
+                        {column.span > 1 && hasExplicitGoalSpan(taskObjectives.map((item) => item.product || ""), goalIndex) ? (
                           <button
                             type="button"
                             onClick={() => replaceObjectiveProducts(unmergeGoal(taskObjectives.map((item) => item.product || ""), goalIndex))}
