@@ -19,7 +19,7 @@ import type { ProjectMatrixItemProjectMatrix } from "@/modules/courses/hooks/use
 import { projectMatrixApi } from "@/modules/courses/api/projectMatrixApi"
 import { collectProjectMatrixHourMismatch } from "./project-matrix-hours"
 import { projectTeachGoalApi } from "@/modules/courses/api/projectTeachGoalApi"
-import { mergeGoalWithNext, unmergeGoal } from "@/modules/courses/utils/goal-product-span"
+import { unmergeGoal } from "@/modules/courses/utils/goal-product-span"
 import type { ProjectMatrixData } from "@/modules/courses/hooks/use-project-matrix"
 import { ProjectMatrixTable } from "./ProjectMatrixTable"
 import { TaskObjectivesDialog } from "../../../dialogs/task-objectives-dialog"
@@ -326,12 +326,6 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId, courseEditable
     stageProjectGoalProducts(projectId, products)
   }
 
-  const handleMergeGoalProducts = (projectId: number, index: number) => {
-    const projectItem = projectMatrixRef.current?.projects?.find((item) => item.project.id === projectId)
-    if (!projectItem) return
-    handleCommitGoalProducts(projectId, mergeGoalWithNext(projectItem.goals.map((goal) => goal.product ?? ""), index))
-  }
-
   const handleUnmergeGoalProducts = (projectId: number, index: number) => {
     const projectItem = projectMatrixRef.current?.projects?.find((item) => item.project.id === projectId)
     if (!projectItem) return
@@ -596,7 +590,6 @@ export function ProjectMatrixContainer({ node, onUpdate, majorId, courseEditable
           onFocusCell={setFocusedCell}
           onDraftGoalProducts={handleDraftGoalProducts}
           onCommitGoalProducts={handleCommitGoalProducts}
-          onMergeGoalProducts={handleMergeGoalProducts}
           onUnmergeGoalProducts={handleUnmergeGoalProducts}
         />
       )}

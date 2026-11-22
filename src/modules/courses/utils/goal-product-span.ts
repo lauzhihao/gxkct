@@ -11,6 +11,12 @@ export interface GoalProductCell {
   span: number
 }
 
+export function hasExplicitGoalSpan(products: Array<string | null | undefined>, index: number): boolean {
+  if (index < 0 || index >= products.length) return false
+  const matched = GOAL_SPAN_PATTERN.exec(typeof products[index] === "string" ? products[index] : "")
+  return matched !== null && Number(matched[1]) >= 2
+}
+
 function parseProduct(raw: string | null | undefined): { claimed: number; body: string } {
   const value = typeof raw === "string" ? raw : ""
   const matched = GOAL_SPAN_PATTERN.exec(value)
@@ -59,8 +65,18 @@ export function layoutGoalColumns(products: Array<string | null | undefined>): G
       index += 1
       continue
     }
-    columns.push({ text: item.body, span: 1 })
-    index += 1
+    let span = 1
+    if (item.body.trim()) {
+      while (
+        index + span < parsed.length &&
+        parsed[index + span].claimed === 1 &&
+        parsed[index + span].body === item.body
+      ) {
+        span += 1
+      }
+    }
+    columns.push(...groupOf(item.body, span))
+    index += span
   }
   return columns
 }
@@ -137,6 +153,9 @@ export function mergeGoalWithNext(products: Array<string | null | undefined>, in
     return encodeColumns(columns)
   }
   const nextSpan = columns[nextIndex].span
+  if (!columns[anchor].text.trim() || columns[anchor].text !== columns[nextIndex].text) {
+    return encodeColumns(columns)
+  }
   const text = columns[anchor].text.trim() ? columns[anchor].text : columns[nextIndex].text
   return encodeColumns(replaceGroup(columns, anchor, span + nextSpan, groupOf(text, span + nextSpan)))
 }

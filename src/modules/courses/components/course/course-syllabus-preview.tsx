@@ -449,7 +449,7 @@ function buildPointMatrixTables(projectList: ProjectListItem[], projectMatrixIte
       ],
     }
 
-    const rows = sortByCoursePointTitle(
+    const rows: Array<{ data: string[]; spans?: number[] }> = sortByCoursePointTitle(
       projectMatrixItems.filter((item) => item.projectId === project.id),
       (item) => item.point?.title,
     ).map((item) => ({

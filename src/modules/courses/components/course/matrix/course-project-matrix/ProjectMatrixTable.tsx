@@ -4,7 +4,7 @@
  */
 
 import { Plus, Flag } from "lucide-react"
-import { layoutGoalColumns, rewriteGoalText } from "@/modules/courses/utils/goal-product-span"
+import { hasExplicitGoalSpan, layoutGoalColumns, rewriteGoalText } from "@/modules/courses/utils/goal-product-span"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/shared/components/ui/accordion"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/shared/components/ui/tooltip"
 import { Button } from "@/shared/components/ui/button"
@@ -35,7 +35,6 @@ interface ProjectMatrixTableProps {
   onFocusCell: (cellId: string | null) => void
   onDraftGoalProducts: (projectId: number, products: string[]) => void
   onCommitGoalProducts: (projectId: number, products: string[]) => void
-  onMergeGoalProducts: (projectId: number, index: number) => void
   onUnmergeGoalProducts: (projectId: number, index: number) => void
 }
 
@@ -51,7 +50,6 @@ export function ProjectMatrixTable({
   onFocusCell,
   onDraftGoalProducts,
   onCommitGoalProducts,
-  onMergeGoalProducts,
   onUnmergeGoalProducts,
 }: ProjectMatrixTableProps) {
   const canManageProjectMatrix = courseEditable
@@ -467,20 +465,6 @@ export function ProjectMatrixTable({
                               </td>
                             </tr>
                           ))}
-                        <tr className="border-b border-border bg-secondary/40 font-medium">
-                          <td
-                            colSpan={goals.length + 5}
-                            className="border-r border-border p-2.5 text-left text-sm text-foreground"
-                          >
-                            合计 {hourSummary.totalMatrix}
-                          </td>
-                          <td className="border-r border-border p-2.5 text-center text-sm text-foreground">
-                            {hourSummary.theoryMatrix}
-                          </td>
-                          <td className="p-2.5 text-center text-sm text-foreground">
-                            {hourSummary.practiceMatrix}
-                          </td>
-                        </tr>
                         <tr className="border-b border-border bg-secondary/30 font-medium">
                           <td className="border-r border-border p-4 text-left align-top text-base text-foreground">
                             教学目标的学习产出及测量评价标准
@@ -506,16 +490,7 @@ export function ProjectMatrixTable({
                                       placeholder="输入学习产出及测量评价标准"
                                     />
                                     <div className="mt-2 flex flex-wrap gap-2">
-                                      {goalIdx + column.span < goals.length ? (
-                                        <button
-                                          type="button"
-                                          onClick={() => onMergeGoalProducts(projectId, goalIdx)}
-                                          className="rounded border border-border px-2 py-1 text-xs text-primary hover:bg-secondary"
-                                        >
-                                          与右侧合并
-                                        </button>
-                                      ) : null}
-                                      {column.span > 1 ? (
+                                      {column.span > 1 && hasExplicitGoalSpan(products, goalIdx) ? (
                                         <button
                                           type="button"
                                           onClick={() => onUnmergeGoalProducts(projectId, goalIdx)}
