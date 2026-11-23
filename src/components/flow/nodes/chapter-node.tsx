@@ -48,6 +48,16 @@ export const ChapterNodeComponent = memo(function ChapterNodeComponent({
           (理论 {data.theory_hours || 0} / 实践 {data.practice_hours || 0})
         </span>
       </div>
+      {Array.isArray(data.ksa_contents) && data.ksa_contents.length > 0 && (
+        <div className="mt-2 border-t border-purple-100 pt-2 text-xs text-gray-600">
+          <div className="mb-1 font-medium text-purple-700">关联知识 / 技能 / 态度</div>
+          <ul className="space-y-0.5">
+            {data.ksa_contents.map((content, index) => (
+              <li key={String(index) + "-" + content} className="break-words" title={content}>{content}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </BaseStaticCardNode>
   )
 })

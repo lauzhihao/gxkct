@@ -91,6 +91,7 @@ interface CourseFormMetadata {
     practiceHours?: number | string | null
     practicePeriod?: number | string | null
     courseUnitId?: number | string | null
+    ksaIds?: number[]
   }>
   // [MOD] 与 course-detail-api 保持一致，补齐开课学期相关可空字段
   openingSemesterId?: number | null
@@ -728,6 +729,7 @@ export function CourseDetail({
         name?: unknown
         theoryPeriod?: unknown
         practicePeriod?: unknown
+        ksaIds?: unknown
       }>()
       const sourceCourseUnitIdMap = new Map<number, number>()
       sourceCourseMatrix.forEach((item) => {
@@ -745,6 +747,7 @@ export function CourseDetail({
             name?: unknown
             theoryPeriod?: unknown
             practicePeriod?: unknown
+            ksaIds?: unknown
           })
         }
       })
@@ -771,6 +774,9 @@ export function CourseDetail({
               name: chapter.name || chapter.title || `章节${index + 1}`,
               theoryPeriod: normalizeChapterPeriod(chapter.theoryHours ?? chapter.theoryPeriod),
               practicePeriod: normalizeChapterPeriod(chapter.practiceHours ?? chapter.practicePeriod),
+              ...((Array.isArray(chapter.ksaIds) || Array.isArray((sourceItem as { ksaIds?: unknown } | undefined)?.ksaIds))
+                ? { ksaIds: Array.isArray(chapter.ksaIds) ? chapter.ksaIds : (sourceItem as { ksaIds: number[] }).ksaIds }
+                : {}),
             }
           })
 
@@ -803,7 +809,7 @@ export function CourseDetail({
           return [...upsertItems, ...deletedItems]
         })()
         : (sourceCourseMatrix)
-      const summarizedPeriods = courseMatrixVOS.reduce(
+      const summarizedPeriods = courseMatrixVOS.reduce<{ theoryPeriod: number; practicePeriod: number }>(
         (totals, chapter) => ({
           theoryPeriod: totals.theoryPeriod + Number(normalizeChapterPeriod(chapter.theoryPeriod)),
           practicePeriod: totals.practicePeriod + Number(normalizeChapterPeriod(chapter.practicePeriod)),
@@ -1555,7 +1561,7 @@ export function CourseDetail({
                 )}
 
                 {courseDetailInfo.course.courseMatrixVOS && courseDetailInfo.course.courseMatrixVOS.length > 0 && (
-                  <CourseChapters chapters={courseDetailInfo.course.courseMatrixVOS} />
+                  <CourseChapters chapters={courseDetailInfo.course.courseMatrixVOS} ksas={courseDetailInfo.pointksa.ksas} />
                 )}
               </Accordion>
             </TabsContent>

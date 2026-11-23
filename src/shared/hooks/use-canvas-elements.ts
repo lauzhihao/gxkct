@@ -1656,6 +1656,16 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
     const childNodes = elements.filter(el => el.parentId)
     const sortedElements = [...parentNodes, ...childNodes]
 
+    const ksaContentById = new Map<string, string>()
+    elements.forEach((element) => {
+      if (element.type !== CanvasComponentType.KSA_ITEM) return
+      const ksaData = element.data as { id?: unknown; originalId?: unknown; content?: unknown }
+      const content = typeof ksaData.content === "string" ? ksaData.content.trim() : ""
+      if (!content) return
+      if (ksaData.id !== undefined && ksaData.id !== null) ksaContentById.set(String(ksaData.id), content)
+      if (ksaData.originalId !== undefined && ksaData.originalId !== null) ksaContentById.set(String(ksaData.originalId), content)
+    })
+
     return sortedElements.map(el => {
       const isPanel = PANEL_TYPES.includes(el.type)
       const nodeType = COMPONENT_TO_NODE_TYPE[el.type] || FlowNodeType.COURSE_INFO
@@ -1663,12 +1673,22 @@ export function useCanvasElements(layoutMode: CanvasLayoutMode = "horizontal") {
       const panelSize = el.type === CanvasComponentType.KSA_PANEL
         ? KSA_PANEL_FIXED_SIZE
         : el.size
+      const nodeData = el.data as Record<string, unknown>
+      const resolvedData = el.type === CanvasComponentType.CHAPTER_CARD && Array.isArray(nodeData.ksa_ids)
+        ? {
+            ...nodeData,
+            ksa_contents: (nodeData.ksa_ids as unknown[]).flatMap((referenceId) => {
+              const content = ksaContentById.get(String(referenceId))
+              return content ? [content] : []
+            }),
+          }
+        : nodeData
 
       return {
         id: el.id,
         type: nodeType,
         position: el.position,
-        data: el.data as unknown as Record<string, unknown>,
+        data: resolvedData,
         selected: el.selected,
         draggable: isNonInteractiveCard ? false : undefined,
         selectable: isNonInteractiveCard ? false : undefined,

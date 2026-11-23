@@ -2080,6 +2080,13 @@ export function CanvasSaveWizard({
       const courseId = getSelectedCourseId(majorIdNum)
 
       const latestCanvasOssKey = await (onEnsureLatestCanvasOssKey?.() ?? Promise.resolve(canvasOssKey))
+      if (typeof latestCanvasOssKey !== "string" || latestCanvasOssKey.length === 0) {
+        const hasPendingProjectKsaLinks = chapters.some((chapter) => Array.isArray(chapter.ksa_ids))
+        if (hasPendingProjectKsaLinks) {
+          throw new Error("无法获取最新画布快照，项目关联的知识 / 技能 / 态度尚未保存，请稍后重试")
+        }
+      }
+
       if (typeof latestCanvasOssKey === "string" && latestCanvasOssKey.length > 0) {
         setSaveStepMessage("正在基于最新画布快照覆盖课程数据")
         markSaveStep("course", "in_progress", "正在同步课程画布快照")
@@ -2161,7 +2168,7 @@ export function CanvasSaveWizard({
   }, [
     validateBeforeSave, getSelectedCourseId, saveCourseUnit,
     saveObjectiveIndicatorMapping, saveCoursePoints, saveKsaItems, saveCourseMatrix, saveProjectMatrix,
-    selectedPath, onSaveSuccess, markSaveStep, markSaveStepFailure, onEnsureLatestCanvasOssKey, canvasOssKey, onUpdateCourseInfo
+    selectedPath, onSaveSuccess, markSaveStep, markSaveStepFailure, onEnsureLatestCanvasOssKey, canvasOssKey, onUpdateCourseInfo, chapters
   ])
 
   // 是否可以保存（必须选中课程、专业，且所有教学目标都已关联）

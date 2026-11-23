@@ -33,6 +33,7 @@ interface ChapterProject {
   theoryHours: number
   practiceHours: number
   originalId?: number
+  ksa_ids?: string[]
 }
 
 function createEmptyChapterProject(id: string): ChapterProject {
@@ -60,6 +61,7 @@ function toChapterProject(chapter: ChapterCardData): ChapterProject {
     theoryHours: chapter.theory_hours || 0,
     practiceHours: chapter.practice_hours || 0,
     originalId: chapter.originalId,
+    ksa_ids: chapter.ksa_ids,
   }
 }
 
@@ -72,6 +74,7 @@ function toChapterCardData(chapter: ChapterProject, index: number): ChapterCardD
     theory_hours: chapter.theoryHours,
     practice_hours: chapter.practiceHours,
     originalId: chapter.originalId,
+    ...(chapter.ksa_ids !== undefined ? { ksa_ids: chapter.ksa_ids } : {}),
   }
 }
 

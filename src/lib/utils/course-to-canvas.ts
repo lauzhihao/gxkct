@@ -1402,6 +1402,9 @@ export function convertCourseToCanvasComplete(
         theory_hours: Number(chapter.theoryPeriod) || 0,
         practice_hours: Number(chapter.practicePeriod) || 0,
         originalId: chapter.id ?? undefined,
+        ...(Array.isArray(chapter.ksaIds) && chapter.ksaIds.length > 0
+          ? { ksa_ids: chapter.ksaIds.map((id) => String(id)) }
+          : {}),
       }
 
       elements.push(

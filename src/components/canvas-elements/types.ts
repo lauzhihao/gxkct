@@ -203,6 +203,10 @@ export interface ChapterCardData {
   theory_hours?: number
   practice_hours?: number
   originalId?: number
+  /** KSA item data.id references; omitted when the relation is unavailable. */
+  ksa_ids?: string[]
+  /** Readable labels resolved from the canvas KSA nodes for display only. */
+  ksa_contents?: string[]
   // ============ 画布节点扩展字段 ============
   highlighted?: boolean       // 高亮状态
   isDeleting?: boolean       // 删除中状态

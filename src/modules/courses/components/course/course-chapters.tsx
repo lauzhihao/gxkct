@@ -8,6 +8,7 @@ import { Divider } from "@/shared/components/design-system"
 
 interface CourseChaptersProps {
   chapters: CourseChapter[]
+  ksas?: CourseKsa[]
 }
 
 interface CourseChapter {
@@ -15,6 +16,14 @@ interface CourseChapter {
   name?: string
   theoryPeriod?: number | string | null
   practicePeriod?: number | string | null
+  ksaIds?: number[]
+}
+
+interface CourseKsa {
+  id?: number | string
+  title?: string
+  description?: string
+  content?: string
 }
 
 const highlightKeyword = (text: string, keyword: string) => {
@@ -31,7 +40,7 @@ const highlightKeyword = (text: string, keyword: string) => {
   )
 }
 
-export function CourseChapters({ chapters }: CourseChaptersProps) {
+export function CourseChapters({ chapters, ksas = [] }: CourseChaptersProps) {
   const [search, setSearch] = useState("")
 
   const filteredChapters = chapters.filter((chapter: CourseChapter) => {
@@ -89,13 +98,14 @@ export function CourseChapters({ chapters }: CourseChaptersProps) {
                   <th className="px-4 py-3 text-left text-sm font-semibold text-foreground border-r border-border">
                     理论学时
                   </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">实践学时</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-foreground border-r border-border">实践学时</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">关联知识 / 技能 / 态度</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredChapters.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                    <td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">
                       暂无相关结果
                     </td>
                   </tr>
@@ -110,7 +120,23 @@ export function CourseChapters({ chapters }: CourseChaptersProps) {
                         <td className="px-4 py-3 text-sm text-foreground border-r border-border">
                           {chapter.theoryPeriod || 0} 学时
                         </td>
-                        <td className="px-4 py-3 text-sm text-foreground">{chapter.practicePeriod || 0} 学时</td>
+                        <td className="px-4 py-3 text-sm text-foreground border-r border-border">{chapter.practicePeriod || 0} 学时</td>
+                        <td className="px-4 py-3 text-sm text-foreground">
+                          {Array.isArray(chapter.ksaIds) && chapter.ksaIds.length > 0 ? (
+                            <ul className="space-y-1">
+                              {chapter.ksaIds.map((ksaId) => {
+                                const ksa = ksas.find((item) => String(item.id) === String(ksaId))
+                                const content = ksa?.description || ksa?.content
+                                return (
+                                  <li key={String(ksaId)}>
+                                    <span className="mr-1 text-xs text-muted-foreground">{ksa?.title || "KSA"}</span>
+                                    {content || "条目 " + ksaId}
+                                  </li>
+                                )
+                              })}
+                            </ul>
+                          ) : <span className="text-muted-foreground">暂无关联内容</span>}
+                        </td>
                       </tr>
                     ))}
                     <tr className="border-t-2 border-primary/30 bg-primary/5">
@@ -123,10 +149,11 @@ export function CourseChapters({ chapters }: CourseChaptersProps) {
                       <td className="px-4 py-3 text-sm font-semibold text-foreground border-r border-border">
                         {totalTheoryHours} 学时
                       </td>
-                      <td className="px-4 py-3 text-sm font-semibold text-foreground">
+                      <td className="px-4 py-3 text-sm font-semibold text-foreground border-r border-border">
                         {totalPracticeHours} 学时
                         <span className="ml-2 text-muted-foreground">(合计：{totalHours} 学时)</span>
                       </td>
+                      <td />
                     </tr>
                   </>
                 )}

@@ -20,6 +20,21 @@ export interface CourseNameData {
   }
 }
 
+// 课程矩阵行；ksaIds 是可选的后端 KSA 数字 ID 列表，旧响应可能不包含该字段。
+export interface CourseMatrixVO {
+  id?: number
+  courseUnitId?: number
+  courseClassId?: number
+  courseTypeId?: number
+  name?: string
+  title?: string
+  chapterName?: string
+  theoryPeriod?: number | string | null
+  practicePeriod?: number | string | null
+  ksaIds?: number[]
+  [key: string]: unknown
+}
+
 // 课程详情信息（来自 course-detal.json）
 export interface CourseDetailData {
   course: {
@@ -33,7 +48,7 @@ export interface CourseDetailData {
     criterion: null | string
     theoryPeriod: number
     practicePeriod: number
-    courseMatrixVOS: any[]
+    courseMatrixVOS: CourseMatrixVO[]
     createTime: string
     // 新增字段
     teachingClass?: string
@@ -130,7 +145,7 @@ export interface SaveCourseUnitRequest {
     criterion: string | null
     theoryPeriod: number
     practicePeriod: number
-    courseMatrixVOS: any[]
+    courseMatrixVOS: CourseMatrixVO[]
     position: string | null
     // 扩展字段
     teachingClass?: string
@@ -205,7 +220,7 @@ export class CourseDetailApi {
           criterion: null | string
           theoryPeriod: number
           practicePeriod: number
-          courseMatrixVOS: any[]
+          courseMatrixVOS: CourseMatrixVO[]
           createTime: string
           // 新增字段
           teachingClass?: string
