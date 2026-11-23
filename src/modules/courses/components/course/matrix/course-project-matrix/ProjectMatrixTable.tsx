@@ -171,9 +171,9 @@ export function ProjectMatrixTable({
 
               {/* 项目矩阵表格 */}
               {projectRows.length > 0 ? (
-                <div className="max-h-[min(1200px,calc(100dvh-15rem))] w-full overflow-auto rounded-lg border border-border bg-background">
-                  {/* 可见框高度跟着窗口走，横向滚动条留在框底，不必滚到表尾 */}
-                  <div className="w-full overflow-x-auto">
+                <div className="max-h-[min(1200px,calc(100dvh-15rem))] w-full overflow-auto rounded-lg border border-border bg-background [&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/50">
+                  {/* 同一滚动区域负责横向与纵向滚动，横条留在可见框底 */}
+                  <div className="w-full">
                     <table
                       className="w-full border-collapse border border-border text-sm"
                       style={{ tableLayout: "fixed" }}
