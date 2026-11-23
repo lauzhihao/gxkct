@@ -77,6 +77,25 @@ function normalizeCoursePointId(value: string | number | null | undefined): stri
   return String(value).trim()
 }
 
+function originalMatrixIdForSelection(
+  existingPoints: CourseMatrixCoursePoint[],
+  selectionId: string,
+  availableCoursePoints: CoursePointOption[],
+): number | undefined {
+  const matched = existingPoints.find((coursePoint) => {
+    if (coursePoint.id === selectionId) {
+      return true
+    }
+    const option = availableCoursePoints.find((item) => item.id === selectionId)
+    return typeof option?.originalId === "number"
+      && option.originalId > 0
+      && coursePoint.id === String(option.originalId)
+  })
+  return typeof matched?.originalMatrixId === "number" && matched.originalMatrixId > 0
+    ? matched.originalMatrixId
+    : undefined
+}
+
 function findCoursePointOptionByReference(
   availableCoursePoints: CoursePointOption[],
   coursePoint: Pick<CourseMatrixCoursePoint, "id" | "name" | "description">
@@ -366,12 +385,23 @@ export function CanvasCourseMatrixEditor({
           if (row.chapter_id !== chapterId) return row
 
           const supportIndex = row.supports.findIndex((support) => support.objective_id === objectiveId)
-          const nextCoursePoints = selections.map((selection) => ({
-            id: selection.id,
-            name: selection.name,
-            level: selection.level,
-            description: selection.description,
-          }))
+          const existingCoursePoints = supportIndex >= 0
+            ? row.supports[supportIndex].course_points
+            : []
+          const nextCoursePoints = selections.map((selection) => {
+            const originalMatrixId = originalMatrixIdForSelection(
+              existingCoursePoints,
+              selection.id,
+              availableCoursePoints,
+            )
+            return {
+              id: selection.id,
+              name: selection.name,
+              level: selection.level,
+              description: selection.description,
+              ...(originalMatrixId === undefined ? {} : { originalMatrixId }),
+            }
+          })
 
           if (supportIndex >= 0) {
             const nextSupports = [...row.supports]
@@ -410,7 +440,7 @@ export function CanvasCourseMatrixEditor({
         return { ...prev, rows: newRows }
       })
     },
-    [selectionDialog]
+    [availableCoursePoints, selectionDialog]
   )
 
   // 移除单元格中的课点
